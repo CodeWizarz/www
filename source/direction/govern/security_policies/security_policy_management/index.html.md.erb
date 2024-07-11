@@ -1,0 +1,293 @@
+---
+layout: sec_direction
+title: "Category Direction - Security Policy Management"
+description: "GitLab's Security Policy Management category provides unified policy and alert orchestration capabilities that span across the breadth of GitLab's security offerings."
+canonical_path: "/direction/govern/security_policies/security_policy_management/"
+---
+
+- TOC
+{:toc}
+
+## Govern
+
+| | |
+| --- | --- |
+| Stage | [Govern](/direction/govern/) |
+| Maturity | [Minimal](/direction/maturity/) |
+| Content Last Reviewed | `2023-09-27` |
+
+### Introduction and how you can help
+<!-- Introduce yourself and the category. Use this as an opportunity to point users to the right places for contributing and collaborating with you as the PM -->
+
+Thanks for visiting this category direction page on Security Policy Management in GitLab. This page belongs to the Security Policies group of the Govern stage and is maintained by Grant Hickman ([ghickman@gitlab.com](mailto:<ghickman@gitlab.com>)).
+
+This direction page is a work in progress, and everyone can contribute. We welcome feedback, bug reports, feature requests, and community contributions.
+
+ - Please comment and contribute in the linked [issues](https://gitlab.com/gitlab-org/gitlab/-/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=Category%3ASecurity%20Policy%20Management) and [epics](https://gitlab.com/groups/gitlab-org/-/epics/4592) on this page. Sharing your feedback directly on GitLab.com is the best way to contribute to our strategy and vision.
+ - [Schedule a video call](https://calendly.com/g-hickman) with the Security Policies Product Manager. If you&apos;re a GitLab user and have direct knowledge of your need for security policies, we&apos;d especially love to hear from you.
+ - [Email the Security Policies Product Manager, Grant](mailto:<ghickman@gitlab.com>).
+ - Can&apos;t find an issue? Make a [feature proposal](https://gitlab.com/gitlab-org/gitlab/-/issues/new?issuable_template=Feature%20proposal%20-%20detailed) or a [bug report](https://gitlab.com/gitlab-org/gitlab/-/issues/new?&issuable_template=Bug). Please add the appropriate labels by adding this line to the bottom of your new issue `/label ~"devops::govern" ~"Category:Security Policy Management" ~"group::security policies"`.
+<!--- https://gitlab.com/gitlab-org/gitlab/issues/new?issue%5Bassignee_id%5D=&issue%5Bmilestone_id%5D=#) --->
+- Consider signing up for [First Look](https://about.gitlab.com/community/gitlab-first-look/).
+
+We believe [everyone can contribute](https://about.gitlab.com/company/mission/#contribute-to-gitlab-application) and so if you wish to contribute [here is how to get started](https://about.gitlab.com/community/contribute/).
+
+### Overview
+<!-- Describe your category so that someone who is not familiar with the market space can understand what the product does. 
+-->
+
+Security Policy Management is an overlay category that provides policy enforcement across all the scanners and technologies used by GitLab&apos;s Secure and Govern stages. Security Policy Management gives organizations a central location to globally enforce policies to achieve a few core jobs:
+
+1. Ensuring that security scanners run when and where necessary in development projects.
+2. Helping security and compliance teams cut through the volume of vulnerabilities to identify what is actionable in terms of security risk or compliance risk.
+3. Engaging the right cross-functional team members within the DevSecOps lifecycle to address challenges while reducing the impact to velocity.
+4. Blocking risky changes that may impact production code by requiring support and oversight to fix vulnerabilities.
+
+GitLab was recently named as a [Challenger in the 2022 Magic Quadrant for Application Security Testing](https://about.gitlab.com/analysts/gartner-ast22/). As highlighted by Gartner, "It’s not enough to automate the process of scanning. When and how policies are applied, and how exceptions are handled, also needs to be automated to bring consistency and auditability. GitLab provides a broad range of policies and common controls for compliance." With GitLab's Security Policy Management, you can leverage automation to efficiently improve your security posture and gain some clarity amidst the chaos.
+
+<details markdown="1">
+
+<summary>Current Capabilities</summary>
+
+#### Security Policies
+
+Security policies allow users to use a single, simple UI to define rules and actions that are then enforced.  Two types of policies are currently supported: scan execution policies and scan result policies. Security policies themselves are fully audited and can be configured to go through a two-step approval process before any changes are made.  All policies are supported at the group, sub-group, and project levels.
+
+**Scan Execution Policies** allow users to require vulnerability scans to be run, either on a specified schedule or as part of a pipeline job. Currently we support requiring the execution of [SAST, Secret Detection, Container Scanning, Dependency Scanning, and DAST scans](https://docs.gitlab.com/ee/user/application_security/policies/scan-execution-policies.html).  We do not plan on adding support for License Compliance as its functionality is [planned to be merged into Dependency Scanning](https://gitlab.com/groups/gitlab-org/-/epics/8072) ([now supported for SaaS behind feature flag](https://about.gitlab.com/releases/2023/02/22/gitlab-15-9-released/#new-license-compliance-scanner)).  We do intend to add support for Fuzzing; however, this is not on our near-term roadmap.
+
+**Scan Result Policies** allow users to enforce approval on a merge request when policy conditions are violated. Currently criteria related to both security and license scanners are supported.  For example, users can require approval on merge requests that introduce newly-detected, critical vulnerabilities into their application.
+
+[Learn more](https://docs.gitlab.com/ee/user/application_security/policies/)
+
+#### Security Approvals
+
+<p align="center">
+   <img src="/images/direction/govern/security-approvals.png" style="border: 1px solid gray" alt="Security Approvals">
+</p>
+
+Security approvals allow users to select the conditions that must be met to trigger the security approval rule, including which branches, scanners, vulnerability count, and vulnerability severity levels must be present in the MR.  If all conditions are met, then the merge request is blocked unless an eligible user approves the MR. This extra layer of oversight can serve as an enforcement mechanism as part of a strong security compliance program.
+
+Security approvals are a type of Scan Result Security Policy and can be configured in the **Security & Compliance > Policies** page.
+
+[Learn more](https://docs.gitlab.com/ee/user/application_security/policies/scan-result-policies.html)
+
+#### License Approvals
+
+<p align="center">
+   <img src="/images/direction/govern/license-approvals.png" style="border: 1px solid gray" alt="License Approvals">
+</p>
+
+License approvals allow users to select the conditions that must be met to trigger the license approval rule, including which licenses are expressly allowed or prohibited from being present in the MR.  If all conditions are met, then the merge request is blocked unless an eligible user approves the MR. This extra layer of oversight can serve as an enforcement mechanism as part of a strong legal compliance program.
+
+License approvals are a type of Scan Result Security Policy and can be configured in the **Security & Compliance > Policies** page.
+
+[Learn more](https://docs.gitlab.com/ee/user/compliance/license_approval_policies.html)
+
+</details>
+
+### Strategy and Themes
+<!-- Capture the main problems to be solved in market (themes). Describe how you intend to solve these with GitLab (strategy). Provide enough context that someone unfamiliar with the details of the category can understand what is being discussed. -->
+
+The traditional approach to application security was to enable scanners, detect all the vulnerabilities, then have AppSec triage vulnerabilities in a vacuum. Triaging large volumes of vulnerabilities is too noisy. It's a significant effort to identify what is actionable, filter out false positives, and determine when dependencies can be fixed and when the security or compliance team needs to be engaged to support.
+
+In addition to this outdated and siloed approach, companies are required to navigate toolchain sprawl, connecting many different systems while creating controls at each different connection point. The more tools one has, the more connections are required and the more fickle they are to manage and secure.
+
+GitLab offers a complete DevSecOps platform [as a single application](https://about.gitlab.com/handbook/product/single-application/) with integrated security and compliance controls that ensure visibility, auditability, and enforcement across the SDLC. This modern approach builds Security into the process and encourages collaboration, increasing velocity and improving innovation. And, while other solutions require you to stitch together tools and create complex systems to enforce policies, GitLab's Security Policy Management enables organizations to maintain global oversight while establishing the separation of duties between security, compliance, legal teams, and engineering departments. Security Policies feature also grants development teams a level of flexibility over their processes that ensure stable, reliable, and quality production-quality code. As businesses typically struggle with troubling gearing ratios between software engineers to security engineers ([20:1 or worse](https://engineering.gusto.com/security-is-testing/#:~:text=At%20many%20organizations%2C%20there%20is,software%20engineers%20to%20security%20engineers.)), GitLab's tools can help enterprises [automate and manage security and compliance risk at scale](https://about.gitlab.com/free-trial/devsecops/).
+
+
+<details markdown="1">
+
+<summary>Critical Workflows in DevSecOps</summary>
+
+- The points between Dev and Sec are critical and underserved in our market today. Efficiently managing risk and collaborating between these two domains to delicately balance business requirements is an area that can provide immense value for our customers, especially those in highly regulated industries. These overlapping concerns include controlling what code is merged into production, identifying vulnerabilities and risk, and determining when this impacts how production code is developed and deployed.
+- The coordination between Sec and Ops is also lacking. Ops may manage golden images, automate deployment through IaC, and have complex steps to ensure software products are delivered to customers in a way that is stable and reliable and aligns with current legal and compliance requirements. Security and compliance teams must be acutely aware of CVEs, CWEs, and other common vulnerability exposures to ensure deployment processes that directly impact business revenue are not impacted. This, too, requires overlapping concerns and collaboration between approved code being merged to production, and the deployment pipelines that manage building images, pulling in packages and deploying SaaS containers cutting packaged software releases.
+
+</details>
+
+<details markdown="1">
+
+<summary>How Security Policies help GitLab Win</summary>
+
+- Security Policies aligns with our efforts in [driving adoption of GitLab Ultimate](https://about.gitlab.com/direction/#drive-adoption-of-gitlab-ultimate), as we're satisfying a market need that truly differentiates GitLab as a DevSecOps platform.
+- Security Policies is core to one of our FY24 Product Investment themes,["Advanced security and compliance"](https://about.gitlab.com/direction/#advanced-security-and-compliance). 
+- Investment in Security Policies is strategic as we focus on [depth over breadth](https://about.gitlab.com/direction/#depth-over-breadth) in the Security section and Govern stage to provide robust solutions that address [DevSecOps adoption challenges (internal)](https://internal.gitlab.com/handbook/product/devsecops-adoption/priorities/) (also highlighted as one of our [FY24 Yearlies](https://about.gitlab.com/company/yearlies/#fy24-yearlies)). Security Policies and the greater Security section vision will help reduce churn/contraction by delivering predictable high value to customers. 
+
+</details>
+
+<details markdown="1">
+<summary>Key Security Policy Themes</summary>
+
+GitLab's Security and Compliance Policy Management covers the many touch points across the DevSecOps platform to reduce risk and allow the business to operate efficiently. The top-level themes that will help our customers succeed are:
+
+- Robustness of Scan Result Policies and Scan Execution Policies, which ensure scanners run when and where they must and that code is reviewed thoroughly to reduce the risk of introducing new vulnerabilities
+- Global and fine-grained management of policies, which will allow Organizations to manage policies at an Organization level, with enforcement flowing down through groups, subgroups, and projects.
+- Efficient and intelligent security orchestration will automate the steps required to configure and enforce scanners while also making pipelines more efficient, reducing CI minutes, and increasing developer productivity
+- Broader policy enforcement that better serves our diverse customers and satisfies diverse security and compliance requirements
+- Elegant cross-functional security, compliance, and developer workflows that encourage collaboration across domains
+- Tighter controls that mitigate circumvention without blocking developers
+- More customizable policy rules that support use cases across scanners, such as enabling support for Custom CI Variables in our UI Rule mode and Custom SAST/Secret Detection rulesets.
+- UX Improvements to eliminate or abstract away Security Policy Projects to provide more customized workflows for Security and Compliance professionals
+</details>
+
+### 1 year plan
+<!--
+1-year plan for what we will be working on linked to up-to-date epics. This section will be most similar to a "road map". Items in this section should be linked to issues or epics that are up to date. Indicate the relative priority of initiatives in this section so the audience understands the sequence in which you intend to work on them. 
+ -->
+
+See our [prioritized roadmap here](https://about.gitlab.com/direction/govern/security_policies/).
+
+#### What is next for us
+<!-- This is a 3 month look ahead for the next iteration you have planned for the category. This section must provide links to issues or
+to [epics](https://about.gitlab.com/handbook/product/product-processes/#epics-for-a-single-iteration) that are scoped to a single iteration. Please do not link to epics encompassing a vision with a longer horizon, and don't lay out an iteration plan. -->
+
+1. [Scope security policies to target Projects with a specific Compliance Framework Label](https://gitlab.com/groups/gitlab-org/-/epics/5510)
+1. [Add custom yaml support to Scan Execution Policies](https://gitlab.com/groups/gitlab-org/-/epics/7312)
+1. [Improve how AppSec teams handle Vulnerability Management while using Security Policies](https://gitlab.com/groups/gitlab-org/-/epics/11020)
+
+#### What we are currently working on
+<!-- Scoped to the current month. This section can contain the items that you choose to highlight on the kickoff call. Only link to issues, not Epics.  -->
+
+We're introducing options to our Scan Result Policies that will allow you to enforce two-person approvals on all merge requests defined by your policy. 
+
+And, we're adding a few options to override project settings via a Scan Result policy as well, which will help ensure compliance of security policies and prevent any potential circumvention, which is critical for security and compliance teams.
+
+See [Compliance Enforcement of Security Policies](https://gitlab.com/groups/gitlab-org/-/epics/9704) for full details.
+
+#### What we recently completed
+<!-- Lookback limited to 3 months. Link to the relevant issues or release post items. -->
+
+1. [Allow users to define branch exceptions to enforced security policies](https://gitlab.com/groups/gitlab-org/-/epics/9567) -- First of several iterations to [enforce compliance of security policies](https://gitlab.com/groups/gitlab-org/-/epics/9704).
+1. [Support for Additional Filtering for Scan Result Policies](https://gitlab.com/groups/gitlab-org/-/epics/6826)
+1. [Improve accuracy of scan result policies](https://gitlab.com/gitlab-org/gitlab/-/issues/379108)
+1. [Auto-merge support for security policies to improve developer workflows](https://gitlab.com/gitlab-org/gitlab/-/issues/8128) (enabled behind FF)
+1. [Enforcement of security policies in projects that do not have CI enabled](https://gitlab.com/groups/gitlab-org/-/epics/6880)
+1. [Role-based approvals](https://gitlab.com/groups/gitlab-org/-/epics/8018)
+
+
+#### What is Not Planned Right Now
+<!--  Often, it's just as important to discuss what you're not doing as it is to
+discuss what you are. This section should include items that people might hope or think
+we are working on as part of the category but aren't, and it should help them understand why that's the case.
+Also, thinking through these items can often help you catch something you should do. We should limit this to a few things that are at a high enough level so
+someone with not a lot of detailed information about the product can understand -->
+
+We do not plan to be a full-featured SOAR solution capable of aggregating, correlating, and enriching events from multiple security vendors. We intend to remain focused on providing security management and security orchestration for the security tools that are part of the GitLab product only.
+
+We are also not planning to support Network Policies (Container Host Security and Container Network Security). We previously offered this capability but learned that challenges related to GTM, pricing & packaging, and personas led to low adoption. This required a shift in our strategy. More details around the decision can be found [in this internal issue](https://gitlab.com/gitlab-com/Product/-/issues/3600).
+
+### Long-term Vision
+
+In the long-term, we intend to add support for additional policy types, including Vulnerability Management, Compliance, Insider Threat, and Pipeline Execution policies.  Furthermore, we intend to provide visibility into the impact (blast radius) a policy will have before it is deployed, add support for complex orchestration policies, and auto-suggest policies based on your unique environment and codebase.
+
+Beyond policies, we also intend to add support for an Alert workflow that will allow users to be notified of events that require manual, human review to determine the next steps to take.  This workflow will eventually support auto-suggested responses and recommended changes to policies to reduce false positives and automate responses whenever possible.  It will also provide an interface for security and compliance teams to review and respond to policy violations that have occurred.
+
+The matrixes below describe the scope of the work that is planned in the long-run for the Security Policy Management category as well as our progress toward the end goal.  Our long-term vision is to add support for all of the boxes in the table.
+
+![Security Policy Management Roadmap](/images/direction/govern/security-policy-management-roadmap.png)
+
+
+### Best in Class Landscape
+<!-- Blanket description consistent across all pages that clarifies what GitLab means when we say "best in class" -->
+
+BIC (Best In Class) is an indicator of forecasted near-term market performance based on a combination of factors, including analyst views, market news, and feedback from the sales and product teams. It is critical that we understand where GitLab appears in the BIC landscape.
+
+<details markdown="1">
+
+<summary>BIC Capabilities </summary>
+<!-- For this product area, these are the capabilities a best-in-class solution should provide -->
+
+Security Policy Management enables global control of settings across an organizations technology assets and can extend to the processes and procedures used to enforce particular policies.
+
+For GitLab, our focus is on supporting DevSecOps personas, which specifically involves AppSec, Security Operations, Compliance, and InfraSec personas. Each of these users is tasked with ensuring a business' applications are secure and compliant by preventing or reducing the risk of introducing vulnerabilities into production code and live applications. This involves securing each step of the SDLC as well as ensuring proper access and compliance within GitLab itself.
+
+The most critical capabilities for a best-in-class DevSecOps Policy Management solution are as follows:
+
+- The ability to easily manage and enforce policies globally across all relevant development projects.
+- Two person approval of code changes, or change management workflows to reduce risk of introducing vulnerabilities.
+- Complete assurance that policies cannot be circumvented.
+- Audit capabilities to record and produce proof of any policy changes.
+- Granular configuration of policies to allow businesses to filter out false positives, non-material findings, or irrelevant changes.
+- Thorough alerting and notification capabilities to communicate high-risk changes, violations, or other policy related data into the communication tool of choice.
+- Enforcement of security scanning in development projects.
+- Risk-based Vulnerability Management workflows.
+- Insider threat policies to identify and protect against potential attacks.
+- Pipeline health policies that identify malicious or anomalous network/system calls.
+
+</details>
+
+<details markdown="1">
+
+<summary>BIC Roadmap</summary>
+<!-- Key deliverables we're focusing on to build a BIC solution. List the epics by title and link to the epic in GitLab. Minimize additional description here so that the epics can remain the SSOT. This may be duplicative to the 1 year section however for some categories the key deliverables required to become the BIC solution will extend beyond one year and we want to capture all of the gaps. Moreover, the 1 year section may contain work that is not directly related to closing gaps if we are already the BIC or if we are differentiating ourselves.-->
+
+1. [Additional filters for scan result policies](https://gitlab.com/groups/gitlab-org/-/epics/6826)
+2. [Compliance enforcement of security policies](https://gitlab.com/groups/gitlab-org/-/epics/9704)
+
+</details>
+
+<details markdown="1">
+
+<summary>Top 2 BIC Competitive Solutions</summary>
+<!-- PMs can choose to highlight a primary BIC competitor--or more, if no single clear winner in the category exists; in this section we should indicate: 1. name of competitive product, 2. links to marketing website and documentation, 3. why we view them as the primary BIC competitor -->
+
+Security Policy Management at GitLab is in a category of its own. It's not currently possible to fully orchestrate the enforcement of security policies across the entire Software Development Lifecycle in the way you can with GitLab. Often, enforcing security and compliance requirements requires identifying endpoints across many tools in your software toolchain and creating custom solutions to instantiate controls that you must maintain.
+
+With GitLab Security Policy Management, we offer global enforcement of policies across the groups, subgroups, and projects in your GitLab instance (or namespace in the case of GitLab.com). GitLab is responsible for maintaining the UI and YAML editor that can be leveraged to create and enforce policies, and we continue to build more capabilities to optimize and simplify management for diverse use cases, which mitigates further development efforts to manage customization of policy logic.
+
+While we offer a competitive solution that reduces toolchain complexity and eases global enforcement, some of our competitors have offerings with comparable functionality.
+
+#### GitHub
+
+We have a very competitive position against GitHub regarding policy management. We offer a UI for intuitively defining custom policies, in addition to YAML mode for advanced users. We're expanding to make group and organization-level management of policies a breeze across large organizations while increasing the accuracy and confidence in the enforcement of policies. GitHub offers a very basic solution for checking vulnerabilities and blocking the merge of a PR but lacks the depth as well as the strategic investment to solve this holistically for Enterprise customers.
+
+GitHub includes the following capabilities today:
+
+- Code scanning results check can be used to find problems in code by severity.
+- Users can override default behaviors.
+- CodeQL can be integrated to require approval based on vulnerabilities found. If the code scanning results check finds any problems with the severity of the error, critical or high, the check fails, and the error is reported in the check results. If all the results found by code scanning have lower severities, the alerts are treated as warnings or notes, and the check succeeds.
+
+There are prerequisites to utilizing GitHub, however:
+
+- Many types of scanning require integration with external scanners
+- It lacks the visual editor and native management of policy as code
+- The ability to intuitively manage policies across groups is limited or requires manual configuration and maintenance using CodeQL
+- It lacks the ability to limit who can give approval for failed code scanning checks. When critical or high vulnerabilities are found, anyone who is eligible to approve the PR can approve and allow the code to be merged in.
+
+#### Synopsys
+
+Synopsys offers [Intelligent Orchestration](https://www.synopsys.com/software-integrity/intelligent-orchestration.html), which allows users to optimize pipeline usage, in turn reducing pipeline costs and potentially impacting developer velocity due to optimizing pipeline duration.
+
+However, leveraging Synopsys requires integration with your CI/CD and maintaining enforcement across the toolchain.
+
+</details>
+
+More details about Govern's Best-in-class position are captured in our [internal handbook](https://internal.gitlab.com/handbook/product/best-in-class/govern/).
+
+
+
+
+### Target Audience
+<!--
+List the personas (https://about.gitlab.com/handbook/marketing/strategic-marketing/roles-personas#user-personas) involved in this category.
+
+Look for differences in user's goals or uses that would affect their use of the product. Separate users and customers into different types based on those differences that make a difference.
+-->
+
+1. [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager)
+1. [Devon (DevOps Engineer)](https://about.gitlab.com/handbook/product/personas/#devon-devops-engineer)
+1. [Alex (Security Operations Engineer)](https://about.gitlab.com/handbook/product/personas/#alex-security-operations-engineer)
+1. [Delaney (Development Team Lead)](https://about.gitlab.com/handbook/product/personas/#delaney-development-team-lead)
+
+### Pricing and Packaging
+<!-- 
+-->
+
+Security and Compliance policies are capabilities that serve the needs of Large, Ultimate tier customers, Mid-market customers, and customers working in highly regulated industries/sectors such as PubSec, Healthcare, and Financial Services.
+
+All features under Security Policy Management target Ultimate-tier customers.
+
+GitLab offers a [simple pricing model](https://about.gitlab.com/pricing/) based on monthly seats. Ultimate tier customers gain access to more powerful tools that unlock the power of DevSecOps, including Security Policy Management, Security Dashboards, Dependency Scanning, DAST, Fuzzing, and much more.
+
+### Analyst Landscape
+
+We are beginning to engage analysts on this topic, but do not currently have research to provide.

@@ -1,0 +1,265 @@
+---
+title: "GitOps with GitLab: Connecting GitLab with a Kubernetes cluster for GitOps-style application delivery"
+author: Viktor Nagy 
+author_gitlab: nagyv-gitlab 
+author_twitter: nagyviktor 
+categories: engineering
+description: "This is the seventh tutorial in a series on how to do GitOps with GitLab."
+tags: gitops, kubernetes, tutorial  
+twitter_text: "Learn about the best practices of doing GitOps with GitLab with our ongoing tutorial series." 
+image_title: '/images/blogimages/GitLab-Ops.png'
+featured: yes 
+postType: product 
+---
+
+_It is possible to use GitLab as a best-in-class [GitOps](https://about.gitlab.com/topics/gitops/) tool, and this blog post series is going to show you how. These easy-to-follow tutorials will focus on different user problems, including provisioning, managing a base infrastructure, and deploying various third-party or custom applications on top of them. You can find the entire "Ultimate guide to GitOps with GitLab" tutorial series [here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/)._
+
+In this article, we will look at how to connect an application project to a manifest project for controlled, GitOps-style deployments.
+
+## Prerequisites
+
+This article builds upon the previous tutorials in this series. We will assume that you have a Kubernetes cluster connected to GitLab using the GitLab Agent for Kubernetes, and that you understand the basics of GitLab [CI/CD](/blog/2020/07/06/beginner-guide-ci-cd/).
+
+If this is not the case, I recommend following the previous articles to have a similar setup from where we will start today.
+
+## A common setup
+
+Many users prefer to separate application code from infrastructure code, and the manifests describing the application deployments are considered infrastructure code. As mentioned above, this tutorial shows how to connect an application repository to a manifest repository to achieve GitOps-style deployments with GitLab.
+
+## The plan
+
+The plan for this article is to build and deploy a minimal application. The focus will be on the deployment aspect.
+
+We will deploy a simple "Hello World" application. Our pipeline will build a Docker container and the deployment will span two environments, integrated into GitLab.
+
+You can see the final repository [for the application](https://gitlab.com/gitlab-examples/ops/gitops-demo/hello-world-service-gitops) and [the manifest repository](https://gitlab.com/gitlab-examples/ops/gitops-demo/k8s-agents).
+
+## The application
+
+In this section, we will create our super simple "Hello World" application and put a Dockerfile beside it. If you read the previous article on [how to use Auto DevOps with the GitLab Agent for Kubernetes](/blog/2022/02/08/gitops-with-gitlab-auto-devops/), this setup will be very familiar to you.
+
+1. Start a new project.
+1. Add `src/main.py` with the following content:
+    ```python
+    # From https://gist.github.com/davidbgk/b10113c3779b8388e96e6d0c44e03a74
+    import http.server
+    import socketserver
+    from http import HTTPStatus
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(HTTPStatus.OK)
+            self.end_headers()
+            self.wfile.write(b'Hello world')
+
+
+    httpd = socketserver.TCPServer(('', 5000), Handler)
+    httpd.serve_forever()
+    ```
+1. Create the `Dockerfile` with:
+   ```
+   FROM python:3.9.10-slim-bullseye
+
+   WORKDIR /app
+
+   COPY ./src .
+
+   EXPOSE 5000
+
+   CMD [ "python", "main.py" ]
+   ```
+1. Let's build the Docker container using GitLab CI/CD. Extend your `.gitlab-ci.yml` with the following job:
+   ```yaml
+   kaniko-build:
+      image:
+         # For latest releases see https://github.com/GoogleContainerTools/kaniko/releases
+         # Only debug/*-debug versions of the Kaniko image are known to work within Gitlab CI
+         name: gcr.io/kaniko-project/executor:debug
+         entrypoint: [""]
+      variables:
+         # The Dockerfile to build
+         DOCKERFILE: Dockerfile
+         IMAGE_NAME: "hello-world"
+         VERSION: $CI_COMMIT_SHORT_SHA
+         KANIKO_ARGS: ""
+      script:
+         - mkdir -p /kaniko/.docker
+         # Write credentials to access Gitlab Container Registry within the runner/ci
+         - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(echo -n ${CI_REGISTRY_USER}:${CI_REGISTRY_PASSWORD} | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
+         # Build and push the container. To disable push add --no-push
+         - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile --destination $CI_REGISTRY_IMAGE/${IMAGE_NAME}:$VERSION $KANIKO_ARGS
+   ```
+   Note the `KANIKO_ARGS` variable above. It's worth reading the [Kaniko docs](https://github.com/GoogleContainerTools/kaniko/blob/main/README.md#additional-flags) to further optimize the build. For example, large builds can be much faster using something like `--cache=true --cache-copy-layers --cache-repo ${CI_REGISTRY_IMAGE}/caches`.
+1. Commit the change to the repository.
+
+## Configure cluster to access GitLab Registry images
+
+If you followed the previous tutorials, the manifests repository should already exist. We will expand that repository.
+
+As we want to deploy containers into the cluster, we should instruct the cluster how to authenticate with the GitLab container registry. This can be achieved by setting up some secrets within the cluster.
+
+This section builds on the fourth article in the series, where we [set up Bitnami's Sealed Secrets to manage Kubernetes Secrets in a GitOps way](/blog/2021/12/02/gitops-with-gitlab-secrets-management/).
+
+1. Create a Personal access token or a Project access token with `read registry` rights. Take note of the token.
+1. Run the following command to create a Secret manifest:
+   ```bash
+   kubectl create secret docker-registry gitlab-credentials --docker-server=registry.gitlab.com --docker-username=<GitLab username> --docker-password=<token from the previous step> --docker-email=<your e-mail address> -n gitlab-agent --dry-run=client -o yaml > ignored/gitlab-credentials.yaml
+   ```
+1. Encrypt the secret:
+   ```bash
+   kubeseal --format=yaml --cert=sealed-secrets.pub.pem < ignored/gitlab-credentials.yaml > kubernetes/
+   ```
+1. Commit the changes.
+
+As a quick recap, note that we specified the namespace when we created the Secret manifest. Bitnami's Sealed Secrets are namespace scoped. Feel free to change the namespace in the unencrypted Secret manifest, but do not change it in the encrypted one.
+
+Now, we are ready to orchestrate the application deployment.
+
+## Setting up manifests
+
+We will use [Kustomize](https://kustomize.io/) to describe the deployments. You can use Helm as well, if you prefer, with minor modifications to the code.
+
+1. Start a new Kustomize base:
+   ```bash
+   mkdir -p packages/hello-world/base
+   cd packages/hello-world/base
+   ```
+1. Create a `deployment.yaml` under `packages/hello-world/base`:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+   name: hello-world
+   spec:
+   selector:
+     matchLabels:
+     app: hello-world
+   template:
+     metadata:
+     labels:
+        app: hello-world
+     spec:
+     imagePullSecrets:
+        - name: gitlab-credentials
+     containers:
+        - name: hello-world
+          image: registry.gitlab.com/gitlab-examples/ops/gitops-demo/hello-world-service-gitops/hello-world:38adc854
+          imagePullPolicy: Always
+          resources: {}
+          # limits:
+          #   memory: "128Mi"
+          #   cpu: "500m"
+          livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          successThreshold: 1
+          failureThreshold: 10
+          ports:
+            - containerPort: 5000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+            drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+     securityContext: {}
+   ```
+1. Create the Kustomization definition file:
+   ```bash
+   kustomize init --autodetect
+   ```
+
+The above files create a Kustomize based, now we want to create a `production` and a `staging` overlay. The `staging` overlay will not modify the base, while the `production` overlay with have more replicas.
+
+1. Create the Kustomize overlay for the "staging" environment.
+   ```bash
+   cd ..
+   mkdir staging
+   cd staging
+   kustomize init --namesuffix -staging --resources ../base
+   ```
+1. Create the Kustomize overlay for the "production" environment.
+   ```bash
+   cd ..
+   mkdir production
+   cd production
+   kustomize init --namesuffix -prod --resources ../base
+   cat <<EOF >> ./kustomization.yaml
+   replicas:
+   name: hello-world
+     count: 3
+   EOF
+   ```
+1. Commit and push the changes.
+
+These files describe the deployments into the "staging" and "production" environments. We will have to render them into vanilla Kubernetes manifests for the agent.
+
+## Hydrating the manifests
+
+To hydrate the Kustomize overlays into Kubernetes manifests we need to call the `kustomize build ...` command. We can do this locally and commit the changes or we can do it in GitLab CI/CD and commit the changes automatically. The latter approach works great as it minimizes human error and still provides great flexibility. Let's see how to do it!
+
+1. Extend your `.gitlab-ci.yml` with the following job:
+   <script src="https://gitlab.com/-/snippets/2275324.js"></script>
+   
+   This job hydrates the manifests and stores the hydrated manifests as artifacts. The next job will pick up these artifacts and commit them back to the repository, but first we need some preparations.
+
+1. Create a Project access token for the Manifest project with `read_repository`, `write_repository` rights and save it as a "masked" and "protected" Environment variable under the manifest project's "Settings > CI/CD" page. Name the variable `GITLAB_TOKEN`.
+
+1. Add a job to Git commit and push the changes. Add the following file under `.gitlab/ci-templates` <script src="https://gitlab.com/-/snippets/2258813.js"></script>.
+
+1. Reference the downloaded file at the top of `.gitlab-ci.yml` and add the "commit&push" job:
+   <script src="https://gitlab.com/-/snippets/2275327.js"></script>
+
+The `update-packages` job will grab the hydrated manifests from the `hydrate-packages` job and push them back to the repository. Once there, the GitLab agent for Kubernetes can pick them up and deploy them into your repository.
+
+## Connecting the two repositories
+
+Now, we have the Docker containers waiting in the application repository and the manifests waiting for those containers. Let's connect the two! 
+
+First, we should update the CI/CD jobs of the applications repository. Head over to the application repository for the following changes and edit the `.gitlab-ci.yml` file.
+
+1. Extend the `kaniko-build` job:
+   ```yaml
+   kaniko-build:
+     ...
+     script:
+        ...
+        - |
+          cat << EOF  > deploy.env
+          IMAGE_REF=$CI_REGISTRY_IMAGE/${IMAGE_NAME}:$VERSION
+          EOF
+     artifacts:
+       reports:
+         dotenv: deploy.env
+   ```
+   This added one more command to the scripts to create a `deploy.env` file and takes that file as an artifact.
+
+1. Create the `deploy:staging` job by adding the following to your file:
+   <script src="https://gitlab.com/-/snippets/2275330.js"></script>
+
+   Replace `<Here comes your manifest project ID>` with the ID of your manifest project. You can find that ID on the project homepage. Note that this should be the ID of the manifest project, not the application project!
+
+1. Create a similar job for the production deployments:
+   <script src="https://gitlab.com/-/snippets/2275332.js"></script>
+
+Next, we need to handle the triggered pipeline in the manifest repository. Head over to the manifest repository for the following changes:
+
+1. Extend `.gitlab-ci.yml` with the three jobs from: <script src="https://gitlab.com/-/snippets/2258868.js"></script> 
+
+As you can see, these jobs will run only when the pipeline is triggered by another pipeline. The first job takes the variables passed from the application repository and converts them to a format that's easy to consume for the other jobs. The second job updates the respective Kustomize overlay. The third job commits and pushes the changes back to the repository.
+
+It's interesting to note how these changes integrate into the previous jobs in the manifest CI/CD pipeline. Once the image tag is updated and the changes are pushed back to the repository, a new pipeline will be triggered that hydrated the changes and pushes the hydrated manifests back to the repo.
+
+## Recap
+
+This article showed how to connect an application repository with a manifest repository. In the process, we used Kustomize to have different variants for a "staging" and a "production" deployment. One can use Helm or any other tool following the same logic.
+
+## What is next
+
+In the final article, I will show you how to use the techniques already presented to manage a deployment of the GitLab agent for Kubernetes using the deployment of that same agent.
+
+_[Click here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/) for the next tutorial._

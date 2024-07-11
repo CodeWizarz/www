@@ -1,0 +1,47 @@
+---
+title: "GitLab Chart works towards Kubernetes 1.22"
+author: GitLab
+author_gitlab: 
+author_twitter: gitlab
+categories: engineering
+tags: DevOps, workflow, kubernetes
+description: "New minimum version is 1.19 for in-chart NGINX Ingress Controller."
+image_title: '/images/blogimages/GitLab-Ops.png'
+twitter_text: '@gitlab Chart works towards #Kubernetes 1.22, including updating
+  the #NGINX Ingress Controller used within the Chart and Operator.'
+---
+
+We are working to make the GitLab Chart and the GitLab Operator support Kubernetes 1.22, which requires updating the NGINX Ingress Controller used within the Chart and Operator.
+
+This update requires that we drop support for versions of Kubernetes prior to 1.19 if using the in-chart NGINX Ingress Controller. Users that still require support for Kubernetes 1.18 and prior releases will only be able to deploy up to Chart version 5.5.x.
+
+## More details on the changes
+
+GitLab uses a [forked version](https://docs.gitlab.com/charts/charts/nginx/fork.html) of the community-supported ingress-nginx Chart to expose the GitLab components via Ingresses. 
+
+Supporting Kubernetes 1.22 requires updating the included NGINX Ingress Controller to [version 1.0.4](https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.0.4) in order to support the networking.k8s.io/v1 API in Kubernetes 1.22. The previous networking API (networking.k8s.io/v1beta1) has been deprecated since Kubernetes 1.19 and removed in Kubernetes 1.22.
+
+As a result of the upgrade, we are bound to the breaking change of NGINX Ingress Controller, removing support before Kubernetes 1.19. They provide more clarification in [their FAQ](https://kubernetes.github.io/ingress-nginx/#faq-migration-to-apiversion-networkingk8siov1).
+
+The forked ingress-nginx Chart is based on [version 4.0.6](https://artifacthub.io/packages/helm/ingress-nginx/ingress-nginx/4.0.6) of ingress-nginx/ingress-nginx, which uses [version 1.0.4](https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.0.4) of the NGINX Ingress Controller.
+
+## Who is impacted
+
+Any deployment which is making use of the NGINX Ingress Controller provided by the GitLab Chart. This covers most, but far from all, users of our Helm Chart and Operator. If you are using an alternate Ingress provider (such as AWS ALB, Azure Application Gateway, or Google GCE Ingress), you will not be affected.
+
+## What to expect
+
+We recognize that this change may have unintended effects, but most GitLab instances will seamlessly transition to the new NGINX Ingress Controller without incident. As always, we recommend a backup be created prior to upgrading the GitLab Chart or GitLab Operator, which will allow your data to be safeguarded should a recovery be necessary, caused by complications in the upgrade.
+
+Depending upon the environment and/or cloud provider, it is possible that when NGINX Ingress Controller is replaced during the upgrade process that the IP addresses associated with the Ingresses may change. This may require that the DNS records for the GitLab instance be updated if a controller such as external-dns is not managing the DNS records. The DNS records related to the following Ingress objects may be affected:
+
+* gitlab.
+* registry.
+* minio. (if used)
+* kas. (if used)
+
+If the GitLab Pages component is enabled, there may be other DNS records that will need to be updated to connect to the proper Ingress.
+
+## What if there is a problem with the upgrade?
+
+While it is not expected that an upgrade will cause a problem, not all environments or configurations can be anticipated. In the event that there is an upgrade problem, please contact GitLab Support if you are a licensed customer. If you are running the Community Edition of GitLab, please open an issue in the [GitLab Chart](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/new?issue%5Bmilestone_id%5D=) or [GitLab Operator](https://gitlab.com/gitlab-org/cloud-native/gitlab-operator/-/issues/new?issue%5Bmilestone_id%5D=) projects.

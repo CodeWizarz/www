@@ -1,0 +1,189 @@
+<% if smau_pis.any? %>
+## SMAU Summary
+
+<table>
+  <thead>
+    <tr>
+     <th>Stage/Group</th>
+      <th>PI Type</th>
+      <th>PI</th>
+      <th>Health</th>
+      <th>SaaS / SM</th>
+      <th>Implementation Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% smau_pis.each do |kpi| %>
+      <% if kpi.is_primary == true %>
+        <% name_parts = kpi.name.split(' - ') %>
+        <tr>
+          <td> <%= name_parts[0] %> </td>
+          <td> <%= name_parts[1] %> </td>
+          <td><a href="#<%= kpi.name.gsub("/",'').gsub(/[!@%&"()$%^*,:;.]/, '').gsub(" ","-").downcase %>"><%= name_parts[2]%></a></td>
+          <td><%= color_code_health kpi.health.level %></td>
+          <td><%= kpi.product_analytics_type %></td>
+          <td>
+            <% if kpi.implementation %>
+              <%= kpi.implementation.status %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </tbody>
+</table>
+
+<% end %>
+
+<% if gmau_pis.any? %>
+## GMAU Summary
+
+<table>
+  <thead>
+    <tr>
+     <th>Stage/Group</th>
+      <th>PI Type</th>
+      <th>PI</th>
+      <th>Health</th>
+      <th>SaaS / SM</th>
+      <th>Implementation Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% gmau_pis.each do |kpi| %>
+      <% if kpi.is_primary == true %>
+        <% name_parts = kpi.name.split(' - ') %>
+        <tr>
+          <td> <%= name_parts[0] %> </td>
+          <td> <%= name_parts[1] %> </td>
+          <td><a href="#<%= kpi.name.gsub("/",'').gsub(/[!@%&"()$%^*,:;.]/, '').gsub(" ","-").downcase %>"><%= name_parts[2]%></a></td>
+          <td><%= color_code_health kpi.health.level %></td>
+          <td><%= kpi.product_analytics_type %></td>
+          <td>
+            <% if kpi.implementation %>
+              <%= kpi.implementation.status %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </tbody>
+</table>
+
+<% end %>
+
+<% if other_stage_pis.any? %>
+## Other Stage PIs Summary
+
+<table>
+  <thead>
+    <tr>
+     <th>Stage/Group</th>
+      <th>PI Type</th>
+      <th>PI</th>
+      <th>Health</th>
+      <th>SaaS / SM</th>
+      <th>Implementation Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% other_stage_pis.each do |kpi| %>
+      <% if kpi.is_primary == true %>
+        <% name_parts = kpi.name.split(' - ') %>
+        <tr>
+          <td> <%= name_parts[0] %> </td>
+          <td> <%= name_parts[1] %> </td>
+          <td><a href="#<%= kpi.name.gsub("/",'').gsub(/[!@%&"()$%^*,:;.]/, '').gsub(" ","-").downcase %>"><%= name_parts[2]%></a></td>
+          <td><%= color_code_health kpi.health.level %></td>
+          <td><%= kpi.product_analytics_type %></td>
+          <td>
+            <% if kpi.implementation %>
+              <%= kpi.implementation.status %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </tbody>
+</table>
+
+<% end %>
+
+<% if other_group_pis.any? %>
+## Other Group PIs Summary
+
+<table>
+  <thead>
+    <tr>
+     <th>Stage/Group</th>
+      <th>PI Type</th>
+      <th>PI</th>
+      <th>Health</th>
+      <th>SaaS / SM</th>
+      <th>Implementation Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% other_group_pis.each do |kpi| %>
+      <% if kpi.is_primary == true %>
+        <% name_parts = kpi.name.split(' - ') %>
+        <tr>
+          <td> <%= name_parts[0] %> </td>
+          <td> <%= name_parts[1] %> </td>
+          <td><a href="#<%= kpi.name.gsub("/",'').gsub(/[!@%&"()$%^*,:;.]/, '').gsub(" ","-").downcase %>"><%= name_parts[2]%></a></td>
+          <td><%= color_code_health kpi.health.level %></td>
+          <td><%= kpi.product_analytics_type %></td>
+          <td>
+            <% if kpi.implementation %>
+              <%= kpi.implementation.status %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </tbody>
+</table>
+
+<% end %>
+
+<% if smau_pis.any? %>
+## SMAU PI Details
+
+<% smau_pis.each do |stage_pi| %>
+<% if stage_pi.is_primary == true %>
+<%= partial 'includes/performance_indicator', locals: { performance_indicator: stage_pi } %>
+<% end %>
+<% end %>
+<% end %>
+
+<% if gmau_pis.any? %>
+## GMAU PI Details
+
+<% gmau_pis.each do |group_pi| %>
+<% if group_pi.is_primary == true %>
+<%= partial 'includes/performance_indicator', locals: { performance_indicator: group_pi } %>
+<% end %>
+<% end %>
+<% end %>
+
+<% if other_stage_pis.any? %>
+## Other Stage PIs Details
+
+<% other_stage_pis.each do |stage_pi| %>
+<% if stage_pi.is_primary == true %>
+<%= partial 'includes/performance_indicator', locals: { performance_indicator: stage_pi } %>
+<% end %>
+<% end %>
+<% end %>
+
+<% if other_group_pis.any? %>
+## Other Group PIs Details
+
+<% other_group_pis.each do |group_pi| %>
+<% if group_pi.is_primary == true %>
+<%= partial 'includes/performance_indicator', locals: { performance_indicator: group_pi } %>
+<% end %>
+<% end %>
+<% end %>
+
+<%= partial 'includes/performance_indicator_footer' %>

@@ -1,0 +1,16 @@
+features:
+  secondary:
+  - name: "Search PyPI.org for packages not found in GitLab"
+    available_in: [premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/administration/settings/continuous_integration.html#pypi-forwarding'
+    reporter: trizzi
+    stage: package
+    categories:
+      - 'Package Registry'
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/233413'
+    description: |
+      You can use the GitLab Package Registry as a private PyPI index alongside your source code and pipelines. It's common for teams to rely on a combination of private and public indexes. PyPI supports this by offering an `-index` and `extra-index-url` arguments that allow you to specify multiple indexes to download from. When installing a package `pip` will download the best match it can find, between all available indexes, not in priority order. For example, the latest version of a package will be chosen regardless of any priorities between indexes, simply because it's the latest version. This presents a security concern for some organizations as it can make you vulnerable to dependency confusion attacks. For example, a developer may install a package thinking it was being sourced from a private GitLab project, but it is actually downloaded from the public repository instead. 
+
+      You can use the GitLab Package Registry as a private PyPI index alongside your source code and pipelines. Moving forward, when you attempt to [install a PyPI package](https://docs.gitlab.com/ee/user/packages/pypi_repository/#install-a-pypi-package) from your GitLab project and the package isn't found, the request is forwarded to [PyPI.org](https://pypi.org/). In other words, if the package name exists in your private registry, it's excluded from the lookup from the public repository. This is done so that an attacker can't inject code by uploading a package to PyPI with the same name and higher version.
+
+      This new feature is auto-enabled for GitLab.com and can be turned off by self-managed customers by using their [Continuous Integration and Deployment Admin Area settings](https://docs.gitlab.com/ee/administration/settings/continuous_integration.html). This feature is currently limited to `Premium` customers, but [GitLab-#337862](https://gitlab.com/gitlab-org/gitlab/-/issues/337862) will move the feature to `Core`.

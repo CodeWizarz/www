@@ -1,0 +1,182 @@
+---
+title: "How to avoid broken master with Pipelines for Merged Results and Merge Trains"
+author: Shinya Maeda
+author_gitlab: dosuken123
+categories: engineering
+image_title: '/images/blogimages/merge-train.jpg'
+description: "Do you still run pipelines on source branches? Let's start running them on merge commits!"
+tags: CI/CD, demo, workflow, features
+ee_cta: false
+install_cta: false
+twitter_text: "See how you can merge feature branches safely with @gitlab's new Merge Trains feature"
+featured: yes
+postType: product
+merch_banner_destination_url: "/events/commit/"
+merch_banner_image_source: "/images/merchandising-content/gitlab-commit-london-vertical.png"
+merch_banner_body_title: "London calling"
+merch_banner_body_content: "Join us in London on October 9 for our user conference, GitLab Commit."
+merch_banner_cta_text: "Register now"
+merch_sidebar_destination_url: "/events/commit/"
+merch_sidebar_image_source: "/images/merchandising-content/gitlab-commit-london-horizontal.png"
+merch_sidebar_body_title: "GitLab Commit London"
+merch_sidebar_body_content: "Join our user conference on October 9!"
+merch_sidebar_cta_text: "Register now"
+---
+
+Broken master. This can happen when CI pipelines run on the master branch (or default branch), but don't
+pass all tests. A red cross mark is shown in the project's top page, signalling unstable source
+code and eroding the trust of users. Broken master could also be a blocker against
+a continuous deployment/delivery stream line in which deployment jobs
+are executed after the test stage passed in master pipelines.
+
+All maintainers want to avoid this critical state,
+but how can we prevent it?
+
+## Let's look at how master is broken in the first place
+
+Let's say you're one of the maintainers of a project. It's a busy repository with hundreds of merges
+to master every day. A developer assigns a merge request (MR) to you. The MR passed all of the tests in the CI pipelines,
+has been reviewed thoroughly by code reviewers, all open discussions have been resolved, and the MR has been
+approved by the relevant [code owners](https://docs.gitlab.com/ee/user/project/codeowners/).
+
+You would press the "Merge" button without a second thought, but how are you confident that
+a pipeline running on master branch after the merge will pass all tests again?
+If your answer is "It might break the master branch," then
+you're right. This could happen, for example, if master has advanced by some
+new commits, and one of them changed a lint rule. The MR in question
+still contains an invalid coding style, but the latest pipeline on the MR passes,
+because the feature branch is based on an old version of master.
+
+Enter two new GitLab features: [Pipelines for Merged Results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html)
+and [Merge Trains](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/index.html).
+Let me show you how they works and how to enable them.
+
+
+
+## How to continually run CI pipelines on the merge commit
+
+Let's break down what went wrong in the scenario above. Even though the pipeline on the
+merge request passed all the tests, it ran on a source (feature) branch
+which could be based on an outdated version of master. In such a case,
+the result of pipeline is considered as _untrusted_, because there may be a huge difference
+between an actual-and-future merge commit and the commit in question.
+
+As a [boring solution](/handbook/values/#boring-solutions), developers can continually rebase their MR
+on the latest master, but this is annoying and inefficient, given the speed of
+growth of the master branch.
+It causes a lot of friction between developers and maintainers, slowing down the development cycle.
+
+To address this problem, we introduced [Pipelines for Merged Results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html)
+in [GitLab 11.10](/releases/2019/04/22/gitlab-11-10-released/#pipelines-for-merged-results).
+
+Simply put, the main difference between pipelines for merged results and normal pipelines is that
+**pipelines run on merge commits, instead of source branches, before the actual merge happens**.
+This merge commit is generated from the latest commits of target branch and
+source branch and written in a temporary place (`refs/merge-requests/:iid/merge`).
+Therefore, we can run a pipeline on it without interfering with master.
+
+Here is a sample workflow with the above scenario:
+
+1. A developer pushes a new commit to a merge request.
+1. GitLab creates a merge commit from the HEAD of the source branch and HEAD of the target branch.
+   This merge commit is written in `refs/merge-requests/:iid/merge` and does not change commit history of master branch.
+1. GitLab creates a pipeline on the merge commit, but this pipeline fails because the latest master changed a lint rule.
+1. A maintainer sees a failed pipeline in the merge request.
+
+As you can see, the maintainer was able to hold off merging the dangerous MR
+because the latest pipeline on the MR didn't pass. The feature actually saved
+master from a broken state.
+
+As a bonus, this workflow freeds developers from continual
+rebasing of their merge requests.
+All they need to do is develop features with [Pipelines for Merged Results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html).
+GitLab automatically creates an expected merge commit and validates the merge request prior to
+an actual merge.
+
+### How to get started with Pipelines for Merged Results
+
+You can [start using this feature](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html#enabling-pipelines-for-merged-results)
+today, with just two steps:
+
+1. Edit the `.gitlab-ci.yml` config file to enable [pipelines for merge requests / merge request pipelines](https://docs.gitlab.com/ee/ci/merge_request_pipelines/).
+1. Enable the "Merge pipelines will try to validate the post-merge result prior to merging" option at **Settings > General > Merge requests** in your project.
+
+**Note:** If the configurations in your `.gitlab-ci.yml` file are too complex, you might stumble at the first point.
+We're currently working on [improving the usability of pipelines for merge requests / merge request pipelines](https://gitlab.com/gitlab-org/gitlab-ce/issues/60085).
+Please leave your feedback in the issue if that's the case.
+
+## How to avoid race condition of concurrent merges
+
+With [Pipelines for Merged Results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html),
+we can confidently say that MRs are continually tested against the latest master branch.
+However, what if multiple MRs have been merged at the same time?
+For example:
+
+- There are two merge requests: MR-1 and MR-2. The latest pipelines have already passed in both MRs.
+- John (maintainer) and Cathy (maintainer) merge MR-1 and MR-2 at the same time, respectively.
+
+Later on, it turns out that MR-2 contains a coding offence which has just been introduced by MR-1.
+Maintainers hit merge without knowing that, and
+needless to say, this will result in broken master. How can we handle this race condition properly?
+
+In [GitLab 12.1](/releases/2019/07/22/gitlab-12-1-released/#parallel-execution-strategy-for-merge-trains), we introduced a new feature,
+[Merge Trains](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/).
+Basically, a Merge Train is a queueing system that allows you to avoid this kind
+of race condition.
+All you need to do is add merge requests to the merge train, and it
+handles the rest of the work for you.
+It creates merge commits according
+to the sequence of merge requests and runs pipelines on the expected merge commits.
+For example, John and Cathy could have avoided broken master with the following workflow:
+
+1. John and Cathy add MR-1 and MR-2 to their [Merge Train](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/), respectively.
+1. In MR-1, the Merge Train creates an expected merge commit from HEAD of the source branch and HEAD of the target branch.
+   It creates a pipeline on the merge commit.
+1. In MR-2, the Merge Train creates an expected merge commit from HEAD of the source branch and the expected merge commit of MR-1.
+   It creates a pipeline on the merge commit.
+1. The pipeline in MR-1 passes all tests and merged into master branch.
+1. The pipeline in MR-2 fails because it violates a lint check which was changed by MR-1. MR-2 is dropped from the Merge Train.
+1. Developer revisits MR-2, fixes the coding offence, and asks Cathy to add it to the Merge Train again.
+
+As you can see, the Merge Train successfully rejected MR-2 before it could break the master
+branch. With this workflow, maintainers can feel more confident when they
+decide to merge something. Also, this doesn't slow down development lifecycle
+that pipelines are built on optimistic assumption that, in the above case,
+the pipeline in MR-1 and the pipeline in MR-2 **start almost simultaneously**.
+MR-2 builds a merge commit as if MR-1 has already been merged, so that maintainers
+don't need to wait for long time until each pipeline finished. If one of the
+pipelines failed, the problematic merge request is dropped from the merge train
+and the train will be reconstructed without it.
+
+### How to get started with Merge Trains
+
+You can [start using Merge Train](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/index.html#how-to-add-a-merge-request-to-a-merge-train)
+today, if you've already enabled [Pipelines for merged results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html#enabling-pipelines-for-merged-results). Click ["Start/Add merge train" button](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/index.html#how-to-add-a-merge-request-to-a-merge-train) in merge requests.
+
+## A quick demonstration of Merge Trains
+
+Here is a demonstration video that explains the advantage of Merge Train feature.
+In this video, we'll simulate the common problem in a workflow without
+Merge Trains, and later, we resolve the problem by enabling a Merge Train.
+
+<figure class="video_container">
+<iframe src="https://www.youtube.com/embed/D4qCqXgZkHQ" frameborder="0" allowfullscreen="true">
+</iframe>
+</figure>
+
+## Wrap up
+
+Running pipelines on expected merge commits allows us to predict what will happen
+in the future and avoid broken master proactively. It soothes the headache of
+release managers and gives maintainers and developers more confidence that their code
+is reliable enough to be merged and shipped. In addition, Merge Trains allow you
+to merge things safely without slowing down the development cycle.
+
+Give this advanced CI/CD feature a try today!
+
+For more information, check out [the documentation on merge trains](https://docs.gitlab.com/ee/ci/pipelines/merge_trains.html) and [pipelines for merge requests / merge request pipelines](https://docs.gitlab.com/ee/ci/pipelines/merge_request_pipelines.html).
+
+Cover image by [Dan Roizer](https://unsplash.com/@danny159) on [Unsplash](https://www.unsplash.com)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

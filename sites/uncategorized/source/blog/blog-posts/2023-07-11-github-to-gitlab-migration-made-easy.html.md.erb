@@ -1,0 +1,378 @@
+---
+title: "GitHub to GitLab migration the easy way"
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: devsecops
+featured: yes
+image_title: '/images/blogimages/julia-craice-faCwTallTC0-unsplash.jpg'
+description: Learn how easy it is to migrate from GitHub to GitLab using GitLab's project import functionality.
+tags: CI/CD, tutorial, DevSecOps, DevSecOps platform
+twitter_text: 'Learn how to migrate from @github to @gitlab the easy way!'
+postType: dev-evangelism, content marketing
+---
+
+If you are using different CI/CD tools and are considering migrating over to GitLab, you may be wondering about
+the difficulty of the migration process. Migration is usually a concern for [DevSecOps](https://about.gitlab.com/topics/devsecops/) teams when considering a new solution.
+This is due to the fact that migrating may involve heavy lifting. However, migrating to the GitLab AI-powered DevSecOps Platform can be extremely simple and I will show you how step by step. 
+
+In this blog post, we will go over how to migrate from GitHub to GitLab using our [project import](https://docs.gitlab.com/ee/user/project/import/) functionality. Manually
+migrating GitHub Actions to GitLab pipelines will be covered as well. I have also created a video going over the migration process for those who prefer that format:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/0Id5oMl1Kqs" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## What data can be migrated from GitHub to GitLab?
+GitLab's built-in importer allows for GitHub projects to be automatically migrated into GitLab. The built-in importer
+is accessed directly from GitLab's project creation UI. From the UI, you can select what data you wish to migrate to GitLab.
+The data that can be migrated includes the following:
+* Repository description
+* Git repository data
+* Branch protection rules
+* Collaborators (members)
+* Issues
+* Pull requests
+* Wiki pages
+* Milestones
+* Labels
+* Release notes content
+* Release notes attachments
+* Comment attachments
+* Issue description attachments
+* Pull request description attachments
+* Pull request review comments
+* Regular issue and pull request comments
+* Git Large File Storage (LFS) objects
+* Pull request reviews
+* Pull request assigned reviewers
+* Pull request “merged by” information
+* Pull request comments replies in discussions
+* Pull request review comments suggestions
+* Issue events and pull requests events
+
+GitHub and GitLab have different naming conventions and concepts, so a mapping must be performed during the migration.
+For example, when collaborators/members are migrated, roles from GitHub are mapped to the appropriate GitLab roles as follows:
+
+| GitHub role | GitLab role |
+| ----------- | ----------- |
+| Read        | Guest       |
+| Triage      | Reporter    |
+| Write       | Developer   |
+| Maintain    | Maintainer  |
+| Admin       | Owner       |
+
+## Prerequisites
+Now that you have an understanding of what can be imported, let's review the prerequisites for performing the migration.
+With the GitLab importer, you can either import your projects from **GitHub.com** or **GitHub Enterprise** to either **GitLab.com** or
+**Self-managed GitLab** as long as you meet the following requirements:
+* You must be a Maintainer on the GitLab destination group you are importing to from GitHub
+* Each GitHub author and assignee in the repository must have a public-facing email address on GitHub that matches their GitLab email address
+* GitHub accounts must have a public-facing email address that is populated
+* [GitHub import source](https://docs.gitlab.com/ee/administration/settings/visibility_and_access_controls.html#configure-allowed-import-sources) must be enabled (Self-managed GitLab only)
+
+When migrating a user, GitLab uses the public-facing email address in GitHub to verify the user with the same email on GitLab. Because email
+ownership is unique, you'll know you have set a valid user with valid permissions.
+
+## Performing the import
+Now let's go over how to perform the migration. I will be migrating my project, the [Reddit sentiment analyzer](https://github.com/fishtoadsoft/reddit-sentiment-analyzer), from GitHub to GitLab. The Reddit sentiment analyzer contains a pull request (called a merge request in GitLab), issues, and comments. 
+
+**Note:** While you may not have permissions to my project, the step-by-step process applies to any project you own. I am using
+my project so you can see how I migrate GitHub Actions in the next section. Now, let's get started!
+
+1) Create a new project in GitLab using the [Project Creation Interface](https://gitlab.com/projects/new).
+
+2) Select the **Import Project** box. This allows you to migrate data from external sources.
+
+![Import project box](/images/blogimages/2023-july-github-to-gitlab-migration/import_project.png)
+
+3) Under **Import project from**, press the **GitHub** button. This will take you to the
+**Authenticate with GitHub** page.
+
+4) Press the **Authenticate with GitHub** button. You can also use a [personal access token](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) from GitHub with
+the **repo scope** if you prefer. This will take you to the GitHub authorization app.
+
+5) From here, you can grant access to [GitHub organization(s)](https://docs.github.com/en/organizations/collaborating-with-groups-in-organizations/about-organizations) where the projects
+you wish to migrate are located.
+
+![GitHub authorization app](/images/blogimages/2023-july-github-to-gitlab-migration/github_authorize_app.png)
+
+6) Press the **Grant** button for the organization where the project you wish to migrate is stored.
+
+7) Press the **Authorize gitlabhq** button to grant GitLab access to the organization(s) selected. You 
+will then be taken to the import selection page.
+
+8) From here, you can select the items you wish to import. 
+
+![Import selection](/images/blogimages/2023-july-github-to-gitlab-migration/import_selection.png)
+
+**Note:** The more items you choose to migrate, the longer the import will take.
+
+9) Then you must set the GitLab location you want to migrate the GitHub project to.
+
+![Set the GitLab location to migrate to](/images/blogimages/2023-july-github-to-gitlab-migration/import_to.png)
+
+10) Press the **Import** button and the import will begin. You can see the progress in the UI. Once
+the import is complete the status will be changed to "complete."
+
+[Import progress status](/images/blogimages/2023-july-github-to-gitlab-migration/import_progress.png)
+
+Now you should have the imported project in your workspace. Mine is called [https://gitlab.com/awkwardferny/reddit-sentiment-analyzer](https://gitlab.com/awkwardferny/reddit-sentiment-analyzer). When examining the imported project, you can see the following:
+
+**Repository has been migrated**
+
+![Repository has been migrated](/images/blogimages/2023-july-github-to-gitlab-migration/migrated_data.png)
+
+**Issue has been migrated**
+
+![Issue has been migrated](/images/blogimages/2023-july-github-to-gitlab-migration/migrated_issue.png)
+
+**Merge request has been migrated**
+
+![Merge request has been migrated](/images/blogimages/2023-july-github-to-gitlab-migration/migrated_merge_request.png)
+
+## Migrating GitHub Actions over to GitLab CI/CD
+Now that you have migrated the project over from GitHub, notice that none of the GitHub Actions are running. Don't worry,
+they are very easy to migrate manually. So let's start the migration process for Actions.
+
+1) Examine the GitHub Actions within the **.github/workflows** folder. In the [project you just imported](https://gitlab.com/awkwardferny/reddit-sentiment-analyzer/-/tree/master/.github/workflows), you should see three different Action files:
+
+#### lint.yml
+This file contains the Action, which performs linting on the source code using flake8. It uses the python:3.10
+Docker image and installs the application requirements before performing the lint.
+
+```yaml
+name: "Lint"
+ 
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+```
+
+#### smoke.yml
+This file contains the action which performs a smoke test by just running the CLI help menu. It uses the python:3.10
+Docker image and installs the application requirements before performing the smoke test.
+
+```yaml
+name: "Smoke Tests"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  smoke-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install setuptools
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Install Sentiment Analysis Application
+      run: |
+        python setup.py install
+    - name: Run smoke tests
+      run: |
+        reddit-sentiment --help
+```
+
+#### unit.yml
+This file contains the Action, which performs unit tests using pytest. It uses the python:3.10
+Docker image and installs the application requirements running the unit tests.
+
+```yaml
+name: "Unit Tests"
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Test with pytest
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f test-requirements.txt ]; then pip install -r test-requirements.txt; fi
+        pytest tests/
+```
+
+Now let's go ahead and migrate these Actions over to GitLab.
+
+2) Go to the recently imported project on GitLab and open up the [WebIDE](https://docs.gitlab.com/ee/user/project/web_ide/).
+
+3) Create a file at the root called [**.gitlab-ci.yml**](https://docs.gitlab.com/ee/ci/yaml/gitlab_ci_yaml.html).
+This file defines the GitLab pipeline.
+
+4) Add the following configuration, which will add the GitHub Actions as Jobs in the GitLab pipeline. 
+Notice the comments I added describing each section.
+
+```yaml
+# This creates the stages in which the jobs will run. By default all
+# jobs will run in parallel in the stage. Once the jobs are completed
+# successfully then you move on to the next stage. The way jobs run
+# is completely configurable.
+stages:
+  - test
+
+# With the include statement, you can quickly add jobs which have
+# been pre-defined in external YAMLs. The SAST job I included below
+# is provided and maintained by GitLab and adds Static Application
+# Security Testing (SAST) to your pipeline.
+include:
+  - template: Jobs/SAST.gitlab-ci.yml
+
+# This is the unit test job which does exactly what is defined in
+# the GitHub Action in unit.yml. You can see it uses the python:3.10
+# Docker image, installs the application dependencies, and then runs
+# the unit tests with pytest. It was added with a simple copy and
+# paste and minor syntax changes.
+unit:
+  image: python:3.10
+  stage: test
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install pytest
+    - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+  script:
+    - pytest tests/
+
+# This is the lint job which does exactly what is defined in the
+# GitHub Action in lint.yml. You can see it uses the python:3.10
+# Docker image, installs the application dependencies, and then
+# performs the linting with flake8. It was added with a simple copy
+# and paste and minor syntax changes.
+lint:
+  image: python:3.10
+  stage: test
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install flake8
+    - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+  script:
+    - flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+    - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+# This is the smoke test job which does exactly what is defined in
+# the GitHub Action in smoke.yml. You can see it uses the python:3.10
+# Docker image, installs the application dependencies, and then runs
+# the smoke tests with the Reddit sentiment analysis CLI. It was
+# added with a simple copy and paste and minor syntax changes.
+smoke:
+  image: python:3.10
+  stage: test
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install setuptools
+    - if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - python setup.py install
+  script:
+    - reddit-sentiment --help
+```
+
+You can see that scripts being executed in GitLab match those scripts within the GitHub Actions. The only
+thing that has really changed is the syntax setting up the jobs and stages. To learn more on how to create
+and configure pipelines, check out the [GitLab CI/CD documentation](https://docs.gitlab.com/ee/ci/).
+
+5) Let's check in the code. From the WebIDE click on the Source Control Tab in the side panel of the WebIDE.
+It is the [third icon from the top](https://code.visualstudio.com/docs/sourcecontrol/overview#_commit). Then press
+the **Commit to 'main'** button, select **Continue**, and voila, you should now have a running pipeline.
+
+6) Examine the pipeline and make sure the jobs are running properly. Go back to your project and click on
+the [pipeline](https://docs.gitlab.com/ee/ci/pipelines/) icon. You can see the the four jobs we created have run.
+
+![Four jobs have run](/images/blogimages/2023-july-github-to-gitlab-migration/gitlab_jobs.png)
+
+7) Click on the **Unit** job and you can see that the unit tests were run successfully.
+
+```bash
+$ pytest tests/
+============================= test session starts ==============================
+platform linux -- Python 3.10.11, pytest-7.3.1, pluggy-1.0.0
+rootdir: /builds/awkwardferny/reddit-sentiment-analyzer
+collected 2 items
+tests/test_scraper.py ..                                                 [100%]
+============================== 2 passed in 0.09s ===============================
+Cleaning up project directory and file based variables
+00:00
+Job succeeded
+```
+
+And that's how simple it is to migrate a project over from GitHub to GitLab!
+
+## What other platforms can GitLab import from?
+The GitLab importer allows one-click migration from several other platforms. These platforms include:
+* [Bitbucket Cloud](https://docs.gitlab.com/ee/user/project/import/bitbucket.html)
+* [Bitbucket Server (Stash)](https://docs.gitlab.com/ee/user/project/import/bitbucket_server.html)
+* [FogBugz](https://docs.gitlab.com/ee/user/project/import/fogbugz.html)
+* [Gitea](https://docs.gitlab.com/ee/user/project/import/gitea.html)
+* [Repository by URL](https://docs.gitlab.com/ee/user/project/import/repo_by_url.html)
+* [Uploading a manifest file (AOSP)](https://docs.gitlab.com/ee/user/project/import/manifest.html)
+* [Jira (issues only)](https://docs.gitlab.com/ee/user/project/import/jira.html)
+
+We also have documentation covering how to migrate from these platforms:
+* [SVN](https://docs.gitlab.com/ee/user/project/import/#import-from-subversion)
+* [ClearCase](https://docs.gitlab.com/ee/user/project/import/clearcase.html)
+* [CVS](https://docs.gitlab.com/ee/user/project/import/cvs.html)
+* [Perforce](https://docs.gitlab.com/ee/user/project/import/perforce.html)
+* [TFVC](https://docs.gitlab.com/ee/user/project/import/tfvc.html)
+
+---
+  
+Thanks for reading! Now you know how easy it is to migrate from GitHub over to GitLab. For more information on GitLab
+and migrating from GitHub, follow the links below:
+
+* [GitHub-to-GitLab project migration documentation](https://docs.gitlab.com/ee/user/project/import/github.html)
+* [Available project importers](https://docs.gitlab.com/ee/user/project/import/#available-project-importers)
+* [GitHub-to-GitLab migration video](https://youtu.be/0Id5oMl1Kqs)
+
+Also, read how GitLab has been named a leader in the DevOps platforms space by [Gartner](https://about.gitlab.com/blog/2023/06/07/gitlab-leader-gartner-magic-quadrant-devops-platforms/) and the integrated software delivery platforms space by [Forrester](https://about.gitlab.com/blog/2023/06/06/gitlab-leader-forrester-wave-integrated-software-delivery-platforms/).
+
+Cover image by [Julia Craice](https://unsplash.com/@jcraice?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/migration?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

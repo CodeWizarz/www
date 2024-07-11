@@ -1,0 +1,122 @@
+---
+title: "How we do Vue: one year later"
+author: Jacob Schatz
+author_gitlab: jschatz1
+author_twitter: jakecodes
+image_title: '/images/blogimages/vue-title.jpg'
+description: "How we, at GitLab, write VueJS, one year later."
+categories: engineering
+tags: frontend, inside GitLab
+---
+
+It's been a while since [we wrote about Vue](/blog/2016/10/20/why-we-chose-vue/). We've been using Vue for over a year now and life has been very good. Thanks [@lnoogn](https://twitter.com/lnoogn) for reminding me to write this article!
+
+<!-- more -->
+
+Our situation reminds me of a quote about Scala from ["Is Scala slowly dying?"](https://www.reddit.com/r/scala/comments/2hw0bp/is_scala_slowly_dying/) Someone once said:
+
+> Scala people don't have time for redditing and blogging, they're busy getting crap done.
+
+Which is exactly what we've been doing. Like Scala, Vue works really, really well, when used properly. It turns out Vue isn't a buzzword, Vue is a workhorse. A lot of our problems have been solved, by us and others. We still have problems but, we now have a reproducible "way to write Vue." We don't adopt every new idea out there, but we have changed a few things since we last spoke.
+
+Since that last post, we published a [very extensive Vue style guide](https://docs.gitlab.com/ee/development/fe_guide/vue.html), after which Vue also put out a [style guide](https://vuejs.org/v2/style-guide/), [taking inspiration from ours](https://github.com/vuejs/eslint-plugin-vue/issues/77#issuecomment-315834845). The style guide has been updated several times as we discover better ways to write Vue. Here are some of the things we discovered.
+
+## Just use VueX
+
+We discovered that [VueX](https://vuex.vuejs.org/) makes our lives easier. If you are writing a medium to large feature, use VueX. If it's a tiny feature, you might get away without it. We made the mistake of not using VueX for a large feature. We wrote a [multi-file editor](https://gitlab.com/gitlab-org/gitlab-ce/issues/31890) (WIP) to replace our current repo file view, to allow easy editing of multiple files.
+
+![multi-file-editor.png](/images/vue_2017/multi-file-editor.png){: .shadow}
+
+In the beginning we did not use VueX for this feature and instead used the store pattern. The Vue docs talk about the [store pattern](https://vuejs.org/v2/guide/state-management.html#Simple-State-Management-from-Scratch), which works well when you are committed to strictly keeping to the pattern. We've found that you are better off spending your time with VueX instead. While VueX is initially more verbose, it is much more scalable, and will save you tons of time in the long run. Our mistake happened when we changed the data in multiple places. In VueX you are forced to change the data in one central place. If you don't do this, you will wind up chasing unexpected bugs around.
+
+## Write high quality code
+
+Even though VueJS and VueX are both wonderful, it is still possible (as with any code) to write bad Vue code. While the code may work, your longevity and scalability may suffer. Performance can suffer. With Vue, it makes it so easy to have what seems like working, perfect code because Vue is so simple to write. Longevity problems can mean that your code initially works, but you (and others) will have a hard time trying to update the code. Performance problems might not crop up with small data sets, but will with larger ones. Code can get messy. Your code can get smelly. Yes, even with Vue, you can have [code smell](https://en.wikipedia.org/wiki/Code_smell).
+
+When you add something to the `data` object or the `store` for Vue to keep track of, Vue will recursively walk down your data object and keep track of everything. If your data is super hierarchical and just large in general, and you are changing things often (like maybe on `mousemove`), then you can create jank. It's not bad to have Vue observe large data sets, but just confirm that you do in fact need the data you are watching to be reactive. It's easy with Vue to just make everything reactive, when it might not need to be.
+
+That's why we are very strict when anyone writes Vue code. They must [follow our documentation](https://docs.gitlab.com/ee/development/fe_guide/vue.html). They must also only write Vue when it is necessary and not write it [when it is overkill](https://docs.gitlab.com/ee/development/fe_guide/vue.html#when-not-to-use-vue-js).
+
+All of our new Vue code follows the [Flux architecture](https://facebook.github.io/flux/). VueX also follows Flux, which is part of the reason we use VueX. You can use the previously mentioned "store pattern," but VueX is a better choice because it enforces all of the rules. If you go rogue, you will wind up enforcing the rules yourself, and you will probably make mistakes. The less you put on your plate, the better. A good example of a well-written Vue app is the [registry image list](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/14303).
+
+### I want to use jQuery with Vue
+
+During new development, this question kept popping up.
+> Is it ever OK to mix jQuery with VueJS?
+
+We are not talking about using [Select2](https://select2.org/), which is a jQuery library. We are talking about the need to query the DOM. We had discussions about using jQuery and the following was proposed:
+
+> Using jQuery is OK, but only for querying.
+
+At first I had several discussions about using jQuery with Vue. Some had said it might be OK, but only in read-only (querying) situations. However, after doing the research, we found that it is **not** a good idea to use jQuery with Vue. There will always be a better solution. We found that if you ever find yourself needing to query to DOM within a Vue architecture, then you are doing something wrong.
+
+If one were to hypothetically use jQuery for only the tiniest querying situations, one would have to quantify those situations. You should instead swear off querying the DOM when in Vue.
+
+Instead of querying, you will find that using the `store` in combination with the server-side code is usually a much simpler answer. The server can provide validity to your data that you cannot provide on the client side. For the most part, we find that the less we have to fool with the data on the client side the better. That's not to say it's never OK to modify the data on the client side, but that it isn't usually the cleanest solution. At GitLab we use querying only to grab endpoints from the `data` attribute of our main element, but we don't use jQuery, we use `el.dataset`. At GitLab, we (the Frontend people) talk with the Backend people to ensure the structure of the data we will be consuming. In that way, both the Frontend team and the Backend team can be in control.
+
+#### Example situation:
+
+Check out this issue:
+
+![issue](/images/vue_2017/issue.png){: .shadow}
+
+We now render all issue comments in Vue. An example of a situation where we wanted to use jQuery was during the rewrite of the edit-the-last-user-comment feature. When someone presses that `up` key on their keyboard from an empty new comment `textarea` (at the very bottom of the page) we allow them to edit the last comment they created, just like in Slack. Not just the last comment, but the last comment *they created*. We marked the last user comment in the picture in red. Of course there is a time crunch. Then someone might say,
+
+> Can't we just do a quick solution here and fix it later?
+
+Surely you *could* query the DOM for this. A better solution, in this case, is to let the backend developers mark the last user comment in the JSON they return. Backend developers have direct access to the database, which means they may be able to optimize the code. Then no client-side work has to be done at all, in this case. Someone has to do the work to mark the last user comment. In this case the solution is just finding the right person for the job. Once you have that data from the server, the comment is in your `store`, ready for your easy access. You can do anything now. The world is your oyster.
+
+If you find yourself querying the DOM, "just this one time" 😉, there is always a better solution.
+
+### The proper Vue app
+
+Every Vue bundle needs one store, one service, and always has one entry point. Your entry point component is the only container component and every other component is presentational. All this information is in our Vue docs.
+
+You can start out with a single `div`.
+
+```html
+<!--HAML-->
+.js-vue-app{ data: { endpoint: 'foo' }}
+
+<!--HTML-->
+<div class="js-vue-app" data-endpoint="foo"></div>
+```
+You can pass your endpoints in through the data attributes. Vue can then call these endpoints with an HTTP client of your choice.
+
+You don't want to do any URL building in client-side JavaScript. Make sure you pass in all your server-built URLs through endpoints. When writing Vue it's important to let the server do what it should.
+
+## Improve performance
+
+We recently rewrote our issue comments in Vue. The issue comments were previously written in Haml, jQuery, and Rails. We had a bottleneck because we were not loading the comments asynchronously. A quick solution is to load comments via ajax and populate comments after the page loads. One way to make a page load faster is to not block the page with heavy items and load them after.
+
+![comments.png](/images/vue_2017/comments.png){: .shadow}
+
+What we love is that one day we turned on the new comments and some people didn't know that we had refactored it. As a result of the refactor our issue pages load much faster, and there is less jank.
+
+Loading the comments on the issue page is now streamlined and now individual issues load much faster. In the past, an issue page could have tens of thousands of event listeners. Our previous code was not properly removing and keeping track of event listeners. Those massive event listeners (along with other problems) created jank, so scrolling the page was choppy with many comments. We removed jQuery and added in Vue and focused on improving the performance. You can clearly see and feel that the page is much faster. However, our work to improve the performance has just begun. This rewrite sets the foundation for performance improvements that are easier to write, because the code is much more maintainable. Previously the code was hard to maintain. Now the issue comments code is properly separated and "componentized."
+
+With these new improvements, as well as other parallel improvements, e.g. loading images on scroll, we were able to make the page load and perform faster.
+
+![speed.png](/images/vue_2017/speed.png){: .shadow}
+
+Refactoring is that word that a new, super-green developer mentions on day one when they suggest to rewrite everything in Angular. That hasn't happened at GitLab. Our frontend devs tend to be very conservative, which is a very good thing. Which begs the question, why does it seems like [everyone is always refactoring](https://reasonml.github.io/community/blog/#reason-3)? What are they trying to achieve? I can only speak for GitLab. What do we want to achieve with a refactor? In reality it's going to cost a lot of money. The costs are:
+
+1. Cost of doing the refactoring.
+1. Cost of testing the change.
+1. Cost of updating tests and documentation.
+
+You also have more risk:
+
+1. Risk of introducing bugs.
+1. Risk of taking on a huge task that you can't finish.
+1. Risk of not achieving the quality/improvements you intended.
+
+Our goals are:
+
+**Goal #1**: Make the code more maintainable. We want to make the process of adding new features easier. In the long term this refactor will save us time, but it takes a significant amount of time to recoup the time spent refactoring. The hard truth may be that a refactor usually does not save you time, but can save you stress.
+
+**Goal #2**: What it can do, if done right, is make developers happy. Nothing gives your team more horsepower than a happy, excited coder. A stressed-out coder will want to stop coding; an excited coder will not want to stop. A happy coder saves the most time.
+
+To meet our goal our next step is to refactor the merge request comments section. Our merge request comments are massively slow for merge requests with lots of comments. The comments become slower and start to be less responsive at around 200 comments. The diffs are slow as well. There are a ton of reasons for this, one of which is that JavaScript is causing multiple reflows that take tons of time. We could refactor this and have already put in a fix, but this isn't a long-term solution.  In the case of a huge MR, there was code that was causing a reflow that [takes over eight seconds](https://gitlab.com/gitlab-org/gitlab-ce/issues/39332)! This is now fixed. In this [image](https://gitlab.com/gitlab-org/gitlab-ce/uploads/e18856a1544d4d0e6420d11fd0479af7/ss__2017-10-20_at_1.41.04_PM.png)  you can see there is other stuff slowing things down. Clearly there is a lot of work to do here. Our biggest problem is that the code is not maintainable, which means that fixes take longer. A refactor into Vue will provide some great initial speed improvements, and lay the groundwork for easier improvements in the future.
+
+There is so much work to do at GitLab. If you want to be a part of exploring the massive catacombs of GitLab and writing awesome code and if you are interested in helping out our Frontend team, then [apply](https://handbook.gitlab.com/job-families/engineering/development/frontend/).

@@ -1,0 +1,91 @@
+---
+title: Extract greater efficiency from your CI pipelines
+author: Vlad Budica
+author_gitlab: vladbudica
+categories: engineering
+tags: DevOps, CI, CD
+description: Learn some techniques to find the balance between pipeline performance and resource utilization.  
+image_title: /images/blogimages/ci-pipeline.jpg
+twitter_text: "Want to extract more efficiency from your CI pipelines? Execute fewer jobs and pipelines and shorten the execution time of jobs and pipelines. We show you how."
+featured: yes
+---
+
+When discussing efficiency, typically we need to balance two things: time and money. It's quite easy to optimize for just one of these parameters. However, that can be an oversimplification. Within some constraints, more resources (i.e., hardware and Runners) equal better performance. Yet, the exact opposite is true for other constraints. In this article, I will walk you through the process of finding the sweet spot in optimizing your GitLab CI pipeline. The principles that I'll cover work well for existing pipelines and also for new ones. Please note that this is subjective and the sweet spot might be very different for different users in different scenarios.
+
+As we dig into the technical aspects, note that we are looking for an overall optimization of a pipeline, as opposed to just looking at a particular job. The reasoning behind it is that local optimizations might make the overall pipeline less efficient (we might generate bottlenecks).
+
+The optimization recommendations below fall into two categories:
+- Execute fewer jobs and pipelines
+- Shorten the execution time of jobs and pipelines
+
+The first step before modifying an aspect of a system is to understand it. Observe it in full. You need to know the overall pipeline architecture and also the current metrics for it. You need to know the total execution time, jobs that take a large amount of time to finish (any bottlenecks), and the total job workload (potential queue time) and Runner capacity – these last two go hand in hand. Finally, we can use [Directed Acyclic Graphs](https://docs.gitlab.com/ee/ci/directed_acyclic_graph/), or DAGs, to visualize the pipeline and see the critical path (the minimum and maximum pipeline duration). We want to do this because we want to minimize as much as possible the detrimental impact doing changes can have on pipeline performance.
+
+## Execute fewer jobs and pipelines
+
+Let's look at ways of reducing the number of jobs and pipelines that get executed.
+
+### Apply rules
+
+The first thing would be to decide what needs to be executed and when. For example, with a website, if the only change that was performed is to the text on the page, then the resulting pipeline doesn't need to contain all the tests and checks that are performed when changing the web app.
+
+This requires the use of the [rules keyword](https://docs.gitlab.com/ee/ci/yaml/#rules). Rules are evaluated when a pipeline is created (at each trigger), and evaluated in order until the first match. When a match is found, the job is either included or excluded from the pipeline, depending on the configuration.
+
+Through the rules keyword you can decide very precisely when a job should run or not. More information about use cases and configuration parameters can be found in the [doc page for rules](https://docs.gitlab.com/ee/ci/yaml/#rules).
+ 
+### Make jobs interruptible
+
+Now that jobs are only running when needed, you can focus on what happens when a new pipeline is triggered while a job is still running. This can lead to inefficiencies because we already know the job isn't running on the latest change performed on the target branch and that the results will get scrapped.
+
+This is where the [interruptible keyword](https://docs.gitlab.com/ee/ci/yaml/#interruptible) comes in. It enables us to specify that a job can be interrupted when a newer one is triggered on the same branch. This should be coupled with the [automatic cancellation of redundant pipelines feature](https://docs.gitlab.com/ee/ci/pipelines/settings.html#auto-cancel-redundant-pipelines) so, in the end, jobs will be automatically canceled when newer pipelines are triggered.
+
+One word of caution, use this mechanism only with jobs that are safe to stop such as a build or a test job. Don't use this with your deployment jobs as you're eventually going to end up with partial deployments. 
+	
+One last point around executing fewer jobs and pipelines is to try to reschedule non-essential pipelines to as least frequent as possible. It's a balance that needs to be found between running the pipelines too often and not running them enough. Just go with the minimum acceptable by your company policy.
+
+## Shorten the execution time of jobs and pipelines
+
+The next thing would be to find ways of making our jobs and pipelines execute in less time.
+
+### Execute jobs in parallel
+
+You can [create DAGs in your pipelines](https://docs.gitlab.com/ee/ci/directed_acyclic_graph/) to create relationships between jobs and ensure that jobs are executed as soon as all the requirements are met if there are any and that they aren't waiting unnecessarily for other jobs to finish. By using the [needs keyword](https://docs.gitlab.com/ee/ci/yaml/#needs) together with the [parallel keyword](https://docs.gitlab.com/ee/ci/yaml/#parallel), you can implement DAGs.
+
+Another useful mechanism to drive parallelism is [parent-child pipelines](/blog/2020/04/24/parent-child-pipelines/), which enable you to trigger concurrently running pipelines.
+
+These offer great flexibility and by using them you can execute your workloads in parallel as efficiently as possible. This can be a double-edged sword though as DAGs and [parent-child pipelines](https://docs.gitlab.com/ee/ci/pipelines/parent_child_pipelines.html) will increase the complexity of your pipelines, making them harder to analyze and understand. Within this very complex environment, you can run into unwanted side effects such as increased cost or even reduced efficiency.
+
+The more jobs and pipelines you run in parallel, the more load will be put on your Runner infrastructure. If you do have an autoscaling mechanism and a large enough pool of resources, this will ensure no big queues are created and that things are running smoothly, but also lead to increased infrastructure costs. On the other hand, if you don't have autoscaling or if you have lower limits for the amount of resources available, the costs will be kept in check but your overall execution time will suffer because jobs will wait longer in queues.
+
+### Fail fast
+
+It's desirable to detect errors and critical failures as soon as possible in your jobs and pipelines, and stop the execution. If you wait until toward the end of the pipeline to fail, the whole pipeline will waste hardware resources and increase your execution and waiting times. This is easier to implement when first designing a pipeline but can be achieved as well through refactoring of your existing ones.
+
+Testing usually takes a lot of time so this means that we're waiting for the execution to finish before canceling the whole pipeline if the tests fail. What we want to do is move the jobs that run quicker earlier in the pipeline thus getting feedback sooner. To configure this behavior, use the [allow_failure keyword](https://docs.gitlab.com/ee/ci/yaml/#allow_failure) and only for jobs that when fail should fail the whole pipeline.
+
+### Caching
+	
+You can also optimize the caching of your dependencies, which will improve the execution time. This can be very useful for jobs that fail often but for which the dependencies don't change that often.
+
+To configure this in your jobs, you should use the [cache:when keyword](https://docs.gitlab.com/ee/ci/yaml/#cachewhen).
+
+### Optimize your container images
+
+Using big images in your pipelines can slow things down significantly, as they take longer to be pulled. So the solution would be to use smaller images. Simple, right?
+
+Well, it's not always that easy to do, so you should start by analyzing your base image and your network speed as these two will give an indication of how long it will take for the image to be pulled. The network connection we're interested in is the one between your Runner and your container registry.
+
+Once we have this kind of information, we can decide to host the image in another container registry. If you have GitLab hosted in a public cloud you should use the container image registry provided by that provider. An alternative that works no matter where GitLab is hosted is to use the internal GitLab container registry that's included with your service.
+
+You will get better results if instead of using a master container image that holds everything that you need to run the whole pipeline, you use multiple smaller ones that are tailored for each job. It's faster if you use custom container images and have all the tools you need pre-installed. This would also be a safer option because you can validate more thoroughly the contents of the image.
+
+More information about this topic can be found in [Docker's "Best practices for writing Dockerfiles"](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/).
+
+## Pipeline optimization is part science, part art
+
+You should approach your pipeline optimization efforts through a continuous improvement lens. This process is part science, part art as there aren't any quick solutions that you can apply and get your ideal result.
+
+I encourage you to test, document, and analyze the results when it comes to pipeline optimization efforts. You try one thing, look for feedback from the metrics of your pipelines, document the results, the changes, and the new architecture (this can happen in GitLab issues and merge requests) so you can extract some learnings, and the cycle starts again.
+
+Small gains will add up and provide significant improvements at a higher scale. As I mentioned before, look for overall improvements instead of local ones. Now applying these principles to each project (pipeline templates makes it easier to adopt at scale), we can look at how these improvements across projects add up.
+
+Read more: Learn how to [troubleshoot a GitLab pipeline failure](/blog/2022/03/08/how-to-troubleshoot-a-gitlab-pipeline-failure/).

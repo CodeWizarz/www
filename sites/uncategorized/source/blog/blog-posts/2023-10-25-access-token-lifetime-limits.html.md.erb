@@ -1,0 +1,72 @@
+---
+title: "Why GitLab access tokens now have lifetime limits"
+author: Hannah Sutor
+author_gitlab: hsutor
+author_twitter: hhsutor
+categories: engineering
+posttype: product
+tags: product, security
+description: "Pre-existing and new personal, group, or project access tokens now have enforced lifetime limits. Find out why and learn how to minimize disruption."
+image_title: /images/blogimages/security-cover-new.png
+twitter_text: "Pre-existing and new GitLab personal, group, and project access tokens now have enforced lifetime limits. Find out why and learn how to minimize disruption."
+---
+Balance security and ease of use. It sounds so simple, right? Anyone who has ever implemented security controls knows that this balance is a delicate one, and one that may never be fully achieved, since people may have different tolerance levels.
+
+At GitLab, we are no exception. In the [Authentication group](https://about.gitlab.com/direction/govern/authentication/), we try to provide a toolbox of access and security controls that GitLab administrators can implement to their liking, recognizing that everyone sits at a different place on the security vs. accessibility spectrum. There are times, however, where we have to make decisions about what access mechanisms we offer to our customers, including those related to powerful, long-lived credentials and their lifecycles. These credentials can often be created and left unchanged for years, with potential exposure in logs, configurations, and to people working on those tools. If leaked, they can cause irreparable harm to an organization's security posture.
+
+## Our decision to remove support for non-expiring access tokens
+In GitLab 16.0, we made the decision to remove support for non-expiring access tokens. This was first announced in 15.4 — you can read the [removal announcement here](https://docs.gitlab.com/ee/update/deprecations.html#non-expiring-access-tokens). As of the 16.0 milestone (May 2023), we applied an expiration date of May 14, 2024, to any personal, group, or project access token that previously didn't have one. Any access token that _already had_ an expiration, even if it was outside of the 365-day limit, was left untouched.
+
+**Starting on May 15, 2023, any new access token created must have an expiration within 365 days of creation.**
+
+In GitLab Ultimate, administrators have the [ability to set a custom allowable limit](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html#when-personal-access-tokens-expire) for token expiration. This policy allows administrators to set a lifetime less than 365 days for compliance purposes. In Premium and Free tiers, tokens must be set to expire within 365 days.
+
+## What is the impact?
+If you have automation that relies on a personal, group, or project access token, and you don't modify its expiration date, it will stop working whenever it hits the expiration date. If you previously did not set an expiration date for your tokens, they are now set for no earlier than May 14, 2024. Unless you extend the token lifetime and/or rotate the token, your automation will stop working on that day.
+
+We recognize that this may be a disruptive change. This article is meant to raise awareness for our customers in advance of May 14, 2024. 
+
+## Why are we making this change?
+It all started with an [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/348660) suggested by our internal application security team, which led us to populate some security-conscious defaults for access tokens: the least amount of privilege by default and a 30-day expiry date. Users could always change them if they wanted to.
+
+We had already [enforced an expiry date for OAuth tokens](https://about.gitlab.com/blog/2022/04/18/gitlab-releases-15-breaking-changes/#oauth-tokens-without-an-expiration) in GitLab 15.0. Our application security team recommended that we enforce an expiration date for personal, project, and group access tokens as well. Long-lived, static secrets should have enforced lifetime limits as a best security practice. Hence, the need for putting in place these limits. If a token didn't have an expiration date, we placed a one-year expiration on the token as of our 16.0 release in May 2023. This means that tokens will expire in May 2024 if they are not rotated and/or have a modified expiration date beforehand.
+
+## How to minimize the impact 
+You're reading this blog post now, so hopefully you're ahead of the potential impacts that a change like this can cause. The sections below will detail how you can keep GitLab running smoothly.
+
+### Know what you have
+Be proactive. Start by doing an audit of all of your tokens. If you're an Ultimate customer, you can use the [credentials inventory](https://docs.gitlab.com/ee/administration/credentials_inventory.html) (available in self-managed only) to see all personal, project, and group access tokens in your instance. 
+
+If you don't have access to the credentials inventory, you can:
+- [View the active personal tokens](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html#view-the-last-time-a-token-was-used) under **Access tokens** from the left navigation.
+- List [personal](https://docs.gitlab.com/ee/api/personal_access_tokens.html#list-personal-access-tokens), [project](https://docs.gitlab.com/ee/api/project_access_tokens.html#list-project-access-tokens), or [group](https://docs.gitlab.com/ee/api/group_access_tokens.html) access tokens using the API. Administrators can query tokens created by all users while individual users can view only tokens created by themselves. 
+
+If you're a GitLab administrator, communicate with your end users about this change coming to their personal access tokens, and how you would like them to manage expiration in the future. You can link them to this blog post.
+
+### Use the rotation API
+We released a [token rotation API](https://docs.gitlab.com/ee/api/personal_access_tokens.html#rotate-a-personal-access-token) that revokes the previous token and creates a new token that expires in one week.
+
+We also implemented [automatic token reuse detection](https://docs.gitlab.com/ee/api/personal_access_tokens.html#automatic-reuse-detection) for increased security. Automatic reuse detection is a defense-in-depth security measure that can help prevent attackers from using leaked access tokens and the token rotation API from maintaining indefinite access to a user's account by rotating expiring leaked tokens to get new tokens, indefinitely. 
+
+To briefly describe how automatic token reuse detection works, let's describe a scenario where a legitimate user has accidentally disclosed their personal access token (AT1) publicly. An attacker stumbles on this leaked access token (AT1), uses AT1 and the token rotation endpoint to get a new access token (AT2) to continue maintaining access to the user's account. The legitimate user, unaware of the AT1 leak or the attacker's access, tries to use AT1 and the token rotation API to get a new access token (AT3, in their mind) for themselves. However, since AT1 is being used on the token rotation endpoint twice, the backend detects this reuse and infers that this reuse could be due to a token leak. Because it has no way of knowing if it is the attacker or the legitimate user that is making the request to the token rotation API, in the interest of securing access to the user's account, the latest active token in the token family, AT2, is revoked, thus preventing attacker's access to the user's account.
+
+As a consequence of reuse detection, token rotation must be executed with attention to potential concurrency issues. It is recommended not to call the token rotation API multiple times with the same access token. Otherwise, automatic reuse detection may immediately revoke the entire token family, as a security measure, as described above.
+
+### Manually set an expiration date
+You can use the UI to delete an existing access token and create a new one with a designated expiration date. Make sure you swap the new token in your automation. Expiration dates of existing tokens cannot be modified in the UI, so if you want to set an expiration date that is further out, you'll need to generate a new token.
+
+### Watch your notifications
+Our team has implemented email notifications for expiring personal, group, and project access tokens. These notifications are structured as follows:
+
+   - You get an email notification when your token expires in 30 days.
+   - You get another email when your token expires in seven days.
+   - Another email is sent one day before expiry.
+   - Each individual token triggers its own separate email.
+
+Group owners, maintainers, and administrators will receive these email notifications for project and group access tokens. For personal access tokens, individual users will get the email.
+
+## Service accounts for automation use cases
+For automation use cases that currently use group or project access tokens, we suggest that you look into [service accounts](https://docs.gitlab.com/ee/user/profile/service_accounts.html), available on GitLab Premium and Ultimate tiers. These accounts do not use a licensed seat and are not able to access the GitLab UI using the interactive login. They also have a distinct membership type, making them simple to track. Combined with _optional_ token lifetime limits ([coming soon](https://gitlab.com/gitlab-org/gitlab/-/issues/421420)), this means you could set them to never expire (although we encourage you to still be mindful of security best practices).
+
+## What's next
+The next step is for you to share this information with your teams and determine how this change impacts your own environment. Please follow the links we've provided throughout the blog to make the necessary changes to your project, group, and personal access tokens.

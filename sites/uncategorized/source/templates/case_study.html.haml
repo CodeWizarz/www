@@ -1,0 +1,111 @@
+---
+layout: case_study
+extra_css:
+  - "case-study.css"
+---
+- if case_study.canonical_path
+  - current_page.data.canonical_path = case_study.canonical_path
+  
+- content_for(:title, case_study.title)
+- content_for(:cover_image, case_study.cover_image)
+- content_for(:cover_title, case_study.cover_title)
+- if case_study.cover_description != nil
+  - content_for(:cover_description, case_study.cover_description)
+- customer_logo_class = case_study.customer_logo_css_class ? case_study.customer_logo_css_class : 'brand-logo-wide'
+
+.customer-info-section-wrapper
+  .container.customer-info-section
+    .row
+      .col-md-5.section-content.customer-information
+        %div{ class: customer_logo_class }
+          = image_tag case_study.customer_logo
+        %dl.customer-detail-group
+          %dt industry
+          %dd= case_study.customer_industry
+
+          %dt location
+          %dd= case_study.customer_location
+
+          %dt employees
+          %dd= case_study.customer_employees
+
+      .col-md-7.section-content
+        %dl.customer-detail-group
+          - if case_study.customer_overview != nil
+            %dt overview
+            %dd= case_study.customer_overview
+
+          - if case_study.customer_challenge != nil
+            %dt challenge
+            %dd= case_study.customer_challenge
+
+          - if case_study.customer_solution != nil
+            %dt solution
+            %dd= case_study.customer_solution
+
+          - if case_study.key_benefits != nil
+            %dt benefits
+            %dd.customer-key-benefits
+              %ul.benefits-list.list-unstyled
+                - case_study.key_benefits.each do |benefit|
+                  %li.benefits-list-item
+                    %p.list-content= benefit
+
+  - if case_study.customer_stats != nil
+    .customer-stats-section-spacer
+
+.customer-case-section-wrapper
+  - if case_study.customer_stats != nil
+    .container.customer-stats-section
+      .row.u-relative
+        .customer-case-stats-group
+          - case_study.customer_stats.each do |stat|
+            .customer-case-stat
+              .stat= stat.stat
+              .label= stat.label
+
+    .customer-stats-section-spacer-lower
+
+  .container.customer-case-section
+    .row
+      - if case_study.customer_quote != nil
+        .col-md-5.section-content.customer-quote{ class: "vertical-align-#{case_study.customer_quote.quote_position}" }
+          .quote-wrapper
+            %p.quote-text
+              &ldquo;
+              = case_study.customer_quote.quote_text
+              &rdquo;
+            .quote-author= case_study.customer_quote.customer_name
+            .quote-author-title= case_study.customer_quote.customer_title
+        .col-md-7.section-content.customer-result
+          - case_study.customer_study_content.each do |content_item|
+            = partial "includes/case-study/content-item", locals: { content_item: content_item }
+
+      - else
+        - case_study.customer_study_content.each do |content_item|
+          - if content_item.blockquote != nil
+            .col-md-12.section-content
+              = partial "includes/case-study/content-item", locals: { content_item: content_item }
+          - else
+            .col-md-9.section-content
+              = partial "includes/case-study/content-item", locals: { content_item: content_item }
+      .col-md-9
+        %p{style: 'border-top: 1px solid #dddddd; font-style: italic; color: #999999; margin-top: 20px; padding-top: 20px;'} All information and persons involved in case study are accurate at the time of publication.
+
+
+- if case_study.twitter_text != nil
+  .customer-case-section-wrapper.twitter-section
+    .container.customer-case-section
+      .row
+        .col-md-5
+          = partial "includes/blog/tweet", locals: { text: case_study.twitter_text }
+:css
+  .twitter-block {
+    border: 2px solid #55acee;
+  }
+  .twitter-block .twitter-text {
+    margin-bottom: 20px;
+  }
+  .twitter-section {
+    padding-top: 0;
+  }

@@ -1,0 +1,254 @@
+---
+title: "From user, to advocate, to contributor: my GitLab journey"
+author: Lee Tickett
+author_gitlab: leetickett
+author_twitter: leetickett
+categories: unfiltered
+image_title: '/images/blogimages/lee-tickett-my-gitlab-journey/cover_photo.jpg'
+description: "Three years (as a user and as a contributor) with GitLab."
+tags: CI/CD, community, user stories, workflow, open source, DevOps, collaboration
+cta_button_text:
+cta_button_link:
+guest: false
+ee_cta: false
+install_cta: false
+twitter_text: "Lee Tickett's and Tickett Enterprises GitLab Journey"
+postType: content marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+
+
+I have had a passion for technology since before I can remember. Thirteen years ago I took the plunge, quit my day job, and started an IT development and support company called [Tickett Enterprises Limited](https://www.tickett.net). For the last three years, GitLab has been a part of my journey.
+
+## 3 Years Ago 
+We were (and still are) using a helpdesk system we built ourselves. It does exactly what we need it to do - and any time it doesn’t, we change it. The most important feature of the system is reporting. Specifically, facilitating our monthly billing process; with a click of a button, we generate timesheets and invoices for all of our clients.
+
+Though I was aware of Git (and GitHub), I had not heard of GitLab. We were using SVN in its most basic form (single repository for all projects and no branching), with an integration so all commits would create notes in our helpdesk.
+
+## 2.5 Years Ago
+We decided that SVN was no longer fit for purpose. Our top issues were: 
+* never knowing whether the code in our repository matched what was deployed
+* not being able to work collaboratively on projects
+* feature/knowledge limitations
+* Git was the industry standard 
+
+While most of these issues were due to the way we were using SVN, we were keen to adopt a more popular system. I don’t remember how I found GitLab, but I did, and spun up a local on-prem instance of Community Edition (CE) using separate projects/repositories and basic branching. If you are considering running a local instance, I recommend the [Bitnami appliance/.ova](https://bitnami.com/stack/gitlab).
+
+It took some time to get used to local vs remote and to remember to push as well as commit, but we picked it up pretty quickly.
+
+## 2 Years Ago
+We wanted to use GitLab to help us improve our processes so we:
+* built a little UI for project creation (using the GitLab API). This ensures new projects fit our naming standards, contain our standard template files, have our standard master/test/dev branches, contain the relevant members, and use our webhooks
+* recreated the helpdesk integration we had with SVN (every commit and comment is replicated as a note on our helpdesk)
+* unaware of GitLab EE, we created a custom merge request approval process using webhooks. Our master branch is always protected - a merge request requires 2 approvals from 2 distinct reviewers (one for code and one for functionality)
+
+## 1.5 Years Ago
+A bit late to the party, but finally we set up the GitLab runner to automate our build, spin up our database, execute our unit tests and report test details and code coverage. GitLab CI for .NET was not as well documented as other use cases leading to a lot of trial and error when setting up the runner.
+
+We are using the Windows runner configured to use a standard shell (which I think is no longer supported). We will either be moving to powershell on windows or possibly using docker images. Here’s a sample .gitlab-ci.yml
+
+```yml
+stages:
+  - build
+  - test
+
+variables:
+  CI_DEBUG_TRACE: "false"
+  ASSEMBLY_VERSION: "1.0.4"
+  
+build:
+ stage: build
+ script:
+  - 'C:\Windows\Microsoft.NET\Framework\v4.0.30319\nuget restore'
+  - '"C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\MSBuild\15.0\bin\msbuild" /t:Restore,Clean,ReBuild /t:Database:Publish /p:Configuration=Debug;Platform="Any CPU" /p:SqlPublishProfilePath=Database.publish.xml'
+  - 'ping 192.168.99.99 -n 1 -w 10000 2>nul || type nul>nul'
+ artifacts:
+  paths:
+   - Tests/bin/
+
+test:
+ stage: test
+ script:
+  - 'c:\GitLab-Runner\opencover\OpenCover.Console.exe -returntargetcode:1000 -filter:"+[*]* -[nunit*]* -[*Tests*]*" -register -target:"C:\Program Files (x86)\NUnit.org\nunit-console\nunit3-console.exe" -targetargs:"Tests\Tests.csproj --result=testresult.xml;transform=C:\gitlab-runner\nunit3-junit.xslt"'
+ coverage: '/^Visited Branches .*(\(\d+\.?\d*\))/'
+ dependencies:
+  - build
+ artifacts:
+  reports:
+   junit: testresult.xml
+```
+
+We were building another customization to allow us to search for code across all repositories. Unfortunately, we hit a limitation because the API did not allow searching anything but the default branch.
+
+At this point, while Googling for help getting CI up and running, I learned that GitLab is open-source. So I thought maybe I could extend the API to support searching any branch. This lead to [my first contribution](https://gitlab.com/gitlab-org/gitlab-foss/-/merge_requests/28069).
+
+## 1 Year Ago
+At this point, I was completely new to all of the technologies, techniques, and best practices used by GitLab but found myself participating in my first [GitLab hackathon](https://about.gitlab.com/community/hackathon/). Somehow, I managed to take joint first prize!
+
+My first few contributions were achieved by modifying my production GitLab installation (not ideal). So it was time to get the [GitLab Development Kit (GDK)](https://gitlab.com/gitlab-org/gitlab-development-kit) up and running. This was certainly not without its challenges (many of which I suspect stem from me being in the minority of GitLab contributors running Windows).
+
+I have since contributed to the [GDK project](https://gitlab.com/gitlab-org/gitlab-development-kit) and joined the GDK office hour calls to help shape the way forward and resolve some of the problems and frustrations.
+
+At this point, I was leearning a lot. Not just about the tools and languages but about the best practices and work ethos within the GitLab team. Better yet, I was able to start taking some of these learnings back to the office.
+
+## 0.5 Years Ago
+I attended GitLab Commit - London 2019. This really helped to confirm my suspicions; we are only scraping the surface of GitLab's capabilities.
+
+On a few occasions, I wondered whether GitLab may not be a good fit for my company as I watched huge companies like Porsche and Goldman Sachs present. A [presentation](https://www.youtube.com/watch?v=t0Eh1sq9r5s) by Huss El-Sheikh from startup 9fin helped ease my concerns.
+
+Around this time, I moved from Windows to Ubuntu to make it easier to work with GDK.
+
+I continued to learn a lot from my contributions, feedback, and interactions with the GitLab team, again applying what I could back in the office. Much around the languages/technologies I hadn’t previously worked with (namely ruby, postgres and vue), but also other takeaways such as:
+* when carrying out code reviews ask questions rather than give instructions (“what do you think about x?” is more productive than “change this to y”)
+* GitLab CI is capable of automating a lot of what we currently do by hand (e.g. code review for best practices)
+* always try to add tests when making code changes
+
+I am a firm believer of documenting processes, decisions, and rationale. There’s nothing worse than someone saying “we do it this way” without being able to back that up with reasoning. With that in mind, we implemented Merge Request Templates to ensure our team was consistent in our approach to coding, testing, and releasing.
+
+By now our development team had plenty of experience with GitLab and we were starting to move our support team over. To help our team leads monitor merge requests, we adopted 2 simple departmental labels (`Support`/`Development`) and used our webhook engine to ensure every MR is automatically labelled.
+
+## Today / What’s Next
+In preparation for a transition to .NET core, deprecation of the Windows shell runner and a desire to start testing our frontend (web), I started putting a CI script together using docker and the mcr.microsoft.com/dotnet/core/sdk:latest image. The .gitlab-ci.yml looks like;
+
+```yml
+stages:  
+  - build
+  - test
+
+variables:
+  CI_DEBUG_TRACE: "false"
+  ASSEMBLY_VERSION: "1.0.1"
+
+build:
+ stage: build
+ tags:
+  - docker
+ script:
+  - 'dotnet build'
+
+test:
+ stage: test
+ tags:
+  - docker
+ script:
+  - 'nohup dotnet run --project Web &'
+  - 'apt-get update'
+  - 'apt-get install -y unzip'
+  - 'wget https://chromedriver.storage.googleapis.com/83.0.4103.14/chromedriver_linux64.zip'
+  - 'unzip chromedriver_linux64.zip -d ~/'
+  - 'rm chromedriver_linux64.zip'
+  - 'mv -f ~/chromedriver /usr/local/bin/chromedriver'
+  - 'chown root:root /usr/local/bin/chromedriver'
+  - 'chmod 0755 /usr/local/bin/chromedriver'
+  - 'wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -'
+  - 'sh -c ''echo "deb https://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'''
+  - 'apt-get update'
+  - 'apt-get install -y google-chrome-stable'
+  - 'dotnet test -l:trx Tests/Tests.csproj /p:CollectCoverage=true'
+ coverage: '/Total\s*\|.*\|\s(\d+\.?\d*)%\s*\|.*\|/'
+```
+
+And the tests look something like;
+
+```c#
+    public class UiTests : IDisposable
+    {
+        private readonly Process _webServerProcess;
+        private readonly IWebDriver _driver;
+
+        [Fact]
+        public void ClickNavPrivacyPolicy()
+        {
+            _driver.Navigate()
+                .GoToUrl("http://localhost:5000/");
+
+            var link = _driver.FindElement(By.LinkText("Privacy"));
+            link.Click();
+
+            Assert.Equal("http://localhost:5000/Home/Privacy", _driver.Url);
+        }
+
+        public UiTests()
+        {
+            ChromeOptions chromeOptions = new ChromeOptions();
+            chromeOptions.AddArguments("headless", "no-sandbox");
+            _driver = new ChromeDriver(chromeOptions);
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux)) return;
+
+            _webServerProcess = new Process
+            {
+                StartInfo = {
+                    WorkingDirectory = Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "Web"),
+                    FileName = $"dotnet.exe",
+                    Arguments = " run",
+                    UseShellExecute = true,
+                }
+            };
+            _webServerProcess.Start();
+        }
+
+        private void KillWebServer()
+        {
+            if (_webServerProcess != null && !_webServerProcess.HasExited)
+            {
+                _webServerProcess.Kill();
+            }
+        }
+
+        public void Dispose()
+        {
+            _driver.Dispose();
+            KillWebServer();
+        }
+    }
+```
+
+You can see some conditional code in there which allows Selenium tests to work both locally on our development machines and remotely on our GitLab runner. If you have a better way of achieving this, please leave a comment. I would love to chat and learn!
+
+I also want to start introducing some linting like we see in the GitLab project to enforce rules around code formatting (spaces, carriage returns, indentation, etc.). I have started to look at JetBrains Resharper (R#) command-line but haven’t had enough time to implement it yet. Ideally. I would like to start with just a rule or two and then slowly introduce more, but it looks quite tricky to take this approach. Please let me know if you’ve been able to achieve this!
+
+I would also like to lose our helpdesk and start using GitLab issues, service desk, timelogs, etc. I am working on identifying the gaps and working with the product managers to understand whether it is realistic to fill those gaps within the GitLab product. Alternatively, I will be looking to build some additional “bolt-ons” using webhooks and the API.
+
+While investigating gaps, I stumbled upon the [GitLab-Triage project](https://gitlab.com/gitlab-org/gitlab-triage) and I expect we'll use this to automate various workflows. I managed to help close a few issues and even create a few additional features which would make it work for us by [contributing to the GitLab-Triage project](https://gitlab.com/gitlab-org/gitlab-triage/-/merge_requests?scope=all&utf8=%E2%9C%93&state=merged&author_username=leetickett).
+
+We also added more labels (`needs code review` & `needs functional review`) for our merge request approval process now. We can see where we are and what needs to be done at a glance. We previously relied on an MR checklist that we are deprecating.
+
+![Merge request checklist](/images/blogimages/lee-tickett-my-gitlab-journey/mr_checklist.png)
+
+![Merge requests with labels](/images/blogimages/lee-tickett-my-gitlab-journey/merge_requests_with_labels.png)
+
+## Contributing to GitLab 
+
+I am very proud to have joined the GitLab Core Team. Thanks to everyone who has held my hand and patiently assisted me with contributions. 
+
+With the release of Microsoft Windows Subsystem for Linux v2, I have gone back to running Windows on my laptop with GDK running in Ubuntu on WSL2. This is working brilliantly for me at the moment (the way Visual Studio Code handles things especially is really cool).
+
+I now have 95 [merged merge requests!](https://gitlab.com/dashboard/merge_requests?scope=all&utf8=%E2%9C%93&state=merged&author_username=leetickett) and have been helping several others get started contributing (getting GDK up and running etc). Once this crazy pandemic is over and we can start to socialise again, I would like to try and start some sort of local meetup/group.
+
+I would like to help make it easier to connect GitLab users. I have visions of a mechanism to search for others based:
+* the size of their user base 
+* the languages they are using
+* the feature they are using
+
+At present, we have several tools (Gitter, Issues, Forum etc) but there is a strong reliance on being engaged and stumbling on questions/support requests. I suspect many of us would be happy to have other users reach out directly.
+
+If you need any more information around:
+* getting your development environment/tools setup on Windows 10
+* getting CI working with .NET and SQL Server projects
+* building customisations using GitLab webhooks and API
+
+...or would like to see a demo of anything discussed above, I would be happy to oblige!
+
+I would love to connect with others who are either looking to, or already using GitLab for:
+* .NET projects
+* customer helpdesk 
+* customer billing (using timelogs)
+
+Thanks for reading! Here's a picture of me and the family repping with our GitLab merch!
+
+![The tickett family repping GitLab](/images/blogimages/lee-tickett-my-gitlab-journey/landing_page.png)

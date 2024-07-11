@@ -1,0 +1,502 @@
+---
+title: "Lingo: A Go micro language framework for building Domain Specific Languages"
+author: "Julian Thome"
+author_gitlab: "jthome"
+author_twitter: "gitlab"
+categories: open source
+tags: collaboration, tutorial, languages
+featured: no
+description: "Design, build and integrate your own Domain Specific Language with Lingo."
+image_title: '/images/blogimages/typeset.png'
+twitter_text: "A Go micro language framework for building Domain Specific Languages."
+---
+
+Domain Specific Languages (DSL) are small, focused languages with a narrow
+domain of applicability. DSLs are tailored towards their target domain so that
+domain experts can formalize ideas based on their knowledge and background.
+
+This makes DSLs powerful tools that can be used for the purpose of increasing
+programmer efficiency by being more expressive in their target
+domain, compared to general purpose languages, and by providing concepts to
+reduce the cognitive load on their users.
+
+Consider the problem of summing up the balances of different bank accounts in a
+CSV file. A sample CSV file is provided in the example below where the first
+column contains the name of the account holder and the second column contains
+the account balance.
+
+``` csv
+name, balance
+Lisa, 100.30
+Bert, 241.41
+Maria, 151.13
+```
+
+You could solve the problem of summing up balances by using a general-purpose
+language such as [Ruby](https://www.ruby-lang.org/en/) as in the code snippet
+below. Apart from the fact that the code below is not very robust, it contains
+a lot of boilerplate that is irrelevant to the problem at hand, i.e., summing
+up the account balances.
+
+``` ruby
+#!/usr/bin/env ruby
+
+exit(1) if ARGV.empty? || !File.exist?(ARGV[0])
+
+sum = 0
+File.foreach(ARGV[0]).each_with_index do |line, idx|
+  next if idx == 0
+  sum += Float(line.split(',')[1])
+end
+
+puts sum.round(2)
+```
+
+Below is an example [AWK script](https://en.wikipedia.org/wiki/AWK) that solves
+the same problem. AWK is a DSL that was specifically designed to address
+problems related to text-processing.
+
+``` awk 
+#!/usr/bin/awk -f
+
+BEGIN{FS=","}{sum+=$2}END{print sum}
+```
+
+The Ruby program has a size of 208 characters, whereas the AWK program has a size of 56. The AWK program is roughly 4x smaller than its Ruby
+counterpart. In addition, the AWK implementation is more robust by being less
+prone to glitches that may appear in the CSV file (e.g., empty newlines,
+wrongly formatted data-fields). The significant difference in terms of size
+illustrates that DSLs, by being more focused on solving specific problems, can
+make their users more productive by sparing them the burden to write
+boilerplate code and narrowing the focus of the language on the problem at
+hand.
+
+Some popular DSLs most software developers use on a regular basis include
+[Regular Expressions](https://en.wikipedia.org/wiki/Regular_expression) for
+pattern matching, AWK for text
+transformation or [Standard Query Language](https://en.wikipedia.org/wiki/SQL)
+for interacting with databases.
+
+## Challenges when designing Domain Specific Languages
+
+Prototyping, designing and evolving DSLs is a
+challenging process. In our experience this is an exploratory cycle where you
+constantly prototype ideas, incorporate them into the language, try them out in
+reality, collect feedback and improve the DSL based on the feedback. 
+
+When designing a DSL, there are many components that have to be implemented and
+evolved. At a very high level there are two main components: the language
+lexer/parser and the language processor. The lexer/parser
+is the component that accepts input as per the language definition which is
+usually specified specified by means of a language grammar. The parsing/lexing
+phase produces a syntax tree which is then passed onto the language processor.
+A language processor evaluates the syntax tree. In the example we saw earlier,
+we ran both the Ruby and AWK interpreters providing our scripts and the CSV
+file as input; both interpreters evaluated the scripts and this evaluation
+yielded the sum of all the account balances as a result.
+
+Tools such as parser generators can significantly reduce the effort of
+lexer/parser development by means of code generation. Sophisticated DSL
+frameworks such as [JetBrains MPS](https://www.jetbrains.com/mps/) or
+[Xtext](https://www.eclipse.org/Xtext/) also provide features that help
+implement custom language support in IDEs. However, if present at all, the
+support for building the language processors is usually limited to generating
+placeholders functions or boilerplate code for the language components that
+have to be filled-in by the DSL developer. Moreover, such large and powerful DSL
+frameworks usually have a fairly steep learning curve so that they are probably
+a better fit for more sophisticated DSLs as opposed to small, easily
+embeddable, focused languages, which we refer to as _micro languages_.
+
+In some situations, it may be worth considering working around these problems
+by just relying on standard data exchange formats such as `.toml`, `.yaml` or
+`.json` as a means of configuration. Similar to the parser generators, using
+such a format may relieve some of the burden when it comes to parser
+development effort. However, this approach does not help when it comes to the
+implementation of the actual language processor. In addition, most standard data
+exchange formats are inherently limited to representing data in terms of simple
+concepts (such as lists, dictionaries, strings and numbers). This limitation
+can lead to bloated configuration files quickly as shown in the following
+example.
+
+Imagine the development of a calculator that operates on integers using
+multiplication `*`, addition `+`. When using a data-description language like
+YAML in the example below, you can see that even a small simple term like `1 + 2 * 3 + 5` 
+can be hard to reason about, and by adding more terms the configuration
+file would get bloated quickly.
+
+``` yaml
+term:
+  add: 
+    - 1
+    - times:
+      - 2
+      - 3
+    - 5
+```
+
+This blog post is focused on the design of micro languages. The core idea is to
+provide a simple, extensible language core that can be easily extended with
+custom-types and custom functions; the language can evolve without having
+to touch the parser or the language processor. Instead, the DSL designer can
+just focus on the concepts that ought to be integrated into the DSL by
+implementing interfaces and "hooking" them into the core language
+implementation.
+
+## Lingo: A micro language framework for Go
+
+At GitLab, Go is one of our main programming languages and some of the tools we
+develop required their own, small, embeddable DSLs so that users could properly
+configure and interact with them. 
+
+Initially, we tried to integrate already existing, embeddable and expandable
+language implementations. Our only condition was that they had to be
+embeddable natively into a Go application. We explored several great free and
+open-source (FOSS) projects such as [go-lua](https://github.com/Shopify/go-lua)
+which is Lua VM implemented in Go, [go-yeagi](https://github.com/traefik/yaegi)
+which provides a Go interpreter with which Go can be used as a scripting
+language or [go-zygomys](https://github.com/glycerine/zygomys) which is a LISP
+interpreter written in Go. However, these packages are essentially modules to
+integrate general-purpose languages on top of which a DSL could be built. These modules ended up being fairly complex. In contrast, we wanted to have basic support to design, implement, embed and evolve DSLs natively into a Go
+application that is flexible, small, simple/easy to grasp, evolve and
+adapt.
+
+We were looking for a micro language framework with the properties listed below:
+
+1. Stability: Changes applied to the DSL should neither require any changes to the core lexer/parser implementation nor to the language processor implementation.
+1. Flexibility/Composability: New DSL concepts (data-types, functions) can be integrated via a simple plug-in mechanism.
+1. Simplicity: the language framework should have just
+enough features to provide a foundation that is powerful enough to implement
+and evolve a custom DSL. In addition, the whole implementation of the micro
+language framework should be in pure Go so that it is easily embeddable in Go
+applications.
+
+Since none of the available FOSS tools we looked at was able to
+fulfill all of those requirements, we developed our own micro language framework
+in Go called Lingo which stands for "**L**ISP-based Domain Specific Languages
+(DSLs) **in Go**". Lingo is completely FOSS and available in the [Lingo Git repository](https://gitlab.com/gitlab-org/vulnerability-research/foss/lingo)
+under the free and open source space of the [Vulnerability Research Team](https://about.gitlab.com/handbook/engineering/development/sec/secure/vulnerability-research/).
+
+[Lingo](https://gitlab.com/gitlab-org/vulnerability-research/foss/lingo)
+provides a foundation for building DSLs based on Symbolic Expressions (S-expressions), i.e.,
+expressions provided in the form of nested lists `(f ...)` where `f` can be
+considered as the placeholder that represents the function symbol. Using this format,
+the mathematical term we saw earlier could be written as S-expression `(+ 1 (* 2 3) 5)`. 
+
+S-expressions are versatile and easy to process due to their uniformity. In
+addition, they can be used to represent both code and data in a consistent
+manner.
+
+With regards to the Stability, Flexibility and Composability properties, 
+[Lingo](https://gitlab.com/gitlab-org/vulnerability-research/foss/lingo)
+provides a simple plug-in mechanism to add new functions as well as types
+without having to touch the core parser or language processor. From the
+perspective of the S-expression parser, the actual function symbol is
+essentially irrelevant with regards to the S-expression parsing. The language processor is just evaluating S-expressions and dispatching the execution to the interface implementations. These implementations are provided by the plug-ins based on the function symbol.
+
+With regards to Simplicity, the Lingo code base is roughly 3K lines of pure Go code including the lexer/parser, an
+engine for code transformation, and the interpreter/evaluator. The small size
+should make it possible to understand the entirety of the implementation.  
+
+Readers that are interested in the technical details of
+Lingo itself can have a look at the
+[README.md](https://gitlab.com/gitlab-org/vulnerability-research/foss/lingo/-/blob/main/README.md)
+where the implementation details and the used theoretical foundations are explained.
+This blog post focuses on how
+Lingo can be used to build a DSL from scratch.
+
+## Using Lingo to design a data generation engine
+
+In this example we are designing a data-generation engine in Go using
+Lingo as a foundation. Our data generation engine may be used to generate structured input
+data for fuzzing or other application contexts. This example illustrates how
+you can use Lingo to create a language and the corresponding language
+processor. Going back to the example from the beginning, let us assume we would
+like to generate CSV files in the format we saw at the beginning covering
+account balances.
+
+``` csv
+name, balance
+Lisa, 100.30
+Bert, 241.41
+Maria, 151.13
+```
+
+Our language includes the following functions:
+
+1. `(oneof s0, s1, ..., sN)`: randomly returns one of the parameter strings `sX` (0 <= X <= N).
+1. `(join e0, e1, ..., eN)`: joins all argument expressions and concatenates their string representation `eX` (0 <= X <= N).
+1. `(genfloat min max)`: generates a random float number X (0 <= X <= N) and returns it.
+1. `(times num exp)`: repeats the pattern generated by exp num times.
+
+For this example we are using
+Lingo to build the language and the language processor to automatically generate CSV
+output which we are going to feed back into the Ruby and AWK programs we saw in
+the introduction in order to perform a stress test on them. 
+
+We refer to our new language/tool as _Random Text Generator_ (RTG) `.rtg`.
+Below is a sample script `script.rtg` we'd like our program to digest in order
+to randomly generate CSV files. As you can see in the example below, we are
+joining sub-strings starting with the CSV header `name, balance`
+after which we randomly generate 10 lines of names and balance amounts. In
+between, we also randomly generate some empty lines.
+
+```
+(join 
+  (join "name" "," "balance" "\n")
+  (times 10 
+    '(join 
+      (oneof 
+        "Jim" 
+        "Max" 
+        "Simone" 
+        "Carl" 
+        "Paul" 
+        "Karl" 
+        "Ines" 
+        "Jane" 
+        "Geralt" 
+        "Dandelion" 
+        "Triss" 
+        "Yennefer" 
+        "Ciri") 
+      "," 
+      (genfloat 0 10000) 
+      "\n" 
+      (oneof "" "\n"))))
+```
+
+Our engine takes the script above written in RTG and generates random CSV
+content. Below is an example CSV file generated from this script.
+
+``` csv
+name,balance
+Carl,25.648205
+Ines,11758.551
+
+Ciri,13300.558
+...
+```
+
+For the remainder of this section, we explore how we can implement a
+data generation engine based on Lingo. The implementation of RTG requires
+the two main ingredients: (1) a float data type and a result object to integrate a float
+representation and (2) implementations for the `times`, `oneof`, `genfloat` and
+`join` functions.
+
+### Introducing a float data type and result objects
+
+Lingo differentiates between data types and result objects. Data types indicate how data is
+meant to be used and result objects are used to pass intermediate results
+between functions where every result has a unique type. In the code snippet
+below, we introduce a new `float` data type. The comments in the code snippet below
+provide more details.
+
+``` go 
+// introduce float type
+var TypeFloatId, TypeFloat = types.NewTypeWithProperties("float", types.Primitive)
+// introduce token float type for parser
+var TokFloat = parser.HookToken(parser.TokLabel(TypeFloat.Name))
+
+// recognize (true) as boolean
+type FloatMatcher struct{}
+
+// this function is used by the parser to "recognize" floats as such
+func (i FloatMatcher) Match(s string) parser.TokLabel {
+  if !strings.Contains(s, ".") {
+    return parser.TokUnknown
+  }
+
+  if _, err := strconv.ParseFloat(s, 32); err == nil {
+	return TokFloat.Label
+  }
+
+  return parser.TokUnknown
+}
+func (i FloatMatcher) Id() string {
+  return string(TokFloat.Label)
+}
+
+func init() {
+  // hook matcher into the parser
+  parser.HookMatcher(FloatMatcher{})
+}
+```
+
+In addition, we also require a result object which we can use to pass around
+float values. This is an interface implementation where most of the functions names
+are self-explanatory. The important bit is the `Type` function
+that returns our custom `float` type we introduced in the last snippet.
+
+``` go
+type FloatResult struct{ Val float32 }
+// deep copy
+func (r FloatResult) DeepCopy() eval.Result { return NewFloatResult(r.Val) }
+// returns the string representation of this result type
+func (r FloatResult) String() string {
+  return strconv.FormatFloat(float64(r.Val), 'f', -1, 32)
+}
+// returns the data type for this result type
+func (r FloatResult) Type() types.Type   { return custtypes.TypeFloat }
+// call-back that is cleaned up when the environment is cleaned up
+func (r FloatResult) Tidy()              {}
+
+func (r FloatResult) Value() interface{} { return r.Val }
+func (r *FloatResult) SetValue(value interface{}) error {
+  boolVal, ok := value.(float32)
+  if !ok {
+    return fmt.Errorf("invalid type for Bool")
+  }
+  r.Val = boolVal
+  return nil
+}
+func NewFloatResult(value float32) *FloatResult {
+  return &FloatResult{
+    value,
+  }
+}
+```
+
+### Implementing the DSL functions
+
+Similar to the data type and return object, implementation of a DSL function is
+as simple as implementing an interface. In the example below we implement the
+`genfloat` function as an example. The most important parts are the `Symbol()`,
+`Validate()` and `Evaluate()` functions. The `Symbol()` function returns the
+function symbol which is `genfloat` in this particular case. 
+
+Both, the `Validate()` and `Evaluate()` functions take the environment `env`
+and the parameter Stack `stack` as the parameter. The environment is used to store
+intermediate results which is useful when declaring/defining variables. The `stack` includes the input parameters of the function. For
+`(genfloat 0 10000)`, the stack would consist out of two `IntResult` parameters
+`0` and `10000` where `IntResult` is a standard result object already provided by the
+core implementation of Lingo. `Validate()` makes sure that the parameter can be
+digested by the function at hand, whereas `Evaluate()` actually invokes the
+function. In this particular case, we are generating a float value within the
+specified range and return the corresponding `FloatResult`.
+
+``` go
+type FunctionGenfloat struct{}
+
+// returns a description of this function
+func (f *FunctionGenfloat) Desc() (string, string) {
+  return fmt.Sprintf("%s%s %s%s",
+    string(parser.TokLeftPar),
+    f.Symbol(),
+	"min max",
+	string(parser.TokRightPar)),
+	"generate float in rang [min max]"
+}
+
+// this is the symbol f of the function (f ...)
+func (f *FunctionGenfloat) Symbol() parser.TokLabel {
+  return parser.TokLabel("genfloat")
+}
+
+// validates the parameters of this function which are passed in
+func (f *FunctionGenfloat) Validate(env *eval.Environment, stack *eval.StackFrame) error {
+  if stack.Size() != 2 {
+    return eval.WrongNumberOfArgs(f.Symbol(), stack.Size(), 2)
+  }
+
+  for idx, item := range stack.Items() {
+    if item.Type() != types.TypeInt {
+	  return eval.WrongTypeOfArg(f.Symbol(), idx+1, item)
+	}
+  }
+  return nil
+}
+
+// evaluates the function and returns the result
+func (f *FunctionGenfloat) Evaluate(env *eval.Environment, stack *eval.StackFrame) (eval.Result, error) {
+  var result float32
+  rand.Seed(time.Now().UnixNano())
+  for !stack.Empty() {
+    max := stack.Pop().(*eval.IntResult)
+    min := stack.Pop().(*eval.IntResult)
+
+	minval := float32(min.Val)
+	maxval := float32(max.Val)
+
+	result = minval + (rand.Float32() * (maxval - minval))
+  }
+
+  return custresults.NewFloatResult(result), nil
+}
+
+func NewFunctionGenfloat() (eval.Function, error) {
+  fun := &FunctionGenfloat{}
+  parser.HookToken(fun.Symbol())
+  return fun, nil
+}
+```
+
+### Putting it all together
+
+After implementing all the functions, we only have to register/integrate them
+(`eval.HookFunction(...)`) so that Lingo properly resolves them when processing
+the program. In the example below, we are registering all of the custom functions
+we implemented, i.e., `times`, `oneof`, `join`, `genfloat`. The `main()`
+function in the example below includes the code required to evaluate our script
+`script.rtg`.
+
+``` go
+// register function
+func register(fn eval.Function, err error) {
+  if err != nil {
+    log.Fatalf("failed to create %s function %s:", fn.Symbol(), err.Error())
+  }
+  err = eval.HookFunction(fn)
+  if err != nil {
+    log.Fatalf("failed to hook bool function %s:", err.Error())
+  }
+}
+
+func main() {
+  // register custom functions
+  register(functions.NewFunctionTimes())
+  register(functions.NewFunctionOneof())
+  register(functions.NewFunctionJoin())
+  register(functions.NewFunctionGenfloat())
+  register(functions.NewFunctionFloat())
+  if len(os.Args) <= 1 {
+    fmt.Println("No script provided")
+    os.Exit(1)
+  }
+  // evaluate script
+  result, err := eval.RunScriptPath(os.Args[1])
+  if err != nil {
+    fmt.Println(err.Error())
+    os.Exit(1)
+  }
+
+  // print output
+  fmt.Printf(strings.ReplaceAll(result.String(), "\\n", "\n"))
+
+  os.Exit(0)
+}
+```
+
+The source code for RTG is available
+[here](https://gitlab.com/julianthome/lingo-example). You can find information
+about how to build and run the tool in the
+[README.md](https://gitlab.com/julianthome/lingo-example/-/blob/main/README.md).
+
+With approx. 300 lines of Go code, we have successfully designed a language and
+implemented a language processor. We can now use RTG to test the robustness of
+the Ruby (`computebalance.rb`) and AWK scripts (`computebalance.awk`) we used
+at the beginning to sum up account balances. 
+
+``` bash
+timeout 10 watch -e './rtg script.rtg > out.csv && ./computebalance.awk out.csv'
+timeout 10 watch -e './rtg script.rtg > out.csv && ./computebalance.rb out.csv'
+```
+
+The experiment above shows that the files generated by means of RTG can be
+properly digested by the AWK script which is much more robust since it can cope
+with the all generated CSV files. In contrast, executing of the Ruby script
+results in errors because it cannot properly cope with newlines as they appear
+in the CSV file.
+
+Cover image by [Charles Deluvio](https://unsplash.com/@kristianstrand) on [Unsplash](https://unsplash.com/photos/p8gzCnZf39k)
+{: .note}
+

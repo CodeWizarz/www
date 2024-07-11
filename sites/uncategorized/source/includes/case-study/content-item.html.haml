@@ -1,0 +1,25 @@
+.customer-case-item
+  - if content_item.title != nil || content_item.subtitle != nil
+    %header.section-header
+      - if content_item.title != nil
+        %h3.section-title= content_item.title
+      - if content_item.subtitle != nil
+        %h4.section-subtitle= content_item.subtitle
+
+  - if content_item.content != nil 
+    - content_item.content.each do |content_para|
+      .contents= kramdown(content_para)
+
+  - if content_item.content_cms != nil 
+    .contents
+      = kramdown(content_item.content_cms)    
+
+  - if content_item.blockquote != nil
+    %blockquote
+      .quote-body
+        = surround '“', '”' do
+          = content_item.blockquote
+      - if content_item.attribution != nil
+        .quote-attribution= content_item.attribution
+      - if content_item.attribution_title != nil
+        .quote-attribution-title= content_item.attribution_title

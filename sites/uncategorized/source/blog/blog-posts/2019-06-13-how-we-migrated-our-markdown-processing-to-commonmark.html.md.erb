@@ -1,0 +1,73 @@
+---
+title: "How we migrated to CommonMark"
+author: Brett Walker
+author_gitlab: digitalmoksha
+author_twitter: gitlab
+categories: engineering
+image_title: "/images/blogimages/markdown-tutorial-cover.png"
+description: "A senior backend engineer shares how (and why) we migrated our Markdown processing from RedCarpet to CommonMark."
+tags: collaboration
+ee_cta: false
+postType: content marketing
+twitter_text: "How we migrated to #CommonMark"
+---
+
+[Markdown](https://daringfireball.net/projects/markdown/) was originally created by John Gruber as a way of writing readable plain text that can be easily converted into HTML or XHTML. Over the years it has become widely adopted for writing online content, whether it's a blog post, discussion threads, documentation, and even books.
+
+### Why we moved to CommonMark
+
+Various "flavors" of Markdown have been created, each with their own extensions and idiosyncrasies. [GitHub Flavored Markdown](https://github.github.com/gfm/) is one of the most widely used and adopted set of extensions (such as task lists). With all the flavors behaving a little differently, it has become increasingly difficult to write Markdown content and have it [properly rendered everywhere](https://babelmark.github.io).
+
+[GitLab uses Markdown extensively](https://docs.gitlab.com/ee/user/markdown.html) – almost all user-generated content is written in it, from issue and merge request descriptions, to comments and discussions, wiki pages, etc.
+
+The goal of [CommonMark](https://commonmark.org) is to create "a strongly defined, highly compatible specification of Markdown":
+
+> We propose a **standard, unambiguous syntax specification for Markdown**, along with a **suite of comprehensive tests** to validate Markdown implementations against this specification. We believe this is necessary, even essential, for the future of Markdown.
+
+By adopting CommonMark as standard, we move closer to having Markdown files that are consistently rendered across applications. Ideally, Markdown content should be able to be rendered the same on GitHub, GitLab, or any other Markdown-aware application.
+
+Users have also opened numerous issues about our Markdown not working as they expected. CommonMark solves most of these problems, and therefore gives our users a more consistent and usable experience.
+
+Many platforms have also migrated to CommonMark, including [GitHub](https://github.com) and [Discourse](https://discourse.org).
+
+### Phases of migration
+
+We rolled out the migration in phases, wanting to make it as painless as possible. We achieved this with the gracious help of [@blackst0ne](https://gitlab.com/blackst0ne) who started the effort.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+#### Phase 1: Only new content
+
+In the first phase ([GitLab 11.1](/releases/2018/07/22/gitlab-11-1-released/)), we only allowed CommonMark to be used in newly created content, such as issue and merge request descriptions, comments, etc. Any older content, even if edited, would continue to be rendered using RedCarpet.
+
+Since we cache rendered Markdown for performance, we keep a `cached_markdown_version` value in our database. Using this, we were able to determine whether the content should be rendered with CommonMark or not. As the largest version number at the time was 3, we designated version 10 as being the start of any CommonMark cached content. Anything less would be considered RedCarpet markdown.
+
+Additionally we did not use CommonMark for repository and wiki files.  We wanted a [minimal viable change](/handbook/values/#minimal-viable-change-mvc) to not only test the waters but minimize any initial problems.
+
+#### Phase 2: Repository and wiki files
+
+The next step ([GitLab 11.3](/releases/2018/09/22/gitlab-11-3-released/)) was to allow repository and wiki files to be rendered with CommonMark. This was a bigger change in the sense that existing content could potentially look different.
+
+In practice, RedCarpet and CommonMark are very similar, as would be expected, and are in general compatible. There are a few instances where the syntax is different, such as the indentation needed for bulleted lists inside a numbered list, or the use of superscripts, which CommonMark does not support. For most documents, no change is needed.
+
+However we also knew that we couldn't touch user files or do any sort of migration. Instead, we created a [small tool](https://gitlab.com/digitalmoksha/diff_redcarpet_cmark) that can generate the changes necessary for files to be converted. This is done by rendering into HTML using RedCarpet, and then generating CommonMark from it using [Pandoc](https://pandoc.org).
+
+#### Phase 3: CommonMark throughout
+
+The final phase was to remove RedCarpet completely. By this time, CommonMark had been in use for several months – only older content was still being rendered with RedCarpet. However, we were accumulating technical debt by supporting both methods – new functionality or security fixes had to consider both renderers.
+
+With RedCarpet removed, we now display older content with CommonMark. Differences are small and only affect a small percentage of the overall content, and the possibility of looking at older issues or merge requests decreases with time.
+
+#### Improvements upstream
+
+There were a couple of issues we ran into during the implementation where we were able to drive some changes to the upstream libraries.
+
+The first is that RedCarpet supports using `~~` to indicate using strikethrough. We use [cmark-gfm](https://github.com/github/cmark-gfm) for rendering, giving us both CommonMark and common GitHub Flavored Markdown extensions. And although it supports using any number of tildes for strikethrough, we wanted to make the transition a little easier by [only supporting double tildes](https://github.com/github/cmark-gfm/issues/71). A new option, `CMARK_OPT_STRIKETHROUGH_DOUBLE_TILDE`, was added to [ gjtorikian/commonmarker](https://github.com/gjtorikian/commonmarker/commit/1a973ba872e50b22ee53652ffa12cdfe2fe90155), allowing us to turn on support for double-tilde strikethroughs.
+
+Second, we found a bug in [gjtorikian/commonmarker](https://github.com/gjtorikian/commonmarker/issues/56), where a `<tbody>` wasn't getting rendered. This was quickly fixed.
+
+Many thanks to [@kivikakk](https://github.com/kivikakk) and [@gjtorikian](https://github.com/gjtorikian) for their help with these issues.
+
+### Conclusion
+
+The transition took several months, but we're happy to have moved our Markdown processing to the next level. And should you run into the few problematic edge cases, [diff_redcarpet_cmark](https://gitlab.com/digitalmoksha/diff_redcarpet_cmark) should be able to help.

@@ -1,0 +1,68 @@
+---
+title: "Managing multiple product categories in GitLab"
+author: Gabe Weaver
+quotes: "Gabe Weaver"
+author_gitlab: gweaver
+author_twitter: gabeweaver
+categories: company
+image_title: '/images/blogimages/filing-cabinet.jpg'
+description: "Exploring issue mangement options for product teams that are all contributing to a single repository."
+tags: demo, workflow
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+featured: no
+postType: content marketing
+merch_banner: merch_one
+---
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2019-12-30.
+{: .alert .alert-info .note}
+
+In a [recent tweet](https://twitter.com/mrguillaum/status/1202530376415088641), a member of the wider GitLab community asked how to set up GitLab so multiple product teams, each with their own unique workflows, could contribute effectively to a single repository. Let's explore some options.
+
+## GitLab's approach
+
+Given that GitLab is growing very quickly, we've had to put a lot of thought into organizational structure and mapping to create a well structured workflow within GitLab. The entirety of the product surface area is comprised of [seven distinct product sections](/handbook/product/categories/). Each section consists of several [stages](/handbook/product/categories/#hierarchy), and each stage contains several categories. Our cross-functional product teams are called groups and the groups typically own a handful of categories within a stage. For example, [I'm the senior product manager for the Project Management group](/company/team/#gweaver), which is responsible for the [issue tracking](https://docs.gitlab.com/ee/user/project/issues/), [Kanban boards](https://docs.gitlab.com/ee/user/project/issues/index.html#issue-boards), and [time tracking](https://docs.gitlab.com/ee/user/project/time_tracking.html#time-tracking) categories. There are two other groups within the Plan stage.
+
+While each product team can technically have their own workflow, we've deliberately tried to standardize across teams. We accomplish this primarily through leveraging group level issue boards and labels. I've created a [demo group](https://gitlab.com/tech-marketing/demos/gitlab-agile-demo/demo-group/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach) where you can see the our basic approach setup directly within GitLab. The first step to get up and running is to configure the labels. Within our top level group, we've created specific label sets to help us organize our issues, MRs, and issue boards.
+
+### Labels for managing ownership and surface area:
+
+- `stage::name` denotes which issues belong to a given stage. In the demo, I created the `stage::plan` label. This is especially useful for filtering issue boards. By using the [scoped label](https://docs.gitlab.com/ee/user/project/labels.html#scoped-labels) syntax, we get mutually exclusive labels so an issue or MR can only ever be assigned to a single stage.
+- `group::name` denotes which issues belong to a given cross-functional product team. In the demo, I created `group::project management`, `group::portofolio management`, and `group::certify`, which are the actual groups within GitLab's Plan stage. Again, the use of scoped labels assures mutual exclusivity.
+- `category::name` denotes which issues belong to a given category within a stage. In the demo, I created `category::epics`, `category::issue boards`, `category::issue tracking`, `category::requirements management`, `category::roadmaps`, and `category::service desk`, which are the main categories within the Plan stage.
+
+### Labels for tracking workflow and issue types:
+
+- `type::name` denotes the type of issue. In the demo, I've created `type::debt`, `type::feature`, and `type::defect`. Given an issue can only ever be one type, the use of the scoped label syntax is best.
+- `workflow::state` denotes which workflow state an issue is in. In the demo, I've created `workflow::validation backlog`, `workflow::problem validation`, `workflow::solution validation`, `workflow::planning breakdown`, `workflow::scheduling`, `workflow::ready for dev`, `workflow::in dev`, `workflow::review`, and `workflow::verification`. You can design your workflow however you want, but it is helpful to have a [discussion](https://gitlab.com/gitlab-org/plan/issues/34) with your team to clarify transitions from one workflow state to another.
+
+With our labels in place, we can now spin up some group level issue boards for the different product teams. The [Project Management team's issue board](https://gitlab.com/groups/tech-marketing/demos/gitlab-agile-demo/demo-group/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach/-/boards/1438121?&label_name[]=group%3A%3Aproject%20management&label_name[]=stage%3Aplan) uses a common naming convention and is scoped to only include issues that contain the `group::project management` and `stage::plan` labels. The lists are set up according to the `workflow::*` labels we defined earlier. The [Portfolio Management](https://gitlab.com/groups/tech-marketing/demos/gitlab-agile-demo/demo-group/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach/-/boards/1438186?&label_name[]=group%3A%3Aportfolio%20management&label_name[]=stage%3Aplan) and [Certify](https://gitlab.com/groups/tech-marketing/demos/gitlab-agile-demo/demo-group/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach/-/boards/1438188?&label_name[]=group%3A%3Acertify&label_name[]=stage%3Aplan) teams use a similar structure. The benefit of standardizing on a workflow is that it allows you to easily move from one team to the next and understand what's going on, as well as create rollup issue boards that cut across many teams. In the demo, I created a [stage level issue board](https://gitlab.com/groups/tech-marketing/demos/gitlab-agile-demo/demo-group/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach/-/boards/1438190?&label_name[]=stage%3Aplan) for Plan. All of the issues belong to the same project that contains the single repository where all of the product teams contribute.
+
+The last thing to cover is using milestones to align everyone around a shared release cadence. In the demo, I created [two group milestones](https://gitlab.com/groups/tech-marketing/demos/gitlab-agile-demo/demo-group/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach/-/milestones) that all of the issues map to. This allows you to see progress at a high level as well as a breakdown of issue status by label type. We're currently working on allowing an issue to be associated to [multiple milestones](https://gitlab.com/gitlab-org/gitlab/issues/5135), enabling milestones to have [types](https://gitlab.com/gitlab-org/gitlab/issues/35290), and adding [burnup charts](https://gitlab.com/gitlab-org/gitlab/issues/6903) to milestones. Once these launch, teams will have even more flexibility to create shared milestones as well as team-specific milestones.
+
+## Other options
+
+There are a few less desirable ways to setup GitLab to help coordinate multiple product teams:
+
+### The project approach
+
+With [the project approach](https://gitlab.com/examples-for-configuring-gitlab-for-multiple-product-teams/project-approach), you can create a project for each individual team and disable the repo. Then create a shared repo where all the merge requests go. Each product team would then have its own project-level milestones, issue boards, and issues, but could still nicely tie into the shared repository. Here's an [example issue and MR](https://gitlab.com/examples-for-configuring-gitlab-for-multiple-product-teams/project-approach/portfolio-management-team/issues/1) demonstrating how this works. The downside of this approach is that you lose the "Create Merge Request" button that issues will have if the issue and repo are within the same project. The "Create Merge Request" button allows you to quickly bootstrap your work by [spinning up a branch and WIP MR](https://gitlab.com/examples-for-configuring-gitlab-for-multiple-product-teams/gitlab-approach/shared-project/merge_requests/1). You also lose the ability to accurately track [cycle analytics](https://docs.gitlab.com/ee/user/analytics/value_stream_analytics.html) out-of-the-box because it is currently based on project level data and not group level data.
+
+### Single issue tracker project
+
+I've seen some teams use a [single issue tracker project](https://gitlab.com/examples-for-configuring-gitlab-for-multiple-product-teams/multiple-repos) with multiple repositories within the group. They use a similar labeling system described in GitLab's approach, but separate the concerns of code management from issue management. While this works, it has the same downsides as the project approach.
+
+## General best practices & conventions
+
+To sum things up, there are some generally good practices to follow when setting up your organizational structure within GitLab:
+
+- Centralize label management within the top level group. This helps avoid label duplication and keeps all teams on the same page.
+- Manage issues via issue boards from the group level and keep issues within the same project as their repository to get the most benefit from GitLab's capabilities.
+- Create issue boards for different activities – use milestone lists for a release planning board, use scoped workflow labels for a sprint board, etc.
+- Create shared milestones within the top-level group. This allows them to cascade throughout all sub-groups and projects.
+- If you use epics, a maximum of three layers of nesting is recommended to avoid confusion and unneccessary complexity.
+- Use [GitLab triage](https://gitlab.com/gitlab-org/gitlab-triage) to create policies to help automate issue management.
+
+If you want to talk shop or bounce around ideas, feel free to reach out via email – gweaver at gitlab dot com.
+
+Cover image by [Maksym Kaharlytskyi](https://unsplash.com/@qwitka) on [Unsplash](https://unsplash.com/photos/Q9y3LRuuxmg) {: .note}

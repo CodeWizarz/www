@@ -1,0 +1,29 @@
+---
+layout: default
+title: Blog posts by tag
+description: "Take a look at all blog posts covering a range of topics such as DevOps, open source, security, remote work and much more."
+canonical_path: "/blog/tags.html"
+blog: blog
+---
+
+.blog.archives
+  .wrapper
+    = partial "includes/newsletter-signup.html"
+    .section
+      %h2 Tags
+      %ul.tag-index-list.list-unstyled
+        - blog.tags.sort.each do |tag, articles|
+          %li
+            = link_to "##{tag.gsub(/\s+/, '-')}" do
+              = tag
+              %span (#{articles.count})
+      - blog.tags.sort.each do |tag, articles|
+        %h3{ id: tag.gsub(/\s+/, '-') } Posts tagged ‘#{tag}’
+        %ul.article-list.list-unstyled
+          - articles.sort_by(&:date).reverse.each do |post|
+            %li
+              - if post.date
+                %time
+                  = post.date.to_time.strftime '%b %e, %Y'
+              = link_to post.url do
+                = post.title

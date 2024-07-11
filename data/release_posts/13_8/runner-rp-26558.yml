@@ -1,0 +1,13 @@
+features:
+  secondary:
+    - name: "Configure multiple image pull policies for Docker executor"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/runner/executors/docker.html#using-multiple-pull-policies'
+      image_url: '/images/13_8/runner-docker-pull-policy.png'
+      reporter: deastman
+      stage: verify
+      categories:
+        - 'GitLab Runner'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-runner/-/issues/26558'
+      description: |
+        When your CI jobs are retrieving a container image from a container registry, a lost network connection can result in hours of lost development time and can negatively impact time-sensitive product deployments. To address this resiliency problem, the GitLab Runner Docker executor now supports the use of multiple values for the `pull_policy` configuration, which is defined in the GitLab Runner `config.toml` file. You can use these values, or stacked image pull policies, to configure combinations of pull policies and mitigate the impact caused by lost connectivity. For example, if you configure `pull_policy =["always", "if-not-present"]`, the pull policy will `always` pull the image. However, if the target container registry is not available, the GitLab Runner Docker executor will fall back and use the `if-not-present` policy, which means a local copy of the image will be used for that pipeline job.

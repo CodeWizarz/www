@@ -1,0 +1,150 @@
+---
+title: "How to trigger multiple pipelines using GitLab CI/CD"
+author: Itzik Gan Baruch
+author_gitlab: iganbaruch
+author_twitter: itzikgb
+categories: engineering
+image_title: '/images/blogimages/pipeline.jpg'
+description: "Discover how to trigger and visualize pipelines when you set up GitLab CI/CD across multiple projects."
+tags: CI/CD, DevOps, features, testing, workflow
+merch_banner: merch_two
+merch_sidebar: merch_two
+twitter_text: "Use @gitlab CI/CD to trigger and visualize pipelines across multiple projects"
+postType: content marketing
+ee_cta: false
+related_posts:
+  - "/blog/2020/12/17/gitlab-for-cicd-agile-gitops-cloudnative/"
+  - "/blog/2019/09/26/building-a-cicd-pipeline-in-20-mins/"
+  - "/blog/2018/10/24/setting-up-gitlab-ci-for-android-projects/"
+---
+
+[Continuous integration (CI)](/features/continuous-integration/) is the practice of [automating code building and testing](/topics/ci-cd/) before it is
+merged into the master or default branch. This allows developers to merge code early and frequently, while
+mitigating the risk of introducing new bugs into the master source code repository.
+
+While CI verifies that new code won't break when integrated with other code in the same repo, having
+all tests pass on that repo is only the first step. After running CI on the code, it is important to
+deploy and run tests in a live environment. Moving from [CI to continuous delivery and deployment (CD)](/features/continuous-integration/)
+is [the next step of DevOps maturity](/topics/devops/). Deploying and then testing again allows code in one project
+to be tested together with other components and services which may be managed in other projects.
+
+## Why do I need to verify that my code works with other components?
+
+A good example could be a
+microservices architecture. Usually, different [microservices](/topics/microservices/) are managed in
+different [projects](https://docs.gitlab.com/ee/user/project/) – each microservice has its own
+repository and own pipeline. It's also very common for different teams to be
+responsible for different microservices and their pipeline configurations. As a developer you will
+want to confirm that your code changes don't break functionality of the dependent microservices.
+Therefore, you will want to execute tests on those microservices in addition to your project tests.
+
+## The cross-project pipeline
+
+When running your [project pipeline](/topics/ci-cd/cicd-pipeline/), you also want to trigger cross-project or multi-project pipelines,
+which will eventually deploy and test the latest version of all dependent microservices. To
+achieve this goal you need an easy, flexible and convenient way to trigger other
+pipelines as part of your project CI. GitLab CI/CD offers an easy way to run a cross-project
+pipeline by simply adding a pipeline trigger job in the CI configuration file.
+
+## GitLab CI/CD configuration file
+
+In GitLab CI/CD, pipelines, and their component jobs and stages, are defined in
+the [`.gitlab-ci.yml`](https://docs.gitlab.com/ee/ci/yaml/) file for each project. The
+file is part of the project repository. It is fully versioned and developers can edit it with any
+common IDE of their choice. They do not have to ask the system admin or DevOps team to make
+changes in the pipeline configuration as it is self-service. The `.gitlab-ci.yml` file defines the structure
+and order of the pipelines and determines what to execute
+using [GitLab Runner](https://docs.gitlab.com/runner/) (the agent that runs the jobs), and what
+decisions to make when specific conditions are encountered, like when a process succeeds or fails.
+
+## Add a cross-project pipeline triggering job
+
+Since GitLab 11.8, GitLab provides a new CI/CD configuration syntax for triggering cross-project
+pipelines found in the [pipeline configuration file](https://docs.gitlab.com/ee/ci/yaml/).
+The following code illustrates configuring a bridge job to trigger a downstream pipeline:
+
+```
+//job1 is a job in the upstream project
+deploy:
+	stage: Deploy
+	script: this is my script
+
+//job2 is a bridge job in the upstream project which triggers cross-project pipeline
+Android:
+	stage: Trigger-cross-projects
+            trigger: mobile/android
+```
+
+In the example above, as soon as the deploy job succeeds in the deploy stage, the Android
+bridge job is going to be started. The initial status of this job will be pending. GitLab will
+create a downstream pipeline in the mobile/android project and, as soon as the pipeline gets created,
+the Android job will succeed. In this case mobile/android is a full path to that project.
+
+The user who created the upstream pipeline needs to have access rights to the downstream
+project (mobile/android in this case). If a downstream project cannot be found, or a user does not
+have access rights to create a pipeline there, the Android job will be marked as failed.
+
+## Browse from upstream pipeline graphs to downstream
+
+GitLab CI/CD makes it possible to visualize the pipeline configuration. In the below illustration, the
+build, test, and deploy stages are parts of the upstream project. Once the deploy job succeeds, four
+cross-projects will be triggered in parallel and you will be able to browse to them by clicking on
+one of the downstream jobs.
+
+![Build, test and deploy stages](/images/blogimages/Cross-proj-img1.png){: .shadow.medium.center}
+
+In the below illustration the Service – Finance downstream pipeline is visible. We can now scroll
+left to the upstream pipeline, scroll right back to the downstream pipeline or select another
+downstream pipeline.
+
+![Service – Finance pipeline](/images/blogimages/Cross-proj-img2.png){: .shadow.medium.center}
+
+## Specifying a downstream pipeline branch
+
+It is possible to specify a branch name that a downstream pipeline will use:
+
+```
+trigger:
+     project: mobile/android
+     branch: stable-11-2
+```
+
+Use a project keyword to specify the full path to a downstream project. Use a branch keyword to
+specify a branch name. GitLab will use a commit that is currently on the HEAD of the branch
+when creating a downstream pipeline.
+
+## Passing variables to a downstream pipeline
+
+Sometimes you might want to pass variables to a downstream pipeline. You can do that using
+the variables keyword, just like you would when defining a regular job.
+
+```
+Android:
+           variable:
+	     ENVIRONMENT: ‘This is the variable value for the downstream pipeline’
+           stage: Trigger-cross-projects
+           trigger: mobile/android
+```
+The ENVIRONMENT variable will be passed to every job defined in a downstream pipeline. It will be
+available as an environment variable when GitLab Runner picks a job.
+
+## Cross-project pipeline summary
+
+The `.gitlab-ci.yml` file defines the order of the CI/CD stages, which jobs to execute, and at which
+conditions to run or skip a job's execution. Adding a 'bridge job' with the `trigger` keyword to
+this file can be used to trigger cross-project pipelines. We can pass parameters to jobs in
+downstream pipelines, and even define a branch that a downstream pipeline will use.
+
+Pipelines can be complex structures with many sequential and parallel jobs, and as we just
+learned, sometimes they can trigger downstream pipelines. To make it easier to understand the
+flow of a pipeline, including its downstream pipelines, GitLab has pipeline graphs for viewing
+pipelines and each pipeline's status.
+
+![Service – Finance pipeline](/images/blogimages/Cross-proj-img4.png){: .shadow.medium.center}
+
+Hey community, what else would you like me to explain in a blog post? Let me know in the comments or tweet us [@gitlab](https://twitter.com/gitlab).
+
+<%= partial "includes/blog/blog-merch-banner" %>
+
+Cover image by [Tian Kuan](https://unsplash.com/@realaxer) on [Unsplash](https://unsplash.com)
+{: .note}

@@ -1,0 +1,382 @@
+---
+title: "GitOps with GitLab: Connect with a Kubernetes cluster"
+author: Viktor Nagy 
+author_gitlab: nagyv-gitlab 
+author_twitter: nagyviktor 
+categories: engineering
+description: In our third article in our GitOps series, learn how to connect a Kubernetes cluster with GitLab for pull and push-based deployments.
+tags: kubernetes, integrations, inside GitLab 
+twitter_image: "/images/blogimages/Learn-at-GL.jpg"
+twitter_text: "In part three of @gitlab's GitOps tutorial, learn how to connect a Kubernetes cluster for push and pull-based deployments" 
+featured: no 
+postType: product 
+---
+
+_It is possible to use GitLab as a best-in-class GitOps tool, and this blog post series is going to show you how. These easy-to-follow tutorials will focus on different user problems, including provisioning, managing a base infrastructure, and deploying various third-party or custom applications on top of them. You can find the entire "Ultimate guide to GitOps with GitLab" tutorial series [here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/)._
+
+## GitOps with GitLab: connecting a Kubernetes cluster
+
+This [GitOps](/topics/gitops/) with GitLab post shows how to connect a Kubernetes cluster with GitLab for pull and push based deployments and easy security integrations. In order to do so, the following elements are required:
+
+- A Kubernetes cluster that you can access and can create new resources, including `Role` and `RoleBinding` in it. 
+- You will need `kubectl` and your local environment configured to access the beforementioned cluster.
+- (Optional, recommended) Terraform and a Terraform project set up as shown [in the previous article](/blog/2021/11/04/gitops-with-gitlab-infrastructure-provisioning/) to retrieve an agent registration token from GitLab.
+- (Optional, recommended) `kpt` and `kustomize` to install the Agent into your cluster.
+- (Optional, quickstart) If you prefer a less "gitopsy" approach, you will need `docker` (Docker Desktop is not needed). This is simpler to follow, but provides less control to you.
+
+## How to connect a cluster to GitLab
+
+There are many ways how one can connect a cluster to GitLab:
+
+- you can set up a `$KUBECONTEXT` variable manually, manage all the related connections and use GitLab CI/CD to push changes into your cluster
+- you can use a 3rd party tool, like [ArgoCD](https://argo-cd.readthedocs.io/en/stable/) or [Flux](https://fluxcd.io) to get pull based deployments
+- you can use the legacy, certificate-based cluster integration within GitLab in which case GitLab will manage the `$KUBECONTEXT` for you and you can get easy metrics, log and monitoring integrations
+- or you can use the recommended approach, the [GitLab Agent for Kubernetes](https://docs.gitlab.com/ee/user/clusters/agent/), to have pull and push based deployment support, network security policy integrations and the possibility of metrics and monitoring too
+
+We are going to focus on the Agent-based setup here as we believe that it serves and will serve our users best, hopefully you included.
+
+## How does the Agent work
+
+The Agent has a component that needs to be installed into your cluster. We call this component `agentk`. Once `agentk` is installed it reaches out to GitLab, and authenticates itself with an access token. So, the first step is to get a token from GitLab. We call this step "the Agent registration." If the authentication succeeds, `agentk` sets up a bidirectional GRPC channel between itself and GitLab. The emphasis here is on "bidirectional." This enables requests and messages to be sent by either side and provides the possibility of much deeper integrations than the other approaches while still being a nice citizen within your cluster.
+
+Once the connection is established, the Agent retrieves its own configuration from GitLab. This configuration is a `config.yaml` file under a repository, and you actually register the location of this configuration file when you register a new Agent. The configuration describes the various capabilities enabled of an Agent.
+
+On the GitLab side, `agentk` communicates with - what we call - the Kubernetes Agent Server, or `kas`. As most users do not have to deal with setting up `kas`, I won't write about it here. You need to be a GitLab administrator [to set up and manage `kas`](https://docs.gitlab.com/ee/administration/clusters/kas.html). If you are on gitlab.com, `kas` is available to you at `kas.gitlab.com`, thanks to our amazing SRE team.
+
+So the steps we are going to take in this article are the following:
+
+1. Create a configuration file for the Agent
+1. Register the Agent and retrieve its authentication token
+1. Install `agentk` into the cluster together with the token
+
+Finally, we will set up an example pull-based deployment just to test that everything worked as expected. Let's get started!
+
+## How many Agents do you need for a larger setup
+
+We recommend having a separate Agent registered at least against each of your environments. If you have multiple clusters, have at least one agent registered with each cluster. While it is possible to have many `agentk` deployments with the same authentication token and thus configuration file, this is not supported and might lead to syncronization problems!
+
+The different agent configurations can use the same Kubernetes manifests for deployments. So maintaining a multi-region cluster where all the clusters should be identical does not require much effort. 
+
+We designed `agentk` to be very lightweight so you should not worry about deploying multiple instances of it into a cluster. 
+
+We know users who use separate `agentk` instances by squad for example. In these situations, the `squad` owns some namespaces in the cluster and each Agent can access only the namespaces available for their squad. This way `agentk` is not just a good citizen in your cluster, but is like a team member in your squad.
+
+## Create a configuration file for the Agent
+
+Note:
+You can use either the Terraform project from the previous step or start with a new project. I will assume that we build on top of the Terraform setup from the previous article, linked above, that will come in handy when we want to register the Agent using Terraform. I won't go through setting up all the environment variables here for local Terraform run.
+
+Decide about your agent name, and create an empty file in your project under `.gitlab/agents/<your agent name>/config.yaml`. Nota bene, that the extension is `yaml` not `yml` and your agent name must follow the [DNS label standard from RFC 1123](https://docs.gitlab.com/ee/user/clusters/agent/install/#create-an-agent-configuration-file). I'll call my agent `demo-agent`, so the file is under `.gitlab/demo-agent/config.yaml`.
+
+## Register the Agent
+
+The next step is to register the Agent with GitLab. You can do this either through the GitLab UI or using Terraform. I will show you both approaches.
+
+### Registering through the UI
+
+Once the configuration file is in place, visit `Infrastructure/Kubernetes` and add a new cluster using the Agent. A dialog will pop up where you can select your agent:
+
+![Agent Registration UI](blogimages/gitops-with-gitlab-nagyv/install-agent.png)
+
+Once you hit "next," you will see the registration token and a `docker` command for easy installation. The `docker` command includes the token too and you can run it to quickly set up an `agentk` inside of your cluster. (You might need to create a namespace first!) Feel free to run the command for a quickstart or follow the tutorial for a truly code-based approach.
+
+### Registering through code
+
+We will use Terraform to register the Agent through code. Let's create the following files:
+
+- Under `terraform/gitlab-agent/main.tf`
+
+```hcl
+terraform {
+  backend "http" {
+  }
+  required_version = ">= 0.13"
+  required_providers {
+    gitlab = {
+      source = "gitlabhq/gitlab"
+      version = "~>3.6.0"
+    }
+  }
+}
+
+provider "gitlab" {
+    token = var.gitlab_password
+}
+
+module "gitlab_kubernetes_agent_registration" {
+  source = "gitlab.com/gitlab-org/kubernetes-agent-terraform-register-agent/local"
+  version = "0.0.2"
+
+  gitlab_project_id = var.gitlab_project_id
+  gitlab_username = var.gitlab_username
+  gitlab_password = var.gitlab_password
+  gitlab_graphql_api_url = var.gitlab_graphql_api_url
+  agent_name = var.agent_name
+  token_name = var.token_name
+  token_description = var.token_description
+}
+```
+
+As you can see we will use a module here. The module is hosted using the Terraform registry provided by GitLab. You can check out [the module source code here](https://gitlab.com/gitlab-org/configure/examples/kubernetes-agent-terraform-register-agent). You might have guessed correctly that under the hood the module uses the GitLab GraphQL API to register the agent and retrieve a token. We will need to set up variables for it to work.
+
+- Create `terraform/gitlab-agent/variables.tf`
+
+```hcl
+variable "gitlab_project_id" {
+  type = string
+}
+
+variable "gitlab_username" {
+  type = string
+}
+
+variable "gitlab_password" {
+  type = string
+}
+
+variable "agent_name" {
+  type = string
+}
+
+variable "token_name" {
+  type    = string
+  default = "kas-token"
+}
+
+variable "token_description" {
+  type    = string
+  default = "Token for KAS Agent Authentication"
+}
+
+variable "gitlab_graphql_api_url" {
+  type    = string
+  default = "https://gitlab.com/api/graphql"
+}
+```
+
+- Create `terraform/gitlab-agent/outputs.tf`
+
+```hcl
+output "agent_id" {
+  value     = module.gitlab_kubernetes_agent_registration.agent_id
+}
+
+output "token_secret" {
+  value     = module.gitlab_kubernetes_agent_registration.token_secret
+  sensitive = true
+}
+```
+
+Once the registration is over, you'll be able to retrieve the agent ID and the token using these Terraform outputs.
+
+### Run the Terraform project
+
+Once the above code is in place, we need to run it to actually register the Agent. Here, I am going to extend the setup from the previous article.
+
+#### Running locally
+
+- Create `terraform/gitlab-agent/.envrc`  as you did for the network project.
+
+```
+export TF_STATE_NAME=${PWD##*terraform/}
+source_env ../../.main.env
+```
+
+Now run Terraform
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+#### Running from CI/CD pipeline
+
+Extend the `.gitlab-ci.yml` file with the following 3 jobs:
+
+```hcl
+gitlab-agent:init:
+  extends: .terraform:init
+  stage: init
+  variables:
+    TF_ROOT: terraform/gitlab-agent
+    TF_STATE_NAME: gitlab-agent
+  only:
+    changes:
+      - "terraform/gitlab-agent/*"
+
+gitlab-agent:review:
+  extends: .terraform:build
+  stage: build
+  variables:
+    TF_ROOT: terraform/gitlab-agent
+    TF_STATE_NAME: gitlab-agent
+  resource_group: tf:gitlab-agent
+  only:
+    changes:
+      - "terraform/gitlab-agent/*"
+
+gitlab-agent:deploy:
+  extends: .terraform:deploy
+  stage: deploy
+  variables:
+    TF_ROOT: terraform/gitlab-agent
+    TF_STATE_NAME: gitlab-agent
+  resource_group: tf:gitlab-agent
+  environment:
+    name: demo-agent
+  when: manual
+  only:
+    changes:
+      - "terraform/gitlab-agent/*"
+    variables:
+      - $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+As you can see these are the same jobs that we saw already, they are just parameterized for the `gitlab-agent` terraform project.
+
+Nota bene, even if you use GitLab to register the Agent, you will need your command line to install `agentk` for the first time! As a result, you can not avoid a local setup as you will need to run at least `terraform output` to retrieve the token!
+
+## Install `agentk`
+
+In this tutorial we are going to follow [the advanced installation instructions](https://docs.gitlab.com/ee/user/clusters/agent/install/index.html#advanced-installation) from the GitLab documentation. This approach is highly customizable using `kustomize` and `kpt`.
+
+First, let's retrieve the basic Kubernetes resource definitions using `kpt`:
+
+- Create a directory `packages` using `mkdir packages`
+- Run `kpt pkg get https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent.git/build/deployment/gitlab-agent packages/gitlab-agent`
+
+This will retrieve the most recent version of the `agentk` installation resources. You can request a tagged version with the well-known `@` syntax, for example by running `kpt pkg get https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent.git/build/deployment/gitlab-agent@v14.4.0 packages/gitlab-agent`. You can see [all the available versions here](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/tags).
+
+### Why `kpt` - could we make this a box?
+
+The choice of `kpt` is because it allows sane upstream package management to you. With `kpt` you will be able to regularly update your packages using something like `kpt pkg update packages/gitlab-agent@<new version> --strategy=resource-merge`. It basically allows you to modify your package locally, and will try to merge upstream changes into it. Read the `kpt pkg update -h` output for more information and alternative merge strategies.
+
+### Continue with the installation - if it's a box, this is not needed
+
+The `kpt` packages you retrieved are actually a set up `kustomize` overlays. The `base` defines only the `agentk` deployment and namespace; the `cluster` defines some default RBAC around the deployment. Feel free to add your own overlays and use those. We will extend this package with custom overlays in a part 6 of the series.
+
+To configure the package, see the available configuration options using:
+
+```bash
+kustomize cfg list-setters packages/gitlab-agent
+        NAME                 VALUE               SET BY                  DESCRIPTION              COUNT   REQUIRED   IS SET  
+  agent-version       stable                 package-default   Image tag for agentk container     1       No         No      
+  kas-address         wss://kas.gitlab.com   package-default   kas address. Use                   1       No         No      
+                                                               grpc://host.docker.internal:8150                              
+                                                               if connecting from within Docker                              
+                                                               e.g. from kind.                                               
+  name-prefix                                                  Prefix for resource names          1       No         No      
+  namespace           gitlab-agent           package-default   Namespace to install GitLab        2       No         No      
+                                                               Kubernetes Agent into                                         
+  prometheus-scrape   true                   package-default   Enable or disable Prometheus       1       No         No      
+                                                               scraping of agentk metrics.                              
+```
+
+The package default will be different if you used a tagged version for getting the package. Let's set the version as using `stable` is not recommended.
+
+```bash
+kustomize cfg set packages/gitlab-agent agent-version v14.4.1
+set 1 field(s) of setter "agent-version" to value "v14.4.1"
+```
+
+Feel free to adjust the other configuration options too or add you own overlays if that is needed.
+
+### Which agent-version to use - could we make this a box?
+
+If possible the version of `agentk` should match the major and minor version of your GitLab instance. You can find our the version of your GitLab instance under the Help menu on the UI.
+
+![GitLab version is under the Help menu](blogimages/gitops-with-gitlab-nagyv/gitlab-help-version.png)
+
+If there is no agent version with your major and minor version, then pick the agent with the highest major and minor below the version of your GitLab.
+
+### Continue with the installation - if it's a box, this is not needed
+
+Warning:
+Before the next step, I want to warn you about never, ever committing unencrypted secrets into git, and the agent registration token is a secret!
+
+Let's retrieve the agent registration token from our Terraform project. Run the following command in the `terraform/gitlab-agent` directory:
+
+```bash
+terraform output -raw token_secret > ../../packages/gitlab-agent/base/secrets/agent.token
+```
+
+This writes the registration token to a file on your local computer. Do not commit these changes to git!
+
+At this point, we are ready to deploy `agentk` into the cluster, so run:
+
+```bash
+kustomize build packages/gitlab-agent/cluster | kubectl apply -f -
+```
+
+Let's get rid of the secret:
+
+```bash
+echo "Invalid token" > packages/gitlab-agent/base/secrets/agent.token
+```
+
+You are good to commit your changes to `git` now!
+
+## Testing the setup
+
+We have installed the Agent, now what? How can we start using it? In the next article we will see in detail how to deploy a more serious application into the cluster. Still, to check that cluster syncronization actually works, let's deploy a `ConfigMap`.
+
+- Create `kubernetes/test_config.yaml` with the following content:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitlab-gitops
+  namespace: default
+data:
+  key: It works!
+```
+
+- Modify your Agent configuration file under `.gitlab/demo-agent/config.yaml`, and add the following to it:
+
+```yaml
+gitops:
+  # Manifest projects are watched by the agent. Whenever a project changes,
+  # GitLab deploys the changes using the agent.
+  manifest_projects:
+  - id: path/to/your/project
+    default_namespace: gitlab-agent
+    # Paths inside of the repository to scan for manifest files.
+    # Directories with names starting with a dot are ignored.
+    paths:
+    - glob: 'kubernetes/test_config.yaml'
+    #- glob: 'kubernetes/**/*.yaml'
+```
+
+Change the `- id: path/to/your/project` line above to point to your project's path!
+
+The above configuration tells the Agent to kepp the `kubernetes/test_config.yaml` file in sync with the cluster. I've left a commented line at the end to show how you could use wildcards. This will come handy in future steps of this article. The`default_namespace` is used if no namespace is provided in the Kuberentes manifests. There are many other options to configure as well even for the `gitops` use case. You can read more about these in [the configuration file reference documentation](https://docs.gitlab.com/ee/user/clusters/agent/repository.html).
+
+Once you commit the above changes, GitLab notifies `agentk` about the changed files. First, `agentk` updates its configuration; second, it retrieves the `ConfigMap`.
+
+Wait a few seconds, and run `kubectl describe configmap gitlab-gitops` to check that the changes got appliedd to your cluster. You should see something similar:
+
+```
+Name:         gitlab-gitops
+Namespace:    default
+Labels:       <none>
+Annotations:  config.k8s.io/owning-inventory: 502-28431043
+              k8s-agent.gitlab.com/managed-object: managed
+
+Data
+====
+key:
+----
+It works!
+Events:  <none>
+```
+
+Feel free to play with the agent configuratioin and this `ConfigMap` by changing its value in the cluster and seeing how the Agent drops your direct changes, and keeps your state in sync with your git repo.
+
+## What is next
+
+In the next articles, we will keep using this Agent to add various capabilities to our cluster. In the next article, I will discuss how to manage secrets through an Agent connection.
+
+_[Click here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/) for the next tutorial._
+

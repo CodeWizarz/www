@@ -1,0 +1,307 @@
+---
+layout: sec_direction
+title: "Product Section Direction - Enablement"
+description: "GitLab's Enablement section is responsible for the features and tools our customers use to operate GitLab at all scales. Learn more here!"
+canonical_path: "/direction/enablement/"
+---
+
+{:.no_toc}
+
+- TOC
+{:toc}
+
+Last reviewed: 2022-08-07
+
+## Enablement Section Accomplishment, News, and Updates
+
+#### Section News & Team Member Updates
+
+#### Recent Accomplishments
+
+1. Gitaly: Performance of pushes to repositories with large number of Git references could [take up to 30 seconds](https://gitlab.com/gitlab-org/gitaly/-/issues/4349). The team has dramatically improved the connectivity check performance in upstream Git. With these improvements, we're seeing a [performance improvements of over 2x](https://gitlab.com/gitlab-org/gitaly/-/issues/4349#note_1209229085) (sometimes 10x)!
+1. Distribution: Spamcheck was an internal tool that was intended to help detect and prevent spam from GitLab. After initial testing we felt users would benefit from this tool as well. [Spamcheck is now included in `omnibus-gitlab` packages](https://gitlab.com/gitlab-org/spamcheck), and our [GitLab Helm chart](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/2936) for use by our self-managed customers.
+1. Geo: [Migrated design repositories to self-service framework](https://about.gitlab.com/releases/2023/06/22/gitlab-16-1-released/#geo-verifies-design-repositories). To be consistent with all other data types, design repository replication now leverages the [Geo self-service framework](https://docs.gitlab.com/ee/development/geo/framework.html). This will make support and maintenance easier in the future. An additional benefit of the migration is the support for verification, protecting this component's data against corruption and data loss.
+1. Geo: [Added filtering by replication status to all components](https://about.gitlab.com/releases/2023/06/22/gitlab-16-1-released/#geo-adds-filtering-by-replication-status-to-all-components). Items for all components managed by the self-service framework can now be filtered by replication status making it easier to locate failing or pending items.
+1. Geo: [Re-architected git SSH push call flow from secondary to primary to eliminate 60-second timeout related to Puma](https://about.gitlab.com/releases/2023/06/22/gitlab-16-1-released/#upgrade). The changes have resulted in an upper push size limit of 1.86GB which we will aim to remove in the future. Additionally, the new call flow through GitLab shell has increased throughput by up to 50% in some cases.
+1. Database: In 15.0 we released the batched background migrations framework to all teams inside GitLab. This is a novel, more reliable way for performing large scale data updates in the background. We are excited that all background migrations introduced during 15.1 and 15.2 are using this new framework, a 100% adoption rate. 
+
+#### What's Ahead
+
+Upcoming features can always be found on the [Enablement kick off page](https://about.gitlab.com/direction/kickoff/#enablement-section). Highlights include:
+
+1. Distribution: GitLab is working towards [FIPS 140-2 Compliance](https://gitlab.com/groups/gitlab-org/-/epics/6452). We finished [research for FIPS compliance for FIPS compliant Kubernetes](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/2843), and will begin working on issues that were created from that investigation.
+1. Distribution: We are working towards [Official Red Hat Certification of our GitLab Operator](https://gitlab.com/gitlab-org/cloud-native/gitlab-operator/-/issues/149). The current step is [ensuring all container images have UBI (universal base image) variants](https://gitlab.com/gitlab-org/cloud-native/gitlab-operator/-/issues/420). We are on our last image, `ingress-nginx` controller. Once that is complete we will be able to list the Operator on the Red Hat Marketplace.
+1. Distribution: We have begun working on items for a seamless release and upgrade experience in our 15.0 major release next milestone.
+1. Database: [Batched Background Migrations](https://gitlab.com/groups/gitlab-org/-/epics/6751) - In 15.3 and 15.4 we plan to make the framework feature complete and add any remaining stability improvements.
+1. Database: [Throttling mechanism for large data changes](https://gitlab.com/groups/gitlab-org/-/epics/7594) - Introduce real time monitoring capabilities on our database frameworks; pause background updates when we identify maintenance operations or early signals of problems.
+1. Database: [Automated database testing using production clones](https://gitlab.com/groups/gitlab-org/database-team/-/epics/9) - Expand scope and start work on performing [automated query analysis for Merge Requests](https://gitlab.com/groups/gitlab-org/database-team/-/epics/12). (On hold during 15.3)
+1. Geo: Continue effort to [Move existing data types into the Self Service Framework](https://gitlab.com/groups/gitlab-org/-/epics/3588)
+  - [Projects](https://gitlab.com/gitlab-org/gitlab/-/issues/367926)
+1. Geo: [Improve backup and restore documentation for self-managed customers](https://gitlab.com/groups/gitlab-org/-/epics/10047). Our backup and restore documentation has grown over the years and we have multiple solutions documented across multiple pages. We will consolidate the documentation and provide improved guidance on best approaches. We will also be enhancing the documentation for customers that are on large reference architectures with large datasets.
+1. Geo: [Silent mode](https://gitlab.com/groups/gitlab-org/-/epics/9826) will suppress outgoing communication from a GitLab instance. It is important to test disaster recovery mechanisms and procedures regularly to ensure successful recovery after a failover event. One way to achieve this is to promote a Geo secondary site and perform recovery testing against it while keeping the primary site operational and available to the business. Performing testing against a promoted Geo secondary in this fashion will cause it to generate outbound traffic such as emails, webhooks, push mirrors, etc. This is undesirable as it will cause confusion for users and disrupt upstream services. This is a cross stage effort where the Geo team will co-ordinate with other stage groups to delivery this capability.
+1. Geo: Verify 100% of all replicated data, helping to protect customers against data loss. To achieve this we will be adding verification support for 
+  - [Object Storage](https://gitlab.com/gitlab-org/gitlab/-/issues/13845)
+  - [Group wikis](https://gitlab.com/gitlab-org/gitlab/-/issues/323897)
+1. Global Search: [Add search filtering by programming language](https://gitlab.com/groups/gitlab-org/-/epics/6853)
+1. Global Search: [Update Global Search scopes to be vertical navigation](https://gitlab.com/gitlab-org/gitlab/-/issues/293740)
+1. Global Search: [Autocomplete dropdowns in the navbar should load faster](https://gitlab.com/gitlab-org/gitlab/-/issues/361520)
+1. Sharding: [Decompose GitLab's database to improve scalability](https://gitlab.com/groups/gitlab-org/-/epics/6168)
+
+## Enablement section overview
+
+The Enablement section is responsible for the features and tools our customers use to explore and operate GitLab at all scales. Enablement supports customers from initial deployment of GitLab to ongoing operation, as well as cross-stage end user features.
+
+The Enablement section is made up of one eponymous non-DevOps stage, Enablement, and eight groups:
+
+* [Distribution::Build](#distribution) - Packages, Containers, Dependencies
+* [Distribution::Deploy](#distribution) - Installation, upgrades, maintenance
+* [Geo](#geo) - Disaster recovery and worldwide performance
+* [Global Search](#global-search) - Global search and ElasticSearch integration
+* [Memory](#memory) - Performance optimizations, reliability improvements, and best practices
+* [Database](#database) - Database architecture and best practices
+* [Tenant Scale](#tenant-scale) - Ensuring GitLab self-managed and SaaS deployments can scale for years to come
+* [Gitaly](#gitaly) - Providing fast access to repository data
+
+### Mission
+
+> Provide **users** with a consistently great experience and achieve customer business requirements by making GitLab easy to deploy, operate, scale, and use.
+
+GitLab delivers value by enabling organizations to build better software, faster. The most important success metric for the Enablement group is therefore the broader success of the user base of GitLab, rather than its administrators. We need to provide the software necessary to make it easy for an administrator to provide a delightful and productive GitLab experience to their users.
+
+Within the single platform, users as well as contributors need a common set of cross-stage features and frameworks. End users need a set of common cross-stage features to make the broad array of features and content easily consumable. Contributors need a set of frameworks and developer tools to efficiently and safely contribute to GitLab's growing code base and data sets.
+
+### Impact on GitLab's addressable market
+
+There is no traditional addressable market for Enablement due to its foundational, GitLab-specific nature. Every GitLab user is directly impacted, however, by the work Enablement delivers.
+
+In light of this, we think of Enablement's addressable market as that of GitLab's larger addressable market. By working to ensure we can meet the operational, compliance, and usability requirements of GitLab's enterprise customers, we can capture increasingly larger percentages of GitLab's total addressable market opportunity.
+
+There are two primary segments within the broader "GitLab" market: organizations that would like to operate their own GitLab instances (self-managed) and those who prefer to utilize a SaaS service (such as GitLab.com). SaaS revenue within the DevOps space is predicted to [overtake self-managed in 2022](dotcom/#market-opportunity), with our key competitors already capitalizing on this shift. This is confirmed by [analysts reports (GitLab confidential)](https://docs.google.com/spreadsheets/d/1bwv2FpP34UHdCGDqZyvoeUzG7rahCc06/edit?usp=sharing&ouid=104246595813126297495&rtpof=true&sd=true) as well as [others in the DevOps space](https://www.forbes.com/sites/robertdefrancesco/2019/08/31/atlassian-turns-its-focus-to-the-rapidly-expanding-cloud-business/?sh=338eea558803).
+
+#### Self-managed
+
+Today, we are able to capture most of the self-managed segment with our mature [linux packages](https://docs.gitlab.com/omnibus/README.html) and more recently our [cloud-native deployment options](../distribution/cloud_native_installation/) for Kubernetes and OpenShift. A proof point is GitLab's [two-thirds market share](https://about.gitlab.com/blog/2017/06/29/whats-next-for-gitlab-ci/) in the self-managed Git market. While this speaks to the competitiveness of GitLab's overall product, a critical enabling factor is the high-quality, flexible, and scalable software and operational tools.
+
+While we are able to meet the requirements of most organizations, there are some unmet needs:
+
+* Unsupported deployment targets for the GitLab Server, such as [Linux on Z](https://gitlab.com/groups/gitlab-org/-/epics/2176) and Power9
+* Difficulty in deploying a topology to meet the most demanding [service level objectives](https://en.wikipedia.org/wiki/Service-level_objective)
+* Effort required to deploy and operate is higher than desired, typically resulting in the adoption of a SaaS service or lighter-weight solution
+
+#### SaaS
+
+Today, GitLab is underperforming compared to our peers in the SaaS segment. While GitLab's SaaS revenue is accelerating faster than self-managed, our revenue mix is heavily weighted towards self-managed. IDC predicts that the market for public cloud SaaS-based DevOps tools (currently 52% of the market in 2021) will continue to accelerate and account for **$20.0B in revenue** (or 61% of DevOps software tools market) by 2026.<sup>1</sup>(#footnotes) This represents both a significant growth opportunity if we can better serve this segment, or risk if we fail to execute.
+
+There are a larger number of unmet needs on GitLab.com than self-managed, which primarily fall into two buckets:
+
+* Service level indicators, primarily [performance](https://about.gitlab.com/handbook/engineering/infrastructure/performance-indicators/#gitlab-com-performance) and [availability](https://about.gitlab.com/handbook/engineering/infrastructure/performance-indicators/#gitlab-com-availability)
+* Product [feature gaps compared to self-managed](https://about.gitlab.com/features/), most importantly in the realm of [authentication and compliance](https://about.gitlab.com/direction/enablement/dotcom/#top-strategy-items)
+
+For GitLab's FY23, [SaaS First](https://about.gitlab.com/direction/#1-year-plan) continues to be a key theme, driving the closure of these gaps. From an Enablement perspective, much of our work is on improving the performance, reliability, scalability, and efficiency of our SaaS services. The GitLab.com  strategy is [available here](/direction/enablement/dotcom/), and a high level overview of GitLab Dedicated is [available here](https://docs.gitlab.com/ee/subscriptions/gitlab_dedicated/).
+
+### Resourcing and investment
+
+The existing team members and open vacancies for the Enablement section can be found in the links below:
+
+* [Development](https://about.gitlab.com/company/team/?department=enablement-section)
+* [User Experience](https://about.gitlab.com/company/team/?department=enablement-ux-team)
+* [Product Management](https://about.gitlab.com/company/team/?department=enablement-pm-team)
+
+### Metrics
+
+All Enablement section metrics can be found on the [Enablement Performance Indicator (internal only)](https://internal.gitlab.com/handbook/company/performance-indicators/product/enablement-section/) page.
+
+### Competitive space and position
+
+As noted above, GitLab's competitive position is a tale of two cities. We are the leading self-managed Git solution but are third in SaaS. Our success in self-managed has driven the majority of the company's growth, however it is at risk of being disrupted by growing trends in the market. IDC forecasts that by 2026, 61% of the worldwide DevOps software tools market will be delivered as public cloud services.1(#footnotes) Our SaaS services represents both a large opportunity and risk depending on our execution.
+
+
+We need to achieve what could be considered opposing goals: making GitLab efficient and easy to run at [small scales](https://docs.gitlab.com/omnibus/settings/rpi.html) and improving the scalability and reliability at internet-scale.
+
+## Challenges
+
+* Due to much of GitLab's code being written by other groups, Enablement relies largely on influence by defining best practices, policies, and frameworks to achieve stability and performance goals
+* Rapidly increasing feature surface area, driving increased demand for compute resources and operational complexity
+* Breadth of deployment targets (bare metal, VM, container, Kubernetes, cloud-specific, etc.) and configuration matrixes
+* Increasing scale of GitLab.com, we are pushing the limits of our software and dependencies
+
+## 3-year strategy
+
+In three years we expect:
+
+* SaaS to be the strongly preferred delivery mechanism for IT services
+* DevOps platforms to be business-critical applications with very high SLA's required
+* Kubernetes adoption to continue to accelerate for IT services, including GitLab
+* Continued improvement of open source Git projects like [gitea](https://gitea.io/en-us/) and [gogs](https://gogs.io)
+* DevOps platforms like GitLab to become deeply interwoven into organizational workflows and processes
+* Competition in the DevOps space to continue to consolidate and intensify, as more companies adopt modern tools
+* Single platforms becoming the preferred DevOps toolchain
+* The global regulatory framework for cloud to continue to fragment
+
+As a result, in three years, GitLab will:
+
+* Generate more ARR on SaaS (such as GitLab.com) than self-managed
+* Demonstrate market-leading service availability for both GitLab.com and self-managed
+* Set the bar for IT apps delivered on Kubernetes
+* Enable users to get started with self-managed GitLab in under 10 minutes at both 5 and 50,000 user scales
+* Automatically highlighting similar content within large organizations
+* Make it quick and easy to find the desired content across the platform
+* Refine SaaS services that meet the regulatory requirements of major markets throughout the world, like [Dedicated](https://docs.gitlab.com/ee/subscriptions/gitlab_dedicated/) or [FedRAMP (internal only)](https://internal.gitlab.com/handbook/engineering/fedramp-compliance/)
+
+## Themes
+
+### SaaS First
+
+Woven throughout all of the below themes is a focus on improving our competitiveness in the [SaaS](#saaS) segment. As this is critical outcome for the company, it is worth highlighting individually our efforts to contribute.
+
+#### GitLab.com
+
+We are improving the service levels and efficiency of GitLab.com, our multi-tenant SaaS service. A multi-tenant cloud service is the best solution for most customers, combining low cost of ownership and fast time to value. Enablement is specifically focused on a few key outcomes:
+
+* Improving the responsiveness of the platform, and providing data for other groups to further target their own performance efforts
+* Increasing the availability of the platform, achieving our 99.95% goal
+* Improving the cost efficiency of the platform, from a cloud spend perspective as well as reducing the human maintenance burden
+
+#### GitLab Dedicated
+
+To serve the large enterprise and highly regulated SaaS market, we have recently launched [GitLab Dedicated](https://docs.gitlab.com/ee/subscriptions/gitlab_dedicated/), a single-tenant SaaS offering. Enablement will be focusing on improving the efficiency of operating individual GitLab tenants, by improving underlying tools like the [GitLab Environment Toolkit](https://gitlab.com/gitlab-org/gitlab-environment-toolkit), and our [Operator](https://docs.gitlab.com/operator/). By building in automation and self-healing capabilities, we can reduce the maintenance overhead required per instance, improving the efficiency and reliability of not just Dedicated but also self-managed deployments who also use these tools.
+
+### GitLab is easy to deploy and operate
+
+Deploying and maintaining GitLab should be as frictionless as possible for organizations of all sizes. This is critical for GitLab at multiple points in the customer journey.
+
+GitLab starts as a personal or side project at many organizations, representing an important driver of initial adoption and awareness. Delighting future champions by providing a thoughtfully designed out-of-the-box experience that runs well on hardware they have lying around pays dividends in future growth.
+
+Once a company is ready to adopt GitLab enterprise wide, it is similarly important to ensure the GitLab instance is set up for success with minimal effort. Consider our [5,000-user reference architecture](https://docs.gitlab.com/ee/administration/reference_architectures/5k_users.html) which recommends setting up at minimum 27 different instances, and that our [GitLab configuration file is over 2,000 lines long](https://gitlab.com/gitlab-org/omnibus-gitlab/blob/master/files/gitlab-config-template/gitlab.rb.template). This is a significant upfront investment to ask a company to make, prior to seeing value returned. It can also be error prone given the complexity, with the only practical solution to ongoing management being [infrastructure as code](https://en.wikipedia.org/wiki/Infrastructure_as_code), which requires further investment.
+
+[Day 2 operations](https://dzone.com/articles/defining-day-2-operations) like backups, scaling, and upgrades are equally important. GitLab is a [business critical application](#consistently-great-user-experience-regardless-of-location-or-scale), so events like upgrades need to be routine and [seamless](https://docs.gitlab.com/omnibus/update/README.html#zero-downtime-updates). The easier we make it for our customers to upgrade, the faster our users will be able to leverage our new features and provide feedback. Currently it takes [over 3 months](https://app.periscopedata.com/app/gitlab/406972/Version-Upgrade-Rate) after release for a majority of our users to feel the impact of our work.
+
+By reducing the deployment/operating costs and packaging best practices, we will see the following benefits:
+
+* Increased downloads and trials of GitLab
+* Shortened sales cycles as a result of quicker [time to value](https://en.wikipedia.org/wiki/Time_to_value) and lower [total cost of ownership](https://en.wikipedia.org/wiki/Total_cost_of_ownership)
+* Improved typical end-user experience across all GitLab instances, with services more likely to be deployed optimally and on a recent version
+* Further penetrate the SaaS-leaning market segment with self-managed for those where GitLab.com does not currently meet their needs
+* Improved customer deployment security, productivity, and satisfaction due to a higher population of users on recent versions
+
+To support these goals, we are:
+
+* Standardizing on a common automation framework for deploying and operating GitLab, the [GitLab Environment Toolkit](https://gitlab.com/gitlab-org/gitlab-environment-toolkit), which is available to customers and utilized by GitLab.
+* Shifting more of our focus to the [GitLab Operator](https://docs.gitlab.com/operator/), which is able to continuously monitor a GitLab deployment and automatically take proactive and reactive action to optimally run a GitLab instance. Over the long term, we expect our Omnibus-based packages to be used only for single-node installs, with our Operator the primary installation path.
+* Standardizing on a common orchestration framework to coordinate the provisioning and operations of all instances which GitLab operates, including GitLab.com. These tools will include the Operator, GitLab Environment Toolkit, and [Switchboard (internal only)](https://gitlab.com/gitlab-com/gl-infra/gitlab-dedicated/team#cross-reference-to-gitlab-dedicated-projects).
+
+### Consistently great user experience regardless of location or scale
+
+As customers roll out and adopt additional stages of GitLab to realize the benefits of a [single application](https://about.gitlab.com/topics/single-application/), the service availability and performance requirements increase as well. Additional departments within the business utilize the service on a daily basis to accomplish their jobs, such as design, security, and operations teams. People around the world collaborate together. Work that may have been done manually is now automated using CI/CD, including delivering the latest update or bug fix to their customer facing application/website. For these reasons, GitLab is increasingly being identified as a business-critical application with attendant requirements. It is therefore important for GitLab to be a consistently reliable, performant service for all users to fulfill its potential.
+
+By providing market-leading reliability and performance, we will see the following benefits:
+
+* Establish the trust required for customers to adopt additional stages and consolidate on GitLab
+* Further penetrate the large enterprise by displacing incumbents with unsatisfactory stability/performance
+* Improve our market share of the [SaaS DevOps segment](#saas) by improving the [service level of GitLab.com](https://about.gitlab.com/handbook/engineering/infrastructure/performance-indicators/#gitlab-com-availability)
+* Increase customer satisfaction by improving responsiveness and availability
+
+### Achieve enterprise compliance needs
+
+Organizations in regulated industries, the [public sector](https://en.wikipedia.org/wiki/Public_sector), and large enterprises often have a variety of standards and processes that they must adhere to.
+
+In the public sector, there are standards like [NIST 800-53](https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r4.pdf) and [FedRAMP](https://www.fedramp.gov/). For companies handling credit card transactions, there is [PCI DSS](https://www.pcisecuritystandards.org/). These are just two examples. While some of these standards are not directly aimed at services like GitLab, they have a broad reach, and the requirements generally cannot be waived, as the penalties for non-compliance can be severe. Many enterprises have also developed their own internally driven processes and policies that can be important to support, rather than requiring changes prior to the adoption of GitLab.
+
+For published standards, it is important that GitLab offers the required features and configuration to enable our customers to be in compliance. This includes changes to our code base; for example, fully encrypting all traffic between GitLab nodes, selection of specific cryptographic modules, availability via our [Reference Architectures](https://docs.gitlab.com/ee/administration/reference_architectures/), and [disaster recovery](https://docs.gitlab.com/ee/administration/geo/disaster_recovery/), among others. Additionally, some standards like [FedRAMP (internal only)](https://internal.gitlab.com/handbook/engineering/fedramp-compliance/) can also impact the operational and governance processes of GitLab.com, as well as where data can be stored and processed. The more that we can do to be compliant out of the box or provide documentation on recommended settings, the less work our customers will be required to do during evaluation and implementation.
+
+By enabling our customers to meet their compliance requirements and reducing the required effort, we will see the following benefits:
+
+* Increased penetration of these segments: large enterprise, regulated industries, and the public sector
+* Shortened sales cycles by reducing the amount of evaluation and implementation work required to ensure they can remain compliant
+* Increased adoption of GitLab by organization whom prefer SaaS but have compliance requirements we cannot meet today
+
+### Reduce cycle time by providing tools to explore complexity
+
+All parts of the software development process grow over time: the code base, its dependencies, data stores, the historical context, the organization, and more. This accretion leads to an increase in complexity, creating a drag on development velocity. At the outset of a project, changes can be quick to land as the code base and its impact is well understood. Fast forward 5 to 10 years and that same change will require significantly more effort, investigating where the change needs to happen across the code base, understanding why the code was written that way in the first place, determining the potential downstream impact, validating the performance, refreshing documentation, and more.  GitLab, at 10 years old, is experiencing these challenges as well.
+
+As a single platform, GitLab is uniquely positioned to minimize these effects by providing tools to better explore and manage complexity. We plan to achieve this by:
+
+* Providing a robust global search function across all content within GitLab, and allowing exploration of related content. From an identified code snippet, one could learn the merge request which landed the changes, the issue which discussed the problem, the CVE which is being resolved, the CI pipeline which validated the changes, and ultimately the deployment job to production.
+* Testing all database changes on production data, prior to production. Changes which impact databases, whether it is a complex migration, a schema change, or a perceived simple query, can require an extensive period of review. GitLab aims to make this self-service, by executing all queries and database changes on a thin clone of the production database, and presenting the performance and impact directly to the developer in the merge request as they commit changes.
+* Providing guidance on which data store to use for a given change.
+* Exposing granular performance data for libraries and applications where this could be a challenge, like Ruby monoliths.
+
+## One-year plan
+
+Over the next 12 months, each group in the Enablement section will play an integral part in this strategy.
+
+Please see the [categories page](/handbook/product/categories/#enablement-section) for a more detailed look at Enablements's plan by exploring `Direction page` links in areas of interest.
+
+<%= partial("direction/enablement/plans/distribution") %>
+
+<%= partial("direction/enablement/plans/geo") %>
+
+<%= partial("direction/enablement/plans/global-search") %>
+
+<%= partial("direction/enablement/plans/cloud_connector") %>
+
+<%= partial("direction/enablement/plans/database") %>
+
+<%= partial("direction/enablement/plans/tenant_scale") %>
+
+<%= partial("direction/enablement/plans/infrastructure") %>
+
+<%= partial("direction/enablement/plans/horse") %>
+
+<%= partial("direction/enablement/plans/gitaly") %>
+
+## What we're not doing
+
+Choosing to invest in these areas in 2021 means we will choose not to:
+
+* Invest in marketplaces other than AWS.
+  * To date we have not seen much customer traction via these deployment options, and providing a high quality experience can be a significant undertaking. If we learn how to make the AWS Marketplace successful, we can consider replicating the model elsewhere.
+* [Federated GitLab](https://gitlab.com/gitlab-org/gitlab/issues/6468)
+  * Connecting multiple GitLab instances together for a unified workflow is a frequent request, but is technically challenging and there are many different desired use cases.
+* Invest further in improving our bespoke backup/recovery tools this year. Many of our larger customers already have established enterprise backup tools, or can use snapshots, and the current tool works for small instances. We are currently focused on improving our Disaster Recovery and Geo Replication features.
+
+## Pricing
+
+The Enablement pricing strategy's aim is to ensure that the widest possible audience can benefit from GitLab through our free tier, and that we can meet the unique needs of large organizations through our paid tiers.
+
+At the free tier, we want to provide an open-core product for everyone. To achieve this GitLab needs to be incredibly easy to try and adopt, for a wide variety of deployment methods. Today we support SaaS with GitLab.com, and self-managed on all major cloud providers as well as on-prem. This model helps keep our [open core flywheel](../../company/strategy/#dual-flywheels) spinning, and is a key factor in our organic growth by being a go-to DevOps application with a low time and effort investment required to see value.
+
+As adoption across an organization grows, additional business and scale requirements may need to be met, these are particularly common for large enterprise and regulated industries. We aim to meet these more complex operational needs with features in our paid tiers, so that these organizations can adopt GitLab at scale.
+
+### Free
+
+From an operational standpoint, we believe GitLab should be easy to deploy and operate, and that all users should have a great user experience. To achieve this, we invest significantly in automating as much of the deployment and day 2 operations as we can, and embedding as many best practices into the product as possible. We want to set up administrators for success, so they can delight their users. We don't believe application performance, or ease of use, should be a paid-for feature. This helps to ensure that GitLab is easy to try, and that when deployed, provides a good user experience.
+
+For the user-facing features that we build, we align with our overall [pricing strategy](https://about.gitlab.com/company/pricing/#four-tiers), focusing Free on individual developers. Presently this includes basic search, which provides a search experience across projects and groups.
+
+### Premium
+
+Operationally, this tier is where the majority of paid features are located, as Director-level buyers are typically more concerned about meeting wider business, compliance, and scale requirements. We focus features that relate to meeting these needs, typically found in larger enterprises or regulated industries, in this tier. Examples include meeting business continuity needs with [disaster recovery](https://docs.gitlab.com/ee/administration/geo/disaster_recovery/) and horizontally-scaled instances, as well as multi-region performance requirements with [geo-replication](https://docs.gitlab.com/ee/administration/geo/index.html). The [GitLab Environment Toolkit](https://gitlab.com/gitlab-org/gitlab-environment-toolkit) is also available at this tier, providing a great starting point for customers to develop their own deployment automation further.
+
+For users, [Advanced Search](https://docs.gitlab.com/ee/user/search/advanced_search.html) provides cross-project code search as well as [advanced search syntax](https://docs.gitlab.com/ee/user/search/advanced_search.html) to help users more effectively locate content within larger organizations.
+
+### Ultimate
+
+Currently there are no Enablement features in this tier. We would introduce new features in this tier that target highly specialized requirements typically seen at the executive level. For example companies who may operate multiple independent businesses, but still want to provide a unified experience across the organization through some type of [federation](https://gitlab.com/gitlab-org/gitlab/-/issues/6468).
+
+## Group direction review
+
+The Enablement PM team reviews one of the groups direction every other week. Prior recordings and the upcoming schedule can be viewed [here](reviews/).
+
+## Categories
+
+### Systems
+
+<%= partial("direction/categories-content", :locals => { :stageKey => "systems" }) %>
+
+### Data Stores
+
+<%= partial("direction/categories-content", :locals => { :stageKey => "data_stores" }) %>
+
+## What's Next
+
+<%= direction["all"]["all"] %>
+
+#### Footnotes
+
+1. IDC, Worldwide DevOps Software Tools Forecast, 2022–2026, Doc # US48599322, July 2022

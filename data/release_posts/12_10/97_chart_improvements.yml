@@ -1,0 +1,15 @@
+features:
+  secondary:
+# Chart improvements
+    - name: "GitLab chart improvements"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/charts/'
+      reporter: ljlane
+      stage: systems
+      categories:
+        - "Cloud Native Installation"
+      description: |
+              - The Helm Chart documentation has been updated to include command line options and documentation links specific to Helm 3, and to highlight some of the differences between Helm 2 and Helm 3. The specific changes can be viewed in the [issue](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/1818).
+              - In GitLab 13.0, the next release of GitLab, we will be removing the `ConfigMap` entries for `puma.rb` and `unicorn.rb` files in favor of environment variables. Please note that if you have modified the `unicorn.rb` from the ConfigMap (via Helm + Kustomize) in the past, you will be impacted by this change. We are doing this to eliminate maintaining two copies of these files. Until now, the `puma.rb` and `unicorn.rb` files were static within the `gitlab-webservice` container and overwritten by ConfigMap items from the `gitlab/unicorn` chart. For details on the new environment variables, refer to [the associated merge request](https://gitlab.com/gitlab-org/build/CNG/-/merge_requests/430).
+              - Now that you can choose between Unicorn or Puma for your web application server, the name of the Unicorn chart will be changing from `unicorn` to `webservice`. This change will take place in GitLab 13.0. As a reminder, Puma will become the default application server in GitLab 13.0 due to the performance improvements we have seen with its multi-threading capabilities. To try out Puma in your Helm install, see the instructions in the [Charts documentation](https://docs.gitlab.com/charts/charts/gitlab/webservice/index.html#webserver-options).

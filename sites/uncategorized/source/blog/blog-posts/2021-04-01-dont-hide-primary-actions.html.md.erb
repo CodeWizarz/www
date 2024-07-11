@@ -1,0 +1,67 @@
+---
+title: "Don't hide primary actions"
+author: Daniel Mora # if name includes special characters use double quotes "First Last"
+author_gitlab: dmoraberlin # ex: johndoe
+categories: unfiltered # please choose one category from list below
+description: "In our testing, we found there was confusion in setting up subgroups with a wide range of research participants. We wanted to reduce confusion in setting up subgroups in GitLab."
+tags: design, UI
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+postType: product # i.e.: content marketing, product, corporate
+related_posts:
+  - "/blog/2021/02/12/little-things-make-a-difference/"
+  - "/blog/2021/02/16/measuring-the-value-of-our-design-system/"
+  - "/blog/2021/03/17/collaborating-on-a-cross-stage-feature/" # please see related posts section below for details
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+
+
+<!-- ![Image of Batman stroking his chin in contemplation](https://media.giphy.com/media/a5viI92PAF89q/giphy.gif){: .shadow.right.wrap-text} -->
+Organizing your projects into groups within GitLab should be a simple matter for new users. We conducted a Category Maturity Scorecard validation to see how we were correct to assume that it was easy to model your organization in GitLab so that teams could have clear boundaries between other groups. What we found during our initial testing, however, was far off from this assumption.
+
+### Problem
+Looking at this organization chart, we assumed our test participants would have no trouble creating this structure in a test environment.
+
+[![](https://mermaid.ink/img/eyJjb2RlIjoiZ3JhcGggVERcbiAgQVtJbmZvcm1hdGlvbiBUZWNobm9sb2d5IGFuZCBEYXRhIEFuYWx5dGljc10gXG4gIEEgLS0-IEVbSVQgRGlnaXRhbCBTZXJ2aWNlc11cbiAgRSAtLT4gRltEaWdpdGFsIFRyYW5zZm9ybWF0aW9uIEVudmlyb25tZW50XVxuICAgIEYgLS0-IE1bUHJvamVjdCBBbHBoYV1cbiAgICBGIC0tPiBOW1Byb2plY3QgQmV0YV1cbiAgICBGIC0tPiBPW1Byb2plY3QgQ29yZV1cbiAgRSAtLT4gR1tBcHBsaWNhdGlvbiBEYXRhYmFzZSBTZXJ2aWNlc11cbiAgRSAtLT4gSFtCdXNpbmVzcyBQcm9jZXNzIE1hbmFnZW1lbnRdXG4gICBIIC0tPiBQW1Byb2plY3QgWmV0YV1cbiAgIEggLS0-IExbUHJvamVjdCBCbGFua10iLCJtZXJtYWlkIjp7fSwidXBkYXRlRWRpdG9yIjpmYWxzZX0)](https://mermaid-js.github.io/mermaid-live-editor/#/edit/eyJjb2RlIjoiZ3JhcGggVERcbiAgQVtJbmZvcm1hdGlvbiBUZWNobm9sb2d5IGFuZCBEYXRhIEFuYWx5dGljc10gXG4gIEEgLS0-IEVbSVQgRGlnaXRhbCBTZXJ2aWNlc11cbiAgRSAtLT4gRltEaWdpdGFsIFRyYW5zZm9ybWF0aW9uIEVudmlyb25tZW50XVxuICAgIEYgLS0-IE1bUHJvamVjdCBBbHBoYV1cbiAgICBGIC0tPiBOW1Byb2plY3QgQmV0YV1cbiAgICBGIC0tPiBPW1Byb2plY3QgQ29yZV1cbiAgRSAtLT4gR1tBcHBsaWNhdGlvbiBEYXRhYmFzZSBTZXJ2aWNlc11cbiAgRSAtLT4gSFtCdXNpbmVzcyBQcm9jZXNzIE1hbmFnZW1lbnRdXG4gICBIIC0tPiBQW1Byb2plY3QgWmV0YV1cbiAgIEggLS0-IExbUHJvamVjdCBCbGFua10iLCJtZXJtYWlkIjp7fSwidXBkYXRlRWRpdG9yIjpmYWxzZX0)
+
+Sadly, this was not the case:
+- Five test participants could not complete the task in 30 minutes.
+- One confused the difference between Groups versus Projects but could (inaccurately) recreate the structure in GitLab in approximately 3 minutes.
+- Only one person was able to complete the task accurately in around 3 minutes.
+
+<!-- ![Image of a young woman cringing](https://media.giphy.com/media/3FBwwRCNTSa52/giphy.gif){: .shadow.center} -->
+
+### Observations
+The primary problem we found was that our participants could not find a way to create a subgroup. Success depended on creating subgroups, but the button to create a new subgroup was not easily discoverable. The participant would have to go into exploratory mode and click to see what was in the 'New project' dropdown to find it. This problem with button dropdowns and primary action discovery also occurred within the [Comment button in Merge Requests](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/49614).
+
+![Image of dropdown button](/images/blogimages/2021-04-15-dropdown-button.png){: .shadow.center}
+
+The second observation was that the user experience and logic of building an organizational system are not intuitive for new users. 
+
+Participants expected:
+- A more graphical user experience with interactive boxes and lines
+- A way to perform the task through the command line
+- A way to import the org structure from another system
+
+Participants could not determine the difference between a group or a project or how they were related. There was no visual indicator of what the difference was or what features related to Groups or Projects.
+
+### Solution proposals
+For an initial recommendation to address the confusion, we wanted to separate the primary dropdown button.
+
+![Image of 3 seperate buttons](/images/blogimages/2021-04-15-split-button.png){: .shadow.center}
+
+Hiding features under dropdowns assumes the users understand they can access additional actions if they click the button's dropdown area. As well, two disparate interface actions shouldn't juxtapose if they have no direct relationship.
+
+We assumed that we could split up this button into two for an MVC and have better results. After another round of testing, we were able to achieve far better results. Our test participants completed the task of creating the group and project structure quickly and found the task easy to complete.
+
+### This one simple trick
+By breaking apart the 'New project' and 'New group' buttons, we could make the 'New group' action discoverable. After we made this change, participants had no trouble interpreting the scenario and executing the task within 5 minutes.
+
+<!-- ![image of a young man dancing](https://media.giphy.com/media/3o7abldj0b3rxrZUxW/giphy.gif){: .shadow.center} -->
+
+### Next steps
+Currently, we are looking at how we can improve sharing groups and features. We want to [remove the barrier between groups and projects](https://gitlab.com/groups/gitlab-org/-/epics/2885). We believe that this will help with some of the problems users have with sharing across groups, and they will be able to take advantage of features that provide them with a more connected set of groups. This change will also improve our information architecture by reducing the confusion around how objects are connected, making navigation and cross-team sharing easier in the future.

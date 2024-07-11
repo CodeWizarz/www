@@ -1,0 +1,96 @@
+---
+title: "Shopping for an admin account via path traversal"
+author: Joern Schneeweisz
+author_gitlab: joernchen
+author_twitter: joernchen
+categories: security
+image_title: '/images/blogimages/closeup-photo-of-black-and-blue-keyboard-1194713.jpg'
+description: "How to exploit a path traversal issue to gain an admin account"
+tags: security, security research
+merch_banner_destination_url: "/resources/ebook-ciso-secure-software/"
+merch_banner_image_source: "/images/merchandising-content/mc-10-steps-every-ciso-ebook-vertical.png"
+merch_banner_body_title: "10 Steps Every CISO Should Take to Secure Next-Gen Software"
+merch_banner_body_content: "Understand three software shifts impacting security, and the steps CISOs can take to protect their business."
+merch_banner_cta_text: "Get the eBook"
+twitter_text: A walkthrough of exploiting a path traversal issue to gain admin permissions.
+postType: content marketing
+---
+
+GitLab [security researchers](/handbook/security/#security-research) conduct internal testing against GitLab assets and against [free and open-source software (FOSS)](https://en.wikipedia.org/wiki/Free_and_open-source_software) critical to GitLab products and operations to ultimately make our product and company more secure.
+
+## Introduction
+
+Most web applications are not standalone – they depend on other applications in order to fulfill their purpose. Calls to other web apps can be done in various ways depending on the other side's API. In this post, we'll discuss calls to REST APIs and some security implications when calling those REST endpoints.
+
+Representational State Transfer (short: [REST](https://de.wikipedia.org/wiki/Representational_State_Transfer)) is an HTTP-based protocol that uses different HTTP methods (e.g. GET/POST/PUT/DELETE) to interact with a remote API endpoint.
+
+Let's take a look at a very specific (GitLab) example to get an impression of what can go wrong when two web apps talk REST to each other.
+
+## GitLab's Customers Portal
+
+At [customers.gitlab.com](https://customers.gitlab.com) our GitLab community can shop for various GitLab subscriptions and also buy CI minutes. The `customers` source code is non-public, so I will just use a few relevant snippets as examples to illustrate the issue.
+
+The `customers` portal needs to interact with the `gitlab.com` API in order to let `gitlab.com` know things like how many CI minutes you've bought. The HTTP calls to the `gitlab.com` API are implemented using [HTTParty](https://github.com/jnunemaker/httparty).
+
+For PUT requests this looked like:
+
+```ruby
+    def put(path, *args)
+      options = valid_options(args)
+
+      HTTParty.put(full_url(path), options)
+    end
+
+private
+
+    def full_url(path)
+      URI.join(BASE_URL, path).to_s
+    end
+```
+
+Let's look at the caller to the `put` method:
+
+```ruby
+response = Client::GitlabApp.put("/api/v4/namespaces/#{@namespace_id}", body: @attrs.to_json, token: API_TOKEN)
+```
+
+The above line of code is the place where the `Client::GitlabApp` is used to update a subscription on `gitlab.com`; this call occurs when a customer moves the subscription from one namespace to another. The parameter `@namespace_id` is user controlled but the payload of the PUT operation (`body: @attrs.to_json`) is not. The `API_TOKEN` is an access token to `gitlab.com`'s API with `admin` privileges. The threat which arises from the call to `Client::GitlabApp.put` is the possibility to traverse the path on `gitlab.com`'s API by supplying a `@namespace_id` of `../other/path` and thus being able to reach other API endpoints than the intended `/api/v4/namespace/`.
+
+This type of attack, namely a [path (or directory) traversal attack](https://en.wikipedia.org/wiki/Directory_traversal_attack), is a very common and generic issue. It can occur basically everywhere that path parameters are being plunged together (e.g. file systems access or unpacking of archive files).
+
+## Impact
+
+It gets really interesting when we think about the impact and exploitation of this issue. Since we do not control the payload (`@attrs.to_json`) of the PUT operation one could think that the impact of this traversal is quite limited. In REST the PUT operation is being used to update existing resources. Usually the to-be-updated attributes of the resource are sent in the body of the HTTP request, just like the JSON encoded `@attrs` in our case.
+
+The API endpoint on `gitlab.com` is implemented using [Grape](http://www.ruby-grape.org/) which implements [parameter handling](https://github.com/ruby-grape/grape#parameters) in a way that any PUT/POST parameters will be merged with the path-based GET parameters into the `params` hash. This means that besides the `body: @attrs.to_json` payload in the PUT operation we could, using the unsanitized `@namespace_id` parameter, not only traverse API endpoints using `../` sequences, we could also inject attributes on the API endpoint by appending `?some_attribute=our_value` to `@namespace_id`. So, in addition to the path traversal, we can also inject arbitrary arguments on the API endpoint. In combination the two steps can enable quite powerful attacks.
+
+## Exploitation
+
+Taking the above building blocks of path traversal and attribute injection in a request using an `admin` token on the `gitlab.com` API, we have a quite powerful and universal attack at hand. While investigating and verifying the issue on GitLab's `staging` environment it could be used to promote regular accounts to `admin`. The actual payload is quite simple: `../users/<userID>?admin=true` it resulted in a PUT request to `https://gitlab.com/api/v4/users/<userID>?admin=true`.
+
+Within the staging environment the exploit payload looked like this within the Chrome developer tools:
+
+![exploit](/images/blogimages/Path-traversal/get_admin.png)
+
+The reward was a shiny 🔧 sign to access the admin area on the targeted account:
+
+![wrench](/images/blogimages/Path-traversal/be_admin.png)
+
+The modification was done using the "Change linked Group" feature for a GitLab Bronze subscription. But as the same vector can be used with purchased CI minutes it would just have cost eight dollars and a few clicks to become an admin on `gitlab.com` 😏.
+
+## Mitigation
+
+The issue was mitigated promptly by the [fulfillment backend team](/handbook/engineering/development/fulfillment/). The application is now enforcing the `@namespace_id` parameter to be numerical. Also additional defense-in-depth measures have been taken to avoid path traversals and similar attacks.
+
+## Conclusion
+
+We've seen here a very good example of the typical pitfalls in modern applications which make use of backend services via API calls. The path traversal in combination with the ability to inject further attributes in the API call allowed us to cause severe impact. The issue, even though present in the `customers.gitlab.com` code base, could be used to elevate user privileges on `gitlab.com`.
+
+
+***Security Research at GitLab***
+*Security research is one component of our broader security organization's efforts to  enhance the security posture of our company, products, and client-facing services. See our [Security Handbook](/handbook/security) to learn more.*
+
+Photo by [Marta Branco](https://www.pexels.com/@martabranco?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels) on [Pexels](https://www.pexels.com/photo/closeup-photo-of-black-and-blue-keyboard-1194713/?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

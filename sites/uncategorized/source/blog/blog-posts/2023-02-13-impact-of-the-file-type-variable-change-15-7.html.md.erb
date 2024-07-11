@@ -1,0 +1,88 @@
+---
+title: Understanding the file type variable expansion change in GitLab 15.7
+author: Darren Eastman
+author_gitlab: DarrenEastman
+categories: news
+image_title: '/images/blogimages/tanukicover.jpg'
+description: "Learn how the change to file type variable expansion can impact CI jobs that rely on the file contents and what to do."
+tags: CI, CD, features
+twitter_text: "We stopped expanding file type variables in CI jobs in GitLab 15.7. Find out why and what it means to you."
+featured: no
+postType: product
+---
+
+In GitLab 15.7, we stopped expanding `file type` variables in CI jobs. CI jobs that rely on the old expansion method will generate errors and not work. Here is a look at how this change came about, the difference in job outputs, and what to do next.
+
+## Background
+
+GitLab CI has long-supported file type CI/CD variables. This is a helpful feature for CI jobs, as a file variable is a simple way to pass values to an external system. In cases where there is a concern about environment variable size limits, putting the information in a file and using an environment variable to reference the file is a good option.
+
+Before 15.7, variable expansion expanded the contents of the file referenced in a file type variable. Some users found this expansion behavior to be quite valuable. In looking at some metrics on GitLab.com, for example, we saw over 1,000 unique projects that used a file variable inside another variable. However, other users did not find this unintended behavior helpful and implemented workarounds.
+
+As expected, a file referenced in a file type variable may contain sensitive data. So performing variable expansion on the file contents could expose that data in the build environment. Even though the risk could be somewhat mitigated, continuing to expand file type variables was not the right approach to ensure the most secure system.
+
+## Example of the job output before and after 15.7
+
+1. Create a file variable via the GitLab UI. For example: `A_FILE_VAR` with the value `this is some super secret content`.
+1. Create a CI job with this content:
+
+```
+test_job:
+   stage: test
+   variables:
+     REF_FILE_VAR: $A_FILE_VAR
+   script:
+     - echo $A_FILE_VAR
+     - cat $A_FILE_VAR
+     - echo $REF_FILE_VAR
+     - cat $REF_FILE_VAR
+
+```
+
+**Results before 15.7:**
+
+```
+$ echo $A_FILE_VAR
+/builds/test-project-repo/test-project.tmp/A_FILE_VAR
+$ cat $A_FILE_VAR
+this is some super secret content
+$ echo $REF_FILE_VAR
+this is some super secret content
+$ cat $REF_FILE_VAR
+cat: can't open 'this': No such file or directory
+cat: can't open 'is': No such file or directory
+cat: can't open 'some': No such file or directory
+cat: can't open 'super': No such file or directory
+cat: can't open 'secret': No such file or directory
+cat: can't open 'content': No such file or directory
+
+```
+
+**Results after 15.7:**
+
+```
+$ echo $A_FILE_VAR
+/builds/test-project-repo/test-project.tmp/A_FILE_VAR
+$ cat $A_FILE_VAR
+this is some super secret content
+$ echo $REF_FILE_VAR
+/builds/test-project-repo/test-project.tmp/A_FILE_VAR
+$ cat $REF_FILE_VAR
+this is some super secret content
+
+```
+
+You will notice in the 15.7+ job output the echo command no longer prints the contents of the file.
+
+## What is the current status of the change?
+
+We [deprecated](https://docs.gitlab.com/ee/update/deprecations.html#file-type-variable-expansion-in-gitlab-ciyml) this feature in 15.5 and removed it from the code base in [15.7](https://gitlab.com/gitlab-org/gitlab/-/issues/29407). However, we neglected to include a follow-up removal notice in the 15.7 release, so some self-managed customers now upgrading to 15.7+ may have missed the initial deprecation notice.
+
+## What do I need to do before upgrading to 15.7 or higher?
+
+1. Check your CI jobs for any instances where a file variable is referenced inside another variable.
+2. Change the references and test the CI jobs.
+
+## What’s next
+
+Secrets and variable handling are likely some of the most complex areas in a [DevSecOps](https://about.gitlab.com/topics/devsecops/) platform. On our end, we are continuously refining our processes to effectively communicate the potential impact of new features or the removal of existing ones. We also recommend that you reach out to us (the Verify team) directly on issues referenced in a release or deprecation notice if it's not clear how a change might affect your CI workflows.

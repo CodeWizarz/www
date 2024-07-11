@@ -1,0 +1,153 @@
+---
+title: "GitLab's unconventional journey to CI/CD and Kubernetes"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: engineering
+image_title: '/images/blogimages/raphael-biscaldi-cicd.jpg'
+description: "How the Delivery team at GitLab used our existing resources to overhaul our system to make way for CI/CD."
+tags: CI/CD, inside GitLab
+ee_cta: false
+install_cta: false
+twitter_text: "Discover GitLab's journey to CI/CD and Kubernetes"
+featured: yes
+postType: content marketing
+merch_banner: merch_two
+merch_sidebar: merch_two
+---
+
+Engineering teams are under pressure to provide value in the form of new features, all while minimizing [cycle time](/blog/2019/03/04/reduce-cycle-time/). Oftentimes the instinct is to adopt modern tooling to make that happen. Continuous integration and delivery (CI/CD) is baked into GitLab, our single application for the DevOps lifecycle, and we are undergoing a major migration to Kubernetes to speed up our cycle time even more. But our journey to CI/CD and eventually Kubernetes has been unconventional, as the [Delivery team](/handbook/engineering/infrastructure/team/delivery/) elected to stress our current system as we step into [continuous delivery](/topics/continuous-delivery/) on GitLab.com before migrating entirely over to Kubernetes.
+
+## Releases before CI/CD
+
+
+
+The wider GitLab community and GitLab team members [averaged 55 commits per day between Aug. 7 and Sept. 27, 2019](https://gitlab.com/gitlab-org/gitlab-ee/-/graphs/master/charts) as they continually iterate on our product to build new features for our customers. But before we adopted continuous delivery, we had to institute feature freeze periods beginning on the 7th of each month. During this period, engineers would shift their focus from building new features to fixing bugs in preparation for the upcoming release, which always happens on the 22nd.
+
+ The use of a specific defined deadline encouraged behavior that ultimately caused developers to focus more on the due date and not around accomplishing the work.
+
+"... developers would really play around the 7th because they would think ‘Oh, I have time, the 7th is in seven days,’ and then on the 6th at midnight they would panic merge things," said [Marin Jankovski](/company/team/#marin), engineering manager for the Delivery team. "Because they know that if they missed this deadline they will have to wait for the next month, and if they get it in under this deadline they have a good two weeks to fix any problems that happen."
+
+Since the conception of GitLab.com, the feature freeze was used as a stabilization period, Marin explained.
+
+Soon though, the demand for new features from new users was pushing us to escalate our development velocity on GitLab.com. The stabilization period slowed our cycle time and created a significant drag in our turnover time for bug fixes, regression, and feature shipping for users both on GitLab.com and self-managed customers.
+
+“In some cases (the feature freezes) would even cause platform instability due to the fact that highest priority fixes couldn't find its way into customer hands quick enough,” said Marin. “By moving to CD, we can get both features and bug fixes alike into the hands of our users much quicker.”
+
+Before the [Delivery team was created to manage GitLab.com's transition to continuous delivery](/handbook/engineering/infrastructure/team/delivery/#top-level-responsibilities) – and eventually Kubernetes – we depended upon a [release manager](/blog/2015/06/25/release-manager-the-invisible-hero/), a rotating position among developers, to prepare the release. The [release process was iterated on over a five-year period](/community/release-managers/) as the release managers created a knowledge base and some automation to make the release process work.
+
+But this method was inefficient as the timing behind the deployment process and release preparations was unpredictable, taking between half a day to multiple days due to the [accumulation of manual tasks in the process](https://gitlab.com/gitlab-org/release/docs/blob/master/general/tooling.md).
+
+“The release manager would get a set task list to go through, a deadline by which the tasks should be completed and they would have to repeat these steps over again until the release is ready, but also stable on GitLab.com,” explained Marin. At the highest level overview, the release manager had to:
+
+*   Manually sync the various repositories that GitLab consists of
+*   Ensure that the correct versions are set in the manually created Git branches
+*   Once the release is tagged, manually deploy to GitLab.com environments for both non-production and production
+*   Verify that everything is operational and manually publish the packages for self-managed users
+
+During his [presentation on this topic at GitLab Commit Brooklyn](https://youtu.be/lD-cYylwOLg), Marin shared the results of a 2018 survey which revealed that in the 14-day period before a release, the Delivery team spent 60% of their time babysitting deploys, and another 26% of their time on manual or semi-manual tasks release tasks, such as writing the monthly release post.
+
+![Task breakdown before CI/CD](/images/blogimages/journey-to-cicd/release-task-spread.jpg){: .medium.center}
+Results of a 2018 survey showing how the Delivery team spent their time two weeks before a release, before continuous delivery.
+{: .note.text-center}
+
+"If you take a look at the whole thing, in 14 days, in two weeks, my team did nothing but sit on the computer and watch, well, paint dry, I guess," said Marin.
+
+But by tackling 86% of the pie (60% deploys + 26% of the release manual tasks), the Delivery team could solve a few problems:
+
+1.  No release delays
+1.  Repeatable and faster deploys to enable no downtime
+1.  More time for our GitLab.com Kubernetes migration
+1.  More space to prepare the organization for continuous delivery
+
+Although CD is only on GitLab.com, our self-managed customers also benefit from our transition to CD. Now anything that isn't caught with CI testing is tested automatically and manually in environments before ever reaching GitLab.com. Anything that requires a fix that does reach GitLab.com can be fixed in a few hours, so the final release for self-managed customers won't include these particular issues.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+## Our unique approach to transitioning to CD and Kubernetes
+
+The transition from using feature freezes to adopting CD on GitLab.com was inevitable as our features set grew, and a team of engineers, led by Marin, was formed to oversee this transition: “The Delivery team has been formed with the sole purpose of moving the company to a CD model for GitLab.com but at the same time for migrating GitLab.com to the Kubernetes platform to enable easier scaling and even faster turnaround times.”
+
+Many companies in GitLab’s position would have started this journey to CI/CD and Kubernetes by first integrating the new technologies into their workflow, and amending the development process as they go. We opted for a different approach.
+
+The migration to Kubernetes requires a shift in both production systems and the engineering mindset, explained Marin. Kubernetes offers some features that teams can easily leverage without any extra investment. But in order to derive the greatest value from the free features Kubernetes offers, there ought to be some existing CI/CD process already in place.
+
+The Delivery team recognized that in order to smooth the transition to Kubernetes for continuous delivery, our engineers must already be working with a CI/CD mindset – this includes a strong focus on quality assessments (QA) and stricter feature planning. So the Delivery team went with the [boring solution](/handbook/values/#boring-solutions) and used our existing tools to build a CD system and reorganize the application infrastructure of GitLab.com instead of first adopting new tooling and technologies for CD.
+
+“The idea was simple,” said Marin. “We [leverage the tools at our disposal](https://gitlab.com/gitlab-org/release/docs/blob/master/general/deploy/auto-deploy.md), automate most of the manual tasks and ‘stress test’ the whole static system. If the static system can withstand the test, we move toward a more dynamic test.”
+
+There were two key benefits to taking this approach:
+
+**First**, any weaknesses in our application were exposed and stabilized by automating with CI, so our application is stronger and less brittle, making a complete migration to Kubernetes more likely to be a success.
+
+**Second**, by shifting the engineering team to the CD mindset, we created a cultural shift among the engineers at GitLab who were accustomed to weekly deploys and waiting up to a day to see the impact of their merge.
+
+> “The definition of ‘done’ for developers has changed since the adoption of CI/CD,” said Marin.
+
+Before CI/CD, a change was “done” once the review was completed. This was excluding deployments to various environments which took a considerable amount of time. Today, deployments are shipped within hours so there is no reason to not confirm that a change is working in testing and production environments.
+
+The adoption of review apps on Kubernetes allow developers to run QA checks in virtually real time, and the use of [feature flags](/blog/2019/08/06/feature-flags-continuous-delivery/) for progressive delivery also helps to accelerate development.
+
+“Since the first step in CD, developers are required to react to any automated QA but also carry out another level of manual verification in both non-production and production environments. Additionally, developers can have their changes running in production within a day compared to multiple days (and weeks).”
+
+Everyone can run QA checks on their code more frequently with CD. Because code changes are shipped around the clock with our CI/CD system, developers now operate an on-call rotation to help with any outstanding issues that are happening live on GitLab.com since the "incubation" time is much shorter.
+
+## Our new method
+
+Since the adoption of a CI/CD system, 90% of the [release process is automated](https://gitlab.com/gitlab-org/release/tasks/issues/885) using the [CI features of GitLab](/direction/verify/continuous_integration/). The remaining 10% requires human intervention due to coordination between various stakeholders.
+
+“We are slowly reducing those 10% as well with the goal of having only approvals needed to publish a release,” said Marin. [In the current iteration, the CI/CD process operates as follows](/direction/ops/):
+
+*   CI automatically looks for specific labels in merged MRs, applied by code reviewers and developers.
+*   CI automatically syncs all required repositories but also creates required Git branches, tags, as well as setting the correct versions of the release we want to ship.
+*   When the builds complete, packages are automatically deployed to non-production environments.
+*   Automated QA tasks are executed and, if passing, the deployment is rolled out to a small subset of users in production.
+*   In parallel, developers do another level of manual QA to ensure that new features are functioning as expected.
+*   If a high severity issue is discovered with manual verification, the deployments are stopped.
+*   When the above is completed, a member of the Delivery team will trigger a rollout to all users on GitLab.com.
+*   Self-managed release is then created from the last known working deployment running on GitLab.com.
+
+As is true for any engineering team, scaling remains a challenge for us. But one of the biggest technical challenges is making sure there is enough QA coverage, which can be labor intensive for a product as big at GitLab.com. Also, making sure the monitoring and alerting is sufficient so the product isn’t operating solely based upon pre-set rules.
+
+The second major challenge is the complexity of our GitLab.com system, and communicating the change in process across our engineering teams. “Dismantling more than five years of built-up process and habit is never easy,” said Marin.
+
+## The results
+
+GitLab is already benefitting from the shift to CI/CD in a number of ways.
+
+The results of a new 2019 survey assessing how the Delivery team spends their time in the same 14-day period before the release shows that today, 82% of the team's time is freed up to work on other important tasks.
+
+![Task breakdown since CI/CD](/images/blogimages/journey-to-cicd/chart.jpg){: .medium.center}
+The results of a 2019 survey measuring the same two weeks before the release shows the switch to CD has freed up valuable developer time.
+{: .note.text-center}
+
+By automating manual tasks, the Delivery team was able to shift their focus toward changing the GitLab.com infrastructure to better support our development velocity and user traffic, as well as beginning the migration to Kubernetes.
+
+> "And, did I mention, none of this is on Kubernetes. All of this is using our 'old' legacy system," said Marin to the GitLab Commit Brooklyn audience. "But what happened with this is we bought ourselves time, so my team actually has time to work on the migration. But one of the biggest changes that happened was in the habits of the engineering organization."
+
+The results since the shift have been significant. The Delivery team went from around seven deploys under the old system in May 2019 to 35 deploys on GitLab.com in August 2019, and is on track to surpass these numbers considerably now that they're shipping multiple deploys a day.
+
+“We have just completed the migration of our Registry service to Kubernetes and if you use [Container Registry on GitLab.com](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/70), all your requests are served from the Kubernetes platform," said Marin. "Since GitLab is a multi-component system, we are continuing to isolate and migrate other services.”
+
+New CI/CD features are included in each release. For example, in our 12.3 release, we [expanded the GitLab Container Registry to allow users to leverage CI/CD to build and push images/tags to their project](/releases/2019/09/22/gitlab-12-3-released/#remove-container-images-from-cicd) among other exciting new features.
+
+## Transitioning your system to continuous delivery?
+
+For companies considering the transition to CD, Marin advised to start with what you’ve got.
+
+“From my perspective, waiting for migrating to a new platform is the real ‘enemy,’” said Marin. “Most systems can be altered in some ways to enable faster turnaround time without migrating to a fully new system. Speeding up the development/release cycle has multiplier return per engineer in that system and that frees up more time for migrations to new platforms, such as Kubernetes.”
+
+If you’re curious about what’s up next, [check out this detailed summary of the exciting new CI/CD features](/blog/2019/08/07/a-look-ahead-for-gitlab-cicd/) on track to be released in 12.4 and beyond.
+
+## Missed GitLab Commit Brooklyn?
+
+If you missed Marin's presentation on the prequel to Kubernetes, watch the entire video below and catch us in Europe at [GitLab Commit London on October 9](/events/commit/)!
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/lD-cYylwOLg" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+[Cover Photo](https://unsplash.com/photos/rE3kbKmLmhE) by [Raphaël Biscaldi](https://unsplash.com/@les_photos_de_raph?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/journey?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

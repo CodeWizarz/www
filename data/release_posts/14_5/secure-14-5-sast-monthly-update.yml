@@ -1,0 +1,30 @@
+---
+features:
+  secondary:
+  - name: "Static Analysis analyzer updates"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/user/application_security/sast/analyzers'
+    reporter: tmccaslin
+    stage: secure
+    categories:
+    - SAST
+    - Secret Detection
+    issue_url: 'https://gitlab.com/gitlab-org/security-products/analyzers'
+    description: |
+        GitLab Static Analysis is comprised of a [set of many security analyzers](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks) that the GitLab Static Analysis team actively manages, maintains, and updates. Below are the analyzer updates released during 14.5. These updates bring additional coverage, bug fixes, and improvements.
+
+        - semgrep updated to version 0.72.0 - [MR](hhttps://gitlab.com/gitlab-org/security-products/analyzers/semgrep/-/merge_requests/92), [Changelog](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep/-/blob/main/CHANGELOG.md#v2140)
+          - various bug fixes for timeouts, crashes, and rule corrections. See changelog link for more details.
+        - flawfinder internal packages updated to version 2.14.7 - [MR](https://gitlab.com/gitlab-org/security-products/analyzers/flawfinder/-/merge_requests/69), [Changelog](https://gitlab.com/gitlab-org/security-products/analyzers/flawfinder/-/blob/master/CHANGELOG.md#v2147)
+        - gosec updated to version 2.9.1 - [MR](https://gitlab.com/gitlab-org/security-products/analyzers/gosec/-/merge_requests/132), [Changelog](https://gitlab.com/gitlab-org/security-products/analyzers/gosec/-/blob/master/CHANGELOG.md#v334)
+          - Fix the SBOM generation step in the release action
+          - Phase out support for go version 1.15 because current ginko is not backward compatible
+        - sobelow internal packages updated - [MR](https://gitlab.com/gitlab-org/security-products/analyzers/sobelow/-/merge_requests/70), [Changelog](https://gitlab.com/gitlab-org/security-products/analyzers/sobelow/-/blob/master/CHANGELOG.md#v2142)
+          - We thank [@rbf](https://gitlab.com/rbf) for their contributions ([1](https://gitlab.com/gitlab-org/security-products/analyzers/sobelow/-/merge_requests/67),[2](https://gitlab.com/gitlab-org/security-products/analyzers/sobelow/-/merge_requests/65),[3](https://gitlab.com/gitlab-org/security-products/analyzers/sobelow/-/merge_requests/64)) to our Sobelow analzer which enables new detection rules, and opens up the door for future improvements and additional rules in the future.
+        - PMD updated to version 6.40.0 - [MR](https://gitlab.com/gitlab-org/security-products/analyzers/pmd-apex/-/merge_requests/72), [Changelog](https://gitlab.com/gitlab-org/security-products/analyzers/pmd-apex/-/blob/master/CHANGELOG.md)
+          - Apex language support to v54.0
+          - Various improvements and bugfixes for rulesets.
+        - spotbugs updated to version 4.5.0 - [MR](https://gitlab.com/gitlab-org/security-products/analyzers/spotbugs/-/merge_requests/115), [Changelog](https://gitlab.com/gitlab-org/security-products/analyzers/spotbugs/-/blob/master/CHANGELOG.md#v2288)
+          - false negative fixes
+
+        If you [include the GitLab managed vendored SAST template](https://docs.gitlab.com/ee/user/application_security/sast/#configure-sast-in-your-cicd-yaml) ([SAST.gitlab-ci.yml](https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml)) you do not need to do anything to receive these updates. However, if you override or customize your own CI template, you need to update your CI configurations. To remain on a specific version of any analyzer, you can [pin to a minor version of an analyzer](https://docs.gitlab.com/ee/user/application_security/sast/#pinning-to-minor-image-version). Pinning to a previous version prevents you from receiving automatic analyzer updates and require you to manually bump your analyzer version in your CI template.

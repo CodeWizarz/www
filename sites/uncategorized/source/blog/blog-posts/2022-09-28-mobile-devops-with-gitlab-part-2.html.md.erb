@@ -1,0 +1,130 @@
+---
+title: "Mobile DevOps with GitLab, Part 2 - Code signing for Android with GitLab"
+author: Darby Frey
+author_gitlab: darbyfrey
+author_twitter: gitlab
+categories: devops
+tags: DevOps, mobile, feature, CI/CD
+description: "This second part of our tutorial series shows how to use Project-level Secure Files to sign an Android application."
+image_title: '/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-2-code-signing-for-android-with-gitlab/teddy-gr--adWwTRAm1g-unsplash.jpg'
+twitter_text: "In this second part in our tutorial series on mobile DevOps, learn how to use Project-level Secure Files to sign an Android application."
+---
+
+In Part 1 of this tutorial series, we talked about a new feature in GitLab called [Project-level Secure Files](/blog/2022/09/20/mobile-devops-with-gitlab-part-1/). With Project-level Secure Files, you can securely store your build keys as part of your project in GitLab, and avoid [some](https://www.reddit.com/r/androiddev/comments/a4ydhj/how_to_update_app_when_lost_keystore_file/) [painful](https://www.reddit.com/r/gamemaker/comments/v98den/lost_keystore_for_publishing_to_google_play_store/) [problems](https://www.reddit.com/r/androiddev/comments/95oa55/is_there_anyway_to_update_my_app_after_having/) caused by lost keystore files.
+
+In this blog post, I'll show you how to create a Keystore file and use it to sign an Android application. Then I'll show you how to quickly create a CI pipeline in GitLab using Project-level Secure Files.
+
+## Generate a private signing key
+
+The first thing you'll need is a Keystore file. This file is used to securely sign the application. You can generate a Keystore file from your machine by running the following command:
+
+```
+keytool -genkey -v -keystore release-keystore.jks -alias release -keyalg RSA -keysize 2048 -validity 10000
+```
+
+During this process, you'll be asked to create a new password for the Keystore file and provide some information about you and your organization. See the example below:
+
+![Generate Android Keystore](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-2-code-signing-for-android-with-gitlab/generate-keystore.png)
+
+
+## Configure your application
+
+The next step is to set some environment variables and update build.gradle to add the new signing configuration. First, set the following environment variables in either a .env file or in the shell via export.
+
+* `ANDROID_KEY_ALIAS` is the alias you gave for the key in the keytool command above. In this example the value is release.
+* `ANDROID_KEYSTORE_PASSWORD` is the new password you supplied to the keytool command above.
+* `ANDROID_KEY_STOREFILE` is the path to the new keystore file you just created. In this example we're using `../release-keystore.jks`.
+
+With the environment variables set, the next step is to update the build configuration to use the new Keystore in the build process. In the `app/build.gradle` file add the following configuration inside the Android block for the release signing config.
+
+```
+android {
+    ...
+    defaultConfig { ... }
+    signingConfigs {
+        release {
+           storeFile file(System.getenv('ANDROID_KEY_STOREFILE'))
+           storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+           keyAlias System.getenv('ANDROID_KEY_ALIAS')
+           keyPassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+        }
+    }
+    buildTypes {
+        release {
+            ...
+            signingConfig signingConfigs.release
+        }
+    }
+}
+```
+
+Save these changes to the `app/build.gradle file`, and run the build locally to ensure everything works. Use the following command to run the build:
+
+```
+./gradlew assembleRelease
+```
+
+If everything worked you'll see a message saying **BUILD SUCCESSFUL**.
+
+## Configure project
+
+With the build running locally, it takes just a couple of steps to get it running in GitLab [CI](/topics/ci-cd/). The first step is to upload your Keystore file in GitLab. 
+
+1. On the top bar, select **Menu > Projects** and find your project.
+2. On the left sidebar, select **Settings > CI/CD**.
+3. In the **Secure Files** section, select **Expand**.
+4. Select **Upload File**.
+5. Find the file to upload, select **Open**, and the file upload begins immediately. The file shows up in the list when the upload is complete.
+
+![Upload Secure File](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-2-code-signing-for-android-with-gitlab/upload-secure-file.png)
+
+![List Secure Files](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-2-code-signing-for-android-with-gitlab/list-secure-files.png)
+
+The next step is to set the CI variables in your project. 
+
+1. On the top bar, select **Menu > Projects** and find your project.
+2. On the left sidebar, select **Settings > CI/CD**.
+3. In the **Variables** section, select **Expand**.
+4. Create entries for the three environment variables set earlier: `ANDROID_KEY_ALIAS`, `ANDROID_KEY_STOREFILE`, `ANDROID_KEYSTORE_PASSWORD`.
+
+![List Secure Files](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-2-code-signing-for-android-with-gitlab/list-ci-variables.png)
+
+## CI/CD pipelines
+
+Once the project is configured, the final step is to create the build configuration in the `.gitlab-ci.yml` file. Below is a sample file.
+
+```
+stages:
+  - build
+
+build_android:
+  image: fabernovel/android:api-31-v1.6.1
+  stage: build
+  variables:
+    SECURE_FILES_DOWNLOAD_PATH: './'
+  script:
+    - apt update && apt install -y curl
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+    - ./gradlew assembleRelease
+  artifacts:
+    paths:
+      - app/build/outputs/apk/release
+```
+
+A few interesting bits from this configuration:
+
+1. Image: [https://github.com/faberNovel/docker-android](https://github.com/faberNovel/docker-android) provides a collection of prebuilt Docker images that work great for CI systems. Find the right version for your project in Docker Hub [https://hub.docker.com/r/fabernovel/android/tags](https://hub.docker.com/r/fabernovel/android/tags). 
+2. Script: Depending on the image, you may need to install curl; the first line of the example script installs curl to be used in the second line to download and execute the [download-secure-files](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files) tool.
+3. Variables: `SECURE_FILES_DOWNLOAD_PATH` tells [download-secure-files](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files) where to download the Keystore file.
+4. Artifacts: Make the build output available to be downloaded from the CI job, or used in subsequent jobs in the pipeline.
+
+Commit the changes to your `.gitlab-ci.yml` file and after you push the changes to GitLab the build will start.
+
+Take a look at [this branch in the sample project](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/android_demo/-/tree/basic_build) for reference.
+
+Give it a try, and let us know what you think in the [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/362407). Then, check out Part 3, which deals with [code signing for iOS](/blog/2022/10/03/mobile-devops-with-gitlab-part-3-code-signing-for-ios-with-gitlab-and-fastlane/). 
+
+
+
+_Cover image by  <a href="https://unsplash.com/@teddygr?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Teddy GR</a> on <a href="https://unsplash.com/s/photos/google-phone?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>_
+  

@@ -1,0 +1,115 @@
+################################################################################
+#
+# Note on monorepo sub-sites: The `source` value has a beginning-of-line
+# anchor (`\A`) added to it automatically:
+# https://gitlab.com/gitlab-org/gitlab/-/blob/c858f70d076dc44f6bf1ab1f7acb1fc13a12ab1b/lib/gitlab/route_map.rb#L44
+#
+# This means that in order to also match any files which exist in monorepo
+# sub-sites' source dirs (under `sites/sitename/source`), the following
+# must be added to the prefix of the regex (and increment the capture group
+# number in `public):
+#
+#   (sites\/.+\/)?
+#
+################################################################################
+
+# Release managers
+- source: 'data/releases.yml'
+  public: 'release-managers/'
+
+# Team data
+- source: 'data/team_members/.+' # All team members
+  public: 'company/team/' # company/team/
+
+# Pets data
+- source: 'data/pets.yml'
+  public: 'company/team-pets/'
+
+- source: 'data/gitlab_com.yml'
+  public: 'pricing#gitlab-com'
+
+- source: 'data/sections.yml'
+  public: 'handbook/product/categories/'
+
+- source: 'data/stages.yml'
+  public: 'handbook/product/categories/'
+
+- source: 'data/categories.yml'
+  public: 'handbook/product/categories/'
+
+- source: 'data/features.yml'
+  public: 'features/'
+
+- source: 'data/projects.yml'
+  public: 'handbook/engineering/projects/'
+
+- source: 'data/sdlc.yml'
+  public: '/'
+
+- source: 'data/addressable_markets.yml'
+  public: 'handbook/product/investment/'
+
+- source: 'data/performance_indicators/engineering_function.yml'
+  public: 'handbook/engineering/performance-indicators/'
+
+- source: 'data/performance_indicators/development_department.yml'
+  public: 'handbook/engineering/development/performance-indicators/'
+
+- source: 'data/performance_indicators/infrastructure-quality_department.yml'
+  public: 'handbook/engineering/infrastructure-quality/performance-indicators/'
+
+- source: 'data/performance_indicators/quality_department.yml'
+  public: 'handbook/engineering/quality/performance-indicators/'
+
+- source: 'data/performance_indicators/security_department.yml'
+  public: 'handbook/security/performance-indicators/'
+
+- source: 'data/performance_indicators/ux_department.yml'
+  public: 'handbook/product/ux/performance-indicators/'
+
+- source: /(sites\/.+\/)?source\/includes\/_performance_indicators.html.erb/
+  public: 'handbook/engineering/performance-indicators/'
+
+# Blogposts
+- source: /(sites\/.+\/)?source\/blog\/blog-posts\/([0-9]{4})-([0-9]{2})-([0-9]{2})-(.+?)\..*/ # sites/uncategorized/source/blog/blog-posts/2011-11-07-new-design-is-coming.html.md
+  public: 'blog/\2/\3/\4/\5/' # 2011/11/07/new-design-is-coming/
+
+# Release posts
+- source: /(sites\/.+\/)?source\/releases\/posts\/([0-9]{4})-([0-9]{2})-([0-9]{2})-(.+?)\..*/ # sites/uncategorized/source/releases/posts/2011-10-24-gitlab-v1-1-vmware-image.html.md
+  public: 'releases/\2/\3/\4/\5/' # 2011/10/24/gitlab-v1-1-vmware-image/
+
+# Templates
+- source: /(sites\/.+\/)?source\/(.*)\/template\..*/ # source/includes/home/template.html.md.erb
+  public: '\2/' # direction/
+
+# HTML files
+- source: /(sites\/.+\/)?source\/(.+?\.html).*/ # sites/uncategorized/source/index.html.haml
+  public: '\2' # index.html
+
+# JSON files
+- source: /(sites\/.+\/)?source\/(.+?\.json).*/ # sites/uncategorized/source/stages.json.haml
+  public: '\2' # stages.json
+
+# Local partials
+- source: /(sites\/.+\/)?source\/(.+)\/_*.erb/ # source/includes/home/_categories.erb
+  public: '\2/'
+
+# direction/
+- source: /(sites\/.+\/)?generators\/direction.rb/
+  public: 'direction/'
+
+# Other files
+- source: /(sites\/.+\/)?source\/(.*)/ # source/images/blogimages/around-the-world-in-6-releases-cover.png
+  public: '\2' # images/blogimages/around-the-world-in-6-releases-cover.png
+
+# Features available on GitLab.com, but not in a packaged release
+- source: /data\/release_posts\/unreleased\/.*\.yml/
+  public: 'releases/gitlab-com/'
+
+# Reference architecture solutions page (because of PDF generation)
+- source: 'source/includes/reference-architectures/gitlab-reference-architectures.md'
+  public: 'solutions/reference-architectures/'
+
+# Route to top mis-used terms page if the data file changes
+- source: 'data/communication/misused_terms.yml'
+  public: '/handbook/communication/top-misused-terms/'

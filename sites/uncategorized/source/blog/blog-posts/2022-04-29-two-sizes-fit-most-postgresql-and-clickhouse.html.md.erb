@@ -1,0 +1,91 @@
+---
+title: "Two sizes fit most: PostgreSQL and Clickhouse"
+author: Sid Sijbrandij
+author_gitlab: ""
+categories: insights
+tags: ""
+description: Relational databases are not in decline. Here's why.
+---
+Since the introduction of [System R](https://en.wikipedia.org/wiki/IBM_System_R_) in 1974, relational databases in general, and SQL databases in particular, have risen to become the dominant approach to data persistence in the industry, and have maintained that dominance despite various significant challengers. Though some have rumored the death and decline of traditional relational databases, PostgreSQL has turned out to be an improvement on its predecessors, as well as its supposed successors. 
+
+In fact, the open-source MySQL database was so ubiquitous that it became part of the eponymous LAMP stack (Linux, Apache, MySQL, Perl) that dominated early web development.
+
+The one big exception to this trend is OLAP, where specialized techniques that can drastically improve the performance of certain workloads have met with use-cases that actually require these techniques, with new contenders such as Clickhouse enabling qualitatively different approaches to analytics.
+
+## One size does not fit all
+
+As often happens when a technology becomes dominant, it gets applied unthinkingly even when it may not actually be appropriate, and so all kinds of data was and is being pushed into general-purpose relational databases.
+Extreme examples could be found, such as developers creating remote Oracle databases for data sets with a total of 5 small elements (not columns, pieces of data) or Apple pushing their system logs into an SQLite database (a mistake they later corrected).
+
+Bind10 development started under the premise to solve scaling issues with Bind9 as DNS nameserver, using SQLite as backend. The DNS development was discontinued by ISC in 2014, and the OSS project [Bundy](https://github.com/bundy-dns/bundy) remains inactive. PowerDNS focussed on [performance scaling with MySQL/PostgreSQL](https://doc.powerdns.com/authoritative/performance.html) early.
+
+In 2005, Michael Stonebraker, database researcher behind Ingres and later PostgreSQL, together with Uğur Çetintemel, penned a paper [“One Size Fits All”: An Idea Whose Time Has Come and Gone](http://cs.brown.edu/%7Eugur/fits_all.pdf) arguing that this had gone too far too long and backing up that argument with [benchmark results](http://nms.csail.mit.edu/%7Estavros/pubs/osfa.pdf).
+
+In short, there were many workloads outside of the core application of databases, Online Transaction Processing (OLTP), where the general database architectures were outclassed sufficiently that it did not make sense to use them.
+
+It should be noted that Stonebraker and Çetintemel argued not against relational databases or SQL, but against a specific architecture descendent from the original System R and Ingres systems that were and still are being used by most general purpose database systems.
+
+This architecture has the following features:
+
+- Disk and row-oriented storage and indexing structures
+- Multithreading to hide latency
+- Locking-based concurrency control mechanisms
+- Log-based recovery
+
+In addition to special-purpose text indexing, the primary use-case for which the traditional architecture was proving inadequate was data warehouses, for which column stores were proving 10-100x more efficient than the traditional row stores.
+
+## Clickhouse
+
+The prediction that OLAP database engines would split off from mainstream databases has largely come to pass in the industry, with OLAP databases now being a significant category in its own right, with vertica, the commercial offshot of the original cstore discussed in the paper, one of the major players.
+
+The practical advantages of these databases for analytical work are, as predicted, substantial enough that having a separate database engine is warranted.
+
+Or even necessary, as was the case for Yandex's clickhouse OLAP database, recently spun out into a startup that just received a US $250m series B.
+The clickhouse developers wanted to have realtime analytics, but do so not with customized data structures, as is customary in this application domain, but instead with a generalized database engine queryable with SQL.
+Of course, there is a reason this is usually done with customised data structures: doing so with a generalized database engine was considered impossible, partly because it was impossible with existing engines.
+As is often the case, impossible turns out to "just" be a lot of work and some brilliant engineering, and after a few years the developers had what they had sought after: a database engine specialised for OLAP, but general enough, queryiable via SQL and still capable of real-time analytics.
+
+Both the engineering and the benchmark results are impressive, including our own [tests](https://gitlab.com/gitlab-org/incubation-engineering/apm/apm/-/issues/4#results) [(video0)](https://www.youtube.com/watch?v=cMdQsxolcqc).
+
+It is significantly faster than PostgreSQL extensions such as CitusDB or Timescale DB, and reportedly also faster than vertica.
+
+## The end of an era?
+
+The 2005 paper left OLTP as the only area where the traditional (disk-based, row-oriented, multi-threaded) architecture was viable. Two years later, he published [The end of an Architectural Era (It’s Time for a Complete Rewrite)](http://nms.csail.mit.edu/~stavros/pubs/hstore.pdf), where he argues that even for OLTP, the existing engines can be surpassed by more than a factor of ten.
+
+The key insight was that long held assumptions about the relative performance of different components were no longer accurate, and so it turns out that, according to Stonbraker et al, around 90% of the performance budget of the database engine is used not for actually processing data, but for overheads such as buffer management and locking.
+So if we could remove those overheads, we could make a database engine that is 10x faster than existing ones. Achieving these gains would require building a database engine that is single-threaded and works in main memory, a radical departure from the existing architecture.
+
+But not an unprecedented one. Main memory capacities have improved many more than a million times since those early databases were designed, so many workloads that used to require persistent storage due to size can now be handled in memory.
+
+For example, even in the early 2000s Yahoo had a policy that any dataset less than 2GB should live in RAM, not on disk. A little later, [EventPoster](https://www.martinfowler.com/bliki/EventPoster.html) architectures, [In-Process REST](https://link.springer.com/chapter/10.1007/978-1-4614-9299-3_11) and the [LMAX](https://martinfowler.com/articles/lmax.html) exchange with the [Disruptor](https://lmax-exchange.github.io/disruptor/) pattern demonstrated that moving from complex multi-threaded, disk-based systems to single threaded RAM based architectures could yield tremendous benefits in terms of simplicity, reliability and performance.
+
+And that was with 32 bit computing. Nowadays, we can get single servers with tens of terabytes of memory configured for us at the click of a mouse (with a subsequent bill...), so the workloads we can keep in RAM are quite substantial.
+
+Stonebraker and his team built [H-Store](https://hstore.cs.brown.edu), an academic prototype, and [voltdb](https://en.wikipedia.org/wiki/VoltDB), a commercial product with the associated startup.
+
+## It hasn't taken the database world by storm.
+
+Surprisingly, that isn't because it doesn't work as intended. From all reports it seems like it does, in fact, work pretty much as advertised and can fulfill its promises.
+
+However, those promises came with tradeoffs, and it seems like those tradeoffs aren't ideal for most domains. First, though keeping the entire database in RAM at all times is feasible nowadays, it's probably not a good price/performance tradeoff for most domainst, for which most data is cold.
+Second, although much higher peak performance is possible, machines are now so fast that the the highest possible peak performance is only necessary for very special domains.
+
+Third, with machines now so fast and performance now usually adequate, performance focus has shifted from peak or even throughput to worst-case latencies. With only a single thread accessing the database, a single long query can stall the entire database and cause extremely bad tail-end latencies. So the fastest database using conventional measures of throughput and peak performance may actually require supreme care not to score worst in the performance metric people now care most about.
+Last not least, requiring a distributed setup, while fine for large installs, creates a high burden for entry-level setups, meaning there is no good on-ramp for this technology.
+
+## PostgreSQL
+
+So it looks like the era of the conventionally architected OLTP database has not, in fact, ended. Of course, this shouldn't be of too much concern to Professor Stonebraker as the contender coming out on top is still his brainchild, just an earlier one. No, not [Ingres](https://en.wikipedia.org/wiki/Ingres_%28database%29) the early public peer to IBM's System R, but its successor: PostgreSQL.
+
+PostgreSQL is becoming, or has become, the dominant variant of these conventionally architected databases according to both industry sentiment and database [rankings](https://db-engines.com/en/ranking/relational+dbms). Certainly among the engines not beholden to a major database vendor in one way or another.
+
+At GitLab, we also use PostgreSQL with replication, having [moved away](/blog/2019/06/27/removing-mysql-support/) from MySQL in 2019, partly because PostgreSQL actually had features that are important for us, partly because most of our customers were using it anyhow.
+
+## What about NoSQL?
+
+Well, what about it? Although the NoSQL movement of the early 2000s did point to some shortcomings in the dominant databases, the technological prescriptions actually only made sense in very rare circumstances.
+NoSQL isn't really a category, but more a feature of rich database engines like PostgreSQL.
+
+With increasing compute power and fast storage, high volumes and transaction rates can be handled with traditional database engines, and non-traditional engines can serve relational models using SQL as the interface, see voltdb and Google's Spanner, built on top of Bigtable.
+There are use-cases where a relational database is not needed and a key-value store is sufficient, or a JSON document store is called for, but for example JSON types in PostgreSQL handle most of these use cases just fine. Even for very specialised use-cases such as text or GIS, modern relational database engines provide direct support.

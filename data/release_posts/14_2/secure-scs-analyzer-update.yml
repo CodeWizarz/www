@@ -1,0 +1,17 @@
+---
+features:
+  secondary:
+  - name: "SAST .NET analyzer updated to support Visual Studio 2019 projects"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/user/application_security/sast/analyzers'
+    reporter: tmccaslin
+    stage: secure
+    categories:
+    - SAST
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/338168'
+    description: |
+        We have updated our Static Application Security Testing (SAST) for .NET, Security Code Scan, to [migrate to a new Alpine base image](https://gitlab.com/gitlab-org/security-products/analyzers/security-code-scan/-/merge_requests/84/diffs) for this analyzer for consistency as well as improved stability, performance, and security. This generally should not cause problems, however if you leverage `before_script` with the [`security-code-scan-sast` job](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Jobs/SAST.gitlab-ci.yml#L219), you may need to update your `before_script` to resolve any incompatible function calls.
+        
+        We've also updated Security Code Scan to its latest major version ([v5](https://github.com/security-code-scan/security-code-scan/releases)). This adds support for projects built with Visual Studio 2019 and is a major upgrade to a new inter-procedural taint analysis engine. Due to the major upgrade, we are making this opt-in for now and a future release will update this version by default. To begin using this updated version, please leverage the following [override to pin Security Code Scan to the new version](https://docs.gitlab.com/ee/user/application_security/sast/#pinning-to-minor-image-version): `SAST_ANALYZER_IMAGE_TAG: 3`.
+
+        In future versions of GitLab, we will update the default version of Security Code Scan to this new version, at which point you will no longer need to use the above code snippet.

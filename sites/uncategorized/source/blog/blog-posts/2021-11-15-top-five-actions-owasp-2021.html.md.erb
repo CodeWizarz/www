@@ -1,0 +1,94 @@
+---
+title: "Top five actions engineers should take based on the OWASP Top 10 2021 security updates"
+author: Wayne Haber
+author_gitlab: whaber
+author_twitter: waynehaber
+categories: security
+image_title: '/images/blogimages/joshua-golde-qIu77BsFdds-unsplash.jpg'
+description: "Learn what actions engineers should take based on the OWASP Top 10 updates for 2021"
+twitter_text: "Learn what actions engineers should take based on the #OWASP Top 10 updates for 2021"
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2020/01/21/gitlab-is-now-a-member-of-the-owasp-foundation/"
+  - "/blog/2020/04/02/security-trends-in-gitlab-hosted-projects/"
+---
+<%= cache_bust(stylesheet_link_tag('harveyball'), cache_bust_value) %>
+<style>
+.slpBlog__article table > tbody > tr > td {
+  vertical-align: middle;
+}
+td .harveyball {
+  margin: 0 auto;
+}
+li .harveyball {
+  display: inline;
+}
+</style>
+
+The [OWASP Foundation](https://owasp.org/) recently released its long-anticipated [OWASP top 10 security vulnerability trends for 2021](https://owasp.org/Top10/).  This list provides awareness for developers and security teams on the most critical security risks to applications. This is the first update in four years.
+
+We're proud to [sponsor the OWASP organization](https://about.gitlab.com/blog/2020/01/21/gitlab-is-now-a-member-of-the-owasp-foundation/), which supports their mission "to help the world improve the security of its software" as well as support regional and global annual conferences. We were also thrilled to be able to help with the OWASP top 10 updates by compiling and providing [anonymized vulnerability data](https://about.gitlab.com/blog/2020/10/06/gitlab-latest-security-trends/) to OWASP so they could use it with data from other sources to compile the trends.
+
+## There are many changes to the OWASP top 10
+
+<iframe src='https://flo.uri.sh/visualisation/7574790/embed' title='Interactive or visual content' class='flourish-embed-iframe' frameborder='0' scrolling='no' style='width:100%;height:600px;' sandbox='allow-same-origin allow-forms allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation'></iframe><div style='width:100%!;margin-top:4px!important;text-align:right!important;'><a class='flourish-credit' href='https://public.flourish.studio/visualisation/7574790/?utm_source=embed&utm_campaign=visualisation/7574790' target='_top' style='text-decoration:none!important'><img alt='Made with Flourish' src='https://public.flourish.studio/resources/made_with_flourish.svg' style='width:105px!important;height:16px!important;border:none!important;margin:0!important;'> </a></div>
+
+OWASP Top 10 changes from 2004 to 2021
+
+In the top 5, broken access control has gone from #5 up to #1 on this list due to nearly 4% of applications having challenges in this area. Insecure design has been added as a new category. Cryptographic failures, injection, and security misconfiguration continue to be high on the list.
+
+In the bottom 5, vulnerable and outdated components, identification/authentication issues, and logging/monitoring are still present. New categories are software/data integrity and Server-Side Request Forgery (SSRF).
+
+The most significant changes between the OWASP Top 10 2017 and 2021 rankings is the position of Broken Authentication, which moved five steps down from position 2 to 7. This change indicates that this category is considered much less critical nowadays than it used to be in the past. In contrast, Broken Access Control is considered more critical in 2021 in comparison to 2017 because it moved up four steps from position 5 to 1.
+
+Another noticeable difference when comparing OWASP Top 10 2017 and 2021 is the disappearance of the XML External Entity (XXE), Cross-Site Scripting (XSS), and Insecure Deserialization categories which have been absorbed by the Security Misconfiguration, Injection and Software and Data Integrity Failures categories in the 2021 ranking, respectively. This change freed up two additional spots in the 2021 ranking for the entirely new categories Insecure Design and SSRF. Vulnerabilities in Software Dependencies moved up three positions from position 9 in 2017 (Using Components with Known Vulnerabilities) to position 6 in 2021 (Vulnerable and Outdated Components).
+
+## What should engineering and security teams do based on the updates?
+
+1. [Broken access control](https://owasp.org/Top10/A01_2021-Broken_Access_Control/) – [SAST](https://docs.gitlab.com/ee/user/application_security/sast/) and [DAST](https://docs.gitlab.com/ee/user/application_security/dast/) scanners can sometimes help to find some classes of these issues. Automated tools can identify that user X can access feature Y; however, they often cannot determine if that user should have that level of access. This is where designing for security from the beginning comes into play, especially for authentication and authorization. Humans cannot be replaced with automation to detect many of these issues. Focused penetration testing and bug bounty programs are key to find things that may have slipped through the cracks.
+1. [Insecure design](https://owasp.org/Top10/A04_2021-Insecure_Design/) – Similar to the top controls for broken access control, it is essential to design for security at the beginning and monitor it over time. Teach developers how their applications may be attacked through threat modeling in order to enable them to design and evaluate the system design from a security-first mindset.
+1. [Software/data integrity](https://owasp.org/Top10/pt_BR/A08_2021-Software_and_Data_Integrity_Failures/) – Educate developers on attackers doing typosquatting on common libraries and inducing developers to use their libraries that have been compromised. Confirm your libraries and other dependencies are checked for known security issues via [GitLab Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/), and/or Container Scanning and open source tools like [OWASP dependency check](https://owasp.org/www-project-dependency-check/). Also, consider tools like [package hunter](https://about.gitlab.com/blog/2021/07/23/announcing-package-hunter/) that can help find malicious code in your dependencies.
+1. [Server-Side Request Forgery](https://owasp.org/Top10/A10_2021-Server-Side_Request_Forgery_%28SSRF%29/) – Sanitize untrusted input data using hardened libraries and [fuzz test](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/) your inputs to suss out unexpected behaviors. Implement allow lists for what should be permitted rather than deny lists that can be easily thwarted by a determined attacker. [SAST](https://docs.gitlab.com/ee/user/application_security/sast/) and [DAST](https://docs.gitlab.com/ee/user/application_security/dast/) scanners can often easily identify this class of issues.
+1. Keep diligence on the other top threats on the list via the above recommendations, including confirming monitoring and pre-established escalation runbooks for security issues. [Scan your code for secrets](https://docs.gitlab.com/ee/user/application_security/secret_detection/) that can accidentally leak into repositories. Keep an eye on [vulnerability trends](https://docs.gitlab.com/ee/user/application_security/security_dashboard/) in your applications over time to make sure they are being vetted and addressed as appropriate. [Scan and monitor your containers](https://docs.gitlab.com/ee/user/application_security/container_scanning/) for security issues.
+
+## How do GitLab and other solutions measure up to these risks?
+
+No one solution covers the entire threat in any category. A defense-in-depth strategy of employing multiple areas of validation is key to managing risk.
+
+More information about how GitLab addresses these risks can be found on the [secure product metric page](/handbook/engineering/development/sec/secure/products/metrics/).
+
+| Security risk                                       | GitLab Secure & Protect | Penetration Testing | Bug Bounties | Security Training | Security-First Design | Security Monitoring & Escalation |
+|-----------------------------------------------------|-------------------------|---------------------|--------------|-------------------|-----------------------|----------------------------------|
+| A01:2021-Broken Access Control                      | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>               | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>         |  <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                 | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                           |
+| 02:2021-Cryptographic Failures                      | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>         | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>           | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                  | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                              |
+| 03:2021-Injection                                   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                  | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>          | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>             | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                  | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                          |
+| A05:2021-Security Misconfiguration                  | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>          | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>              | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                 | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                               |
+| A06:2021-Vulnerable and Outdated Components         | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                 | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                 | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>            | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>             | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                           |
+| A07:2021-Identification and Authentication Failures | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                       | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                 | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>      | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                 | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                  | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                             |
+| A08:2021-Software and Data Integrity Failures       | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>              | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>           | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>              | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                          |
+| A09:2021-Security Logging and Monitoring Failures   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                   | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>             | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>               | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                     | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                             |
+| A10:2021-Server-Side Request Forgery                | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                    | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>               | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>         | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg>                | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg>                  | <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg>                           |
+
+Coverage legend:
+
+<ul>
+  <li>
+    <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-0"></use></svg> - 0%
+  </li>
+  <li>
+    <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-25"></use></svg> - 25%
+  </li>
+  <li>
+    <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-50"></use></svg> - 50%
+  </li>
+  <li>
+    <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-75"></use></svg> - 75%
+  </li>
+  <li>
+    <svg class="harveyball"><use xlink:href="/images/harveyball/icons.svg#harveyball-100"></use></svg> - 100%
+  </li>
+</ul>
+
+Cover image by [Joshua Golde](https://unsplash.com/@joshgmit?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText") on [Unsplash](https://unsplash.com/s/photos/ranking?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

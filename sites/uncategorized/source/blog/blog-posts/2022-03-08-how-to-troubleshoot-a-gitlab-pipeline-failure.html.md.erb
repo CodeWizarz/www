@@ -1,0 +1,53 @@
+---
+title: How to troubleshoot a GitLab pipeline failure
+author: ""
+author_gitlab: ""
+author_twitter: gitlab
+categories: devops platform
+tags: DevOps, security, code review
+description: Flaky tests, typos, merge conflicts…any of these things (and more)
+  can cause your GitLab pipeline to fail. Staff developer evangelist Brendan
+  O’Leary offers his best diagnostics.
+image_title: /images/blogimages/Understand-Highly-Technical-Spaces.jpg
+---
+
+No one is happy to see the red `X` pop up on a merge request, indicating your GitLab pipeline has failed. But hundreds of code changes happen every day and it can be hard to not create unknown variables, or worse. We asked staff developer evangelist [Brendan O’Leary](/company/team/#brendan) for his best advice to help your pipeline return to green.
+
+## Start with perspective
+
+While a failed pipeline is annoying, it’s important to remember that “tests can fail for different reasons: some are really bad or some may be ‘not right’,” says Brendan. A new commit may have broken something critical a developer didn’t realize, he says. “That’s why we have tests. We want problems to be caught.”
+
+## It might be the test
+
+Sometimes when a test fails it’s reasonable to ask if perhaps it’s simply too wide. But there are other reasons tests can fail. Some tests [can be flaky](https://docs.gitlab.com/ee/development/testing_guide/flaky_tests.html), meaning a developer didn’t change anything but still the test is popping up as a problem. The easy solution: put that test aside, or “quarantine it” and move on. 
+
+## It might also be the code
+
+A linting error could mean there are problems with the code quality. Something as simple as a typo can bring a pipeline process to a halt, so a lint error can be a call to action to review code changes.
+
+## It might be a security vulnerability
+
+The code in your most recent commit could be vulnerable, or a dependency could be at risk, either of which would trigger a failed security test and thus a failed pipeline. To help avoid failed security tests here are [5 actions a developer should take](/blog/2021/11/15/top-five-actions-owasp-2021/) based on the latest OWASP report on security vulnerabilities.
+
+## How’s your build environment?
+
+A team’s build environment or servers could have problems, causing a failed pipeline. That’s a key reason why GitLab believes ephemeral builds are important, Brendan says. Ephemeral builds are reproducible meaning they’re going to not be impacted because the server went down. 
+
+Learn more about ephemeral builds:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/jAQhDZiRzBQ" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+## Consider the conflict
+
+Sometimes builds fail because of a merge conflict. GitLab’s [merge trains](https://about.gitlab.com/blog/2020/01/30/all-aboard-merge-trains/) exist to make sure that big problems don’t get pushed onto the main line without developers realizing it, Brendan explains. 
+
+But in other cases builds can fail only after they’ve merged, Brendan says. “Developers can change something that doesn’t break in testing but when it’s actually merged there’s a very clear problem.” The solution, he says, is GitLab’s feature allowing [merge results pipelines](https://docs.gitlab.com/ee/ci/pipelines/merged_results_pipelines.html) to be tested ahead of time. “When I merge this, what is the result going to be?” Brendan asks. “With merge results pipelines I know I’m not going to cause a broken build in the main line.”
+
+## Keep the tracks clear
+
+In the end, it’s important to keep the goal in mind: a green main line. “We want to make sure we have a very clear path here that lets you stop the train if the merge nodes aren’t working,” Brendan says. “We want to stop the train instead of letting it roll out onto broken tracks.”
+
+Read more: Learn how to extract [greater efficiency from your CI pipelines](/blog/2022/03/09/efficient-pipelines/).

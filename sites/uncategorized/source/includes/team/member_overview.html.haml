@@ -1,0 +1,34 @@
+.col-xl-2.col-lg-2.col-md-3.col-sm-4.col-xs-12.member{data: { departments: member.departments }}
+  .card
+    .front.core-team
+      - image_url = member.avatar_url ? member.avatar_url : "/images/team/#{member.picture}"
+      = image_tag image_url, alt: member.name, class: "member-img", width: 120, height: 120, loading: 'lazy'
+
+      %h3
+        = member.name
+      - if member.country == "Remote"
+        %h5
+          = member.country
+      - elsif member.locality || member.country
+        - location = [member.locality, member.country].compact.join(", ")
+        %h5
+          = link_to "https://maps.google.com?q=#{location}" do
+            = location
+            = member.country_info&.emoji_flag
+      %h4.role
+        = member.role
+
+      .social
+        - if member.linkedin
+          %a{href: "https://www.linkedin.com/in/#{member.linkedin}"}
+            %span.sr-only
+              LinkedIn
+            %i.fab.fa-linkedin
+        - if member.twitter
+          %a{href: "https://twitter.com/#{member.twitter}"}
+            %span.sr-only
+              Twitter
+            %i.fab.fa-twitter
+        - if member.gitlab
+          %a.gitlab-logo{href: "https://gitlab.com/#{member.gitlab}"}
+            %img{ src: "/images/icons/logos/slp-icon.svg", alt: "GitLab" }

@@ -1,0 +1,17 @@
+features:
+  secondary:
+    - name: "Fixes for Geo database timeouts when finding unsynced Git LFS objects"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/index.html'
+      reporter: fzimmer
+      stage: systems
+      categories:
+        - "Geo-replication"
+        - "Disaster Recovery"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/issues/34269'
+      description: |
+        Geo compares the tracking database to the read-only secondary database to determine what needs to be synced. The existing design has been iterated on and optimized, and we [keep improving it further](https://gitlab.com/gitlab-org/gitlab/issues/10286). If Geo's database queries time out, data can't be replicated successfully.
+        In GitLab 12.9, we use a new approach to sync [Git LFS](https://docs.gitlab.com/ee/topics/git/lfs/index.html) files which eliminates the possibility of database statement timeouts. This design will be rolled out to other data types after we have validated the solution.
+
+        In addition, this sets the stage to allow Geo to remove its dependency on [Foreign Data Wrappers](https://wiki.postgresql.org/wiki/Foreign_data_wrappers), which was added for improved performance, but makes Geo more complex and harder to maintain.

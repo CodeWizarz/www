@@ -1,0 +1,18 @@
+features:
+  secondary:
+    - name: "Major improvements to the Container Registry cleanup policy"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/packages/container_registry/#cleanup-policy'
+      reporter: trizzi
+      stage: package
+      categories:
+        - 'Container Registry'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/243750'
+      description: |
+        When using the cleanup policy for tags to remove unwanted tags from your Container Registry, you may have noticed that the tags aren't always removed like you'd expect them to be. As a result, it's likely that you had to manually intervene by using the GitLab API to [delete registry tags in bulk](https://docs.gitlab.com/ee/api/container_registry.html#delete-registry-repository-tags-in-bulk), or you ignored the problem and subsequently experienced higher storage costs.
+
+        There are two potential issues that may have caused problems. The first issue is related to [gitlab-#219915](https://gitlab.com/gitlab-org/gitlab/-/issues/219915). This issue resolved a bug where some policies created in the user interface were failing, because the `user` wasn't passed to the [`DeleteTagService`](https://gitlab.com/gitlab-org/gitlab/blob/master/app/services/projects/container_repository/cleanup_tags_service.rb#L28).
+
+        In addition, you may have encountered an issue in which the policy ran, but only partially completed. This occurs when a policy attempts to delete many images and instead times out. If that happens, it will continue removing the tags in the policy's next scheduled run. Moving forward, you will see a warning to signal that there are partially-run policies remaining. That way you can decide if you want to manually intervene or not.
+
+        We have several other improvements planned for this feature, including [support for all historical projects](https://gitlab.com/gitlab-org/gitlab/-/issues/196124) and a [preview of tags that will be removed](https://gitlab.com/gitlab-org/gitlab/-/issues/223732).

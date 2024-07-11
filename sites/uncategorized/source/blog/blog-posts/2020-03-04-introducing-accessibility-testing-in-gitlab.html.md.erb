@@ -1,0 +1,70 @@
+---
+title: "Introducing Accessibility Testing in GitLab" 
+author: James Heimbuck 
+author_gitlab: jheimbuck_gl 
+author_twitter: jheimbuck_gl 
+categories: unfiltered 
+image_title: "/images/blogimages/accessibility_direction/accessibility-vision.jpg" 
+description: "How Accessibility Testing reinforces our value that everyone can contribute" 
+tags: CI/CD, features 
+ee_cta: false #
+install_cta: false #
+merch_banner: merch_three 
+twitter_text: "Test accessibility with every Merge Request using @gitlab" 
+postType: content marketing 
+---
+
+{::options parse_block_html="true" /}
+
+
+
+GitLab has introduced continuous accessibility testing with the 12.8 release. This post adds some context to the [release post](/releases/2020/02/22/gitlab-12-8-released/#automated-accessibility-scanning-of-review-apps) and introduces our vision for accessibility testing going forward.
+
+## Why isn't everyone doing accessibility testing?
+
+One of the core tenets of the vision of GitLab is that [everyone can contribute](https://about.gitlab.com/company/vision/#vision). We also firmly believe that GitLab should be accessible to everyone and projects created with GitLab should as well. To better realize this we have introduced Accessibility Testing as a new feature in GitLab 12.8.
+
+In talking to developers, and even my own colleagues, I have been surprised about how many people around me are color blind and have realized how easy this is to overlook. In fact, 8% of the United States male population is color blind, and this is just one kind of visual impairment that may impact a web site's readability. Take for instance the classic North American color indicators for Go / Stop or Good / Bad - Red and Green. An example of the GitLab pipeline page is shown below as users without and with protanopia would see the page. GitLab does make use of differing icons and wording as indicators of a pipeline's status, but the difference is striking.
+
+![Pipelines page](/images/blogimages/accessibility_direction/pipelines.png){: .shadow}
+How the Pipelines page appears to users without Protanopia
+{: .note.text-center}
+
+![Pipelines with Protanopia](/images/blogimages/accessibility_direction/pipelines-with-protanopia.png){: .shadow}
+How the Pipelines page appears to users with Protanopia
+{: .note.text-center}
+
+As we dug into the problem with developers we found two common themes:
+1.  Accessibility testing is done late in the development lifecycle, often on a Release Candidate, when it is too late to make changes.
+1.  Accessibility testing is becoming more important across organizations.
+
+## Why is accessibility testing a hot topic?
+
+Pizza. More specifically one persons ability to [customize a pizza](https://www.usatoday.com/story/money/2019/10/07/dominos-pizza-website-accessibility-supreme-court-wont-hear-case/3904582002/). While some companies may see accessibility testing as a defensive move to prevent law suits we see it a different way at GitLab. We want to build software for everyone and we want to build it quickly. Providing developers a mechanism to improve the accessibility of their software for all users is just the right thing to do.
+
+## How is GitLab solving this problem?
+
+With the [12.8 release](/releases/2020/02/22/gitlab-12-8-released/#automated-accessibility-scanning-of-review-apps) GitLab has introduced accessibility scanning in the Core product. By including the Accessibility template to your .gitlab-ci.yml file and providing a URL the accessibility scan can be run on every merge request that includes that job. 
+
+```yaml
+include:
+  template: Verify/Accessibility.gitlab-ci.yml
+
+a11y:
+  variables:
+    a11y_urls: https://example.com
+```
+
+The example above is from the [documentation](https://docs.gitlab.com/ee/user/project/merge_requests/accessibility_testing.html) which includes some additional details. 
+
+In the current version of the feature the result is a simple HTML report that outlines the issues with the Review App as identified by the scanner, which uses the [W2CAGAA standards](https://www.w3.org/TR/WCAG20/). We recognize that this is just a small step in making software more accessible but we are excited about the future.
+
+Future iterations and improvements in GitLab we will be working on for a11y testing include:
+* [Identify and scan only changed pages](https://gitlab.com/gitlab-org/gitlab/issues/207383)
+* [Display newly introduced issues in the Merge Request view](https://gitlab.com/gitlab-org/gitlab/issues/39425)
+* [Display the full a11y report in GitLab](https://gitlab.com/gitlab-org/gitlab/issues/36170)
+
+This is not a comprehensive list by any means and you can send suggestions for improvements or follow along as the category matures on the Accessibility Testing direction page.
+
+Photo by [Matt Noble](https://unsplash.com/@mcnoble) on [Unsplash](https://unsplash.com/)
+{: .note}

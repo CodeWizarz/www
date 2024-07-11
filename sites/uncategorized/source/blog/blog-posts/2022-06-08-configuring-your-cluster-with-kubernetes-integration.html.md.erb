@@ -1,0 +1,197 @@
+---
+title: "GitLab Heroes Unmasked - How I became acquainted with the GitLab Agent for Kubernetes"
+author: Jean-Philippe Baconnais
+author_gitlab: jeanphi-baconnais
+author_twitter: JPhi_Baconnais
+categories: open source
+tags: Kubernetes, community, user stories, growth, contributor
+description: "A tutorial on deploying and monitoring an application in Kubernetes without
+  leaving GitLab."
+image_title: '/images/blogimages/treasure.jpg'
+guest: true
+twitter_text: "GitLab Hero Jean-Philippe Baconnais shares his interest in the capabilities of the GitLab Agent for Kubernetes."
+featured: no
+---
+
+_A key to GitLab’s success is our vast community of advocates. Here at GitLab, we call these active contributors "[GitLab Heroes](/community/heroes/)." Each hero contributes to GitLab in numerous ways, including elevating releases, sharing best practices, speaking at events, and more. Jean-Phillippe Baconnais is an active GitLab Hero, who hails from France. We applaud his contributions, including leading community engagement events. Baconnais shares his interest in Kubernetes and explains how to deploy and monitor an application in Kubernetes without leaving GitLab._ 
+
+Since 2007, I’ve been a developer. I’ve learned a lot of things about continuous integration, deployment, infrastructure, and monitoring. In both my professional and personal time, my favorite activity remains software development. After creating a new application with multiple components, I wanted to deploy it on Kubernetes, which has been really famous over the last few years. This allows me to experiment on this platform. This announces a lot of very funny things. I know some terms, I used them in production for five years. But as a user, Kubernetes Administration is not my “cup of tea” 😅.
+
+## My first deployment in Kubernetes
+
+When I decided to deploy an application on Kubernetes, I wasn’t sure where to start until I saw, navigating in my project in GitLab, a menu called “Kubernetes." I wanted to know what GitLab was hiding behind this. Does this feature link my project’s sources to a Kubernetes cluster? I used the credit offered by Google Cloud to discover and test this platform. 
+
+Deploying my application on Kubernetes was easy. I wrote [a blog post](https://dev.to/jphi_baconnais/deploy-an-quarkus-application-on-gke-with-gitlabci-lgp) in 2019 describing how I do this, or rather, how GitLab helped me to create this link so easily. In this blog post I will explain further and talk about what’s changed since then.
+
+Behind the “Kubernetes” menu, GitLab helps you integrate Kubernetes into your project. You can create, from GitLab, a cluster on Google Cloud Platform (GCP), and Amazon Web Services (AWS). If you already have a cluster on this platform or anywhere else, you can connect to it. You just need to specify the cluster name, Kubernetes API UR, and certificate.
+
+![Connect cluster](/images/blogimages/baconcreatecluster.png){: .shadow}
+
+GitLab is a [DevOps](https://about.gitlab.com/topics/devops/) platform and in the list of DevOps actions, there is the monitoring part. 
+
+![Chart of GitLab stages](/images/blogimages/baconstreamline.png){: .shadow}
+
+GitLab deploys an instance of Prometheus to get information about your cluster and facilitate the monitoring of your application.
+
+For example, you can see how many pods are deployed and their states in your environment. You can also view some charts and information about your cluster, like memory and CPU available. All these metrics are available by default without changing the application of your cluster. We can also read the logs directly in GitLab. For a developer, it’s great to have all this information on the same tool and this allows us to save time. 
+
+![Pod deployment](/images/blogimages/baconhealth.png){: .shadow}
+
+
+## A new way to integrate Kubernetes
+
+Everything I explained in the previous chapter doesn’t quite exist anymore. The release of GitLab 14.5 was the beginning of a revolution. The Kubernetes integration with certificates has limitations on security and many issues were created. GitLab teams worked on a new way to rely on your cluster. And in Version 14.5, the [GitLab Agent for Kubernetes](https://docs.gitlab.com/ee/user/clusters/agent/) was released! 
+
+## GitLab Agent for Kubernetes
+
+GitLab Agent for Kubernetes is a new way to connect to your cluster. This solution is easy to explain: An agent installed on your cluster communicates with your GitLab instance with [gRPC](https://grpc.io/) protocol. Your agent offers you useful GitOps features I will explain later. The next picture shows you the GitLab Agent for Kubernetes architecture (from GitLab). 
+
+![GitLab Agent for Kubernetes flow chart](/images/blogimages/baconkubernetesflowchart.png){: .shadow}
+
+### GitOps defined
+
+Let’s quickly define the term “[GitOps](/topics/gitops/)”: It’s a way to manage your infrastructure as code, in a Git project. For me, there are two aspects in GitOps: “pull” and “push” mode. 
+
+- Push mode is when your Git project activates the upgrade of your infrastructure following a change. 
+- Pull mode is when your infrastructure verifies without interruption of your Git project and applies changes automatically.
+
+And GitLab chose the latter mode for their solution of GitLab Agent for Kubernetes. Indeed, your agent available on your cluster will check frequently if your project changes. The gRPC protocol is great to respect this intent. When you push a modification on your project, agents detect it automatically, and then your cluster upgrades.
+
+### How the GitLab Agent for Kubernetes works
+
+There are some actions to do to install and have a GitLab Agent for Kubernetes available on your project. 
+
+First, if you create a new project on GitLab, you can use the template “Management cluster,” which allows the initialization of files. These files allow you to have examples of: 
+- a declaration of an agent
+- a list of starter kits to install DevOps tools
+
+GitLab is a DevOps platform that wants to help you to configure all steps of the lifecycle of your project. You can find the configuration of tools like Prometheus, Sentry, Ingress, etc. I will detail this later.
+
+### The evolution of GitLab Agent for Kubernetes
+
+Before explaining more details about this agent, you have to know one thing. This product is in constant evolution and your feedback is welcome in [this issue](https://gitlab.com/gitlab-org/gitlab/-/issues/342696#note_899701396) to improve it. The roadmap is available and each version gives some information about its evolution.
+
+## How to use GitLab Agent for Kubernetes
+
+Creating an agent is simple. You have to create a file in the directory .gitlab/agents/<nameofyouragent>/config.yaml. 
+
+
+![Connect cluster](/images/blogimages/baconstructure.png)
+
+
+The default configuration should contain:
+- your project id, represented by your <user or group>/project
+- a namespace by default to deploy applications if it’s not present in your yaml files
+- path of your yaml file to apply. This can be a specific file, a directory, or a pattern of files
+- level of debug
+
+```
+
+gitops:
+ manifest_projects:
+ - id: xxxxx/demo-gitlab-kubernetes-cluster-management
+   default_namespace: gitlab-kubernetes-agent-demo
+   paths:
+   - glob: 'deploy.yaml'
+observability:
+ logging:
+   level: debug
+
+```
+
+You can add security to this configuration file with the “ci_access” property. For example, it allows developers to avoid destroying the Kubernetes infrastructure 😅. I didn’t explore in detail this part yet. 
+
+All configuration options are available on [this reference page](https://docs.gitlab.com/ee/user/clusters/agent/gitops.html#gitops-configuration-reference). 
+
+After creating and pushing your file in your project, you have to register your agent. And this action takes two seconds on the GitLab UI. 
+
+![Add an agent](/images/blogimages/baconaddanagent.png){: .shadow}
+
+On the next step, GitLab gives you the Docker command to install your agent on your cluster. For example:
+
+```
+
+docker run --pull=always --rm \
+    registry.gitlab.com/gitlab-org/cluster-integration/gitlab-agent/cli:stable generate \
+    --agent-token=<your token generated by GitLab> \
+    --kas-address=wss://kas.gitlab.com \
+    --agent-version stable \
+    --namespace gitlab-kubernetes-agent | kubectl apply -f -
+
+```
+You can copy-paste this command on your cluster and your agent will be available in a Kubernetes namespace. You can see on the GitLab UI that the link with the agent is successful.
+
+![Link with agent success](/images/blogimages/baconagentk.png){: .shadow}
+
+
+You can also verify this connection in logs of agent container: 
+
+```
+
+{"level":"debug","time":"2022-xx-xxT14:11:57.517Z","msg":"Handled a connection successfully","mod_name":"reverse_tunnel"}  
+
+```
+
+### GitLab cluster management 
+
+GitLab is a DevOps platform and uses tiers of applications to manage all the steps of a modern DevOps pipeline. The “Monitor” part in GitLab is based on some tools such as [Prometheus](https://prometheus.io/docs/visualization/grafana/),[Sentry](https://sentry.io/), [Vault](https://www.vaultproject.io/), etc. To help you, GitLab created the template [GitLab Cluster Management]( https://gitlab.com/gitlab-org/project-templates/cluster-management), which gives you a basic configuration of these tools.
+
+To install these tools, a `.gitlab-ci.yml` file is created and defines a job to deploy them with helmfile configuration. All these tools, contained in the directory named “applications,” can be overridden or customized in `values.yaml` file. 
+ 
+And for my experimentation, I used this template and applied a small change to have an external IP address for the Prometheus instance. After registering this external IP in GitLab (Menu Settings > Monitor > Alerts), the Monitor menu has data. We can check information about any pods deployed on my cluster. 
+
+![Agent graph](/images/blogimages/baconagentgraph.png){: .shadow}
+
+## The GitOps aspect 
+
+The GitOps aspect can be verified quickly. If you choose to specify one manifest file defining an application deployment, a modification on this file implies an automatic deployment on your cluster. Without CI! This allows us to have a faster deployment than if we passed with a pipeline. The new features or fixes will be deployed faster on your infrastructures. And if you use the free version of GitLab, your deployment will not count in your CI quota. 
+
+After a commit, the agent detects it and we can see the commit id in the agent logs.
+
+```
+{"level":"info","time":"2022-04-11T15:22:44.049Z","msg":"Synchronizing objects","mod_name":"gitops","project_id":"jeanphi-baconnais/demo-gitlab-kubernetes-cluster-management","agent_id":12804,"commit_id":"e2a82fe6cc82fa25e8d5a72584774f4751407558"}
+
+```
+
+## CI/CD tunnel
+
+Another feature that comes with the GitLab Agent for Kubernetes is the CI/CD tunnel. Your agent facilitates the interaction with your cluster. You just have to define a KUBE_CONTEXT variable referencing the path of your agent. 
+
+```
+variables:
+KUBE_CONTEXT: "xxxxx/demo-gitlab-kubernetes-cluster-management:agentk"
+
+```
+
+And actions on your cluster are available without secret configuration or anything else. If you want to execute `kubectl` commands, you can easily use this job:
+
+```
+
+test-cicd-tunnel:
+ stage: test
+ extends: [.kube-context]
+ image:
+   name: bitnami/kubectl:latest
+   entrypoint: [""]
+ script:
+  - kubectl get ns
+ when: manual
+
+```
+
+## What's next
+
+Currently, GitLab Agent for Kubernetes doesn’t allow you to get information about the state of pods on your cluster’s environment page.
+
+![Success](/images/blogimages/baconci.png){: .shadow}
+
+But GitLab wants to offer the same level of service as the certificate integration. So, check the roadmap ([in this issue](https://gitlab.com/groups/gitlab-org/-/epics/3329)) and the contents of each release. The template Cluster Management is in progress, too. Some issues will give new features for configuration tools.
+
+This experience was so rewarding for me. I would deploy a project on Google Cloud, and I discovered a new method. I saw this agent described in [GitLab 14.5](/releases/2021/11/22/gitlab-14-5-released/) but I didn’t imagine the impact it can have on a project. 
+
+My colleague [Eric Briand](https://twitter.com/eric_briand) and I had the opportunity to speak about this subject at [Malt Academy sessions](https://www.malt-academy.com/) and [Meetup GitLab France](https://www.meetup.com/GitLab-Meetup-France/events/283917115). I will continue to experiment with this agent and try different options for this wonderful product! 
+
+**This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this video/blog post and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc.**
+
+Cover image by [Ashin K Suresh](https://unsplash.com/photos/mkxTOAxqTTo) on Unsplash.
+{: .note}

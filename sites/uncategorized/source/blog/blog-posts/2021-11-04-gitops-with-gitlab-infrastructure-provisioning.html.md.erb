@@ -1,0 +1,413 @@
+---
+title: "GitOps with GitLab: Infrastructure provisioning with GitLab and Terraform"
+author: Viktor Nagy 
+author_gitlab: nagyv-gitlab 
+author_twitter: nagyviktor 
+categories: engineering
+twitter_image: "/images/blogimages/tanuki-bg-full.png"
+description: "In part two of our GitOps series, we set up the infrastructure using GitLab and Terraform. Here's everything you need to know."
+tags: GitOps, kubernetes, inside GitLab 
+twitter_text: "Got @gitlab but want #GitOps? Follow along in part two of our seven-post series on GitOps with GitLab. This week we show you how to provision an infrastructure with Terraform"
+featured: yes 
+postType: product 
+---
+
+_It is possible to use GitLab as a best-in-class [GitOps](https://about.gitlab.com/topics/gitops/) tool, and this blog post series is going to show you how. These easy-to-follow tutorials will focus on different user problems, including provisioning, managing a base infrastructure, and deploying various third-party or custom applications on top of them. You can find the entire "Ultimate guide to GitOps with GitLab" tutorial series [here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/)._
+
+This post focuses on setting up the underlying infrastructure using GitLab and Terraform. 
+
+The first step is to have a network and some computing instances that we can use as our Kubernetes cluster. In this project, I’ll use [Civo](https://www.civo.com) to host the infrastructure as it has the most minimal setup, but the same can be achieved using any of the hyperclouds. GitLab documentation provides examples on how to set up a [cluster on AWS](https://docs.gitlab.com/ee/user/infrastructure/clusters/connect/new_eks_cluster.html) or [GCP](https://docs.gitlab.com/ee/user/infrastructure/clusters/connect/new_gke_cluster.html).
+
+We want to have a project that describes our [infrastructure as code (IaC)](/topics/gitops/infrastructure-as-code/). As Terraform is today the de facto standard in infrastructure provisioning, we’ll use Terraform for the task. Terraform requires a state storage backend; We will use the GitLab managed Terraform state that is very easy to get started. Moreover, we will set up a pipeline to run the infrastructure changes automatically if they are merged to the main branch.
+
+## What infrastructure related steps are we going to codify?
+
+1. Create a VPC
+2. Set up a Kubernetes cluster
+
+Actually, we will create separate Terraform projects for these 3 steps under a single GitLab project. We split the infrastructure because in a real world scenario, these projects will likely be a bit bigger, and Terraform slows down quite a lot if it has to deal with big projects. In general, it is a good practice to have small Terraform projects, and think about the infrastructure in a layered way, where higher layers can reference the output of lower layers. There are [many ways to access the output of another Terraform project](https://www.terraform.io/docs/language/state/remote-state-data.html#alternative-ways-to-share-data-between-configurations), and we leave it up to the reader to learn more about these. In this case, we will use simple data resources.
+
+After this long intro, let’s get started!
+
+## Creating the network
+
+First, let’s create a new GitLab project. You can use either an empty project or any of the project templates. If you plan to do all these tutorials, I recommend starting with the [Cluster Management Project template](https://docs.gitlab.com/ee/user/clusters/management_project_template.html). Once the project is ready, let’s create the following files:
+
+- A `terraform/network/main.tf` file:
+
+```hcl
+terraform {
+  required_providers {
+    civo = {
+      source = "civo/civo"
+      version = "0.10.10”
+    }
+  }
+  backend "http" {
+  }
+}
+
+# Configure the Civo Provider
+provider "civo" {
+  token = var.civo_token
+  region = local.region
+}
+
+resource "civo_network" "network" {
+    label = "development"
+}
+```
+
+This file describes almost everything we want this project to do. The first block configures Terraform to use the `civo/civo` provider and a simple `http` backend for state storage. As I mentioned above, we will use [the GitLab managed Terraform state](https://docs.gitlab.com/ee/user/infrastructure/iac/terraform_state.html), that acts like an `http` backend from Terraform’s point of view. The GitLab backend is versioned and encrypted by default, and GitLab CI/CD contains all the environment variables needed to access it. I will demonstrate later how you can access the backend either from the local command line or from GitLab CI/CD.
+
+Next we configure the `Civo` provider. You can see that here we use two variables, an input and a local variable. These will be defined in separate files below. Finally, we describe a network and give it the “development” label.
+
+- A `terraform/network/outputs.tf` file:
+
+```hcl
+output "network" {
+  value = civo_network.network.id
+}
+```
+
+This file just provides the network id as an output variable from Terraform. Other projects could consume it. We won’t use this, but I consider it a good practice as it might help to debug issues.
+
+- A `terraform/network/locals.tf` file:
+
+```hcl
+locals {
+  region = "LON1"
+}
+```
+
+Here we define the `region` local as mentioned under the description of the `main.tf` file. Why aren’t we making it an input variable? Because this is closely related to our infrastructure and for this reason we want to keep it in code. It should be version controlled and changes should be reviewed following the team’s processes. We could write the values into a `.tfvars` file also to achieve versioning and have it as a variable. I prefer to keep it in `hcl` to have it closer to the rest of the code.
+
+- A `terraform/network/variables.tf` file:
+
+```hcl
+variable "civo_token" {
+  type = string
+  sensitive = true
+}
+```
+
+Finally, we define the Civo access token as an input variable.
+
+Now, we are ready with the Terraform code, but we cannot access the GitLab state backend yet. For that we either need to configure our local environment or GitLab CI/CD. Let’s see both setups.
+
+## Running Terraform locally
+
+You can run Terraform either locally or using GitLab CI/CD. The following two sections present both approaches.
+
+### Accessing the GitLab Terraform state backend locally
+
+The simplest way to configure the “http” backend is using environment variables. There are many environment variables needed though! For this reason, I prefer to use a collection of [direnv](https://direnv.net/) files. We will need all these environment variables configured:
+
+```
+TF_HTTP_PASSWORD
+TF_HTTP_USERNAME
+TF_HTTP_ADDRESS
+TF_HTTP_LOCK_ADDRESS
+TF_HTTP_LOCK_METHOD
+TF_HTTP_UNLOCK_ADDRESS
+TF_HTTP_UNLOCK_METHOD
+TF_HTTP_RETRY_WAIT_MIN
+```
+
+Direnv enables us to add a few files to our repository to describe the above environment variables in a nice and scalable way. Clearly, there are some variables that are sensitive, like `TF_HTTP_PASSWORD`, so this should not be stored in git. Moreover, we could reuse most of these variables in the other two Terraform projects we are going to create. With these considerations in mind, let’s create the following 3 files:
+
+- Create `terraform/network/.envrc`: 
+
+```
+export TF_STATE_NAME=civo-${PWD##*terraform/}
+source_env ../../.main.env
+```
+
+This sets the `TF_STATE_NAME` variable to `civo-network` using some bash magic and loads the `.main.env` file from the root of the repository using the `source_env` method provided by `direnv`. This can be added to version control safely.
+
+- Create `.main.env`:
+
+```
+source_env_if_exists ./.local.env
+
+CI_PROJECT_ID=28431043
+export TF_HTTP_PASSWORD="${CI_JOB_TOKEN:-$GITLAB_ACCESS_TOKEN}"
+export TF_HTTP_USERNAME="${GITLAB_USER_LOGIN}"
+export GITLAB_URL=https://gitlab.com
+
+export TF_VAR_remote_address_base="${GITLAB_URL}/api/v4/projects/${CI_PROJECT_ID}/terraform/state"
+export TF_HTTP_ADDRESS="${TF_VAR_remote_address_base}/${TF_STATE_NAME}"
+export TF_HTTP_LOCK_ADDRESS="${TF_HTTP_ADDRESS}/lock"
+export TF_HTTP_LOCK_METHOD="POST"
+export TF_HTTP_UNLOCK_ADDRESS="${TF_HTTP_LOCK_ADDRESS}"
+export TF_HTTP_UNLOCK_METHOD="DELETE"
+export TF_HTTP_RETRY_WAIT_MIN=5
+
+# export TF_LOG="TRACE"
+```
+
+This file contains the bulk of the environment variables we need, and can be added to version control safely as no secrets are stored there. The first line loads the `.local.env` file that will contain the sensitive values, again using a `direnv` method. The second line contains the GitLab project ID. This is shown under the project name of your GitLab project. The next three lines configure access to GitLab. The username and password will be populated from the `local.env` file, while the `GITLAB_URL` variable is there to help you if you are on a self-managed GitLab instance.
+
+- Create `.local.env` and add it to `.gitignore`:
+
+```
+GITLAB_ACCESS_TOKEN=<your GitLab personal access token>
+GITLAB_USER_LOGIN=<your GitLAb username>
+export TF_VAR_civo_token=<your Civo access token>
+```
+
+Clearly, I cannot provide the values for this file. Please fill them out with your credentials. You can generate a GitLab personal access token under your settings. To access the GitLab managed Terraform state using a personal access token, the token should have the `api` scope enabled.
+
+Warning: **Don’t forget to add this file to `.gitignore`**. Actually, I have it in my global gitignore file to avoid accidental commits.
+
+As the environment variables are set up, you should make direnv to start using these variables. When you `cd` into the `terraform/network` directory a warning should appear asking you to run `direnv allow`. Enable the environment variables:
+
+```
+cd terraform/network
+direnv allow
+```
+
+### Creating the network - finally
+
+Let’s see if we managed to set up everything right!
+
+```
+terraform init
+terraform plan
+```
+
+The first command just initializes Terraform, downloads the Civo plugin and does some sanity checks. The second command on the other hand connects to the remote state backend, and computes the necessary changes to provide the infrastructure we described in this project.
+
+If we like the changes, we can apply them with
+
+```
+terraform apply
+```
+
+_Nota bene_, in a real world setup, you would likely output a plan file from `terraform plan` and feed it into `terraform apply`, just like the CI/CD setup will do it later. Anyway, this is good enough for us, so let’s create the cluster next.
+
+### Running Terraform using GitLab CI/CD
+
+Note: This section assumes that you have access to GitLab Runners to run the CI/CD jobs.
+
+Given the flexibility of GitLab CI/CD it can be set up in many different ways. Here we will build a pipeline that incorporates the most important aspects of a Terraform-oriented pipeline, without restricting you to require merge requests or any other processes. The only restriction we'll place on it is that changes should only be applied on the main branch and this should be a manual action.
+
+Copy the following code into `.gitlab-ci.yml` in the root of your project:
+
+```yaml
+include:
+  - template: "Terraform/Base.latest.gitlab-ci.yml"
+
+stages:
+- init
+- build
+- deploy
+
+network:init:
+  extends: .terraform:init
+  stage: init
+  variables:
+    TF_ROOT: terraform/network
+    TF_STATE_NAME: network
+  only:
+    changes:
+      - "terraform/network/*"
+
+network:review:
+  extends: .terraform:build
+  stage: build
+  variables:
+    TF_ROOT: terraform/network
+    TF_STATE_NAME: network
+  resource_group: tf:network
+  only:
+    changes:
+      - "terraform/network/*"
+
+network:deploy:
+  extends: .terraform:deploy
+  stage: deploy
+  variables:
+    TF_ROOT: terraform/network
+    TF_STATE_NAME: network
+  resource_group: tf:network
+  environment:
+    name: dns
+  when: manual
+  only:
+    changes:
+      - "terraform/network/*"
+    variables:
+      - $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+This CI pipeline re-uses [the latest base Terraform CI template](https://gitlab.com/gitlab-org/gitlab/-/tree/master/lib/gitlab/ci/templates/Terraform) shipped with GitLab, and runs the jobs by simply parameterizing them as function calls. Let's review quickly the keys used:
+
+- the [`stages`](https://docs.gitlab.com/ee/ci/yaml/#stages) keyword provides a list of stages to compose the pipeline
+- the [`extends`](https://docs.gitlab.com/ee/ci/yaml/#extends) keyword refers to the job defined in [the base Terraform template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Terraform/Base.latest.gitlab-ci.yml)
+- the [`variables`](https://docs.gitlab.com/ee/ci/yaml/#variables) keywords parameterizes the job for our requirements
+- the [`resource_group`](https://docs.gitlab.com/ee/ci/yaml/#resource_group) keyword assures that always only one potentially conflicting job is run
+- the [`only`](https://docs.gitlab.com/ee/ci/yaml/#only--except) keyword restricts runs to specific situations
+
+If you commit this file and push it to GitLab, a new pipeline will be created that as a last step provides you a manual job to create your network. We will extend this file later throughout this tutorial series.
+
+## Create a Kubernetes cluster
+
+The code required for the cluster will be very similar to the code for the network.
+
+- Add `terraform/cluster/outputs.tf` file:
+
+```hcl
+terraform {
+  required_providers {
+    civo = {
+      source = "civo/civo"
+      version = "0.10.4"
+    }
+  }
+  backend "http" {
+  }
+}
+
+# Configure the Civo Provider
+provider "civo" {
+  token = var.civo_token
+  region = local.region
+}
+
+resource "civo_kubernetes_cluster" "dev-cluster" {
+    name = "dev-cluster"
+    // tags = "gitlab demo"  // Do not add tags! There is a bug in the civo-provider :(
+    network_id = data.civo_network.network.id
+    applications = ""
+    num_target_nodes = 3
+    target_nodes_size = element(data.civo_instances_size.small.sizes, 0).name
+}
+```
+
+The only difference compared to `terraform/network/outputs.tf` is the last resource as that describes the cluster. You can see how we reference the network created before. Of course, we'll need a `data` resource for this and the instance sizes.
+
+- Add `terraform/cluster/data.tf` file:
+
+```hcl
+data "civo_instances_size" "small" {
+    filter {
+        key = "name"
+        values = ["g3.small"]
+        match_by = "re"
+    }
+
+    filter {
+        key = "type"
+        values = ["instance"]
+    }
+
+}
+
+data "civo_network" "network" {
+    label = "development"
+}
+```
+
+
+- The `terraform/cluster/locals.tf` file outputs some useful details. We won't use them now, but they often come in handy in the longer term.
+
+```hcl
+output "cluster" {
+  value = {
+    status = civo_kubernetes_cluster.dev-cluster.status
+    master_ip = civo_kubernetes_cluster.dev-cluster.master_ip
+    dns_entry = civo_kubernetes_cluster.dev-cluster.dns_entry
+  }
+}
+```
+
+- The `terraform/cluster/locals.tf` file is the same as for the network project:
+
+```hcl
+locals {
+  region = "LON1"
+}
+```
+
+- The `terraform/cluster/variables.tf` file is the same as for the network project:
+
+```hcl
+variable "civo_token" {
+  type = string
+  sensitive = true
+}
+```
+
+### Provision the cluster
+
+Let's see how can we extend the previous local and CI/CD setups to run this Terraform project!
+
+#### Running locally
+
+- Create `terraform/cluster/.envrc`  as you did for the network project:
+
+```
+export TF_STATE_NAME=civo-${PWD##*terraform/}
+source_env ../../.main.env
+```
+
+Now run Terraform:
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+#### Running from CI/CD
+
+Extend the `.gitlab-ci.yaml` file with the following 3 jobs:
+
+```hcl
+cluster:init:
+  extends: .terraform:init
+  stage: init
+  variables:
+    TF_ROOT: terraform/cluster
+    TF_STATE_NAME: cluster
+  only:
+    changes:
+      - "terraform/cluster/*"
+
+cluster:review:
+  extends: .terraform:build
+  stage: build
+  variables:
+    TF_ROOT: terraform/cluster
+    TF_STATE_NAME: cluster
+  resource_group: tf:cluster
+  only:
+    changes:
+      - "terraform/cluster/*"
+
+cluster:deploy:
+  extends: .terraform:deploy
+  stage: deploy
+  variables:
+    TF_ROOT: terraform/cluster
+    TF_STATE_NAME: cluster
+  resource_group: tf:cluster
+  environment:
+    name: dev-cluster
+  when: manual
+  only:
+    changes:
+      - "terraform/cluster/*"
+    variables:
+      - $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+```
+
+As you can see these are the same jobs that we saw already, they are just parameterized for the `cluster` Terraform project.
+
+Once you push your code to GitLab, you cluster should be ready in a few minutes!
+
+_[Click here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/) for the next tutorial._
+
+
+

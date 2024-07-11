@@ -1,0 +1,88 @@
+---
+title: "How we optimized infrastructure spend at GitLab"
+author: Davis Townsend
+author_gitlab: davis_townsend
+categories: engineering
+image_title: '/images/blogimages/piggy_bank.jpg'
+description: "We keep our cloud spend under control with a spend optimization framework – now we're sharing it with you."
+tags: google, inside GitLab, collaboration, cloud native
+twitter_text: "Learn how @gitlab keeps their cloud spend under control"
+postType: content marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+Infrastructure spend optimization is a hot topic these days as many established companies are migrating workloads to the cloud. Similarly,  fast-growing startups are struggling to control their operating costs as they expand their cloud footprint to meet user demand. 
+
+At GitLab we have taken a methodical and data-driven approach to the problem so we can reduce our cloud spend and control our operating costs, while still creating great features for our customers. We designed a five-stage framework which emphasizes building awareness of our infrastructure spend to the point where any change in costs is well understood and no longer a surprise.
+
+Our framework is very similar to a normal data maturity framework (shown below) that would progress through descriptive, predictive, and finally prescriptive analytics, but we tailor it specifically for this domain. I'll explain each stage and what it looks like at GitLab so you can see how you might apply it to your own organization.
+
+![Normal Data Maturity Framework](/images/blogimages/2020-10-28-How-We-Optimized-Infra-spend/DMM.jpeg "Normal Data Maturity Framework"){: .medium.center}
+A normal data maturity framework 
+{: .note.text-center}
+
+## Spend optimization framework
+
+## 1. Basic cost visibility
+ This stage can be thought of as data exploration. You just want to understand as much as you can about where you are spending money at a high level. What vendors and services are you spending the most money on? This data is generally provided by cloud vendors through a billing console, as well as through billing exports. I've found the way to get the best use out of both options is to use the provided billing console for answering simple questions about specific costs quickly, and the exports for integrating this data into your own analytics architecture for more granular reporting, [multicloud](/topics/multicloud/) reporting, or for specific recurring reports you need over a longer time horizon.
+ 
+### GitLab example
+When starting out, we looked at Google Cloud Platform (GCP) and their [Default Billing Export](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) to get an overview of which products/projects/SKUs were responsible for the majority of our spend.
+
+## 2. Cost allocation
+This stage is all about going from high-level areas of spend to more granular dimensions that tie back to relevant business metrics in your company. At GitLab we may want to look at what we spend on particular services like CI runners, or what we spend to support employees using GitLab.com as part of their job vs. customer spend. This data may not be readily available to you so there could be a lot of work involved to tie these sorts of relevant business dimensions back to the cost reports provided by your vendor.
+
+### GitLab example
+For our production architecture we had some [GCP labels](https://cloud.google.com/compute/docs/labeling-resources) that indicated the internal service applied to the majority of our instances, so we started with those to see which services we spent most of our money on. More recently, we have created a [handbook page for Infrastructure Standards](/handbook/infrastructure-standards/) around project creation and label naming so that we can get even more insight out of our bill.
+
+
+
+## 3. Optimize usage efficiency
+Once you can allocate costs to their relevant business metrics, then can you start to ask interesting questions such as, “Why is our storage spend so high on feature x?” By asking these questions and then talking with the subject matter experts about these potential areas of optimization you can start to come up with ideas to reduce some of this cost.
+
+### GitLab example
+When we reached this stage we began to identify many areas of opportunity, including:
+
+- [CI runners](https://gitlab.com/gitlab-org/gitlab/-/issues/35777): One of the areas discovered from stage 2 happened to be our CI runners, for which we created more granular reporting to see the cost by specific repos, pipelines, and jobs, which allowed us to find some ways to optimize our own internal use of CI.
+- [Object storage](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/10087): We discovered high storage costs for outdated Postgres backups. We resolved this by enabling bucket lifecycle policies and reduced our object storage for that bucket by 900TB.
+- [Network usage](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/10222): By correlating a recent change in our spend profile to a network architecture change, we were able to highlight the need for additional changes. We ultimately implemented a change to directly download runner artifacts from GCS instead of having the traffic be proxied. This significantly reduced our overall networking cost.
+
+## 4. Measure business outcomes vs spend
+
+When you get to a point for a particular area where you feel like you have done all the basic optimizations and aren't sure where else you could reduce cost without seriously impacting your employees or customers, you have reached stage 4. This stage is all about analyzing the value of more complex changes that could reduce spend at the expense of something else, as well as considering the value and cost impact of major feature or architectural changes in the future.
+
+### GitLab example
+Our best example of this was our recent rollout of [advanced global search](https://docs.gitlab.com/ee/user/search/advanced_search.html) to all paid users on GitLab.com. In the first iterations of testing for this feature our costs were exceptionally high. Through a lot of hard work by the team responsible for the feature, they were able to significantly bring down the costs while improving functionality. Through those efforts, GitLab was able to bring this great feature to the platform in a way that also made sense from a business perspective.
+
+## 5. Predict future spend and problem areas
+Once your company has matured the practices above, you can start to become proactive about observing cost. You can also begin to detect and alert when spend is outside expected thresholds. Once you get to this point, infrastructure optimization should become a boring topic, and when you no longer have any cases of huge unexpected cost increases that were not due to unexpected increases in customer demand, you know you are doing a great job.
+
+### GitLab example
+
+We’re still working on this stage ourselves. While we’ve had some success in detecting unexpected spend, and even tying it to anomalous behavior in our platform, we recognize we have much more to do here. We are still working to get most of our usage to Stages 3-4, while spending parallel effort to reach Stage 5 for some more mature workloads.
+
+## Current state and next steps
+Today at GitLab, depending on the workload, we are anywhere between stages 1-4. The bulk of the work is going into getting everything to at least stage 2, and from there we can work on getting everything to stages 3-4. Current efforts include applying our newly created [infrastructure standards](/handbook/infrastructure-standards/) across all of our infrastructure, bringing in relevant product usage data from our various services, and giving PMs the tools they need to better manage the cost of their services through a single source of truth of base level cost metrics.
+
+## Workflow and planning
+Cost optimization is a difficult topic to tackle effectively as it involves many different stakeholders across the business who all have their own priorities. The way we are taking this problem on at GitLab is we have an [issue board](https://gitlab.com/groups/gitlab-com/-/boards/1502173?label_name[]=infrafin) where we plan and track progress on issues related to infrastructure spend. For all the major initiatives we assign priority to these based on four factors:
+
+1.  Cost savings
+2.  Customer impact  
+3.  Future potential cost impact
+4.  Effort required
+  
+These factors are discussed and reviewed by our analyst, our SaaS offering product manager, and the relevant subject matter expert for the area. Once the priority is agreed upon, the product manager works with various product teams to get these scheduled into milestones or backlog queues for the teams that need to implement the changes. Progress is tracked on the issue board, and reviewed for priority to ensure the solution moves forward at an appropriate velocity.
+
+## More to read
+
+All of this info and more can be found in our [Cost Management Handbook](/handbook/engineering/infrastructure/cost-management/). We continue to improve this page to provide our own employees with the resources they need to understand this topic better, as well as providing external viewers some idea of how they could think about infrastructure optimization in their own company.
+
+You might also enjoy:
+* [What we learned after a year of GitLab.com on Kubernetes](/blog/2020/09/16/year-of-kubernetes/)
+* [How we migrated application servers from Unicorn to Puma](/blog/2020/07/08/migrating-to-puma-on-gitlab/)
+* [How we upgraded PostgreSQL at GitLab.com](/blog/2020/09/11/gitlab-pg-upgrade/)
+
+Cover image by [Fabian Blank](https://unsplash.com/@blankerwahnsinn?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText) on [Unsplash](https://unsplash.com)
+{: .note}

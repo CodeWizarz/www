@@ -1,0 +1,187 @@
+---
+layout: markdown_page
+title: "Category Direction - Secrets Management"
+description: Our vision is to embed Vault within GitLab and migrate to using it for our own secrets management, within the GitLab Core as well as for your CI Runners. 
+canonical_path: "/direction/verify/secrets_management/"
+---
+
+- TOC
+{:toc}
+
+## Secrets Management
+
+| | |
+| --- | --- |
+| Stage | [Verify](/direction/verify/) |
+| Maturity | [Minimal](/direction/maturity/) |
+| Content Last Reviewed | `2023-09-15` |
+
+### Introduction and how you can help
+
+Thanks for visiting this category direction page on Secrets Management in GitLab. This page belongs to the [Pipeline Security](/handbook/product/categories/#pipeline-security-group) group of the Verify stage and is maintained by Jocelyn Eillis ([E-Mail](mailto:jeillis@gitlab.com)). 
+
+This category covers the experiences related to variables, pipeline permissions, and secrets. For more information, check out the [features page](https://about.gitlab.com/features/?stage=verify#secrets_management).
+
+This direction page is a work in progress, and everyone can contribute:
+
+ - Please comment and contribute in the linked [issues](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=updated_desc&state=opened&label_name%5B%5D=Category%3ASecrets%20Management&label_name%5B%5D=group%3A%3Apipeline%20security&first_page_size=100) and [epics](https://gitlab.com/groups/gitlab-org/-/epics?state=opened&page=1&sort=start_date_desc&label_name[]=Category:Secrets+Management) on this page. Sharing your feedback directly on GitLab.com is the best way to contribute to our strategy and vision.
+ - Please share feedback directly via [email](mailto:jeillis@gitlab.com) or schedule a [video call](https://calendly.com/jeillis). If you're a GitLab user and have direct knowledge of your need for secrets management, CI variables, and CI_JOB_TOKEN, we'd especially love to hear from you.
+
+### Overview
+<!-- Describe your category so that someone who is not familar with the market space can understand what the product does. 
+-->
+
+_Everybody has a secret._
+
+Secrets Management can have a broad meaning. For the Secrets Management product category at GitLab, we have a very specific scope.
+Secrets Management is specifically about **enabling GitLab, or a component built within GitLab to connect to other systems.**
+
+The Secrets Management product category does **not** include the various access tokens created within GitLab that allow other systems to access GitLab or GitLab to access itself. In order to provide an aligned vision and strategy around access to GitLab, these features typically fall under [the Authentication and Authorization category](/direction/govern/auth/).
+
+As Secrets Management focuses primarily on how GitLab can access 3rd party systems, it is tightly coupled [to the Environment Management product category](/direction/delivery/environment_management/).
+
+There are 3 classifications of secrets within the scope of Secret Management:
+
+- static secrets
+- dynamic secrets
+- application secrets
+
+Ideally, application secrets would never reach GitLab as they are used only within the user's infrastructure and enable one service to access another service, like the database URI deployed into a web application's configuration. The best approach around application secrets would be to retrieve them within the user's infrastructure, without the secret ever leaving the internal network.
+
+In our categorization, static and dynamic secrets are the secrets used to access a 3rd party system by GitLab itself, let it be for a deployment, reporting or any other integration reason. The difference between dynamic and static secrets is their lifespan. Static secrets are ... static. They either exist permanently or are revoked or rotated in a separate process. Dynamic secrets are short-lived and their lifespan is often managed by a tool, such as HashiCorp's  Vault.
+
+### Strategy and Themes
+<!-- Capture the main problems to be solved in market (themes). Describe how you intend to solve these with GitLab (strategy). Provide enough context that someone unfamiliar with the details of the category can understand what is being discussed. -->
+
+### 1 year plan
+<!--
+1 year plan for what we will be working on linked to up-to-date epics. This section will be most similar to a "road-map". Items in this section should be linked to issues or epics that are up to date. Indicate relative priority of initiatives in this section so that the audience understands the sequence in which you intend to work on them. 
+ -->
+
+ In FY24, we are planning to focus on the following [Product Themes](/direction/#fy24-product-investment-themes): 
+#### [Advanced security and compliance](https://about.gitlab.com/direction/#advanced-security-and-compliance) 
+1. Advancing [JWT token support OpenID Connect](https://gitlab.com/groups/gitlab-org/-/epics/7335) to enable [customization of JWT sub claims](https://gitlab.com/gitlab-org/gitlab/-/issues/360592). 
+2. Allowing users to [hide "masked" variables in project and group settings](https://gitlab.com/gitlab-org/gitlab/-/issues/29674/)
+3. [Remove restrictions around masked variables](https://gitlab.com/gitlab-org/gitlab/-/issues/424541)
+4. Our MVC for [Gitlab's native secrets manager](https://gitlab.com/groups/gitlab-org/-/epics/10723)
+
+#### What is next for us
+<!-- This is a 3 month look ahead for the next iteration that you have planned for the category. This section must provide links to issues or
+or to [epics](https://about.gitlab.com/handbook/product/product-processes/#epics-for-a-single-iteration) that are scoped to a single iteration. Please do not link to epics encompass a vision that is a longer horizon and don't lay out an iteration plan. -->
+
+In the next 3 months, we will be focusing on: 
+1. [Research and prototyping of a native secrets manager](https://gitlab.com/groups/gitlab-org/-/epics/10723) to better understand how our customers are using secrets to secure workflows - and how we can improve the experience.
+2. Incremental improvements to bring forward the [optimal CI variables user experience](https://gitlab.com/gitlab-org/gitlab/-/issues/418331) to drive consistency across our feature. 
+<!-- 3. Instrumentation for [secrets management](https://gitlab.com/groups/gitlab-org/-/epics/9725) as we seek to understand usage of our integrated solutions (i.e. native integration for HashiCorp Vault) and ODIC offerings in this space. This data will help inform which features to prioritize. -->
+
+#### What we are currently working on
+<!-- Scoped to the current month. This section can contain the items that you choose to highlight on the kickoff call. Only link to issues, not Epics.  -->
+In milestone 16.4, our team is working on:
+1. Continuous research and development for an out-of-the-box secrets manager solution as part of our goal to provide a complete, single DevSecOps platform. 
+2. Simplifying the migration from older JWT* methods to `id_tokens` by introducting [`id_tokens` into our global CI configuration](https://gitlab.com/gitlab-org/gitlab/-/issues/419750). 
+3. [Investigating special character limitations of masked variables](https://gitlab.com/gitlab-org/gitlab/-/issues/420373) and identify a plan to increase the special character support in this area. 
+
+#### What we recently completed 
+<!-- Lookback limited to 3 months. Link to the relevant issues or release post items. -->
+In 16.3, our team delivered: 
+1. Continuous improvements to the variables UI, i.e.  to [limit the variables modal dropdown to show only 30 environments](https://gitlab.com/gitlab-org/gitlab/-/issues/388952).
+2. Clarified language on [CI_JOB_TOKEN settings](https://gitlab.com/gitlab-org/gitlab/-/issues/411406) to be consistent with user expectations.
+3. In alignment with our goals to drive security best practices, we now encourage customers to use our [free OIDC connection solution to connect to AWS Secrets Manager](https://gitlab.com/gitlab-org/gitlab/-/issues/391817) if variables are being prefixed with AWS*.
+4. [Native integration for Azure Key Vault](https://gitlab.com/gitlab-org/gitlab/-/issues/271271) - a [premium feature](https://about.gitlab.com/releases/2023/08/22/gitlab-16-3-released/#azure-key-vault-secrets-manager-support) that streamlines the build and deploy processes between GitLab and Azure Key Vault. 
+
+In 16.2, our team delivered:
+1. Backend infrastructure to enable new UX features to add [optional description fields for variables](https://gitlab.com/gitlab-org/gitlab/-/issues/409641); [pagination](https://gitlab.com/gitlab-org/gitlab/-/issues/413418) and [sorting](https://gitlab.com/gitlab-org/gitlab/-/issues/416441) for the inherited group variables table.
+
+In 16.1, our team delivered: 
+1. [REST API endpoint for job token scope](https://gitlab.com/gitlab-org/gitlab/-/issues/351740) via community contribution
+2. UI improvements for the variables experience: [improve the variables table layout](https://gitlab.com/gitlab-org/gitlab/-/issues/410383), [display when inherited group variables are protected](https://gitlab.com/gitlab-org/gitlab/-/issues/222367), and [enabling empty CI variables on the UI](https://gitlab.com/gitlab-org/gitlab/-/issues/225470)
+3. Backend infrastructure to enable new UX features to [fetch group environment scopes](https://gitlab.com/gitlab-org/gitlab/-/issues/394750)
+
+#### What is Not Planned Right Now
+<!--  Often it's just as important to talk about what you're not doing as it is to
+discuss what you are. This section should include items that people might hope or think
+we are working on as part of the category, but aren't, and it should help them understand why that's the case.
+Also, thinking through these items can often help you catch something that you should
+in fact do. We should limit this to a few items that are at a high enough level so
+someone with not a lot of detailed information about the product can understand -->
+1. **Native integrations with third party secrets management services.** We understand streamlining processes with external secrets managers is a desired feature. Rather than developing these in-house, we are investigating partnership solutions to meet this customer need. 
+2. **Enhancements to our existing GitLab HashiCorp Vault integration.** We do not have data to support prioritizing advanced features with Vault beyond our current offering.  
+
+### Best in Class Landscape
+<!-- Blanket description consistent across all pages that clarifies what GitLab means when we say "best in class" -->
+
+BIC (Best In Class) is an indicator of forecasted near-term market performance based on a combination of factors, including analyst views, market news, and feedback from the sales and product teams. It is critical that we understand where GitLab appears in the BIC landscape.
+
+#### Key Capabilities 
+<!-- For this product area, these are the capabilities a best-in-class solution should provide -->
+We envision GitLab providing an industry-leading solution for managing static secrets, has loveable integrations with selected third-party secret managers, and provides advanced features (i.e. key management) to ensure best secrutiy practices to fully mitigate the risk of moving application secrets outside customer infrastructure.
+
+The driving principles around static secrets managements are that secrets should be
+
+- restricted
+- write only
+- encrypted at rest and in transit
+- versioned
+- auditable
+- revokable
+
+Every IT project requires secrets. As a result, by not providing a strong offering in this space, we force all security-minded users to have to search for an alternative solution. Without Secret Management out-of-the-box, we fail to fulfill our vision of being a complete single DevSecOps platform.
+
+We also know that a large majority (80%) of customers only require support for static secrets and removing the pain around application secrets, so our investment does not have to be massive. Nor do we have to complete directly with the market leader in Hashicorp Vault.
+
+#### Roadmap
+<!-- Key deliverables we're focusing on to build a BIC solution. List the epics by title and link to the epic in GitLab. Minimize additional description here so that the epics can remain the SSOT. This may be duplicative to the 1 year section however for some categories the key deliverables required to become the BIC solution will extend beyond one year and we want to capture all of the gaps. Moreover, the 1 year section may contain work that is not directly related to closing gaps if we are already the BIC or if we are differentiating ourselves.-->
+
+<!-- Jocelyn to do: add the POC / early adopters program here -->
+
+
+#### Top Competitive Solutions
+<!-- PMs can choose to highlight a primary BIC competitor--or more, if no single clear winner in the category exists; in this section we should indicate: 1. name of competitive product, 2. links to marketing website and documentation, 3. why we view them as the primary BIC competitor -->
+
+The biggest question with respect to Secrets Management integrations is to choose the right partners. The Secrets Management market is a fast moving target with a few, well known providers offering their solutions, and a huge number of users not using any of these. Beside HashiCorp Vault, notable offerings are at least [CyberAkr Conjur](https://www.conjur.org/) and the Secrets Management offering of [AWS](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html), [Google](https://cloud.google.com/secret-manager) [Azure](https://azure.microsoft.com/en-us/services/key-vault/) and [akeyless](https://www.akeyless.io/).
+
+Additionally, [Vault Enterprise](https://www.vaultproject.io/docs/enterprise/) offers
+additional sets of capabilities that will _not_ be part of the open source version
+of Vault bundled with GitLab. This includes 
+[replication across datacenters](https://www.vaultproject.io/docs/enterprise/replication/index.html),
+[hardware security modules (HSMs)](https://www.vaultproject.io/docs/enterprise/hsm/index.html),
+[seals](https://www.vaultproject.io/docs/enterprise/sealwrap/index.html),
+[namespaces](https://www.vaultproject.io/docs/enterprise/namespaces/index.html),
+[servicing read-only requests on HA nodes](https://www.vaultproject.io/docs/enterprise/performance-standby/index.html)
+(though, the open source version does support [high-availability](https://www.vaultproject.io/docs/concepts/ha.html)),
+[enterprise control groups](https://www.vaultproject.io/docs/enterprise/control-groups/index.html),
+[multi-factor auth](https://www.vaultproject.io/docs/enterprise/mfa/index.html),
+and [sentinel](https://www.vaultproject.io/docs/enterprise/sentinel/index.html).
+
+For customers who want to use GitLab with the enterprise version of Vault, we need to ensure that this is easy to switch to/use as well.
+
+In the CICD variables space, GitHub [variables](https://docs.github.com/en/actions/configuring-and-managing-workflows/using-environment-variables), offer comparable flexibility and power. They also offer a differentiation between variables and GitHub [secrets](https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets), which has set an expectation in the market for a distinct treatment of those objects. We are beginning to investigate this for GitLab in [gitlab#217355](https://gitlab.com/gitlab-org/gitlab/-/issues/217355). GitHub Actions supports [injection of HashiCorp Vault Secrets into CICD pipelines](https://www.hashicorp.com/blog/vault-github-action), which is directly competing with GitLab's first-to market offering of HashiCorp Vault [Secrets in GitLab](https://docs.gitlab.com/ee/ci/secrets/).
+
+### Target Audience
+<!--
+List the personas (https://about.gitlab.com/handbook/marketing/strategic-marketing/roles-personas#user-personas) involved in this category.
+
+Look for differences in user's goals or uses that would affect their use of the product. Separate users and customers into different types based on those differences that make a difference.
+-->
+Operations, compliance, security, and audit teams will derive immense value from being able to manage secrets within GitLab. In the motion of shifting security left, developers will also be empowered with the comprehensive treatment of variables and keys as a secrets in GitLab. By prioritizing external key store integrations, we will expand GitLab's security by offering an extra layer for tokens, keys, and other confidential data. This combination of tools will further establish GitLab's presence as an enterprise-grade, corporate solution for Release Management. 
+
+<!-- commenting this out while I figure out the broken link issue 
+### Jobs
+
+<%= partial("direction/jtbd-list", locals: { stage_key: "Configure_SecretsMgt" }) %> 
+-->
+
+### Pricing and Packaging
+As secret handling is a core requirement of every IT project, basic static secret management should be part of GitLab Free. Permissions management, versioning, audit logs around static secrets can be Premium or Ultimate features. Dynamic secrets management with a bring your own device (BYOD) approach should be part of GitLab Free, while support for Enterprise Secrets Management features is to be considered for Premium and Ultimate.
+
+#### Current Position
+
+Today GitLab supports environment variables. Environment variables fall short of the basic requirements for secret storage. 
+
+GitLab also has decent integration with Hashicorp Vault OSS edition. However, the integration lacks support for Vault Enterprise features. 
+
+Lastly, GitLab provides a `JWT_TOKEN` that could enable access to various 3rd party systems. However, its lack of flexibility and lack of standard compliance restricts its potential.
+
+### Analyst Landscape
+- In March 2023 Gartner had publish a research name [Managing Machine Identities, Secrets, Keys and Certificates](https://drive.google.com/file/d/1lYQGoAzDo1OcyhUc5F2a4XAk9RHiUmV7/view?usp=sharing) (internal link)
+- Internal research [Enterprise SaaS User Base Survey: Secrets + SaaS](https://docs.google.com/presentation/d/1m4PiVVg7eTLRMXv4C6MThs2ZFV5kWoPAjuIDKV3cHA0/edit#slide=id.g1337c2a03f8_0_264)

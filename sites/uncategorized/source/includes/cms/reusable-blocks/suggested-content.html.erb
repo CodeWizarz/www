@@ -1,0 +1,60 @@
+<% if topic.suggested_content != nil %>
+
+  <div class="container md:slp-mb-160">
+    <div class="slp-relative slp-text-center slp-max-w-7xl slp-mb-32 slp-mx-auto">
+      <h3
+        class="slp-font-normal slp-text-grayscale-333 slp-text-3xl md:slp-text-4xl slp-leading-tight slp-mb-16 slp-col-span-full"
+      >
+        <%= topic.suggested_content.heading %>
+      </h3>
+      <p
+        class="slp-font-normal slp-text-grayscale-333 slp-text-xl slp-mb-16 slp-leading-tight"
+      >
+        <%= topic.suggested_content.subtitle %>
+      </p>
+    </div>
+
+    <div class="grid-layout grid-layout3">
+      <!--/ Gather all suggested content urls from the topic data file
+      -->
+      <!--/ These must by blog articles
+      -->
+      <% topic.suggested_content.posts.each do |article| %>
+        <!--/ Create list of posts if title from data file matches the URL of a blog post from our blog, 
+        -->
+        <% posts = blog('blog').articles.keep_if{ |a| a.url.include?(article.url)}[0...6] %>
+        <!--/ for each post in our group, print card
+        -->
+        <!--/ This allows us to designate just post URLs in Netlify CMS, and the template will go find a post with the matching title an pull in data from the blog post such as author, description, and image. This avoids having to enter in lost of data for each card (image, description) and pulls data from single point of truth
+        -->
+        <% posts.each do |post| %>
+          <% author = author_data(author: post.data.author) %>
+          <a class="tile-resource grid-item slp-border slp-border-grayscale-highlight slp-border-solid slp-relative slp-card-shadow hover:slp-shadow-lg slp-ease-in-out slp-transition-all slp-duration-300 slp-rounded-md slp-group slp-max-w-lg slp-flex slp-flex-col slp-bg-white" href="<%= article.url %>">
+            <% image_title = post.data.image_title ? post.data.image_title : '/images/default-blog-image.png' %>
+            <div class="tile-background-container" style="background-image: url('<%= image_title %>');"></div>
+            <div class="tile-info">
+              <h3
+                class="group-focus:slp-text-ui-secondary group-hover:slp-text-ui-secondary slp-text-lg slp-leading-tight slp-mb-6 slp-font-normal slp-text-grayscale-333"
+              >
+                <%= post.title %>
+              </h3>
+              <p
+                class="slp-font-normal slp-text-grayscale-333 slp-text-base slp-leading-normal slp-mb-16"
+              >
+                by
+                <%= post.data.author %>
+              </p>
+              <p class="slp-prose slp-max-w-none slp-text-grayscale-333 slp-text-base slp-leading-normal slp-mb-32">
+                <%= post.data.description %>
+              </p>
+              <p class="slp-text-sm slp-font-bold slp-text-ui-secondary-dark group-hover:slp-underline">
+                Learn more →
+              </p>
+              
+            </div>
+          </a>
+        <% end %>
+      <% end %>
+    </div>
+  </div>
+<% end %>

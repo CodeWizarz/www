@@ -1,0 +1,156 @@
+---
+title: "Building GitLab with GitLab: Web API Fuzz Testing"
+author: Eugene Lim, Mike Eddington
+guest: true
+author_gitlab:
+categories: engineering
+featured: yes
+tags:  Building GitLab with GitLab, security, inside GitLab, testing, tutorial
+description: Our new series shows how we dogfood new DevSecOps platform features to ready them for you. First up, security testing.
+image_title: /images/blogimages/building-gitlab-with-gitlab-no-type.png
+twitter_text: We are launching a new series 'Building GitLab with GitLab' to take you inside our dogfooding projects that improve the platform for you.
+---
+
+At GitLab, we try to [dogfood everything](/handbook/product/product-processes/#dogfood-everything) to help us better understand the product, pain points, and configuration issues. We use what we learn to build a more efficient, feature-rich platform and user experience. In this first installment of our “Building GitLab with GitLab” series, we will focus on security testing. We constantly strive to improve our security testing coverage and integrate it into our DevSecOps lifecycle. These considerations formed the motivation for the API fuzzing dogfooding project at GitLab. By sharing our lessons from building this workflow, we hope other teams can also learn how to integrate GitLab’s Web API Fuzz Testing and solve some common challenges.
+
+## What is Web API Fuzz Testing?
+
+Web API Fuzz Testing involves generating and sending various unexpected input parameters to a web API in an attempt to trigger unexpected behavior and errors in the API backend. By analyzing these errors, you can discover bugs and potential security issues missed by other scanners that focus on specific vulnerabilities. GitLab's Web API Fuzz Testing complements and should be run in addition to GitLab Secure’s other security scanners such as static application security testing ([SAST](https://docs.gitlab.com/ee/user/application_security/sast/)) and dynamic application security testing ([DAST](https://docs.gitlab.com/ee/user/application_security/dast/)) APIs.
+
+## Auto-generating an OpenAPI specification
+To run the Web API Fuzzing Analyzer, you need one of the following:
+* OpenAPI Specification - Version 2 or 3
+* GraphQL Schema
+* HTTP Archive (HAR)
+* Postman Collection - Version 2.0 or 2.1
+
+At the start of the API fuzzing project, the [API Vision working group](/company/team/structure/working-groups/api-vision/) was also working on an issue to automatically document [GitLab’s REST API endpoints in an OpenAPI specification](https://gitlab.com/groups/gitlab-org/-/epics/8636), so we worked with our colleague Andy Soiron on implementing it. Because GitLab uses the [grape](https://github.com/ruby-grape/grape) API framework, Andy had already identified and [tested](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/95877) the [grape-swagger](https://github.com/ruby-grape/grape-swagger) gem that auto-generates an OpenAPI v2 specification based on existing grape annotations. For example, the following API endpoint code:
+
+```
+     Class.new(Grape::API) do
+       format :json
+       desc 'This gets something.'
+       get '/something' do
+         { bla: 'something' }
+       end
+       add_swagger_documentation
+     end
+``` 
+Will be parsed by grape-swagger into:
+
+```
+{
+  // rest of OpenAPI v2 specification
+  …
+  "paths": {
+    "/something": {
+      "get": {
+        "description": "This gets something.",
+        "produces": [
+          "application/json"
+        ],
+        "operationId": "getSomething",
+        "responses": {
+          "200": {
+            "description": "This gets something."
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+
+However, with almost 2,000 API operations with different requirements and formats, a lot of additional work needed to be done to resolve edge cases that did not meet the requirements of grape-swagger or the OpenAPI format. For example, one simple case was API endpoints that accept file parameters, such as the [upload metric image endpoint](https://docs.gitlab.com/ee/api/issues.html#upload-metric-image). GitLab uses the [Workhorse](https://gitlab.com/gitlab-org/gitlab/tree/master/workhorse) smart reverse proxy to handle "large" HTTP requests such as file uploads. As such, file parameters must be of the type WorkhorseFile:
+
+
+```
+namespace ':id/issues/:issue_iid/metric_images' do
+            …
+            desc 'Upload a metric image for an issue' do
+              success Entities::IssuableMetricImage
+            end
+            params do
+              requires :file, type: ::API::Validations::Types::WorkhorseFile, desc: 'The image file to be uploaded'
+              optional :url, type: String, desc: 'The url to view more metric info'
+              optional :url_text, type: String, desc: 'A description of the image or URL'
+            end
+            post do
+              require_gitlab_workhorse!
+```
+
+Because grape-swagger does not recognize what OpenAPI type WorkhorseFile corresponds to, it excludes the parameter from its output. We fixed this by adding a grape-swagger-specific documentation to override the type during generation:
+
+```
+             requires :file, type: ::API::Validations::Types::WorkhorseFile, desc: 'The image file to be uploaded', documentation: { type: 'file' }
+```
+
+However, not all edge cases could be resolved with a simple match-and-replace in the grape annotations. For example, Ruby on Rails supports wildcard segment parameters. A route like `get 'books/*section/:title'` would match`books/some/section/last-words-a-memoir`. In addition, the URI would be parsed such that the `section` path parameter would have the value `some/section` and the `title` path parameter would have the value `last-words-a-memoir`.
+
+Currently, grape-swagger does not recognize these wildcard segments as path parameters. For example, the route would generate:
+
+```
+"paths": {
+  "/api/v2/books/*section/{title}": {
+    "get": {
+    ...
+      "parameters": [
+         {
+           "in": "query", "name": "*section"
+           ...
+  }
+}
+```
+
+Instead of the expected:
+
+```
+"paths": {
+  "/api/v2/books/{section}/{title}": {
+    "get": {
+    ...
+      "parameters": [
+         {
+           "in": "path", "name": "section"
+           ...
+  }
+}
+```
+
+As such, we also needed to make several patches to grape-swagger, which we forked while waiting for the changes to be accepted upstream. Nevertheless, with lots of careful checking and cooperation across teams, we managed to get the OpenAPI specification generated for most of the endpoints.
+
+## Performance tuning
+
+With the OpenAPI specification, we could now begin with the API fuzzing. GitLab already uses the [Review Apps](https://docs.gitlab.com/ee/ci/review_apps/) feature to generate testing environments for some feature changes, providing a readily available fuzzing target. However, given the large number of endpoints, it would be impossible to expect a standard shared runner to complete fuzzing in a single job. The Web API Fuzz Testing documentation includes a [performance tuning section](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/#performance-tuning-and-testing-speed) that recommends the following:
+
+* using a multi-CPU Runner
+* excluding slow operations
+* splitting a test into multiple jobs
+* excluding operations in feature branches, but not default branch
+
+The first recommendation was easy to implement with a dedicated fuzzing runner. We recommend doing this for large scheduled fuzzing workflows, especially if you select the Long-100 fuzzing profile. We also began excluding slow operations by checking the job logs for the time taken to complete each operation. Along the way, we identified other endpoints that needed to be excluded, such as the [revoke token endpoint](https://docs.gitlab.com/ee/api/personal_access_tokens.html#revoke-a-personal-access-token) that prematurely ended the fuzzing session.
+
+Splitting the test into multiple jobs took the most effort due to the requirements of the OpenAPI format. Each OpenAPI document includes a required set of objects and fields, so it is not simply a matter of splitting after a fixed number of lines. Additionally, each operation relies on entities defined in the definitions object, so we needed to ensure that when splitting the OpenAPI specification, the entities required by the endpoints were included. We also wrote a quick script to fill the example parameter data with actual data from the testing environment, such as project IDs.
+
+While it was possible to run these scripts locally, then push the split jobs and OpenAPI specifications to the repository, this created a large number of changes every time we updated the original OpenAPI specification. Instead, we adapted the workflow to use dynamically generated child pipelines that would split the OpenAPI document in a CI job, then generate a child pipeline with jobs for each split document. This made iterating a lot easier and more agile. We have uploaded [the scripts and pipeline configuration](https://gitlab.com/eugene_lim/api-fuzzing-dogfooding) for reference.
+
+By tweaking the number of parallel jobs and fuzzing profile, we were eventually able to achieve a reasonably comprehensive fuzzing session in an acceptable time frame. When tuning your own fuzzing workflow, balancing these trade-offs is essential.
+
+## Triaging the API fuzzing findings
+
+With the fuzzing done, we were now confronted with hundreds of findings. Unlike DAST analyzers that try to detect specific vulnerabilities, Web API Fuzz Testing looks for unexpected behavior and errors that may not necessarily be vulnerabilities. This is why fuzzing faults discovered by the API Fuzzing Analyzer show up as vulnerabilities with a severity of “Unknown.” This requires more involved triaging.
+
+Fortunately, the Web API fuzzer also outputs Postman collections as artifacts in the Vulnerability Report page. These collections allow you to quickly repeat requests that triggered a fault during fuzzing. For this stage of the fuzzing workflow, we recommend that you set up a local instance of the application so that you can easily check logs and debug specific faults. In this case, we ran the [GitLab Development Kit](https://gitlab.com/gitlab-org/gitlab-development-kit).
+
+Many of the faults occurred due to a lack of error handling for unexpected inputs. We created issues from the Vulnerability Report page, and if we found that a particular fault had the same root cause as a previously triaged fault, we linked the vulnerability to the original issue instead.
+
+## Lessons learned
+
+The API fuzzing dogfooding project turned out to be a fruitful exercise that benefited other workstreams at GitLab, such as the API documentation project. In addition, tuning and triaging helped us identify key pain points in the process for improvement. Automated API documentation generation is difficult even with OpenAPI, particularly on a long-lived codebase. GitLab’s existing annotations and tests helped speed up documentation via a distributed, asynchronous workflow across multiple teams. In addition, many GitLab features such as Review Apps, Vulnerability Reports, and dynamically generated child pipelines helped us build a robust fuzzing workflow.
+
+There are still many improvements that can be made to the workflow. Moving to OpenAPI v3 could improve endpoint coverage. The Secure team also wrote a [HAR Recorder](https://gitlab.com/gitlab-org/security-products/har-recorder) tool that could help generate HAR files on the fly instead of relying on static documentation. For now, due to the high compute cost of fuzzing thousands of operations in GitLab’s API, the workflow is better suited to a scheduled pipeline instead of GitLab’s core pipeline.
+
+For teams that have already implemented several layers of static and dynamic checks and want to take further steps to increase coverage, we recommend trying a Web API fuzzing exercise as a way to validate assumptions and discover “unknown unknowns” in your code.
+
+We encourage you to get familiar with API fuzzing and let us know how it works for you. If you face any issues or have any feedback, please file an issue at the [issue tracker on GitLab.com](https://gitlab.com/gitlab-org/gitlab/-/issues/). Use the `~"Category:API Security"` label when opening a new issue regarding API fuzzing to ensure it is quickly reviewed by the appropriate team members.

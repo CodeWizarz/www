@@ -1,0 +1,296 @@
+---
+title: How we reduced 502 errors by caring about PID 1 in Kubernetes
+author: Steve Azzopardi
+author_gitlab: steveazz
+author_twitter: steveazz_
+categories: engineering
+tags: kubernetes
+description: For every deploy, scale down event, or pod termination, users of
+  GitLab's Pages service were experiencing 502 errors. This explains how we found
+  the root cause and rolled out a fix for it.
+image_title: /images/blogimages/KubeCon2022.jpg
+---
+
+_This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog post and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc._
+
+Our [SRE on call](https://about.gitlab.com/handbook/engineering/infrastructure/incident-management/#engineer-on-call-eoc-responsibilities)
+was getting paged daily that one of our
+[SLIs](https://www.youtube.com/watch?v=tEylFyxbDLE) was
+burning through our
+[SLOs](https://www.youtube.com/watch?v=tEylFyxbDLE) for the [GitLab
+Pages](https://docs.gitlab.com/ee/user/project/pages/) service. It was
+intermittent and short-lived, but enough to cause user-facing impact which we
+weren't comfortable with. This turned into alert fatigue because there wasn't
+enough time for the SRE on call to investigate the issue and it wasn't
+actionable since it recovered on its own.
+
+We decided to open up an [investigation issue](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497)
+for these alerts. We had to find out what the issue was since we were
+showing `502` errors to our users and we needed a
+[DRI](https://about.gitlab.com/handbook/people-group/directly-responsible-individuals/)
+that wasn't on call to investigate.
+
+## What is even going on?
+
+As an [SRE](https://handbook.gitlab.com/job-families/engineering/infrastructure/site-reliability-engineer/)
+at GitLab, you get to touch a lot of services that you didn't build yourself and
+interact with system dependencies that you might have not touched before.
+There's always detective work to do!
+
+When we looked at the GitLab Pages logs we found that it's always returning
+[`ErrDomainDoesNotExist`](https://gitlab.com/gitlab-org/gitlab-pages/-/blob/e1f1effa23c520d3b8b717d831ccab7ba3dd494f/internal/routing/middleware.go#L22-26)
+errors which result in a `502` error to our users. GitLab Pages [sends a request](https://gitlab.com/gitlab-org/gitlab-pages/-/blob/e1f1effa23c520d3b8b717d831ccab7ba3dd494f/internal/source/gitlab/client/client.go#L101-127)
+to [GitLab Workhorse](https://docs.gitlab.com/ee/development/workhorse/),
+specifically the `/api/v4/internal/pages` route.
+
+GitLab Workhorse is a Go service in front of our Ruby on Rails monolith and
+it's deployed as a [sidecar](https://www.magalix.com/blog/the-sidecar-pattern)
+inside of the `webservice pod`, which runs Ruby on Rails using the `Puma` web
+server.
+
+We used the internal IP to correlate the GitLab Pages requests with GitLab Workhorse
+containers. We looked at multiple requests and found that all the 502 requests
+had the following error attached to them: [`502 Bad Gateway with dial tcp 127.0.0.1:8080: connect: connection refused`](https://gitlab.com/gitlab-org/gitlab/-/blob/f64be48cc737f5d12c1c30f724af540a836dcc94/workhorse/internal/badgateway/roundtripper.go#L43).
+This means that GitLab Workhorse couldn't connect to the Puma web server. So we
+needed to go another layer deeper.
+
+The Puma web server is what runs the Ruby on Rails monolith which has an
+internal API endpoint but Puma was never getting these requests since it wasn't
+running. What this tells us is that Kubernetes kept our pod in the
+[service](https://kubernetes.io/docs/concepts/services-networking/service/)
+even when Puma wasn't responding, despite having [readiness probes](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/4bb638bccc6a676f9fdd5bbf800f7d2b977efd55/charts/gitlab/charts/webservice/templates/deployment.yaml#L279-287)
+configured.
+
+Below is the request flow between GitLab Pages, GitLab Workhorse, and Puma/Webservice to try and make it more clear:
+
+![overview of the request flow](/images/blogimages/how-we-removed-all-502-errors-by-caring-about-pid-1-in-kubernetes/overview.png){: .shadow.center}
+
+## Attempt 1: Red herring
+
+We shifted our focus on GitLab Workhorse and Puma to try and understand how
+GitLab Workhorse was returning 502 errors in the first place. We found some
+`502 Bad Gateway with dial tcp 127.0.0.1:8080: connect: connection refused`
+errors during container startup time. How could this be? With the readiness
+probe, the pod shouldn't be added to the
+[Endpoint](https://kubernetes.io/docs/concepts/services-networking/service/#over-capacity-endpoints)
+until [all readiness probes pass](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_899321775).
+We later found out that it's because of a [polling
+mechanisim](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_899629314)
+that we have for [Geo](https://docs.gitlab.com/ee/administration/geo/) which
+runs in the background, using a Goroutine in GitLab Workhorse, and pings Puma for Geo information.
+We don't have Geo enabled on GitLab.com so we [simply disabled it](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/merge_requests/1670)
+to reduce the noise.
+
+We removed the 502 errors, but not the ones we want, just a red herring.
+
+## Attempt 2: Close but not quite
+
+At this time, we were still burning through our SLO from time to time, so this
+was still an urgent thing that we needed to fix. Now that we had cleaner logs for
+`502` errors it started to become a bit clearer that this is happening on pod
+termination:
+
+```
+2022-04-05 06:03:49.000 UTC: Readiness probe failed
+2022-04-05 06:03:51.000 UTC: Puma (127.0.0.1:8080) started shutdown.
+2022-04-05 06:04:04.526 UTC: Puma shutdown finished.
+2022-04-05 06:04:04.000 UTC - 2022-04-05 06:04:46.000 UTC: workhorse started serving 502 constantly.  42 seconds of serving 502 requests for any request that comes in apart from /api/v4/jobs/request
+```
+
+In the timeline shown above, we see that we've kept serving requests well after
+our `Puma`/`webservice` container exited, and the first readiness probe failed.
+If we look at the readiness probes we had on that pod we see the following:
+
+```
+$ kubectl -n gitlab get po gitlab-webservice-api-785cb54bbd-xpln2 -o jsonpath='{range .spec.containers[*]} {@.name}{":\n\tliveness:"} {@.livenessProbe} {"\n\treadiness:"} {@.readinessProbe} {"\n"} {end}'
+ webservice:
+        liveness: {"failureThreshold":3,"httpGet":{"path":"/-/liveness","port":8080,"scheme":"HTTP"},"initialDelaySeconds":20,"periodSeconds":60,"successThreshold":1,"timeoutSeconds":30}
+        readiness: {"failureThreshold":3,"httpGet":{"path":"/-/readiness","port":8080,"scheme":"HTTP"},"initialDelaySeconds":60,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":2}
+  gitlab-workhorse:
+        liveness: {"exec":{"command":["/scripts/healthcheck"]},"failureThreshold":3,"initialDelaySeconds":20,"periodSeconds":60,"successThreshold":1,"timeoutSeconds":30}
+        readiness: {"exec":{"command":["/scripts/healthcheck"]},"failureThreshold":3,"periodSeconds":10,"successThreshold":1,"timeoutSeconds":2}
+```
+
+This meant that for the `webservice` pod to be marked unhealthy and removed
+from the endpoints, Kubernetes had to get 3 consecutive failures with an
+interval of 10 seconds, so in total that's 30 seconds. That seems a bit slow.
+
+Our next logical step was to reduce the `periodSeconds` for the readiness probe
+for the `webservice` pod so we don't wait 30 seconds before removing the pod
+from the service when it becomes unhealthy.
+
+Before doing so we had to understand if sending more requests to `/-/readiness`
+endpoint would have any knock-on effect with using more memory or anything
+else. We had to [understand what the `/-/readiness` endpoint was doing](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_903812722)
+and if it was safe to increase the frequency at which we send requests. We
+decided it was safe, and after enabling it on
+[staging](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/merge_requests/1686#note_903877755),
+and
+[canary](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/merge_requests/1688#note_904501848)
+we didn't see any increase in CPU/Memory usage, as expected, and saw an
+improvement in the removal of 502 errors, which made us more confident that
+this was the issue. We rolled this out to
+[production](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/merge_requests/1689)
+with high hopes.
+
+As usual, Production is a different story than Staging or Canary, and it showed
+that it didn't remove all the 502 errors, just [enough to stop triggering the SLO every day](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_905993144),
+but at least we removed the alert fatigue on the SRE on call. We were close, but not quite.
+
+## Attempt 3: All gone!
+
+At this point, we were a bit lost and weren't sure what to look at next. We had
+a bit of tunnel vision and kept focusing/blaming that we aren't removing the
+Pod from the `Endpoint` quickly enough. We even looked at [Google Cloud Platform
+NEGs](https://cloud.google.com/kubernetes-engine/docs/how-to/standalone-neg) to
+see if we could have faster readiness probes and remove the pod quicker. However,
+this wasn't ideal [because we wouldn't have solved this for our self-hosting customers](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_908359286)
+which seem to be facing the same [problem](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/2943).
+
+While researching we also came across a known problem with [running `Puma` in
+Kubernetes](https://github.com/puma/puma/blob/bf2548ce300c2b4f671582bc756dcec5861e815f/docs/kubernetes.md),
+and thought that might be the solution. However, we already implemented a
+[blackout window](https://gitlab.com/gitlab-org/charts/gitlab/-/blob/c1b63f3a4867886bc1212d86985fc70e66b717c5/charts/gitlab/charts/webservice/templates/deployment.yaml#L223-224)
+just for this specific reason, so it couldn't be that either...in other words, it was another dead end.
+
+We took a step back and looked at the [timelines one more time](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_910106152)
+and then it hit us. The Puma/webservice container is terminating within a
+few seconds, but the GitLab Workhorse one is always taking 30 seconds. Is it because
+of the [long polling from GitLab Runner](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/21698)? 30 seconds
+is a "special" number for Kubernetes [pod termination](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-termination).
+When Kubernetes deletes a pod it firsts sends the `TERM` signal to the
+container and waits 30 seconds, if the container hasn't exited yet, it will
+send a `KILL` signal. This indicated that maybe GitLab Workhorse was never
+shutting down and Kubernetes had to kill it.
+
+Once more we looked at GitLab Workhorse source code and [searched for the `SIGTERM` usage](https://gitlab.com/gitlab-org/gitlab/-/blob/d66f10e169a08cedcbfe70e3ea46cbfbb20d972d/workhorse/main.go#L238-258)
+and it did seem to support [graceful termination](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/62701) and
+it also had explicit logic about long polling requests, so is this just another
+dead end? Luckily when the `TERM` signal is sent, Workhorse [logs a message that
+it's shutting down](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/62701). We looked
+at our logs for this specific message and didn't see anything. Is this it? We
+aren't gracefully shutting down? But how? Why does it result in 502 errors?
+Why do the GitLab Pages keep using the same pod that is terminating?
+
+We know that the `TERM` signal is being sent to PID 1 inside of the container,
+and that process should handle the `TERM` signal for graceful shutdown. We
+looked at the GitLab Workhorse process tree and this is what we found:
+
+```sh
+git@gitlab-webservice-default-5d85b6854c-sbx2z:/$ ps faux
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+root        1015  0.0  0.0 805036  4588 ?        Rsl  13:12   0:00 runc init
+git         1005  0.3  0.0   5992  3784 pts/0    Ss   13:12   0:00 bash
+git         1014  0.0  0.0   8592  3364 pts/0    R+   13:12   0:00  \_ ps faux
+git            1  0.0  0.0   2420   532 ?        Ss   12:52   0:00 /bin/sh -c /scripts/start-workhorse
+git           16  0.0  0.0   5728  3408 ?        S    12:52   0:00 /bin/bash /scripts/start-workhorse
+git           19  0.0  0.3 1328480 33080 ?       Sl   12:52   0:00  \_ gitlab-workhorse -logFile stdout -logFormat json -listenAddr 0.0.0.0:8181 -documentRoot /srv/gitlab/public -secretPath /etc/gitlab/gitlab-workhorse/secret -config /srv/gitlab/config/workhorse-config.toml
+```
+
+Bingo! `gitlab-workhorse` is PID 19 in this case, and a child process of a
+[script](https://gitlab.com/gitlab-org/build/CNG/-/blob/92d3e22e9ff6c5cbb685aeea99813751d5e19a9d/gitlab-workhorse/Dockerfile#L51)
+that we invoke. Taking a close look at the
+[script](https://gitlab.com/gitlab-org/build/CNG/-/blob/92d3e22e9ff6c5cbb685aeea99813751d5e19a9d/gitlab-workhorse/scripts/start-workhors)
+we check if it listens to `TERM` and it doesn't! So far everything indicated
+that GitLab Workhorse was never getting the `TERM` signal which ended up in receiving
+`KILL` after 30 seconds. We updated our `scripts/start-workhorse` to use
+[`exec(1)`](https://linux.die.net/man/1/exec) so that `gitlab-workhorse`
+replaced the PID of our bash script, that should have worked, right? When we tested
+this locally we then saw the following process tree.
+
+```
+git@gitlab-webservice-default-84c68fc9c9-xcsnm:/$ ps faux
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+git          167  0.0  0.0   5992  3856 pts/0    Ss   14:27   0:00 bash
+git          181  0.0  0.0   8592  3220 pts/0    R+   14:27   0:00  \_ ps faux
+git            1  0.0  0.0   2420   520 ?        Ss   14:24   0:00 /bin/sh -c /scripts/start-workhorse
+git           17  0.0  0.3 1328228 32800 ?       Sl   14:24   0:00 gitlab-workhorse -logFile stdout -logFormat json -listenAddr 0.0.0.0:8181 -documentRoot /srv/gitlab/public -secretPath /etc/gitlab/gitlab-workhorse/secret -config /srv/gitlab/config/workhorse-config.toml
+```
+
+This changed a bit: this shows that `gitlab-workhorse` was no longer a child
+process of `/scripts/start-workhorse` however `/bin/sh` was still PID 1. What is even
+invoking `/bin/sh` that we didn't see anywhere in our
+[Dockerfile](https://gitlab.com/gitlab-org/build/CNG/-/blob/92d3e22e9ff6c5cbb685aeea99813751d5e19a9d/gitlab-workhorse/Dockerfile)?
+After some thumb-twiddling, we had an idea that the container runtime is invoking
+`/bin/sh`. We went back to basics and looked at the
+[`CMD`](https://docs.docker.com/engine/reference/builder/#cmd) documentation to
+see if we were missing something, and we were. We read the following:
+
+> If you use the shell form of the CMD, then the <command> will execute in `/bin/sh -c`:
+>
+> ```
+> FROM ubuntu
+> CMD echo "This is a test." | wc -
+> ```
+>
+> If you want to run your <command> without a shell then you must express the command as a JSON array and give the full path to the executable. This array form is the preferred format of CMD. Any additional parameters must be individually expressed as strings in the array:
+>
+> ```
+> FROM ubuntu
+> CMD ["/usr/bin/wc","--help"]
+> ```
+
+This was exactly [what we were doing](https://gitlab.com/gitlab-org/build/CNG/-/blob/92d3e22e9ff6c5cbb685aeea99813751d5e19a9d/gitlab-workhorse/Dockerfile#L51)! 
+we weren't using `CMD` in `exec form`, but in `shell form`. Changing this confirmed
+that `gitlab-workhorse` is now PID 1, and also receives the termination signal
+after testing it locally:
+
+```
+git@gitlab-webservice-default-84c68fc9c9-lzwmp:/$ ps faux
+USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND
+git           65  1.0  0.0   5992  3704 pts/0    Ss   15:25   0:00 bash
+git           73  0.0  0.0   8592  3256 pts/0    R+   15:25   0:00  \_ ps faux
+git            1  0.2  0.3 1328228 32288 ?       Ssl  15:24   0:00 gitlab-workhorse -logFile stdout -logFormat json -listenAddr 0.0.0.0:8181 -documentRoot /srv/gitlab/public -secretPath /etc/gitlab/gitlab-workhorse/secret -config /srv/gitlab/config/workhorse-config.toml
+```
+
+```
+{"level":"info","msg":"shutdown initiated","shutdown_timeout_s":61,"signal":"terminated","time":"2022-04-13T15:27:57Z"}
+{"level":"info","msg":"keywatcher: shutting down","time":"2022-04-13T15:27:57Z"}
+{"error":null,"level":"fatal","msg":"shutting down","time":"2022-04-13T15:27:57Z"}
+```
+
+Ok, then we just needed to update `exec` and `CMD []` and we would have been
+done, right? Almost. GitLab Workhorse proxies all of the requests for the API, Web, and Git requests so we couldn't just do a big change and expect that everything is going to be OK. We had to progressively roll this out to make
+sure we didn't break any existing working behavior since this affects all the
+requests we get to GitLab.com. To do this, we hid it behind a [feature
+flag](https://gitlab.com/gitlab-org/build/CNG/-/merge_requests/972) so GitLab
+Workhorse is only PID 1 when the `GITLAB_WORKHORSE_EXEC` environment variable
+is set. This allowed us to deploy the change and only enable it on a small part
+of our fleet to see if we see any problems. We were a bit more careful here and
+rolled it out zone by zone in Production since we run on 3 zones. When we
+rolled it out in the [first
+zone](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_919259030)
+we saw all 502 errors disappear! After fully rolling this out we see that [the
+problem is fixed and it had no negative side
+effects](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_920585707). Hurray!
+
+We still had one question unanswered, why were GitLab Pages still trying to use
+the same connection even after the Pod was removed from the Service because it was
+scheduled for deletion? When we looked at Go internals we see that [Go reuses
+TCP connections](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15497#note_920642770)
+if we close the body of the request. So even though it's not part of the Service
+we can still keep the TCP connection open and send requests – this explains why
+we kept seeing 502 on pod being terminated and always from the same GitLab
+Pages pod.
+
+Now it's all gone!
+
+## More things that we can explore
+
+1. We've made graceful termination for GitLab Workhorse as [default](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/merge_requests/1732).
+1. Audit all of our Dockerfiles that use `CMD command` and fix them. We've found 10, and [fixed all of them](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/3249).
+1. [Better readiness Probe defaults for `webservice` pod](https://gitlab.com/gitlab-org/charts/gitlab/-/merge_requests/2518).
+1. Add [linting](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/3253) for Dockerfiles.
+1. See if any of our child processes need [zombie process reaping](https://blog.phusion.nl/2015/01/20/docker-and-the-pid-1-zombie-reaping-problem/).
+
+## Takeaways
+
+1. We should always care about what is PID 1 in a container.
+1. Always try and use `CMD ["executable","param1","param2"]` in your Dockerfile.
+1. Pods are removed from the Service/Endpoint in async.
+1. If you are on GKE [NEGs](https://cloud.google.com/kubernetes-engine/docs/how-to/standalone-neg) might be better for readinessProbes.
+1. By default, there is a 30 second grace period between the `TERM` signal and the `KILL` signal when Pods terminate. You can update the time between the signals `terminationGracePeriodSeconds`.
+1. The Go `http.Client` will reuse the TCP connection if [the body is closed](https://cs.opensource.google/go/go/+/refs/tags/go1.18.2:src/net/http/response.go;l=59-64) which in this case made the issue worse.
+
+Thank you to [@igorwwwwwwwwwwwwwwwwwwww](https://gitlab.com/igorwwwwwwwwwwwwwwwwwwww), [@gsgl](https://gitlab.com/gsgl), [@jarv](https://gitlab.com/jarv), and [@cmcfarland](https://gitlab.com/cmcfarland) for helping me debug this problem!
+

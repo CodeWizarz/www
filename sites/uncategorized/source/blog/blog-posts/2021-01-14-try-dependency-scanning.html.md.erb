@@ -1,0 +1,134 @@
+---
+title: "A quick guide to GitLab Dependency Scanning"
+author: Nicole Schwartz
+author_gitlab: nicoleschwartz
+author_twitter: gitlab
+categories: unfiltered
+image_title: '/images/blogimages/2020-unfiltered-try-dependency-scanning/iceberg_header.jpg'
+description: "A walk through of creating a quick example project in order to see Dependency Scanning in action."
+tags: features, security, demo
+twitter_text: “”
+---
+
+{::options parse_block_html="true" /}
+
+
+
+Are you curious about our Secure offerings? They are easy, and free, to try out!
+
+I suggest you create a free demo project to check them out and see if it's something you might want. 
+
+Did you know? If you have a public project on GitLab.com you can enable our Secure scanning functionality. Please note that [educational institutions](https://about.gitlab.com/solutions/education/) and [open-source projects](https://about.gitlab.com/solutions/open-source/join/) can also request free licenses.
+
+In this blog I will walk you through creating a new demo project, adding Dependency Scanning, and reviewing the results of the scan. Following the steps below should take you 15 minutes.
+
+### Create a test project
+
+Let's grab a test project and enable Dependency Scanning.
+
+1. [Sign in](https://gitlab.com/users/sign_in) to your GitLab account.
+1. Create a new project by clicking "New project" on your [project list](https://gitlab.com/dashboard/projects).
+![New project](/images/blogimages/2020-unfiltered-try-dependency-scanning/01_new_project.png){: .shadow.center}
+1. Select the "Create from template" option.
+1. Select a project template. Be sure to choose one that is written in one of our [supported languages and package managers](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#supported-languages-and-package-managers). I have chosen a [Ruby on Rails template](https://gitlab.com/gitlab-org/project-templates/rails).
+![Project from template](/images/blogimages/2020-unfiltered-try-dependency-scanning/02_from_template.png){: .shadow.center}
+1. Click the "Use template" button.
+1. You need to name your project. I named mine "mytestrubyonrails". **Be sure to set the Visibility level to "Public"**.
+![Template settings](/images/blogimages/2020-unfiltered-try-dependency-scanning/03_template_settings.png){: .shadow.center}
+1. You now have a new project.
+![Your new project](/images/blogimages/2020-unfiltered-try-dependency-scanning/04_new_project.png){: .shadow.center}
+
+### Configure Dependency Scanning to run in the pipeline
+
+#### Create a new file in your project
+
+1. Click "New file".
+![Add a new file](/images/blogimages/2020-unfiltered-try-dependency-scanning/05_new_file.png){: .shadow.center}
+1. You have two choices to populate the file - Template or Advanced.
+
+#### Use the template to fill `.gitlab-ci.yml`
+
+1. On the `New file` page choose "Select a template type > .gitlab-ci.yml".
+![pick yml as file template](/images/blogimages/2020-unfiltered-try-dependency-scanning/06_yml_template.png){: .shadow.center}
+1. Select "Apply a template > Dependency-Scanning".
+![dependency scanning template yml](/images/blogimages/2020-unfiltered-try-dependency-scanning/07_yml_ds.png){: .shadow.center}
+
+#### Advanced - manually enter data into `.gitlab-ci.yml`
+
+1. On the `New file` page name the file `.gitlab-ci.yml`.
+1. Insert the necessary lines of code per our [user documentation](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#configuration).
+
+```
+   stages:
+   - test
+   - qa
+
+   include:
+   - template: Dependency-Scanning.gitlab-ci.yml
+
+   dependency_scanning:
+   stage: test
+   variables:
+     CI_DEBUG_TRACE: "true"
+```
+
+![advanced yml](/images/blogimages/2020-unfiltered-try-dependency-scanning/08_yml_advanced.png){: .shadow.center}
+
+#### Commit the file
+
+1. Add a commit message if you want.
+1. Change the "Target Branch" from "master" to something else - for example "add-ds", and leave the "Start a new merge request with these changes" box checked.
+![dependency scanning template rename target](/images/blogimages/2020-unfiltered-try-dependency-scanning/07_yml_template_rename.png){: .shadow.center}
+1. Click "Commit changes".
+1. A "New Merge Request" page will load. Scroll to the bottom and click "Submit merge request".
+![dependency scanning template merge request part 1](/images/blogimages/2020-unfiltered-try-dependency-scanning/07_yml_template_mr_01.png){: .shadow.center}
+![dependency scanning template merge request part 2](/images/blogimages/2020-unfiltered-try-dependency-scanning/07_yml_template_mr_02.png){: .shadow.center}
+1. The pipeline will now run.
+
+### View pipeline results
+
+Now that you have your first pipeline, this and any future pipeline will run the Dependency Scanning jobs. You can review the results after a pipeline completes by:
+  1. View the Merge request - look at the security MR report area.
+![merge request security report](/images/blogimages/2020-unfiltered-try-dependency-scanning/09_mr_report.png){: .shadow.center}
+  1. Click expand to see the details.
+![expanded merge request security report](/images/blogimages/2020-unfiltered-try-dependency-scanning/10_mr_report_expanded.png){: .shadow.center}
+  1. You can also view the Security tab in the pipeline.
+![security tab in the pipeline](/images/blogimages/2020-unfiltered-try-dependency-scanning/11_pipeline_security_tab.png){: .shadow.center}
+
+Note: For this example we are going to decide not to act on the findings as part of the merge request, and we have not configured [security merge request approvals](https://docs.gitlab.com/ee/user/application_security/index.html#security-approvals-in-merge-requests) so findings do not require additional approvers before you are permitted to merge.
+
+You can see [my example merge request](https://gitlab.com/NicoleSchwartz/mytestrubyonrails/-/merge_requests/1).
+
+### View results outside of the merge request
+
+First, merge this request in to master for your test project. The results will not show outside of the merge request until this is done.
+
+Now you can see the findings by navigating to the [Security Dashboard](https://docs.gitlab.com/ee/user/application_security/security_dashboard/).
+![navigate to the security dashboard](/images/blogimages/2020-unfiltered-try-dependency-scanning/navigate_dashboard.png){: .shadow.center}
+![the security dashboard](/images/blogimages/2020-unfiltered-try-dependency-scanning/dashboard.png){: .shadow.center}
+
+You can view just the dependencies and their found issues by viewing the [Dependency List](https://docs.gitlab.com/ee/user/application_security/dependency_list/).
+![navigate to the dependency list](/images/blogimages/2020-unfiltered-try-dependency-scanning/navigate_d_list.png){: .shadow.center}
+![the dependency list](/images/blogimages/2020-unfiltered-try-dependency-scanning/dependency_list.png){: .shadow.center}
+![expand a row in the dependency list](/images/blogimages/2020-unfiltered-try-dependency-scanning/dependency_list_expanded.png){: .shadow.center}
+You can see [my dependency list](https://gitlab.com/NicoleSchwartz/mytestrubyonrails/-/dependencies).
+
+You can click on a finding in the dashboard to see more details. This takes you to the vulnerability's page.
+![stand alone vulnerability's page](/images/blogimages/2020-unfiltered-try-dependency-scanning/stand_alone_vuln.png){: .shadow.center}
+
+On the vulnerability's page you can decide to set the status (dismiss, confirm, resolve) after triaging.
+![stand alone vulnerabilities status](/images/blogimages/2020-unfiltered-try-dependency-scanning/stand_alone_vuln_status.png){: .shadow.center}
+You can [see my example finding](https://gitlab.com/NicoleSchwartz/mytestrubyonrails/-/security/vulnerabilities/4085028).
+
+You can create an issue from a vulnerability.
+![stand alone vulnerabilities created issue](/images/blogimages/2020-unfiltered-try-dependency-scanning/issue_created.png){: .shadow.center}
+You can [see my example issue](https://gitlab.com/NicoleSchwartz/mytestrubyonrails/-/issues/1).
+
+Now go on and try it yourself!
+
+If the above blog walkthrough of creating a demo project and running Dependency Scanning got you curious you can [read more about Dependency Scanning in our user documentation](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/).
+
+If you would rather try a different type of Secure scanner - they are all just as easy to set up [read more about our Secure scanning tools in our user documentation](https://docs.gitlab.com/ee/user/application_security/#security-scanning-tools).
+
+[Cover image](https://flic.kr/p/4SyNQi) by [Alan Light](https://www.flickr.com/people/alan-light/), licensed under [Attribution 2.0 Generic (CC BY 2.0)](https://creativecommons.org/licenses/by/2.0/)
+{: .note}

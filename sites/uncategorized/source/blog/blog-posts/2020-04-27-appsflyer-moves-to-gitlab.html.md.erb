@@ -1,0 +1,86 @@
+---
+title: "Why AppsFlyer moved from Bitbucket to GitLab"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: news
+image_title: '/images/blogimages/gitlab-appsflyer.png'
+description: "AppsFlyer migrated from Mercurial to Git so the company could move to GitLab's open source, self-managed solution."
+tags: git, open source, community
+twitter_text: "Follow the AppsFlyer journey to @gitlab"
+featured: yes
+postType: product
+merch_banner: merch_six
+---
+
+Research shows that [more users are choosing GitLab](/why-gitlab/) as their preferred [version control system](/topics/version-control/). In an [analysis by The New Stack of the results of a 2018 and 2019 Jetbrains developer survey](https://thenewstack.io/i-dont-git-it-tracking-the-source-collaboration-market/), there was an increase in the number of users in the study sample that selected GitLab as their version control system of choice between 2018-2019. In that same period, GitHub had a small decrease in users and Bitbucket had a more substantial decline in the number of users. 
+
+One of the most significant barriers to making the move from a version control system such as Bitbucket or GitHub to GitLab is the data migration process. We have an entire data import team at GitLab that is dedicated to making this process as seamless as possible, but let’s face it, migrating data is always going to be painful. Fortunately, other companies have paved the way to make the migration process a bit more bearable.
+
+AppsFlyer is one of those companies that took the plunge and migrated its entire system from Bitbucket to GitLab, and the team has lived to tell the tale. [Elad Leev](https://www.linkedin.com/in/elad-leev/?originalSubdomain=il), platform engineer at AppsFlyer, explains how the engineering organization managed the migration in a presentation at GitLab Commit San Francisco.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/z_6tVRCyJxs" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Why AppsFlyer chose GitLab
+
+Before showing how AppsFlyer moved to GitLab, it’s valuable to review the business case for _why_ AppsFlyer chose GitLab over other version control systems.
+
+AppsFlyer is a large engineering organization that has more than 300 developers on-staff. Demand for the company's services grew, which translated into more than one million incoming HTTP requests per second or up to 90 billion events per day. AppsFlyer needed to move off the hosted solution it was using with Bitbucket because repositories could be accessed by the public too easily and because latency issues caused some builds to fail. And Bitbucket had restrictions – no more than 1000 calls/hour – and that was an easy target for the growing company to exceed.
+
+AppsFlyer tried moving from the Bitbucket-hosted solution to the closed-source, self-managed option but it was a black box. If there was a bug, it was impossible to know if it was due to their configuration or because something was wrong with the product.
+
+The company considered GitHub Enterprise, but, like Bitbucket, it is also closed-source and was too expensive for a lower ROI. In the end, they chose GitLab because of our growth and [commitment to transparency](/handbook/values/#transparency) – our default to public and the open issue tracker made it the right fit for AppsFlyer.
+
+## Migrating from Mercurial to Git
+
+In order to convert from Bitbucket to GitLab, AppsFlyer first needed to convert from Mercurial to Git because GitLab runs on Git.
+
+When [Bitbucket first launched in 2008, it only supported Mercurial repos](https://Bitbucket.org/blog/sunsetting-mercurial-support-in-Bitbucket). Notably, Bitbucket is actually going to be migrating from Mercurial to Git beginning as of June 1. So whether or not you’re using GitLab, there is no time like the present to transition your repositories to Git, [the version control tool chosen by almost 90% of developers](https://insights.stackoverflow.com/survey/2018#work-_-version-control).
+
+One of the most complicated parts of the process for AppsFlyer was getting the code from Mercurial to Git, because there isn’t an immediate way to transfer from one version control tool to another.
+
+Elad said AppsFlyer needed to save history, commits, tags and, with AppsFlyer being a rapidly growing start-up, to execute the transition as quickly as possible.
+
+The AppsFlyer devs found a tool called [Fast-Export](https://github.com/frej/fast-export) which basically migrates code from Mercurial to Git and had success on a few different repositories. But could it scale effectively to migrate all the code in the organization?
+
+Next, the team worked with the R&D organization to create a self-service, Fast-Export wrapper to help with the migration from Mercurial to Git at scale. The Fast-Export wrapper had a few characteristics that made it work:
+
+*   It was a one-liner, so it was easy-to-use
+*   It was idiot-proof, meaning nobody could make a catastrophic mistake
+*   It used a Slack channel to keep everyone in sync
+*   It was safe, meaning you cannot override somebody’s repository by mistake
+
+The end-to-end process is fairly straightforward, beginning with checking for the repository in GitLab and logging it into the Slack channel once the repo migration is complete.
+
+![Illustration showing AppsFlyer's Mercurial to Git migration process](/images/blogimages/mercurial_git.jpg){: .shadow.medium.center}
+The Mercurial to Git migration process using the fast-export wrapper created by AppsFlyer.
+{: .note.text-center}
+
+“It's really, really important to close the old repository to writes in Bitbucket service because it happened to us more than once: A developer used this tool to migrate his repository from Bitbucket to GitLab, but other developers didn't know that the repository was moved,” says Elad.
+
+The migration from Mercurial to Git came with a few added benefits, including the opportunity to clean up old repositories; greater transparency across teams into the GitLab migration; and increased developer trust.
+
+## Education helps
+
+Documentation was also a large part of the migration to Git. AppsFlyer used Guru to carefully document internal processes and identified two courses on Pluralsight to help devs. There is also the entertaining cheat sheet – “[Oh Shit, Git!](https://ohshitgit.com/)” ([here is a profanity-free version](https://dangitgit.com/en)) which Elad created to share some edge cases with Git that he encountered through his work.
+
+## Now, moving to GitLab is pretty easy
+
+Once your source is in Git, it is pretty simple to upload your data into any version control system using a data importer. We have detailed instructions on how to import your data from a different version control system, such as [migrating from Bitbucket to GitLab](https://docs.gitlab.com/ee/user/project/import/bitbucket_server.html), which is what AppsFlyer did.
+
+## Perks of working with an open source, self-managed solution
+
+A self-managed product that is closed-source means the user will always rely on an external vendor when it comes to managing their codebase, and we believe that having end-to-end visibility is essential when it comes to self-hosting. One of the main perks of working with an open source, self-managed version control system such as GitLab is that your team has the flexibility to build upon your existing codebase. Here are a few examples:
+
+*   AppsFlyer created another small, one-liner tool (BB2GL) that connects with Slack to help with data migration. Then, they took it a step further and connected the one-liner repository to Slack.
+*   Set deadlines: AppsFlyer created a scheduled task list that checks all the repos in Bitbucket and all the repos in GitLab to see which projects have been moved from Bitbucket to GitLab and posts a reminder on Slack for the teams.
+*   Created an in-house API wrapper which helped cut-down on code that was duplicative but written in different languages. The API wrapper helped create one location for all the GitLab metadata.
+*   The in-house API Wrapper is updated using GitLab System Hooks. Read Elad’s [in-depth Medium article to learn more about System Hooks](https://medium.com/appsflyer/gitlab-the-magic-of-system-hooks-f38c4f7ca8e7).
+
+It’s been two years since AppsFlyer made the switch to GitLab, and it’s helped the company’s growth considerably, says Elad. Some team members have abandoned the Atlassian project management tools they used before to switch to GitLab.
+
+But no product is perfect. There are two bugs that AppsFlyer encountered and raised with GitLab support. One of them has been resolved, [one is still pending](https://gitlab.com/gitlab-org/gitlab/-/issues/14130). This level of visibility into bugs wouldn’t be possible without features like the [public issue tracker](https://docs.gitlab.com/ee/user/project/issues/), which promote transparency and collaboration between GitLab users and internal GitLab teams.

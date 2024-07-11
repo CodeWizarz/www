@@ -1,0 +1,128 @@
+---
+title: "How patch files can transform how you review code"
+author: "David O’Regan"
+author_gitlab: oregand
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/patch.jpg'
+description: "We explain how to use patch files for better code review."
+tags: code review, inside GitLab
+twitter_text: "How to use patch files for code review"
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2020/06/08/better-code-reviews/"
+  - "/blog/2020/10/13/merge-request-reviewers/"
+  - "/blog/2021/02/04/remote-pair-programming-tips/"
+merch_banner: merch_seven
+---
+
+This post is adapted from a [GitLab Unfiltered blog post](/blog/2020/06/08/better-code-reviews/) written by me, [David O'Regan](/company/team/#oregand). In [part one of our series](/blog/2021/03/09/tips-for-better-code-review/), we explain the importance of fairness and empathetic thinking in code reviews.
+{: .note .alert-info .text-center}
+
+## Patch files
+
+Wanna know a `git secret`? [Patch files](https://git-scm.com/docs/git-format-patch) are magic when it comes to code reviews. A [patch is a text file whose contents are similar to Git diff](https://www.tutorialspoint.com/git/git_patch_operation.htm) but along with code it contains metadata about commits, for example, a patch file will include commit ID, date, commit message, etc. We can create a patch from commits and other people can apply them to their repository.
+
+## How to use a patch file
+
+A patch file is useful for code review because it allows the reviewer to create an actionable piece of code that shares their thoughts with the MR author. The code author can then apply the suggestion directly to their merge request. Patch files foster collaboration because it essentially creates a paired programming session in the review process.
+
+This lets other people check your changes in the git patch files for any corrections that need to be made before the changes truly go live. After everything has been checked and corrections made, the changes can be pushed to the main branch of the repository. 
+
+One of the [better examples of a simple patch file in action](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/31686#note_341534370) comes from [Denys Mishunov](/company/team/#dmishunov), staff frontend engineer on the Create team.
+
+```bash
+Index: app/assets/javascripts/projects/commits/components/author_select.vue
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+--- app/assets/javascripts/projects/commits/components/author_select.vue	(revision 697d0734f1ae469a9a3522838e36b435d7cdf0be)
++++ app/assets/javascripts/projects/commits/components/author_select.vue	(date 1589356024033)
+@@ -110,6 +110,7 @@
+     <gl-new-dropdown
+       :text="dropdownText"
+       :disabled="hasSearchParam"
++      toggle-class="gl-py-3"
+       class="gl-dropdown w-100 mt-2 mt-sm-0"
+     >
+       <gl-new-dropdown-header>
+
+```
+
+To generate this suggestion, Denys pulled down the code he was reviewing and was able to offer a code solution based on his own testing. The patch file contains lots of valuable information, including the file affected, the date the revision was made, and the tool he used to generate the patch.
+
+## How to create a patch file
+
+You can make a patch file using a web editor or with the command line. Read on to see how to create a patch file in GitLab both ways.
+
+### Patch files using a web editor
+
+If you are rocking a nice fancy IDE or text editor, here's some good news: Most support patch files via plugins or out of the box. Here are some links to documentation on how to use patch files with different plugins: [VSCode](https://github.com/paragdiwan/vscode-git-patch), [Webstorm](https://www.jetbrains.com/help/webstorm/using-patches.html), [Atom](https://atom.io/packages/git-plus), and [Vim](https://vim.fandom.com/wiki/How_to_make_and_submit_a_patch).
+
+### Patch files using the command line
+
+OK command line users, you’ve made some commits, here’s your `git log`:
+
+```
+git log --pretty=oneline -3
+
+* da33d1k - (feature_branch) Reviewer Commit 1 (7 minutes ago)
+
+* 66a84ah - (feature_branch) Developer 1 Commit (12 minutes ago)
+
+* adsc8cd - (REL-0.5.0, origin/master, origin/HEAD, master) Release 13.0 (2 weeks ago)
+
+``` javascript
+```
+
+This command creates a new file, `reviewer_commit.patch`, with all changes from the reviewer's latest commit against the feature branch:
+
+```
+```git format-patch HEAD~1 --stdout > reviewer_commit.patch```
+
+### How to apply the patch
+
+First, take a look at what changes are in the patch. You can do this easily with `git apply`:
+
+```git apply --stat reviewer_commit.patch```
+```
+
+Heads up: Despite the name, this command won't actually apply the patch. It will just show the statistics about what the patch will do.
+
+So now that we've had a look, let's test it first because not all patches are created equal:
+
+```
+```git apply --check reviewer_commit.patch```
+
+If there are no errors we can apply this patch without worrying.
+
+To apply the patch, you should use `git am` instead of `git apply`. The reason: `git am` allows you to sign off an applied patch with the reviewer's stamp.
+
+git am --signoff &lt; reviewer_commit.patch
+
+Applying: Reviewer Commit 1
+
+``` javascript
+```
+
+Now run `git log` and you can see the `Signed-off-by` tag in the commit message. This tag makes it very easy to understand how this commit ended up in the codebase.
+
+### The benefits of patch files for code reviews
+
+So now that you know how to make a shiny patch file, why would you use patch files as part of a code review process? There are a few reasons you might consider offering a patch file for a change you feel strongly about:
+
+*   It communicates you have invested a large amount of effort into understanding the author's solution and reasoning
+*   It demonstrates a passion for using teamwork to arrive at the best solution
+*   It shows the reviewer is willing to accept responsibility for this merge beyond just reading the code
+
+There are a few alternatives to patch files for code reviews. GitLab has a [suggestion feature which allows the reviewer to suggest code changes using Markdown in a merge request](https://docs.gitlab.com/ee/user/discussions/#suggest-changes). The other option is to write raw code in Markdown right in the comment box. The downside is the reviewer doesn't have the option to test the code they are writing, making both of these options prone to error.
+
+It is better to use a patch file because it involves the code reviewer in the review process in a collaborative way by default. In order to generate a patch, the reviewer must pull down the code, write the patch, test the change, and then submit it for the code author's consideration. Patch files increase the visibility for the reviewer and offers a fully collaborative experience for the code author.
+
+Some people might argue patch files are a cheeky way for a reviewer to force a change they would rather see make it into the codebase, but I believe that anyone who has taken the time to check out a branch, run the project, implement a change, and then submits that change back for a discussion is fully embracing collaboration.
+
+GitLab is evaluating whether to make patch files [part of the code review and merge request workflow](https://gitlab.com/gitlab-org/gitlab/-/issues/220044).
+
+Learn more about [the role of fairness in code review in part one of our blog series](/blog/2021/03/09/tips-for-better-code-review/). Up next we explain why shipping small merge requests is in line with our iteration value.

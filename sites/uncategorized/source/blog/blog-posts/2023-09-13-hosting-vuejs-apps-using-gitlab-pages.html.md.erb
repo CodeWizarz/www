@@ -1,0 +1,119 @@
+---
+title: "How to host VueJS apps using GitLab Pages"
+author: Noah Ing, Sophia Manicor
+author_gitlab:
+author_twitter: gitlab
+categories: engineering
+image_title: /images/blogimages/hosting.png
+description: "Follow this tutorial, including detailed configuration guidance, to quickly get your application up and running for free."
+tags: CI/CD, CI, CD, tutorial
+guest: true
+twitter_text: "This tutorial walks you through a simple way to host and deploy your VueJS applications using GitLab CI/CD and GitLab Pages for free."
+featured: no
+postType: product
+related posts:
+  - "/blog/2017/11/09/gitlab-vue-one-year-later/"
+  - "/blog/2016/10/20/why-we-chose-vue/"
+  - "/blog/2017/09/12/vuejs-app-gitlab/"
+---
+If you use VueJS to build websites, then you can host your website for free with GitLab Pages. This short tutorial walks you through a simple way to host and deploy your VueJS applications using GitLab CI/CD and GitLab Pages.
+
+## Prequisites
+- A VueJS application
+- Working knowledge of GitLab CI
+- 5 minutes
+
+## Setting up your VueJS application
+
+1) Install vue-cli.
+
+```bash
+npm install -g @vue/cli
+# OR
+yarn global add @vue/cli
+```
+You can check you have the right version of Vue with:
+
+```bash
+vue --version
+```
+
+2) Create your application using:
+
+```bash
+vue create name-of-app
+```
+
+When successfully completed, you will have a scaffolding of your VueJS application.
+
+## Setting up .gitlab-ci.yml for GitLab Pages
+Below is the [GitLab CI configuration](https://gitlab.com/demos/applications/vuejs-gitlab-pages/-/blob/main/.gitlab-ci.yml) necessary to deploy to GitLab Pages. Put this file into your root project. GitLab Pages always deploys your website from a specific folder called `public`.
+
+```yaml
+image: "node:16-alpine"
+
+stages:
+  - build
+  - test
+  - deploy
+
+build:
+  stage: build
+  script:
+    - yarn install --frozen-lockfile --check-files --non-interactive
+    - yarn build
+  artifacts:
+    paths:
+      - public
+
+pages:
+  stage: deploy
+  script:
+    - echo 'Pages deployment job'
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
+
+```
+
+## Vue config (vue.config.js)
+In Vue, the artifacts are built in a folder called dist, in order for GitLab to deploy to Pages, we need to change the path of the artifacts. One way to do this is by changing the [Vue config file](https://gitlab.com/demos/applications/vuejs-gitlab-pages/-/blob/main/vue.config.js), `vue.config.js`.
+
+```
+const { defineConfig } = require('@vue/cli-service')
+
+function publicPath () {
+  if (process.env.CI_PAGES_URL) {
+    return new URL(process.env.CI_PAGES_URL).pathname
+  } else {
+    return '/'
+  }
+}
+
+module.exports = defineConfig({
+  transpileDependencies: true,
+  publicPath: publicPath(),
+  outputDir: 'public'
+})
+```
+
+Here we have set `outputDir` to `public` so that GitLab will pick up the build artifacts and deploy to Pages. Another important piece when creating this configuration file is to change the `publicPath`, which is the base URL your application will be deployed at. In this case, we have create a function `publicPath()` that checks if the CI_PAGES_URL environment variable is set and returns the correct base URL.
+
+## Run GitLab CI
+
+![vuejs-gitlab-pages-pipeline](/images/blogimages/2023-05-11-hosting-vuejs-apps-using-gitlab-pages/vuejs-gitlab-pages-pipeline.png){: .shadow}
+
+
+## Check Pages to get your URL
+
+![gitlab-pages-domain](/images/blogimages/2023-05-11-hosting-vuejs-apps-using-gitlab-pages/gitlab-page-domain.png){: .shadow}
+
+Voila! You have set up a VueJS project with a fully functioning CI/CD pipeline. Enjoy your VueJS application hosted by GitLab Pages!
+
+## References
+- [https://cli.vuejs.org/guide/installation.html](https://cli.vuejs.org/guide/installation.html)
+- [https://cli.vuejs.org/guide/creating-a-project.html](https://cli.vuejs.org/guide/creating-a-project.html)
+- [https://gitlab.com/demos/applications/vuejs-gitlab-pages](https://gitlab.com/demos/applications/vuejs-gitlab-pages)
+

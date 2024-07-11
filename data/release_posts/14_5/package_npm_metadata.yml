@@ -1,0 +1,15 @@
+---
+features:
+  secondary:
+  - name: "Extract package metadata for npm packages"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/user/packages/npm_registry/#npm-metadata'
+    reporter: trizzi
+    stage: package
+    categories:
+      - 'Package Registry'
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/330929'
+    description: |
+      You can use the GitLab Package Registry to publish and share npm packages alongside your source code and pipelines. Prior to this release, however, GitLab did not extract all of the relevant metadata detailed in your `package.json` file. This is especially problematic when npm or Yarn relies on one of those fields. For example, the [`bin` field](https://docs.npmjs.com/cli/v6/configuring-npm/package-json#bin) defines executables to insert in `$PATH`. Without that field, your executables do not work.
+
+      As of this release, GitLab now extracts the [abbreviated metadata](https://github.com/npm/registry/blob/master/docs/responses/package-metadata.md#abbreviated-version-object) for npm packages, including the `bin` field and others. If you publish packages that have one or more executable files to install into the `$PATH`, you can now rely on the GitLab Package Registry to work seamlessly. Please note that this change applies to new packages only. Any packages already published to the registry must be updated for the change to take effect. In addition, GitLab only extracts the abbreviated metadata, which excludes certain fields. [GitLab-#344107](https://gitlab.com/gitlab-org/gitlab/-/issues/344107) proposes extracting the full metadata set.

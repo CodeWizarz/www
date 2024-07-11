@@ -1,0 +1,65 @@
+---
+title: "How to use GitLab with GKE Autopilot"
+author: Abubakar Siddiq Ango
+author_gitlab: abuango
+author_twitter: sarki247
+categories: news
+image_title: '/images/blogimages/library/kubernetes.png'
+description: "GitLab works out of the box with the new GKE Autopilot from Google Cloud, a managed variant of the popular Google Kubernetes Engine."
+tags: kubernetes, GKE, google, integrations
+twitter_text: "How to use @gitlab with GKE Autopilot"
+featured: yes
+postType: product, dev-evangelism
+merch_banner: merch_five
+related_posts:
+  - "/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/"
+  - "/blog/2020/09/22/introducing-the-gitlab-kubernetes-agent/"
+  - "/blog/2020/10/23/container-network-security-is-important/"
+---
+
+In the cloud native landscape, there are dozens of providers that offer managed Kubernetes services. Despite the abstraction, and ease of use promised, a major problem remains: getting the node size right. You want it to match your workloads so that you don’t under-provision – making the workloads unstable – or over-provision and rake in unnecessary costs. 
+
+[GKE Autopilot from Google Cloud](https://cloud.google.com/blog/products/containers-kubernetes/introducing-gke-autopilot) solves this problem by enabling your team to focus on building your solutions with a fully managed and opinionated variant of Google Kubernetes Engine (GKE), where nodes are automatically provisioned based on your workload requirements and with no need to be managed independently. 
+
+GKE Autopilot uses the resource specification in the PodSpec of your deployment to provision nodes or use defaults, automatically resize the nodes, or provision new nodes as the pods’ needs change. GitLab and Google Cloud officially support several use cases, including running GitLab and GitLab Runners as workloads on GKE Autopilot clusters, as well as using GitLab CI/CD to deploy applications onto GKE Autopilot.
+
+## GitLab and GKE Autopilot
+
+### GitLab Server
+
+GitLab can be installed on GKE Autopilot easily out of the box using the official Helm Charts and can be configured to match your company’s use case, such as external object storage and database. GKE Autopilot works to ensure the right sizes and number of nodes are provisioned based on the requirements specified in the GitLab charts and your customizations. You can access other resources in Google Cloud, such as storage and databases using Google Cloud Workload Identity.
+
+All GKE Autopilot clusters come with Google Cloud Workload Identity pre-configured. Workload Identity allows you to bind Kubernetes Service Accounts to Google Service Accounts, with whatever permission that Google Service Account has. This can include resources in other Google Cloud platform projects.
+
+In the first part of the GitLab with GKE Autopilot demo, I demonstrate how to install GitLab on a GKE Autopilot cluster:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/cNffh-qyXhQ" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+### GitLab Runner
+
+The GitLab Runner can be deployed on GKE Autopilot in unprivileged mode, allowing it to only run GitLab CI jobs that do not require privileged pods or Docker in Docker due to the lack of support for privileged pods on GKE Autopilot. To build container images, [Kaniko](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html) or its likes can be used as an alternative to Docker. This applies to the bundled runner in the official GitLab Helm chart or when deployed independently using the official GitLab Runner chart. This also affects jobs using GitLab Auto DevOps, but works best when an independent Runner (set up on a GKE Standard cluster or virtual machine) is registered with the GitLab server running on GKE Autopilot.
+
+### Integrating GKE Autopilot clusters
+
+GKE Autopilot clusters integrate with GitLab just like a GKE Standard cluster. There are two options, the preferred of which is to use the [GitLab Agent for Kubernetes](/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/), especially if you are concerned about security or your cluster is behind a firewall. You can learn more about this in our [detailed documentation](https://docs.gitlab.com/ee/user/clusters/agent/).
+Alternatively, you can create a cluster-admin and provide the cluster certificate and token to [integrate with the cluster](https://docs.gitlab.com/ee/user/project/clusters/add_remove_clusters.html).  As of the time of writing, GKE Autopilot clusters cannot be created from GitLab like standard GKE clusters. The DinD limitation also affects the runner listed in the GitLab-managed apps that you can install as part of the integration. 
+
+In the second part of the demo video, I demonstrate how to integrate GitLab with a GKE Autopilot cluster and deploy an application using Auto DevOps.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/rCwHL3hQEWU" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+## Considerations
+
+GKE Autopilot is opinionated and less configurable than GKE Standard. As a managed service, it allows you to focus on delivering the best solutions to your users and not worry about operations; these are limitations common for such managed Kubernetes services. 
+
+Administrative access to the nodes provisioned by GKE Autopilot is not supported, thus making any operation requiring access to the nodes limited. Host options, node selectors, node affinity/anti-affinity, taints, and tolerations are other functionalities that apply at the node level in GKE Standard but are not supported in Autopilot.
+
+When integrating an Autopilot cluster with GitLab, you cannot install the bundled cert-manager. I encountered an error while testing, stating that `mutatingwebhookconfigurations/` is managed and access is denied in GKE Autopilot. Alternatively, you can follow the directions provided in the official cert-manager documentation.
+
+## Wrapping up
+
+GKE Autopilot is designed to implement Google Cloud-developed best practices and has been fine-tuned to provide an ideal user experience. You can move from idea to production and scale worry-free when you integrate GitLab with GKE Autopilot, allowing you to deploy and monitor your application’s health, all within GitLab. If you also choose to deploy GitLab itself on GKE Autopilot, our official Helm chart will work out of the box.

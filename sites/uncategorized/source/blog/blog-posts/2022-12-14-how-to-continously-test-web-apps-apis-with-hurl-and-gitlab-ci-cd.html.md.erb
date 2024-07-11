@@ -1,0 +1,530 @@
+---
+title: 'How to continuously test web apps and APIs with Hurl and GitLab CI/CD'
+author: 'Michael Friedrich'
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: engineering
+image_title: '/images/blogimages/hurl-continuous-website-testing/post-cover-image.jpg'
+description: 'Hurl as a CLI tool can be integrated into the DevSecOps platform to continuously verify, test, and monitor targets. It also offers integrated unit test reports in GitLab CI/CD.'
+tags: testing, CI, DevOps
+twitter_text: "How to continuously test websites and APIs with Hurl and @gitlab CI/CD on a DevSecOps platform"
+featured: yes
+postType: dev-evangelism
+---
+
+Testing websites, web applications, or generally everything reachable with the HTTP protocol, can be a challenging exercise. Thanks to tools like `curl` and `jq`, [DevOps workflows have become more productive](/blog/2021/04/21/devops-workflows-json-format-jq-ci-cd-lint/) and even simple monitoring tasks can be automated with CI/CD pipeline schedules. Sometimes, use cases require specialized tooling with custom HTTP headers, parsing expected responses, and building end-to-end test pipelines. Stressful incidents also need good and fast tools that help analyze the root cause and quickly mitigate and fix problems.
+
+[Hurl](https://hurl.dev) is an open-source project developed and maintained by Orange, and uses libcurl from curl to provide HTTP test capabilities. It aims to tackle complex HTTP test challenges by providing a simple plain text configuration to describe HTTP requests. It can chain requests, capture values, and evaluate queries on headers and body responses. So far, so good: Hurl does not only support fetching data, it can be used to test HTTP sessions and XML (SOAP) and JSON (REST) APIs.
+
+## Getting Started
+
+Hurl comes in various package formats to [install](https://hurl.dev/docs/installation.html). On macOS, a Homebrew package is available.
+
+```sh
+$ brew install hurl
+```
+
+## First steps with Hurl
+
+Hurl proposes to start with the configuration file format first, which is a great way to learn the syntax step by step. The following example creates a new `gitlab-contribute.hurl` configuration file that will do two things: execute a GET HTTP request on `https://about.gitlab.com/community/contribute/` and check whether its HTTP response contains the HTTP protocol `2` and status code `200` (OK).
+
+```sh
+$ vim gitlab-contribute.hurl
+
+GET https://about.gitlab.com/community/contribute/
+
+HTTP/2 200
+$ hurl --test gitlab-contribute.hurl
+gitlab-contribute.hurl: Running [1/1]
+gitlab-contribute.hurl: Success (1 request(s) in 413 ms)
+--------------------------------------------------------------------------------
+Executed files:  1
+Succeeded files: 1 (100.0%)
+Failed files:    0 (0.0%)
+Duration:        415 ms
+```
+
+Instead of creating configuration files, you can also use the `echo “...” | hurl` command pattern. The following command tests against about.gitlab.com and checks whether the HTTP response protocol is 1.1 and the status is OK (200). The two newline characters `\n` are required for separation.
+
+```sh
+$ echo "GET https://about.gitlab.com\n\nHTTP/1.1 200" | hurl --test
+```
+
+![hurl CLI run against about.gitlab.com, failed request](/images/blogimages/hurl-continuous-website-testing/hurl_assert_failure.png)
+
+The command failed, and it says that the response protocol version is actually `2`. Let's adjust the test run to expect `HTTP/2`:
+
+```sh
+echo "GET https://about.gitlab.com\n\nHTTP/2 200" | hurl --test
+```
+## Asserting HTTP responses
+
+Hurl allows defining [assertions](https://hurl.dev/docs/asserting-response.html) to control when the tests fail. These can be defined for different HTTP response types:
+
+- Expected HTTP protocol version and status
+- Headers
+- Body
+
+The configuration language allows users to define queries with predicates that allow to compare, chain, and execute different assertions.
+
+This is the easiest way to verify that the HTTP response contains what is expected to be a string or sentence on the website, for example. If the string does not exist, this can indicate that it was changed unexpectedly, or that the website is down. Let's revisit the example with testing GET https://about.gitlab.com/community/contribute/ and add an expected string `Everyone can contribute` as a new assertion, `body contains <string>` is the expected configuration syntax for [body asserts](https://hurl.dev/docs/asserting-response.html#body-assert).
+
+```sh
+$ vim gitlab-contribute.hurl
+
+GET https://about.gitlab.com/community/contribute/
+
+HTTP/2 200
+
+[Asserts]
+body contains "Everyone should contribute"
+
+$ hurl --test gitlab-contribute.hurl
+```
+
+**Exercise:** Fix the test by updating the asserts line to `Everyone can contribute` and run Hurl again.
+
+### Asserting responses: JSON and XML
+
+[JSONPath](https://hurl.dev/docs/asserting-response.html#jsonpath-assert) automatically parses the JSON response (a built-in `jq with curl` parser so to speak), and allows users to compare the value to verify the asserts (more below). The XML format can be found in an [RSS feed on about.gitlab.com](https://about.gitlab.com/atom.xml) and parsed using [XPath](https://hurl.dev/docs/asserting-response.html#xpath-assert). The following example from `atom.xml` should be verified with Hurl:
+
+```xml
+<feed xmlns="http://www.w3.org/2005/Atom">
+<title>GitLab</title>
+<id>https://about.gitlab.com/blog</id>
+<link href="https://about.gitlab.com/blog/"/>
+<updated>2022-11-21T00:00:00+00:00</updated>
+<author>
+<name>The GitLab Team</name>
+</author>
+<entry>
+...
+</entry>
+<entry>
+...
+</entry>
+<entry>
+…
+```
+
+It is important to note that XML namespaces need to be specified for parsing. Hurl allows users to replace the first default namespace with the `_` character to avoid adding `http://www.w3.org/2005/Atom` everywhere, the XPath is now shorter with `string(//_:feed/_:entry)` to get a list of all entries. This value is captured in the `entries` variable, which can be compared to match a specific string, `GitLab` in this example. Additionally, the feed id and author name is checked.
+
+```
+$ vim gitlab-rss.hurl
+
+GET https://about.gitlab.com/atom.xml
+
+HTTP/2 200
+
+[Captures]
+entries: xpath "string(//_:feed/_:entry)"
+
+[Asserts]
+variable "entries" matches "GitLab"
+
+xpath "string(//_:feed/_:id)" == "https://about.gitlab.com/blog"
+xpath "string(//_:feed/_:author/_:name)" == "The GitLab Team"
+
+$ hurl –test gitlab-rss.hurl
+```
+
+Hurl allows users to capture the value from responses into [variables](https://hurl.dev/docs/templates.html#variables) that can be used later. This method can also be helpful to model end-to-end testing workflows: First, check the website health status and retrieve a CSRF token, and then try to log into the website by sending the token again.
+
+REST APIs that are expected to always return a specified field, or monitoring a website health state [becomes a breeze using Hurl](https://hurl.dev/docs/tutorial/chaining-requests.html#test-rest-api).
+
+## Use Hurl in GitLab CI/CD jobs
+
+The easiest way to integrate Hurl into GitLab CI/CD is to use the official container image. The Hurl project provides a [container image on Docker Hub](https://hub.docker.com/r/orangeopensource/hurl), which did not work in CI/CD at first glance. After talking with the maintainers, the [entrypoint override](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#override-the-entrypoint-of-an-image) was identified as a solution for using the image in GitLab CI/CD. Note that the Alpine based image uses the libcurl library that does not support HTTP/2 yet - the test results are different to a Debian base image (follow [this issue report](https://github.com/Orange-OpenSource/hurl/issues/1082) for the problem analysis).
+
+The following example is kept short to run the container image, override the entrypoint, and run Hurl with passing in the test using the `echo` CLI command.
+
+```yaml
+hurl-standalone:
+  image:
+    name: ghcr.io/orange-opensource/hurl:latest
+    entrypoint: [""]
+  script:
+    - echo -e "GET https://about.gitlab.com/community/contribute/\n\nHTTP/1.1 200" | hurl --test --color
+```
+
+The Hurl test report is printed into the CI/CD job trace log, and returns succesfully.
+
+```sh
+$ echo -e "GET https://about.gitlab.com/community/contribute/\n\nHTTP/1.1 200" | hurl --test --color
+-: Running [1/1]
+-: Success (1 request(s) in 280 ms)
+--------------------------------------------------------------------------------
+Executed files:  1
+Succeeded files: 1 (100.0%)
+Failed files:    0 (0.0%)
+Duration:        283 ms
+Cleaning up project directory and file based variables
+00:00
+Job succeeded
+```
+
+The next iteration is to create a CI/CD job template that provides generic attributes, and allows users to dynamically run the job with an environment variable called `HURL_URL`.
+
+```yaml
+# Hurl job template
+.hurl-tmpl:
+  # Use the upstream container image and override the ENTRYPOINT to run CI/CD script
+  # https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#override-the-entrypoint-of-an-image
+  image:
+    name: ghcr.io/orange-opensource/hurl:1.8.0
+    entrypoint: [""]
+  variables:
+    HURL_URL: "about.gitlab.com/community/contribute/"
+  script:
+    - echo -e "GET https://${HURL_URL}\n\nHTTP/1.1 200" | hurl --test --color
+
+hurl-about-gitlab-com:
+  extends: .hurl-tmpl
+  variables:
+    HURL_URL: "about.gitlab.com/jobs/"
+```
+
+Running GET commands with expected HTTP results is not the only use case, and the Hurl maintainers thought about this already. The next section explains how to create a custom container image; you can skip to the [DevSecOps workflows](#devSecOps-workflows-with-hurl) section to learn more about efficient Hurl configuration use cases.
+
+### Custom container image with Hurl
+
+Maintaining and building a custom container image adds more work, but also helps with avoiding running unknown container images in CI/CD pipelines. The latter is often a requirement for compliance and security. _Since the Hurl Debian package supports detecting HTTP/2 as a protocol, this blog post will focus on building a custom image, and run all tests using this image. If you plan on using the upstream container image, make sure to review the test configuration for the HTTP protocol version detection._
+
+The Hurl documentation provides multiple ways to install Hurl. For this example, Debian 11 Bullseye (slim) is used. Hurl comes with a package dependency on `libxml2` which can either be installed manually with then running the `dpkg` command, or by using `apt install` to install a local package and automatically resolve the dependencies.
+
+The following CI/CD example uses a job template which defines the Hurl version as environment variable to avoid repetitive use, and downloads and installs the Hurl Debian package. The `hurl-gitlab-com` job extends the CI/CD job template and runs a one-line test against `https://gitlab.com` and expects to return `HTTP/2` as HTTP protocol version, and `200` as status.
+
+```yaml
+# CI/CD job template
+.hurl-tmpl:
+  variables:
+    HURL_VERSION: 1.8.0
+  before_script:
+    - DEBIAN_FRONTEND=noninteractive apt update && apt -y install jq curl ca-certificates
+    - curl -LO "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
+    - DEBIAN_FRONTEND=noninteractive apt -y install "./hurl_${HURL_VERSION}_amd64.deb"
+
+hurl-gitlab-com:
+  extends: .hurl-tmpl
+  script:
+    - echo -e "GET https://gitlab.com\n\nHTTP/2 200" | hurl --test --color
+```
+
+The next section describes how to optimize the CI/CD pipelines for more efficient schedules and runs to monitor websites and not waste too many resources and CI/CD minutes. You can also skip it and [scroll down to more advanced Hurl examples in GitLab CI/CD](#devsecops-workflows-with-hurl).
+
+### CI/CD efficiency: Hurl container image
+
+The installation steps for Hurl, and its dependencies, can waste resources and increase the pipeline job runtime every time. To make the CI/CD pipelines more efficient, we want to use a container image that already provides Hurl pre-installed. The following steps are required for creating a container image:
+
+- Use Debian 11 Slim (FROM).
+- Install dependencies to download Hurl (`curl`, `ca-certificates`). `jq` is installed for convenience to access it from CI/CD commands when needed later.
+- Download the Hurl Debian package, and use `apt install` to install its dependencies automatically.
+- Clear the apt lists cache to enforce apt update again, and avoid security issues.
+- Hurl is installed into the PATH, specify the default command being run. This allows running the container without having to specify a command.
+
+The steps to install the packages are separated for better readability; an optimization for the `docker-build` job can happen by chaining the `RUN` commands into one long command.
+
+`Dockerfile`
+```
+FROM debian:11-slim
+
+ENV DEBIAN_FRONTEND noninteractive
+
+ARG HURL_VERSION=1.8.0
+
+RUN apt update && apt install -y curl jq ca-certificates
+RUN curl -LO "https://github.com/Orange-OpenSource/hurl/releases/download/${HURL_VERSION}/hurl_${HURL_VERSION}_amd64.deb"
+# Use apt install to determine package dependencies instead of dpkg
+RUN apt -y install "./hurl_${HURL_VERSION}_amd64.deb"
+RUN rm -rf /var/lib/apt/lists/*
+
+CMD ["hurl"]
+```
+
+Note that the `HURL_VERSION` variable can be overridden by passing the variable and value into the container build job later. It is intentionally not using an automated script that always uses the [latest release](https://github.com/Orange-OpenSource/hurl/releases) to avoid breaking the behavior, and enforces a controlled upgrade cycle for container images in production.
+
+On GitLab.com SaaS, you can include the `Docker.gitlab-ci.yml` CI/CD template which will automatically detect the `Dockerfile` file and start building the image using the shared runners, and push it to the [GitLab container registry](https://docs.gitlab.com/ee/user/packages/container_registry/). For self-managed instances or own runners on GitLab.com SaaS, it is recommended to decide whether to use and setup [Docker-in-Docker](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html) or [Kaniko](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html), Podman, or other container image build tools.
+
+```yaml
+include:
+  - template: Docker.gitlab-ci.yml
+```
+
+To avoid running the Docker image build job every time, the job override definition specifies to [run it manually](https://docs.gitlab.com/ee/ci/yaml/#when). You can also use rules to [choose when to run the job](https://docs.gitlab.com/ee/ci/jobs/job_control.html), only when a Git tag is pushed for example.
+
+```yaml
+include:
+  - template: Docker.gitlab-ci.yml
+
+# Change Docker build to manual non-blocking
+docker-build:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      when: manual
+      allow_failure: true
+```
+
+Once the container image is pushed to the registry, navigate into `Packages and Registries > Container Registries` and inspect the tagged image. Copy the image path for the latest tagged version and use it for the `image` attribute in the CI/CD job configuration.
+
+### Hurl container image in GitLab CI/CD example
+
+The full example uses the previously built container image, and specifies the default `HURL_URL` variable. This can later be overridden by job definitions.
+
+_Please note that the image URL `registry.gitlab.com/everyonecancontribute/dev/hurl-playground:latest` is only used for demo purposes and not actively maintained or updated._
+
+```yaml
+include:
+  - template: Docker.gitlab-ci.yml
+
+# Change Docker build to manual non-blocking
+docker-build:
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH'
+      when: manual
+      allow_failure: true
+
+# Hurl job template
+.hurl-tmpl:
+  image: registry.gitlab.com/everyonecancontribute/dev/hurl-playground:latest
+  variables:
+    HURL_URL: gitlab.com
+
+# Hurl jobs that check websites
+hurl-dnsmichi-at:
+  extends: .hurl-tmpl
+  variables:
+    HURL_URL: dnsmichi.at
+  script:
+    - echo -e "GET https://${HURL_URL}\n\nHTTP/1.1 200" | hurl --test --color
+
+hurl-opsindev-news:
+  extends: .hurl-tmpl
+  variables:
+    HURL_URL: opsindev.news
+  script:
+    - echo -e "GET https://${HURL_URL}\n\nHTTP/2 200" | hurl --test --color
+```
+
+The CI/CD configuration can further be optimized:
+
+- Create job templates that execute the same scripts and only differ in the `HURL_URL` variable.
+- Use Hurl configuration files that allow specifying variables on the CLI or as environment variables. More on this in the next section.
+
+## DevSecOps workflows with Hurl
+
+Hurl allows users to describe HTTP instructions in a configuration file with the `.hurl` suffix. You can add the configuration files to Git, and review and approve changes in merge requests - with the changes run in CI/CD and reporting back any failures before merging.
+
+Inspect the `use-cases/` directory in the [example project](https://gitlab.com/everyonecancontribute/dev/hurl-playground), and fork it to make changes and commit and run the CI/CD pipelines and reports. You can also clone the project and run the `tree` command in the terminal.
+
+```sh
+$ tree use-cases
+use-cases
+├── dnsmichi.at.hurl
+├── gitlab-com-api.hurl
+├── gitlab-contribute.hurl
+└── hackernews.hurl
+```
+
+Hurl supports the glob option which collects all configuration files matching a specific pattern.
+
+![Hurl configuration file run](/images/blogimages/hurl-continuous-website-testing/hurl_multiple_config_files_run.png)
+
+### Chaining requests
+
+Similar to CI/CD pipelines, jobs, and stages, testing HTTP endpoints with Hurl can require multiple steps. First, ping the website for being reachable, and then try parsing expected results. Separating the requirements into two steps helps to analyze errors.
+
+- HTTP endpoint reachable, but expected string not in response - static website was changed, REST API misses a field, etc.
+- HTTP endpoint is unreachable, don’t try to understand why the follow-up tests fail.
+
+The following example first sends a ping probe to the dev instance, and a check towards the production environment in the second request.
+
+```sh
+$ vim use-cases/everyonecancontribute-com.hurl
+
+GET https://everyonecancontribute.dev
+
+HTTP/2 200
+
+GET https://everyonecancontribute.com
+
+HTTP/2 200
+$ hurl --test use-cases/everyonecancontribute-com.hurl
+```
+
+In this scenario, the TLS certificate of the dev instance expired, and Hurl halts the test immediately.
+
+![Hurl chained requests, failing the first test with TLS certificate problems](/images/blogimages/hurl-continuous-website-testing/hurl_chained_request_fail.png)
+
+### Hurl reports as JUnit test reports
+
+Treat website monitoring and web app tests as unit and end-to-end tests. The Hurl developers thought of that too - the CLI command provides different output options for the report: `--report-junit <outputpath>` integrates with [GitLab JUnit report](https://docs.gitlab.com/ee/ci/testing/unit_test_reports.html) support into merge requests and pipeline views.
+
+The following configuration generates a JUnit report file into the value of the `HURL_JUNIT_REPORT` variable. It exists to avoid typing the path three times. The Hurl tests are run from the `use-cases/` directory using a glob pattern.
+
+```yaml
+# Hurl job template
+.hurl-tmpl:
+    image: registry.gitlab.com/everyonecancontribute/dev/hurl-playground:latest
+    variables:
+        HURL_URL: gitlab.com
+        HURL_JUNIT_REPORT: hurl_junit_report.xml
+
+# Hurl tests from configuration file, generating JUnit report integration in GitLab CI/CD
+hurl-report:
+    extends: .hurl-tmpl
+    script:
+      - hurl --test use-cases/*.hurl --report-junit $HURL_JUNIT_REPORT
+    after_script:
+      # Hack: Workaround for 'id' instead of 'name' in JUnit report from Hurl. https://gitlab.com/gitlab-org/gitlab/-/issues/299086
+      - sed -i 's/id/name/g' $HURL_JUNIT_REPORT
+    artifacts:
+      when: always
+      paths:
+        - $HURL_JUNIT_REPORT
+      reports:
+        junit: $HURL_JUNIT_REPORT
+```
+
+The JUnit format returned by Hurl 1.8.0 defines the `id` attribute, but the GitLab JUnit integration expects the `name` attribute to be present. While writing this blog post, [the problem was discussed](https://github.com/Orange-OpenSource/hurl/issues/1067#issuecomment-1343264751) with the maintainers, and [the `name` attribute was implemented](https://github.com/Orange-OpenSource/hurl/issues/1078) and will be available in future releases. As a workaround with Hurl 1.8.0, the CI/CD [after_script](https://docs.gitlab.com/ee/ci/yaml/#after_script) section uses `sed` to replace the attributes after generating the report.
+
+The [following example](https://gitlab.com/everyonecancontribute/dev/hurl-playground/-/merge_requests/10) fails on purpose with checking a different HTTP protocol version.
+
+```
+GET https://opsindev.news
+
+# This will fail on purpose
+HTTP/1.1 200
+
+[Asserts]
+body contains "Michael Friedrich"
+```
+
+![Hurl test report in JUnit format integrated into GitLab](/images/blogimages/hurl-continuous-website-testing/hurl_gitlab_junit_integration_merge_request_widget_overlay.png)
+
+Once the JUnit integration with Hurl tests from a glob pattern work, you can continue adding new `.hurl` configuration files to the GitLab repository and start testing in MRs, which will require review and approval workflows for production then.
+
+### Web review apps
+
+Website monitoring is only one aspect of using Hurl: Testing web applications deployed in review environments in the cloud, and in cloud-native clusters provides a native integration into [DevSecOps](https://about.gitlab.com/topics/devsecops/) workflows. The CI/CD pipelines will fail when Hurl tests are failing, and more insights are provided using merge request widgets reports.
+
+[Cloud Seed](https://docs.gitlab.com/ee/cloud_seed/index.html) provides the ability to deploy a web application to a major cloud provider, for example Google Cloud. After the deployment is successful, additional CI/CD jobs can be configured that verify that the deployed web app version does not introduce a regression, and provides all required data elements, API endpoints, etc. A similar workflow can be achieved by using review app environments with [webservers (Nginx, etc.), Docker, AWS, and Kubernetes](https://docs.gitlab.com/ee/ci/review_apps/#review-apps-examples). The review app [environment URL](https://docs.gitlab.com/ee/ci/environments/#create-a-dynamic-environment) is important for instrumenting the Hurl tests dynamically. The CI/CD variable [`CI_ENVIRONMENT_URL`](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html) is available when `environment:url` is specified in the review app configuration.
+
+The following example tests the review app for [this blog post when written in a merge request](https://gitlab.com/gitlab-com/www-gitlab-com/-/merge_requests/115548):
+
+```yaml
+# Test review apps with hurl for this blog post.
+hurl-review-test:
+  extends: .review-environment # inherits the environment settings
+  needs: [uncategorized-build-and-review-deploy] # waits until the website (sites/uncategorized) is deployed
+  stage: test
+  rules: # YAML anchor that runs the job only on merge requests
+    - <<: *if-merge-request-original-repo
+  image:
+    name: ghcr.io/orange-opensource/hurl:1.8.0
+    entrypoint: [""]
+  script:
+    - echo -e "GET ${CI_ENVIRONMENT_URL}\n\nHTTP/1.1 200" | hurl --test --color
+```
+
+The environment is specified in the [.review-environment job template](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/91d6fd72a424a3d913e79ebc2aefb23bbab85863/.gitlab-ci.yml#L332) and used to [deploy the website review job](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/91d6fd72a424a3d913e79ebc2aefb23bbab85863/.gitlab-ci.yml#L532). The relevant configuration snippet is shown here:
+
+```yaml
+.review-environment:
+  variables:
+    DEPLOY_TYPE: review
+  environment:
+    name: review/$CI_COMMIT_REF_SLUG
+    url: https://$CI_COMMIT_REF_SLUG.about.gitlab-review.app
+    on_stop: review-stop
+    auto_stop_in: 30 days
+```
+
+The deployment of the www-gitlab-com project [uses buckets in Google Cloud](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/91d6fd72a424a3d913e79ebc2aefb23bbab85863/scripts/deploy) that serve the website content in the review app. There are different types of web applications that require different deployment methods - as long as the environment URL variable is available in CI/CD and the deployment URL is accessible from the GitLab Runner executing the CI/CD job, you can continously test web apps with Hurl!
+
+![Hurl test in GitLab CI/CD for review app environments](/images/blogimages/hurl-continuous-website-testing/hurl_gitlab_cicd_review_app_environment_tests_www-gitlab-com.png)
+
+## Development tips
+
+Use the [`--verbose` parameter](https://hurl.dev/docs/tutorial/debug-tips.html) to see the full request and response flow. Hurl also provides tips which `curl` command could be run to fetch more data. This can be helpful when starting to use or develop a new REST API, or learning to understand the JSON structure of HTTP responses. Chaining the `curl` command with `jq` (the `curl ... | jq` pattern) can still be helpful to fetch data, and build the HTTP tests in a second terminal or editor window.
+
+```sh
+$ curl -s 'https://gitlab.com/api/v4/projects' | jq
+$ curl -s 'https://gitlab.com/api/v4/projects' | jq -c '.[]' | jq
+
+{"id":41375401,"description":"An example project for a GitLab pipeline.","name":"Calculator","name_with_namespace":"Iva Tee / Calculator","path":"calculator","path_with_namespace":"snufkins_hat/calculator","created_at":"2022-11-26T00:32:33.825Z","default_branch":"master","tag_list":[],"topics":[],"ssh_url_to_repo":"git@gitlab.com:snufkins_hat/calculator.git","http_url_to_repo":"https://gitlab.com/snufkins_hat/calculator.git","web_url":"https://gitlab.com/snufkins_hat/calculator","readme_url":"https://gitlab.com/snufkins_hat/calculator/-/blob/master/README.md","avatar_url":null,"forks_count":0,"star_count":0,"last_activity_at":"2022-11-26T00:32:33.825Z","namespace":{"id":58849237,"name":"Iva Tee","path":"snufkins_hat","kind":"user","full_path":"snufkins_hat","parent_id":null,"avatar_url":"https://secure.gravatar.com/avatar/a3efe834950275380d5f19c9b17c922c?s=80&d=identicon","web_url":"https://gitlab.com/snufkins_hat"}}
+```
+
+The GitLab projects API returns an array of elements, where we can inspect the `id` and `name` attributes for a simple test - the first element’s name must not be empty, the second element’s id needs to be greater than 0.
+
+```sh
+$ vim gitlab-com-api.hurl
+
+GET https://gitlab.com/api/v4/projects
+
+HTTP/2 200
+
+[Asserts]
+jsonpath "$[0].name" != ""
+jsonpath "$[1].id" > 0
+
+$ hurl --test gitlab-com-api.hurl
+
+gitlab-com-api.hurl: Running [1/1]
+gitlab-com-api.hurl: Success (1 request(s) in 728 ms)
+--------------------------------------------------------------------------------
+Executed files:  1
+Succeeded files: 1 (100.0%)
+Failed files:    0 (0.0%)
+Duration:        730 ms
+```
+
+## More use cases
+
+- Work with HTTP sessions and [cookies](https://hurl.dev/docs/request.html#cookies), test [forms with parameters](https://hurl.dev/docs/request.html#form-parameters).
+- Review existing API tests of your applications.
+- Build advanced chained workflows with GET, POST, PUT, DELETE, and more HTTP methods.
+- Integrate simple ping/HTTP monitoring health checks into the DevSecOps Platform using alerts and incident management.
+
+If the Hurl checks cannot be integrated directly inside the project where the application is developed and deployed, another idea could be to create a standalone GitLab project that has CI/CD pipeline schedules enabled. It can continuously run the Hurl tests, and parse the reports or trigger an event when the pipeline is failing, and [create an alert](https://docs.gitlab.com/ee/operations/incident_management/alerts.html) by sending a JSON payload from the Hurl results to the [HTTP endpoint](https://docs.gitlab.com/ee/operations/incident_management/integrations.html#single-http-endpoint). Developers can send MRs to update the Hurl tests, and maintainers review and approve the new test suites being rolled out into production. Alternatively, move the complete CI/CD configuration into a group/project with different permissions, and specify the CI/CD configuration as remote URL in the web application project. This compliance level helps to control who can make changes to important tests and CI/CD configuration.
+
+Hurl supports `--json` as parameter to only return the JSON formatted test result and build own custom reports and integrations.
+
+```sh
+$ echo -e "GET https://about.gitlab.com/teamops/\n\nHTTP/2 200" | hurl --json | jq
+```
+
+For folks in DevRel, monitoring certain websites for keywords or checking APIs whether values increase a certain threshold can be interesting. Here is an example for monitoring Hacker News using the Algolia search API, inspired by the [Zapier integration used for GitLab Slack](/handbook/marketing/developer-relations/workflows-tools/zapier/#zaps-for-hacker-news). The `QueryStringParams` section allows users to define the query parameters as a readable list, which is easier to modify. The `jsonpath` checks searches for the `hits` key and its count being zero (not on the Hacker News front page means OK in this example).
+
+```
+$ vim hackernews.hurl
+
+GET https://hn.algolia.com/api/v1/search
+[QueryStringParams]
+query: gitlab
+#query: hurl
+tags: front_page
+
+HTTP/2 200
+
+[Asserts]
+jsonpath "$.hits" count == 0
+
+$ hurl --test hackernews.hurl
+```
+
+## Limitations
+
+Hurl works great for testing websites and web applications that serve static content, and by sending different HTTP request types, data, etc., and ensuring that responses match expectations. Compared to other end-to-end testing solutions (Selenium, etc.), Hurl does not provide a JavaScript engine and only can parse the raw DOM or JSON response. It does not support a DOM managed and rendered by JavaScript front-end frameworks. UI integration tests also need to be performed with different tools, similar to full end-to-end test workflows. Other examples are [accessibility testing](https://docs.gitlab.com/ee/ci/testing/accessibility_testing.html) and [browser performance testing](https://docs.gitlab.com/ee/ci/testing/browser_performance_testing.html). If you are curious how end-to-end testing is done for GitLab, the product, peek into the [development documentation](https://docs.gitlab.com/ee/development/testing_guide/end_to_end/).
+
+## Conclusion
+
+Hurl provides an easy way to test HTTP endpoints (such as websites and APIs) in a fast and reliable way. The CLI commands can be integrated into CI/CD workflows, and the configuration syntax and files provide a single source of truth for everything. Additional support for JUnit report formats ensure that website testing is fully integrated into the [DevSecOps](https://about.gitlab.com/topics/devsecops/) platform, and increases visibility and extensibility with automating tests, and monitoring. There are known limitations with dynamic JavaScript websites and advanced UI/end-to-end testing workflows.
+
+Hurl is open source, [created and maintained by Orange](https://opensource.orange.com/en/open-source-orange/), and written in Rust. This blog post inspired contributions to the [Debian/Ubuntu installation documentation](https://github.com/Orange-OpenSource/hurl/pull/1084) and [default issue templates](https://github.com/Orange-OpenSource/hurl/pull/1083).
+
+**Tip:** Practice using Hurl on the command line, and remember it when the next production incident shows a strange API behavior with POST requests.
+
+Thanks to [Lee Tickett](/company/team/#leetickett-gitlab) who inspired me to test Hurl in GitLab CI/CD and write this blog post after seeing huge interest in a [Twitter share](https://twitter.com/dnsmichi/status/1595820546062778369).
+
+Cover image by [Aaron Burden](https://unsplash.com/@aaronburden) on [Unsplash](https://unsplash.com)
+{: .note}

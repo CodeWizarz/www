@@ -1,0 +1,96 @@
+---
+title: "GitLab environment variables demystified"
+author: Veethika Mishra
+author_gitlab: veethika
+author_twitter: veethikaa
+categories: engineering
+image_title: '/images/blogimages/demystifying-ci-cd-variables/variables_banner.jpeg'
+description: "CI/CD variables are useful (and flexible) tools to control jobs and pipelines. We unpack everything you need to know about GitLab environment variables."
+featured: yes
+postType: content marketing
+tags: CI, CD, features, inside GitLab
+related_posts:
+  - "/blog/2020/12/14/merge-trains-explained/"
+  - "/blog/2020/12/02/pre-filled-variables-feature/"
+  - "/blog/2021/01/20/using-run-parallel-jobs/"
+---
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2021-04-13.
+{: .note .alert-info .text-center}
+
+There is a lot of flexibility when it comes to defining and using GitLab environment variables for [CI/CD](/topics/ci-cd/). Variables are extremely useful for controlling jobs and pipelines, and they help you avoid hard-coding values in your `.gitlab-ci.yml` configuration file. The information in this post should weave a larger picture by bringing together all (or most) of the information around defining and handling variables, making it easier to understand the scope and capabilities. Relevant documentation is linked throughout the post.
+
+In [GitLab CI/CD](https://docs.gitlab.com/ee/ci/), variables can be used to customize jobs by defining and storing values. When using variables there is no need to hard code values. In GitLab, CI/CD variables can be defined by going to **Settings >> CI/CD >> Variables**, or by simply defining them in the `.gitlab-ci.yml` file.
+
+Variables are useful for configuring third-party services for different deployment environments, such as `testing`, `staging`, `production`, etc. Modify the services attached to those environments by simply changing the variable that points to the API endpoint the services need to use. Also use variables to configure jobs and then make them available as environment variables within the jobs when they run.
+
+![GitLab reads the .gitlab-ci.yml file to scan the referenced variable and sends the information to the GitLab Runner. The variables are exposed on and output by the runner.](/images/blogimages/demystifying-ci-cd-variables/variables_processing.jpeg)
+
+## The relationship between variables and environments
+
+Software development as a process includes stages to test a product before rolling it out to users. [Environments](https://docs.gitlab.com/ee/ci/environments/) are used to define what those stages look like and it may differ between teams and organizations.
+
+On the other hand, variables are data values that are likely to change as a result of user interaction with a product. For example, their age, preference, or any input you could possibly think of that might determine their next step in the product task-flow.
+
+We often hear the term [environment variable](https://docs.gitlab.com/ee/administration/environment_variables.html). These are variables that are defined in a given environment, but outside the application. GitLab enviroment variables provide developers with the ability to configure values in their code. Using environment variables is helpful because it ensures that the code is flexible. GitLab environment variables allow users to modify an application deployed to a certain environment without making any change to code. It is simple to run tests or even integrate third party services by changing a configuration environment variable outside the application.
+
+## The scope of GitLab environment variables for CI/CD
+
+![Order of precedence for CI/CD variables: 1) Manual pipeline run, trigger and schedule pipeline variables, 2) Project level, group level, instance level protected variables, 3) Inherited CI/CD variables, 4) Job level, global yml defined variables, 5) Deployment variables, 6) Pre-defined CI/CD variables](/images/blogimages/demystifying-ci-cd-variables/variables_precedence.jpeg)
+
+### `.gitlab-ci.yml` defined variables
+
+Variables that are available in the job environment can be added to GitLab. These GitLab environment variables are meant to store non-sensitive project configuration, like `RAILS_ENV` or `DATABASE_URL`, in the `.gitlab-ci.yml` file. Reuse this variable in multiple jobs or scripts, wherever the value is needed. If the value changes, you only need to update the variable once, and the change is reflected everywhere the variable is used.
+
+### Group-level GitLab environment variables
+
+#### Project CI/CD variables
+
+Moving a step above the repository-specific requirements, you can define CI/CD variables in [project settings](https://docs.gitlab.com/ee/ci/variables/#add-a-cicd-variable-to-a-project), but make them available to CI/CD pipelines. These are stored out of the repository (not in the `.gitlab-ci.yml` file), but are still available to use in the CI/CD configuration and scripts. Storing the variables outside the `.gitlab-ci.yml` file can keep the values of things like tokens and passwords secret.
+
+### Group and instance CI/CD variables
+
+Some variables are relevant at the group level, or even organization level, and could be useful to all projects in a group or instance. Define the variables in the [group or instance settings](https://docs.gitlab.com/ee/ci/variables/#add-a-cicd-variable-to-a-group) so all projects within those scopes can use the variables without actually needing to know the values. For example, a common value that needs to be updated in multiple projects can be easily managed if it stays up-to-date in a single place. Alternatively, multiple projects could use a specific password without actually needing to know the value of the password itself.
+
+## Jobs and pipelines as environments
+
+The GitLab CI/CD variables, besides being used as environment variables, also work in the scope of the `.gitlab-ci.yml` configuration file – unrelated to any environment. The variables can be stored in the project/group/instance settings and be made available to jobs in pipelines.
+
+For example:
+
+```yaml
+job:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script:
+  - echo "This job ran on the $CI_COMMIT_BRANCH branch."
+```
+
+The variable in the script section runs in the scope of the job in which it was defined. This scope is the "job environment" – meaning, when the job starts, the GitLab runner starts up a Docker container and runs the job in that environment. The runner will make that variable (and all other predefined or custom variables) available to the job, and it can display their value in the log output if needed.
+
+But the variable is **also** used in the `if:` section to determine when the job should run. That in itself is not an environment, which is why we call these CI/CD variables. They can be used to dynamically configure your CI/CD jobs, **as well** as be used as environment variables when the job is running.
+
+## Predefined variables
+
+A number of variables are predefined when a GitLab CI/CD pipeline starts. A user can immediately access values for things like commit, project, or pipeline details without needing to define the variables themselves.
+
+## Custom CI/CD variables
+
+![Runners can create two kinds of custom CI/CD variables: Type and File.](/images/blogimages/demystifying-ci-cd-variables/variable_types.jpeg)
+
+When creating a CI/CD variable in the settings, GitLab gives the user more configuration options for the variable. Use these extra configuration options for stricter control over more sensitive variables:
+
+1. **Environment scope**: If a variable only ever needs to be used in one specific environment, set it to only ever be available in that environment. For example, you can set a deploy token to only be available in the `production` environment.
+
+2. **Protected variables**: Similar to the environment scope, you can set a variable to be available only when the pipeline runs on a protected branch, like your default branch.
+
+3. **Masked**: Variables that contain secrets should always be masked. Masked variables let you use the variable in job scripts without the risk of exposing the value of the variable. If someone tries to output it in a job log with a command like `echo $VARIABLE`, the job log will only show `echo [masked]`. There are limits to the types of values that can be masked.
+
+Through [secret management](/direction/verify/secrets_management/) offerings, GitLab also enables its users to leverage [HashiCorp Vault](https://www.vaultproject.io/) to securely manage keys, tokens, and other secrets at the project-level by installing HashiCorp Vault as a managed application within a Kubernetes cluster. This allows users to separate these secrets from other CI/CD variables for security reasons.
+
+4. **Variable type**: A few applications require configuration to be passed to it in the form of a file. If a user has an application that requires this configuration, just set the type of variable as a "File". Configuring the CI/CD variable this way means that when the runner makes the variable available in the environment, it actually writes it out to a temporary file, and stores the path to the file as the value. Next, a user can pass the path to the file to any applications that need it.
+
+Along with the listed ways of using and defining variables, GitLab recently introduced a feature that [generates pre-filled variables](/blog/2020/12/02/pre-filled-variables-feature/) from `.gitlab-ci.yml` file when there's a need to override a variable or run a pipeline manually. This manual pipeline reduces the chances of running into an error and makes running the pipeline easier.
+
+Learn more about [GitLab CI/CD variables](https://docs.gitlab.com/ee/ci/variables/) by reading the documentation on this feature.
+
+Special thanks to [Marcel Amirault](/company/team/#marcel.amirault) for contributing content to the blog post.

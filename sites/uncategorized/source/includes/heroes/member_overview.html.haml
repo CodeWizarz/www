@@ -1,0 +1,38 @@
+.col-xl-2.col-lg-2.col-md-3.col-sm-4.col-xs-12.member{id: member.gitlab, data: { departments: member.departments }}
+  .card
+    .front.heroes
+      - photo = image_tag "/images/heroes/#{member.picture}", alt: member.name, class: "member-img", width: 120, height: 120
+      = link_to photo, "##{member.gitlab}", class: 'member-id'
+
+      %h3
+        = member.name
+      %h4.role
+        = member.role
+      
+      %h5.role
+        = member.bio
+
+      - if member.domains
+        %h5.additional-info
+          %span.title
+            Domains:
+          = Array(member.domains).join(", ")
+
+      - if member.interests
+        %h5.additional-info
+          %span.title
+            Interested in:
+          = Array(member.interests).join(", ")
+
+      .social
+        - if member.twitter
+          %a{href: "https://twitter.com/#{member.twitter}"}
+            %span.sr-only
+              Twitter
+            %i.fab.fa-twitter
+        - if member.gitlab
+          %a.gitlab-logo{href: "https://gitlab.com/#{member.gitlab}"}
+            %img{ src: "/images/icons/logos/slp-icon.svg", alt: "GitLab" }
+    - if enable_extra
+      .extra
+        = partial "includes/heroes/member_detail", locals: {member: member}

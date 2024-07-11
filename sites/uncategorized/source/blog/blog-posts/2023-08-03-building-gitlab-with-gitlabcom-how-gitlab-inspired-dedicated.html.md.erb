@@ -1,0 +1,76 @@
+---
+title: "Building GitLab with GitLab: How GitLab.com inspired Dedicated"
+author: John Coghlan, Craig Miskell, Andrew Newdigate
+author_gitlab:
+categories: engineering
+tags: SaaS, DevSecOps platform, DevSecOps, features
+guest: true
+featured: yes
+description: Learn how the multi-tenancy SaaS solution, GitLab.com, influenced
+  the design of the single-tenancy SaaS, GitLab Dedicated.
+image_title: /images/blogimages/building-gitlab-with-gitlab-no-type.png
+twitter_text: Learn how the multi-tenancy SaaS solution, GitLab.com, influenced
+  the design of the single-tenancy SaaS, GitLab Dedicated.
+postType: dev-evangelism
+---
+Earlier this year, we announced [the general availability of GitLab Dedicated](https://about.gitlab.com/blog/2023/06/15/gitlab-dedicated-available/), our single-tenancy software-as-a-service (SaaS) offering. Dedicated, which addresses the needs of customers with stringent compliance requirements while maintaining speed, efficiency, and security, was developed from the lessons we learned building and using GitLab.com, our multi-tenancy model. Although there is overlap in how we manage both platforms, such as the same service-level monitoring stack, there were significant considerations that sparked the need for new design decisions, including how we approach automation, databases, monitoring, and availability. In this blog, we share some of those decision points and their outcomes.
+
+## GitLab platform options
+Before we dive into the evolution of GitLab Dedicated, let’s level-set on GitLab’s [portfolio of platform models](https://docs.gitlab.com/ee/subscriptions/choosing_subscription.html#choose-a-subscription):
+- GitLab.com, a.k.a. multi-tenant GitLab SaaS on our pricing page and in our documentation
+- GitLab Dedicated, single-tenant SaaS that satisfies compliance requirements such as data residency, isolation, and private networking
+- GitLab self-managed, in which customers install, administer, and maintain their own GitLab instance
+
+Each method meets the different needs of our wide range of customers and requires a unique approach for how we create, package, and deploy the application.
+
+While both GitLab.com and Dedicated are SaaS-based, there are key differences between the two. The multi-tenant GitLab.com is the largest hosted instance of GitLab and services thousands of customers and millions of users. Because the platform's reliability is critical to so many customers and because of the iterative nature of how GitLab.com was built, decisions have been made along the way that are unique to the scale of this specific instance.
+
+In contrast, GitLab Dedicated is a single-tenant SaaS application that is hosted by GitLab in the customer's region of choice (GitLab.com is hosted in the U.S.). While still providing a GitLab-managed SaaS solution for our customers, Dedicated instances are fully isolated from one another, running on a platform that automates the configuration and provisioning of the instances, along with automating as many of the [day-two operations](https://about.gitlab.com/solutions/day-2-ops/) as possible, such as maintenance, monitoring, and optimization.
+
+Here are some examples of how Dedicated has used the blueprint of GitLab.com.
+
+## Improved automated deployments
+GitLab.com is a permanent installation with a great deal of history, having evolved significantly since it was first developed. Originally, it was deployed on a single instance in Amazon AWS, before migrating to Microsoft Azure, where it continued to scale out. From Azure, it migrated to its current cloud, Google Cloud Platform. Since then, many customer workloads have [migrated into Kubernetes](https://about.gitlab.com/blog/2020/09/16/year-of-kubernetes/) and are supported by the Google Kubernetes Engine ([GKE](https://cloud.google.com/kubernetes-engine)).
+
+With GitLab Dedicated, we're building smaller instances that rely on automation, repeatability, and deterministic environments. All customer tenant GitLab instance operations must be 100% automated, including provisioning, upgrades, scaling, configuration changes, and any other routine operations. The stack relies heavily on the GitLab Environment Toolkit ([GET](https://gitlab.com/gitlab-org/gitlab-environment-toolkit/-/blob/main/docs/environment_advanced_hybrid.md)) Cloud Native Hybrid, which uses the GitLab Helm charts for stateless workloads (e.g., Rails) and Omnibus for deployments to VMs (e.g., Gitaly). GET helps with the deployments targeting [reference architectures](https://docs.gitlab.com/ee/administration/reference_architectures/) and coordinating the provisioning of cloud resources, including compute instances, Kubernetes clusters, managed Postgres databases and more.
+
+As much as GET automates, it has a certain amount of required setup, which is acceptable to perform manually for one-off or otherwise long-lived deployments, but in order to scale Dedicated we also had to automate that process, which we did with Terraform. Because this was a greenfield approach, we were able to be particularly careful with privileges. Our current cloud deployment target is AWS, so we developed a detailed identity and access management ([IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html)) policy to grant each stage of deployment only the strictly necessary access. We also use IAM role assumption from trusted workloads in a central AWS account to eliminate the need for explicit credentials.  
+
+Deployments follow this process in order:
+- An account creation job running from a trusted location creates a fresh AWS account in an [AWS Organization](https://docs.aws.amazon.com/organizations/index.html), placing it in the correct Organizational Unit to automatically have a [CloudFormation StackSet](https://docs.aws.amazon.com/organizations/latest/userguide/services-that-can-integrate-cloudformation.html) applied, with ongoing updates handled by AWS when needed. This allows us to operate the entire lifecycle of the tenant account using IAM Role Assumption rather than generating and storing static IAM credentials.
+- Prepare stage sets up a fresh AWS account ready to receive a deployment; the privileges are quite high powered, but still limited to the necessary areas, including creating the next role.  
+- Onboard stage creates some high-level resources and otherwise does the setup that GET requires to be able to run, including creating the roles for the next stages with their own limited privileges.  
+- Provision stage is mostly about running GET Terraform and creating the compute and storage resources onto which GitLab will be deployed, with a few additions for our specific needs.  
+- Configure stage runs to deploy the GitLab application onto the resources created earlier. At its core, this is the GET Ansible stage, but it includes our own Terraform wrapper as well to handle our specific needs.
+
+Once these stages complete, a fully deployed GitLab instance is ready to go.  
+
+Configuration changes and GitLab upgrades execute the same set of stages, ensuring everything is still configured correctly and applying any pending changes. In the early days of GitLab Dedicated this was done in GitLab CI/CD pipelines operating on GitLab.com, with the tenant descriptions as JSON files in a repository, which was an effective and simple place to start.  
+
+However, this multi-stage deployment is now managed by [Switchboard](https://about.gitlab.com/direction/saas-platforms/switchboard/), a portal we built specifically for GitLab Dedicated. Switchboard is a bespoke Rails application, which will be the single source of truth for configuration, accessible by customers to manage customer-facing settings, as well as GitLab Dedicated staff for general management. Switchboard will be responsible for automating regular upgrades, including gradual rollouts across the fleet of Dedicated instances.
+
+## Databases geared towards the needs of single tenancy
+GitLab.com uses self-managed Postgres and Redis. For GitLab Dedicated, we wanted to leverage AWS’s managed services as much as possible. Examples include RDS, Elasticache, and OpenSearch, the AWS Elasticsearch managed service. Some of these services may not always be able to support GitLab.com-scale platforms, but they handle the traffic of a single-tenant instance well and provide reliable failovers and ongoing maintenance with no effort on our part.
+
+## Monitoring aligned with strict compliance needs
+The observability stack for GitLab Dedicated relies on the expertise we gained from building GitLab.com. The monitoring, logging, and availability infrastructure is all maintained within the customer's AWS account, nothing is shared. We receive low-context alerts from these private systems. They serve as a mechanism to direct us to the customer account so we can review what is going on and triage the underlying issues if needed. This is helpful with regulators and compliance as nothing can leak because it doesn't leave the system.
+
+While Dedicated and GitLab.com share much of the same monitoring stack, Dedicated instances have tended to reveal different issues within our application. This is due to GitLab.com being a multi-tenant instance, while GitLab Dedicated instances are single-tenant. 
+
+Think of the adage, "[Your 9s are not my 9s](https://rachelbythebay.com/w/2019/07/15/giant/)." In a platform at the scale of GitLab.com, a subset of users who encounter an issue in part of the application may be a very small percentage of the overall user base. The small impact relative to the scale of the platform may not create an alert. In a single-tenant instance, however, the same bugs or scaling issues can quickly impact a higher percentage of the overall users of the instance, escalating the issue's importance. Applying our service-level monitoring to single-tenant GitLab instances has benefited GitLab users who had encountered bugs that were overlooked in the volume of GitLab.com usage. When we identify issues in a Dedicated instance, we resolve them within the product.
+
+## High availability for all components
+Considering the hybrid environment and the level of service that we want to offer to our customers, we have made some minor changes from the [standard reference architecture](https://docs.gitlab.com/ee/administration/reference_architectures/).
+
+One such change is introducing high availability for all components. For the lower size (i.e., up to 2,000 users), our architecture ships by default with all the components in full redundant mode. Components like RDS and Elasticache will have a replica in a different Availability Zone. This is referred to as the primary region and we have to define how it will look in the [Geo replicas](https://docs.gitlab.com/ee/administration/geo/setup/database.html).
+
+## Only on Dedicated
+In addition to the other changes we made, we also built some features that are only used for GitLab Dedicated:
+- Bring your own key - customers can provide and manage the encryption keys used to encrypt AWS resources such as storage, allowing a customer to revoke access should that ever become necessary. This is not something that can be offered in a multi-tenant system like GitLab.com.
+- Switchboard - as mentioned above, Switchboard was purpose-built for Dedicated. It is a multi-tenant Ruby on Rails application, accessible by GitLab Dedicated customer administrators and GitLab Dedicated team members. Using this interface, customers can change the available application runtime settings, access provided graphs, add additional products, and more. The main Switchboard instance serves as a single source of truth for global configuration and status across multiple cloud providers and regions.
+- PrivateLink networking - allows traffic between tenant AWS accounts and customer accounts without exposing data to the internet. 
+- Other network features - including traffic filtering and private hosted zones.
+
+Dedicated has been an exciting project and a great learning experience for our team. We were able to apply the knowledge accumulated in building GitLab.com to deliver an important new product for our customers in a very efficient way. You can learn more about GitLab Dedicated by visiting our [Dedicated page](https://about.gitlab.com/dedicated/) or contacting a GitLab sales representative.
+
+_Check out the [first installment in our "Building GitLab with GitLab" series](https://about.gitlab.com/blog/2023/05/09/building-gitlab-with-gitlab-api-fuzzing-workflow/), which takes you behing the scenes of the development of our web API fuzz testing._

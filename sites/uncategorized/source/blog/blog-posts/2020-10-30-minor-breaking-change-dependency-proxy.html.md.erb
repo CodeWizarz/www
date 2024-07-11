@@ -1,0 +1,49 @@
+---
+title: "The Dependency Proxy is moving to open source"
+author: Tim Rizzi
+author_gitlab: trizzi
+author_twitter: tim_rizzi
+categories: news
+description: "We're moving the Dependency Proxy to Core to help address Docker Hub rate limiting issues."
+tags: news, open source
+twitter_text: ".@gitlab is moving the Dependency Proxy to Core to help address Docker Hub rate-limiting issues"
+related_posts:
+  - "/blog/2020/10/30/mitigating-the-impact-of-docker-hub-pull-requests-limits/"
+  - "/blog/2020/11/18/docker-hub-rate-limit-monitoring/"
+  - "/blog/2020/12/15/dependency-proxy-updates/"
+---
+
+[Docker Hub recently announced](https://www.docker.com/blog/dockers-next-chapter-our-first-year/) and will soon [enforce rate limits on pull requests from Docker Hub](https://docs.docker.com/docker-hub/download-rate-limit). Starting Nov. 2, 2020, pull rates will be limited based on your individual IP address for anonymous users or on your [pricing tier](https://www.docker.com/pricing) if you are authenticated and signed in. 
+
+When I first read about the change, I thought, "We have to tell people about the Dependency Proxy," which is meant for proxying and caching images from Docker Hub. Unfortunately, the Dependency Proxy has several limitations that will prevent you from relying on it to solve this rate-limiting issue. However, we arrived at a key question during the evaluation process: "**Should proxying and caching images from Docker Hub be an open source feature?**"
+
+The short answer is yes. At GitLab, to determine what is open source and what is not, we ask ourselves: [Who cares the most about the feature?](/company/pricing/#buyer-based-open-core) Pulling images from Docker Hub is done every day by all types of developers. By supporting proxying and caching in Core, we can help developers everywhere by increasing the reliability and performance of their pipelines. The same is true for pulling packages from [npm](https://www.npmjs.com/), [Maven](https://mvnrepository.com/), [PyPI](https://pypi.org/), or any of the other most common public repositories. 
+
+As of GitLab 13.6 (Nov. 22nd, 2020), using the Dependency Proxy for proxying and caching images from Docker Hub or packages from any of the supported public repositories will be [free for all GitLab users](https://gitlab.com/gitlab-org/gitlab/-/issues/273655). Exciting, right? 
+
+We recognize that many users in our community have creative ideas on how to make GitLab an even better product. By partnering with the open source community, we can open source features even more quickly. And, we could use your help! There are a few key issues that will help everyone in the Community prepare for these upcoming Docker Hub rate limits and have faster, more reliable builds. 
+
+### More details
+
+- [gitlab-#11582](https://gitlab.com/gitlab-org/gitlab/-/issues/11582) will add support for private groups when using the Dependency Proxy. This in-progress issue will also introduce a minor breaking change to the feature. One of the side effects of enabling the Dependency Proxy for private groups is that you will be required to sign in to Docker, even for public groups.  
+
+What this means is that before you can do something like:
+
+```
+docker pull gitlab.example.com/groupname/dependency_proxy/containers/alpine:latest
+```
+
+You must first log in by providing your username/password or personal access (*Sorry, no anonyomous pulls*)
+
+```
+docker login gitlab.example.com
+```
+
+- [gitlab-241639](https://gitlab.com/gitlab-org/gitlab/-/issues/241639) is a very important feature that will allow you to pull images from the cache even when Docker Hub is unavailable, so long as the image and manifest have been previously added to the cache. The issue will accomplish this by caching the image's manifest as well as the associated blobs. 
+- [gitlab-#208080](https://gitlab.com/gitlab-org/gitlab/-/issues/208080) will resolve a bug in which images are not pulled correctly from the cache when using certain storage configurations. 
+- [gitlab-#246782](https://gitlab.com/gitlab-org/gitlab/-/issues/246782) will resolve a similar issue in which images are not pulled correctly from EC2 instances. 
+
+And, if you are interested in helping the Dependency Proxy work with npm, consider contributing to these issues:
+- [gitlab-#241239](https://gitlab.com/gitlab-org/gitlab/-/issues/241239) will store the metadata associated with your npm package, so that the package can later be added to the cache.
+- [gitlab-#241243](https://gitlab.com/gitlab-org/gitlab/-/issues/241243) will add requested packages to the cache.
+- [gitlab-#241249](https://gitlab.com/gitlab-org/gitlab/-/issues/241249) will allow you to pull your npm packages from the cache. 

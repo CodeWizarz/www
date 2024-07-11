@@ -1,0 +1,68 @@
+---
+title: The Future of the GitLab Web IDE
+author: Eric Schurter
+author_gitlab: ericschurter
+categories: news
+image_title: '/images/blogimages/johannes-plenio-2TQwrtZnl08-unsplash.jpg'
+description: "There are big changes in store for the Web IDE in the coming milestones."
+tags: features, news, UX, inside GitLab 
+twitter_text: "What's coming next to the @gitlab Web IDE" 
+featured: no 
+postType: product
+---
+
+Way back in April 2018, [GitLab 10.7 introduced the Web IDE](/blog/2018/06/15/introducing-gitlab-s-integrated-development-environment/) to the world and brought a delightful multi-file editor to the heart of the GitLab experience. Our goal was to make it easier for anyone and everyone to contribute, regardless of their development experience. Since its introduction, tens of millions of commits have been made from the Web IDE, and we've added features like [Live Preview](https://docs.gitlab.com/ee/user/project/web_ide/#live-preview) and [Interactive Web Terminals](https://docs.gitlab.com/ee/user/project/web_ide/index.html#interactive-web-terminals-for-the-web-ide) to enhance the experience. Now, we're excited to share some big changes we have in store for the Web IDE in coming milestones.
+
+## What makes an IDE?
+
+Over the years, we've learned a lot about how you all are using the Web IDE. We've [compared it to our Web Editor](https://about.gitlab.com/blog/2020/09/01/a-tale-of-two-editors/) in the repository view. We've spoken to developers, designers, product managers, and technical writers alike. Almost universally, we hear that the Web IDE is great for small changes: a quick change to a config file, an update to a Markdown file, or a typo fix in a merge request. These lightweight changes make up the vast majority of the Web IDE usage. And for those use cases, it's super convenient and intuitive.
+
+![Editing a file in the current Web IDE](/images/blogimages/web-ide-diff-view.png){: .shadow.medium.center}
+
+But to grow, and to really earn the moniker “IDE,” what are we missing? What keeps developers from making more complex changes in the Web IDE? What can we do to elevate the experience? We hear about missing features and functionality like a [collapsible file panel](https://gitlab.com/groups/gitlab-org/-/epics/2585) that supports [contextual actions](https://gitlab.com/gitlab-org/gitlab/-/issues/197775) and drag and drop or [tighter integration with merge requests](https://gitlab.com/groups/gitlab-org/-/epics/2687). We've learned that there's no single feature that's a deal-breaker for most developers; it's the sum total of a lot of little user experience gaps.
+
+The Web IDE is built on top of the fantastic open source project, [Monaco](https://microsoft.github.io/monaco-editor/). What made Monaco a great choice as the foundation of the Web IDE is also what makes it more difficult to address all these concerns holistically. Monaco is just that: a foundation. We have to implement all these workflows and features ourselves. Meanwhile, another open source project has been laser-focused on delivering a lovable IDE on top of Monaco.
+
+## Enter VS Code
+
+You may have heard of [Visual Studio Code](https://code.visualstudio.com/), or VS Code. With its [dominant market share](https://insights.stackoverflow.com/survey/2021#section-most-popular-technologies-integrated-development-environment), chances are pretty good that you are even using it as your primary code editor. As it happens, [VS Code](https://github.com/microsoft/vscode) core is also open sourced under the MIT license. While the core project isn't a perfect drop-in replacement for the Web IDE, our Staff Frontend Engineer, [Paul Slaughter](/company/team/#pslaughter), wanted to see if we could run it inside GitLab.
+
+Turns out, we can:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/_9G45TNR7VA" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+In this video Paul Slaughter, Staff FE Engineer, walks Eric Schurter, Senior Product Manager, through the VS Code Web IDE proof of concept. See parts [two](https://www.youtube.com/watch?v=oyEFNOC1_Bo&list=PL05JrBw4t0KrRQhnSYRNh1s1mEUypx67-&index=9){:target="_blank"}, [three](https://www.youtube.com/watch?v=1mTkNxrFXec&list=PL05JrBw4t0KrRQhnSYRNh1s1mEUypx67-&index=8){:target="_blank"}, and [four](https://www.youtube.com/watch?v=qEiXtiInFIA&list=PL05JrBw4t0KrRQhnSYRNh1s1mEUypx67-&index=7){:target="_blank"} for closer looks at extensions, performance, and customization.
+{: .note}
+
+As you can see in the videos above, Paul was able to build a proof of concept that brings the VS Code editing experience into the GitLab UI, running entirely in the browser. No additional infrastructure needed.
+
+Next, we asked ourselves the question: Do we want to continue to invest in implementing custom features for the Web IDE that ultimately deliver the same value as those already available in VS Code? Or do we embrace VS Code inside GitLab, and invest in extending the experience to more tightly integrate with GitLab and the DevOps workflow?
+
+## Meet the new Web IDE
+
+As you've probably already guessed, we've decided to [replace the current Web IDE with one built on top of VS Code](https://gitlab.com/groups/gitlab-org/-/epics/7683). In the coming milestones, we will build out custom support for the features not already available in the VS Code core, and validate that the workflows you already depend on in the Web IDE are handled in the new experience. We're working with the team that builds our amazing [GitLab Workflow extension](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow) for VS Code to make it available in the browser so we can bundle it in the Web IDE, and bring all those great features along for the ride. That includes [bringing merge request comments into the Web IDE](/blog/2021/01/25/mr-reviews-with-vs-code/) for the first time ever!
+
+## Speaking of extensions
+
+You read that right: extensions. One of the most compelling aspects of VS Code is the massive community and library of extensions available to customize your experience and integrate with other tools. A subset of [these extensions](https://open-vsx.org/) are already compatible with a web-based instance of VS Code, and our goal is to make them available in the Web IDE so you and your teams can work as efficiently and consistently as possible. Bringing extensions into the GitLab experience is not something we're taking lightly, so we'll be evaluating the best approach for ensuring the security and privacy of your data.
+
+## With great power comes great responsibility
+
+This transition doesn't come without tradeoffs. We know that many of you appreciate the Web IDE for its simplicity, and it's safe to say that the increase in functionality VS Code brings to the table does come with an increase in complexity. The original Web IDE was introduced as a way to ensure that everyone can contribute. In keeping with that spirit, we will invest in improvements to our [core editing component](https://gitlab.com/groups/gitlab-org/-/epics/4861) that powers the [Web Editor](https://docs.gitlab.com/ee/user/project/repository/web_editor.html), Snippets, Pipeline Editor, and code editing elsewhere in GitLab. This core component will be extended to support multi-file editing. Our hope is that it actually serves those workflows that require simple edits even better than the Web IDE ever did.
+
+## I'm ready, when can I have it?
+
+We're all excited to start using the new Web IDE as soon as possible. We're actively working on the integration and you can expect to see it sometime in the 15.x release cycle. If you would like to provide early feedback and help us fine tune the experience, please fill out this [short survey](https://forms.gle/S1vU5vkaEjE1NPMv9) to be considered for early access.
+
+## But wait, what about the runtime stuff?
+
+Remember at the beginning of this post when I asked what makes an IDE? The critical piece of the puzzle that VS Code is still missing is a runtime environment to compile your code. Without this environment, you can't generate real-time previews, run tests, or take advantage of code completion. We're looking to tackle this problem with the newly-formed [Remote Development category](/direction/create/ide/remote_development/), but that's a topic for a whole other blog post.
+
+Until then, happy editing!
+
+_This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog post and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc._
+
+Cover image by [Johannes Plenio](https://unsplash.com/@jplenio?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

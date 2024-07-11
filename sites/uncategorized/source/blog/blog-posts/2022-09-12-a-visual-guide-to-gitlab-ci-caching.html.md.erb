@@ -1,0 +1,149 @@
+---
+title: "A visual guide to GitLab CI/CD caching"
+author: Matthieu Fronton
+author_gitlab: frntn
+author_twitter: frntn
+categories: engineering
+tags: CI, CD, DevOps, tutorial
+guest: true
+description: "Learn cache types, as well as when and how to use them."
+image_title: '/images/blogimages/visual-guide-caching/cover.jpg'
+twitter_text: "Understand GitLab CI/CD caching types and setup with this visual guide"
+---
+
+If you've ever worked with GitLab CI/CD you may have needed, at some point, to use a cache to share content between jobs. The decentralized nature of GitLab CI/CD is a strength that can confuse the understanding of even the best of us when we want to connect wires all together. For instance, we need to know critical information such as the difference between artifacts and cache and where/how to place setups.
+
+This visual guide will help with both challenges.
+
+## Cache vs. artifacts
+
+The concepts _may_ seem to overlap because they are about sharing content between jobs, but they actually are fundamentally different:
+
+- If your job does not rely on the the previous one (i.e. can produce it by itself but if content already exists the job will run faster), then use cache.
+- If your job does rely on the output of the previous one (i.e. cannot produce it by itself), then use artifacts and dependencies.
+
+Here is a simple sentence to remember if you struggle between choosing cache or artifact:
+> Cache is here to speed up your job but it may not exist, so don't rely on it.
+
+This article will focus on **cache**.
+
+## Initial setup
+
+We'll go with a simple representation of the GitLab CI/CD pipelining model and ignore (for now) that the jobs can be executed on any runners and hosts. It will help get the basics.
+
+Let's say you have:
+- 1 project with 3 branches
+- 1 host running 2 docker runners
+
+![Initial setup](/images/blogimages/visual-guide-caching/vgc-1.png){: .shadow.center}
+
+## Local cache: Docker volume
+
+If you want a [local cache](https://docs.gitlab.com/ee/ci/caching/index.html#where-the-caches-are-stored) between all your jobs running on the same runner, use the [cache statement](https://docs.gitlab.com/ee/ci/yaml/#cache) in your `.gitlab-ci.yml`:
+
+```yaml
+default:
+  cache:
+    path:
+      - relative/path/to/folder/*.ext
+      - relative/path/to/another_folder/
+      - relative/path/to/file
+```
+
+![local / container / all branches / all jobs](/images/blogimages/visual-guide-caching/vgc-2.png){: .shadow.center}
+
+Using the [predefined variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html) `CI_COMMIT_REF_NAME` as the [cache key](https://docs.gitlab.com/ee/ci/yaml/index.html#cachekey), you can ensure the cache is tied to a specific branch:
+
+```yaml
+default:
+  cache:
+    key: $CI_COMMIT_REF_NAME
+    path:
+      - relative/path/to/folder/*.ext
+      - relative/path/to/another_folder/
+      - relative/path/to/file
+```
+
+![local / container / one branch / all jobs](/images/blogimages/visual-guide-caching/vgc-3.png){: .shadow.center}
+
+Using the [predefined variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html) `CI_JOB_NAME` as the [cache key](https://docs.gitlab.com/ee/ci/yaml/index.html#cachekey), you can ensure the cache is tied to a specific job:
+
+![local / container / all branch / one jobs](/images/blogimages/visual-guide-caching/vgc-4.png){: .shadow.center}
+
+## Local cache: Bind mount
+
+If you don't want to use a volume for caching purposes (debugging purpose, cleanup disk space more easily, etc.), you can configure a [bind mount for Docker volumes](https://docs.docker.com/storage/bind-mounts/) while registering the runner. With this setup, you do not need to set up the [cache statement](https://docs.gitlab.com/ee/ci/yaml/#cache) in your `.gitlab-ci.yml`:
+
+```yaml
+#!/bin/bash
+
+gitlab-runner register                             \
+  --name="Bind-Mount Runner"                       \
+  --docker-volumes="/host/path:/container/path:rw" \
+...
+```
+
+![local / one runners / one host / all branch / all jobs](/images/blogimages/visual-guide-caching/vgc-5.png){: .shadow.center}
+
+In fact, this setup even allows you to share a cache between jobs running on the same host without requiring you to set up a distributed cache (which we'll talk about later):
+
+```yaml
+#!/bin/bash
+
+gitlab-runner register                             \
+  --name="Bind-Mount Runner X"                     \
+  --docker-volumes="/host/path:/container/path:rw" \
+...
+
+gitlab-runner register                                 \
+  --name="Bind-Mount Runner Y"                         \
+  --docker-volumes="/host/path:/container/alt/path:rw" \
+...
+```
+
+![local / multiple runners / one host / all branch / all jobs](/images/blogimages/visual-guide-caching/vgc-6.png){: .shadow.center}
+
+## Distributed cache
+
+If you want to have a [shared cache](https://docs.gitlab.com/runner/configuration/autoscale.html#distributed-runners-caching) between all your jobs running on multiple runners and hosts, use the <a href="https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnerscache-section">[runner.cache]<a> section in your `config.toml`:
+
+```yaml
+[[runners]]
+  name = "Distributed-Cache Runner"
+...
+  [runners.cache]
+    Type = "s3"
+    Path = "bucket/path/prefix"
+    Shared = true
+    [runners.cache.s3]
+      ServerAddress = "s3.amazonaws.com"
+      AccessKey = "<changeme>"
+      SecretKey = "<changeme>"
+      BucketName = "foobar"
+      BucketLocation = "us-east-1"
+```
+
+![remote / multiple runners / multiple hosts / all branch / all jobs](/images/blogimages/visual-guide-caching/vgc-7.png){: .shadow.center}
+
+Using the predefined variable `CI_COMMIT_REF_NAME` as the cache key you can ensure the cache is tied to a specific branch between multiple runners and hosts:
+
+![remote / multiple runners / multiple hosts / one branch / all jobs](/images/blogimages/visual-guide-caching/vgc-8.png){: .shadow.center}
+
+## Real-life setup
+
+The above assumptions allowed you to harness your understanding of the concepts and possibilities.
+
+In real life, you'll face more complex wiring and we hope this article will help you as a visual cheatsheet along with the reference documentation.
+
+Just to give you a sneak peek, here is an exercise for you:
+
+- Set up a cache between all the jobs of a specific stage, running on any runner and any hosts, but only between pipeline of the same branches:
+
+![Real-life test assignment](/images/blogimages/visual-guide-caching/vgc-9.png){: .shadow.center}
+
+Happy caching, folks!
+
+
+
+Cover image by [Alina Grubnyak](https://unsplash.com/@alinnnaaaa) on [Unsplash](https://unsplash.com)
+{: .note}

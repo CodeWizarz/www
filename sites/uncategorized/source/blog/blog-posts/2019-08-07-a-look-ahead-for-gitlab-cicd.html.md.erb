@@ -1,0 +1,156 @@
+---
+title: "New up and coming GitLab CI/CD Features"
+author: Jason Yavorska
+author_gitlab: jyavorska
+author_twitter: j4yav
+categories: engineering
+image_title: '/images/blogimages/photo-cicd12xlookahead.png'
+description: "DAG, Multi-project Pipelines, Runner Setup for Kubernetes and more."
+tags: DevOps, CI/CD, features
+cta_button_text: 'Learn 7 CI/CD hacks in our upcoming webcast'
+cta_button_link: '/webcast/7cicd-hacks/'
+twitter_text: "DAG, Multi-project Pipelines, Runner Setup for Kubernetes and more in future @gitlab CI/CD releases"
+postType: product
+featured: yes
+---
+
+_Since this blog post was published, we have updated our planning based on emerging priorities and customer need. For the latest on what we've got coming next, check out our [CI/CD direction page](/direction/ops/), which is always current._
+
+Hey everyone, [Jason Yavorska](https://gitlab.com/jyavorska) here – product manager for CI/CD at GitLab. Back in June we
+reached the mid-point of the year and we're heading into our big 12.0 release, so I took the opportunity to
+summarize some of the [highlights of our 11.x series of releases](/blog/2019/06/19/look-back-on-11-11-cicd/).
+Hopefully you had a chance to read it, if not, please take a moment to scan through and I bet you'll find an
+interesting feature or two that can help improve your pipelines.
+
+We're a couple of releases into the 12.x cycle now and I couldn't wait to share some
+of the things that we're looking forward to delivering the remainder of this year. Some of the features I am most excited about include DAG, a directed acyclic graph that makes it easy to run pipeline steps out of order, expanding our pipelines for merge requests/results feature to also work with forks, as well as making multi-project pipelines a Core feature. With about 3.44M job instances per week/13.76M per month, GitLab CI is growing at a rapid rate to help our customers and users with their deployment needs. Read on below to learn more about all of the exciting CI/CD features in the 12.0 series of releases that will help you to deploy your code quickly.
+
+## What's recent
+
+In 12.0, we released [visual reviews](https://docs.gitlab.com/ee/ci/review_apps/index.html#visual-reviews),
+which allows users to provide issue feedback directly from the review apps that
+your pipelines create. This makes it easy for all your team members to provide accurate
+feedback on the changes you're making. We also added [collapsible job logs](https://docs.gitlab.com/ee/ci/pipelines/index.html#expand-and-collapse-job-log-sections),
+making output of pipelines easier to use, and enabled [multiple extends](https://docs.gitlab.com/ee/ci/yaml/#extends)
+for pipeline jobs to make templatizing behaviors in your configuration even easier.
+
+![Visual Review Apps](/images/12_0/visual-review-apps.png "Visual Review Apps"){: .shadow.medium.center}
+
+[Visual Review Apps](https://docs.gitlab.com/ee/ci/review_apps/index.html#visual-reviews) were released in GitLab 12.0
+{: .note .text-center}
+
+In 12.1, we delivered [parallel execution for merge trains](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/),
+expanding on our [pipelines for merged results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/#pipelines-for-merged-results)
+to make it very easy to automatically build and test a series of merge requests heading
+into the same target branch in a fast, safe, and efficient way. For GitLab Pages we also
+added [automatic HTTPS certificate renewal](https://docs.gitlab.com/ee/user/project/pages/custom_domains_ssl_tls_certification/lets_encrypt_integration.html),
+and completely refactored the GitLab Runner to be able to be [extensible for custom behaviors](http://docs.gitlab.com/runner/executors/custom.html),
+enabling many new kinds of operation modes for your runners including but not limited to
+supporting any kind of proprietary virtualization environment.
+
+## What's next
+
+Now that you're up to speed with the first couple of 12.x releases, let's look ahead to what's coming next in each monthly release from 12.2 this month to 12.6 in December.
+
+## 12.2 (August 22)
+
+_Since this blog post was published, we have updated our planning based on emerging priorities and customer need. For the latest on what we've got coming next, check out our [CI/CD direction page](/direction/ops/), which is always current._
+
+12.2 is just around the corner and it's also looking to be a big one.
+
+One really exciting feature for this release is that we're adding a hybrid directed acyclic graph (DAG) to GitLab CI.
+This is really just a fancy way of saying you'll be able to run pipeline steps out of order, breaking the
+stage sequencing you're familiar with in GitLab, and allowing jobs to relate to each other directly. This can
+be valuable for monorepo situations where you have different folders in your repo that can build, test, and maybe
+even deploy independently, or in general it can provide a nice speed boost for your pipeline steps that relate to
+each other (for example, things like artifact processing or sequential test runs.) Read more in our [public issue](https://gitlab.com/gitlab-org/gitlab-ce/issues/47063)
+about how this great feature is going to work.
+
+![Directed Acyclic Graph](/images/blogimages/dag_execution.png "Directed Acyclic Graph"){: .shadow.medium.center}
+
+Out of order execution using the [Directed Acyclic Graph](https://gitlab.com/gitlab-org/gitlab-ce/issues/47063)
+{: .note .text-center}
+
+In addition to the DAG, we're rethinking the way that [rules can be set up for pipelines](https://gitlab.com/gitlab-org/gitlab-ce/issues/60085),
+making it much easier to understand what a job is going to do compared with trying to figure out how a collection
+of `only/except` rules interact with each other. Another highlight is that we're adding the ability to
+[control behavior for individual users with Feature Flags](https://gitlab.com/gitlab-org/gitlab-ee/issues/11459) along with
+[percentage rollout across all users](https://gitlab.com/gitlab-org/gitlab-ee/issues/8240). These will give you a lot of
+flexibility to [progressively control](/direction/ops/#progressive-delivery) how changes are rolled out to your users
+even when the code is already in production.
+
+## 12.3 (September 22)
+
+_Since this blog post was published, we have updated our planning based on emerging priorities and customer need. For the latest on what we've got coming next, check out our [CI/CD direction page](/direction/ops/), which is always current._
+
+The individual change in the 12.3 release that I'm most excited about has got to be
+[associating a milestone with a release](https://gitlab.com/gitlab-org/gitlab-ce/issues/62402). One of the greatest
+strengths of GitLab is the connected ecosystem of features – by tying a release to a milestone, it becomes
+possible to connect all kinds of interesting data in GitLab to the release – issues, merge requests, and more, all
+at your fingertips and curated automatically by GitLab.
+
+We're also going to be making [runner setup for Kubernetes](https://gitlab.com/gitlab-org/gitlab-ce/issues/63768)
+require just a single click to get going, and making a key architectural change to GitLab Pages that will
+[bring initial availability time for pages site down to nearly instantaneous](https://gitlab.com/gitlab-org/gitlab-ce/issues/61929).
+
+## 12.4 (October 22)
+
+_Since this blog post was published, we have updated our planning based on emerging priorities and customer need. For the latest on what we've got coming next, check out our [CI/CD direction page](/direction/ops/), which is always current._
+
+First up, we're planning on adding a [Hashicorp Vault integration](https://gitlab.com/gitlab-org/gitlab-ce/issues/61053) that will let you tie your
+GitLab CI pipelines to your Vault instance, making it possible to keep crucial build and deployment secrets outside
+of GitLab entirely.
+
+We're also [expanding our pipelines for merge requests/results feature to also work with forks](https://gitlab.com/gitlab-org/gitlab-ee/issues/11934),
+and (building on top of the newly associated milestone) delivering an MVC for fully automated [evidence collection for releases](https://gitlab.com/gitlab-org/gitlab-ce/issues/56030).
+This means that things like test results, pipeline outputs, merge requests, and issues will have a snapshot
+available for auditing and review in the context of a release, all collected automatically from throughout GitLab
+without having to write a line of code.
+
+## 12.5 (November 22)
+
+_Since this blog post was published, we have updated our planning based on emerging priorities and customer need. For the latest on what we've got coming next, check out our [CI/CD direction page](/direction/ops/), which is always current._
+
+For 12.5, we plan to tackle Helm v3 charts by providing features in our container registry to
+manage these. [Helm v3](https://helm.sh/blog/helm-3-preview-pt1/) changes a lot about how charts work, and
+we want to ensure that GitLab is there with you as you start to adopt this very different, but powerful new way
+of working.
+
+We also plan to revisit [how workspaces are defined and shared](https://gitlab.com/gitlab-org/gitlab-ce/issues/62802),
+making it easier to build up a common staging area that can be shared by different jobs/pipelines in an easier-to-use,
+more natural way than by using the cache or artifacts in GitLab today. Last but not least, we're improving on
+our testing parallelization features by making it possible to [leave the parallelization tuning to GitLab itself](https://gitlab.com/gitlab-org/gitlab-ee/issues/12282).
+
+## 12.6 (December 22)
+
+_Since this blog post was published, we have updated our planning based on emerging priorities and customer need. For the latest on what we've got coming next, check out our [CI/CD direction page](/direction/ops/), which is always current._
+
+For the holidays we're planning on [making multi-project pipelines a Core feature](https://gitlab.com/gitlab-org/gitlab-ce/issues/63497),
+bringing this powerful capability to all of our users. More and more we're hearing that teams are using multi-project
+pipelines in all kinds of interesting ways to solve unique problems, and we want to make this feature available to
+everyone who can benefit. EDIT 2020-01-02: We resolved [this issue](https://gitlab.com/gitlab-org/gitlab/issues/31573) back in 12.4 where the trigger keyword was not working in certain cases, which satisfied the request of the folks in that issue to open source the feature. There are potential executive dashboards for cross-project pipelines in the future which will be paid features, but using triggering is in core and working fine. If there are any use cases that are not working for you, please ping me (@jyavorska) in [gitlab#29626](https://gitlab.com/gitlab-org/gitlab/issues/29626) and I'd be happy to take a look.
+
+We are also bringing in a whole new way of working with GitLab CI/CD: [child/parent pipelines](https://gitlab.com/gitlab-org/gitlab-ce/issues/22972).
+Using these you'll be able to trigger downstream pipelines from your main pipeline; these will run completely independently
+and in their own separate namespace from the main pipeline, but will provide status attribution back to the main pipeline. These
+child pipelines are definable in YAML files anywhere in your repo, so if you have a monorepo (for example) you'll be able to organize
+these independent pipelines separately but still orchestrate them from a central command and control module.
+
+Finally, we're looking to improve how we show the [change in pipeline duration over time](https://gitlab.com/gitlab-org/gitlab-ee/issues/1806)
+as well as how [test runs are changing over time](https://gitlab.com/gitlab-org/gitlab-ee/issues/1020). This trend data will make
+it easier to manage the performance of your pipelines on an ongoing basis.
+
+## In conclusion
+
+Hopefully you're as excited about these features as much as we are. We'd love for you to participate
+in the public issues so we can work together to deliver these features with your input. It's
+possible some specific items may change, but overall
+this is the direction we're headed as we continue to add iterative improvements across all of CI/CD in
+every release.
+
+Interested in learning more about GitLab CI/CD in general, and seeing all the rest of
+the items we plan to deliver? Visit our [CI/CD strategy page](/direction/ops/)
+for our themes, priorities, and more details on what's coming next.
+
+Photo by [Reginar](https://unsplash.com/photos/4fQAMZNaGUo?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/arrow?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

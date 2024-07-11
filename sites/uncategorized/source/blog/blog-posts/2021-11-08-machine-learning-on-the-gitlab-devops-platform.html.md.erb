@@ -1,0 +1,161 @@
+---
+title: "How Comet can streamline machine learning on The GitLab DevOps Platform"
+author: William Galindez Arias
+author_gitlab: warias
+author_twitter: gitlab
+categories: engineering
+tags: DevOps, demo, integrations, AI/ML
+description: Here's a step-by-step look at how to bring ML into software
+  development using Comet on GitLab's DevOps Platform.
+image_title: /images/blogimages/ways-to-encourage-collaboration.jpg
+twitter_text: "Adding machine learning to your application can be tricky. Here's how @gitlab uses #Comet on The DevOps Platform to streamline the process."
+---
+
+Building machine learning-powered applications comes with numerous challenges. When we talk about these challenges, there is a tendency to overly focus on problems related to the quality of a model’s predictions—things like data drift, changes in model architectures, or inference latency. 
+
+While these are all problems worthy of deep consideration, an often overlooked challenge in [ML development](/topics/devops/the-role-of-ai-in-devops/) is the process of integrating a model into an existing software application.  
+
+If you’re tasked with adding an ML feature to a product, you will almost certainly run into an existing codebase that must play nicely with your model. This is, to put it mildly, not an easy task. 
+
+ML is a highly iterative discipline. Teams often make many changes to their codebase and pipelines in the process of developing a model. Coupling an ML codebase to an application’s dependencies, unit tests, and CI/CD pipelines will significantly reduce the velocity with which ML teams can deliver on a solution, since each change would require running these downstream dependencies before a merge can be approved.  
+
+In this post, we’re going to demonstrate how you can use [Comet](https://www.comet.ml/site/) with [GitLab’s DevOps platform](/solutions/devops-platform/) to streamline the workflow for your ML and software engineering teams, allowing them to collaborate without getting in each other's way.      
+
+## The challenge for ML teams working with application teams
+
+Let’s say your team is working on improving a feature engineering pipeline. You will likely have to test many combinations of features with some baseline model for the task to see which combinations make an impact on model performance.     
+ 
+It is hard to know beforehand which features might be significant, so having to run multiple experiments is inevitable. If your ML code is a part of your application codebase, this would mean having to run your application’s CI/CD pipeline for every feature combination you might be trying. 
+
+This will certainly frustrate your Engineering and DevOps teams, since you would be unnecessarily tying up system resources, given that software engineering teams do not need to run their pipelines with the same frequency as ML teams do.  
+
+The other issue is that despite having to run numerous experiments, only a single set of outputs from these experiments will make it to your production application. Therefore, the rest of the assets produced through these experiments are not relevant to your application code.     
+
+Keeping these two codebases separated will make life a lot easier for everyone – but it also introduces the problem of syncing the latest model between two codebases.     
+
+## Use The GitLab DevOps Platform and Comet for your model development process
+
+With The GitLab DevOps platform and Comet, we can keep the workflows between ML and engineering teams separated, while enabling cross-team collaboration by preserving the visibility and auditability of the entire model development process across teams.     
+
+We will use two separate projects to demonstrate this process. One project will contain our application code for a handwritten digit recognizer, while the other will contain all the code relevant to training and evaluating our model.  
+
+We will adopt a process where discussions, code reviews, and model performance metrics get automatically published and tracked within The GitLab DevOps Platform, increasing the velocity and opportunity for collaboration between data scientists and software engineers for machine learning workflows.
+
+## Project setup
+
+Our project consists of two projects: [comet-model-trainer](https://gitlab.com/tech-marketing/devops-platform/comet-model-trainer) and [ml-ui](https://gitlab.com/tech-marketing/devops-platform/canara-review-apps-testing). 
+
+![Alt text for your image](/images/blogimages/cometmodeltrainer.png){: .shadow}
+
+The **comet-model-trainer** repository contains scripts to train and evaluate a model on the MNIST dataset. We have set up The GitLab DevOps Platform in a way that runs the training and evaluation Pipeline whenever a new merge request is opened with the necessary changes.
+
+The **ml-ui** repository contains the necessary code to build the frontend of our ML application.
+
+Since the code is integrated with Comet, your ML team can easily track the source code, hyperparameters, metrics, and other details related to the development of the model.  
+
+Once the training and evaluation steps are completed, we can use Comet to fetch summary metrics from the project as well as metrics from the Candidate model and display them within the merge request; This will allow the ML team to easily review the changes to the model. 
+
+![Alt text for your image](/images/blogimages/buildmodelgraph.png){: .shadow}
+
+![Alt text for your image](/images/blogimages/summarymetrics.png){: .shadow}
+
+In our case, the average accuracy of the models in the project is 97%. Our Candidate model achieved an accuracy of 99%, so it looks like it is a good fit to promote to production. The metrics displayed here are completely configurable and can be changed as necessary.        
+
+When the merge request is approved, the deployment pipeline is triggered and the model is pushed to Comet’s Model Registry. The Model Registry versions each model and links it back to the Comet Experiment that produced it.  
+![Alt text for your image](/images/blogimages/OpenComet_SparkVideo.gif){: .shadow}    
+
+Once the model is pushed to the Model Registry, it is available to the application code. When the application team wishes to deploy this new version of the model to their app, they simply have to trigger their specific deployment pipeline.     
+
+## Running the pipeline
+
+### Pipeline outline
+
+We will run the process outlined below every time a team member creates a merge request to change code in the `build-neural-network`script:
+
+![Alt text for your image](/images/blogimages/modelapprove.png){: .shadow}
+
+Now, let’s take a look at the yaml config used to define our CI/CD pipelines depicted in the previous diagram:
+
+![Alt text for your image](/images/blogimages/workflowsbranch.png){: .shadow}
+
+![Alt text for your image](/images/blogimages/script.png){: .shadow}
+
+![Alt text for your image](/images/blogimages/registermodel.png){: .shadow}
+
+Let's break down the CI/CD pipeline by describing the gitlab-ci.yml file so you can use it and customize it to your needs.
+
+We start by instructing our GitLab runners to utilize Python:3.8 to run the jobs specified in the pipeline: 
+
+`Image: python:3.8`
+
+Then, we define the job where we want to build and train the neural network:
+
+`Build-neural-network`
+
+### Build-neural-network 
+
+In this step, we start by creating a folder where we will store the artifacts generated by this job, install dependencies using the requirements.txt file, and finally  execute the corresponding Python script that will be in charge of training the neural network. The training runs in the GitLab runner using the Python image defined above, along with its dependencies.
+
+Once the `build-neural-network` job has finalized successfully, we move to the next job: `write-report-mr`
+
+Here, we use another image created by DVC that will allow us to publish a report right in the merge request opened by the contributor who changed code in the neural network script. In this way, we’ve brought software development workflows to the development of ML applications. With the report provided by this job, code and model review can be executed within the merge request view, enabling teams to collaborate not only around the code but also the model performance.
+
+From the merge request page, we get access to loss curves and other relevant performance metrics from the model we are training, along with a link to the Comet Experiment UI, where richer details are provided to evaluate the model performance. These details include interactive charts for model metrics, the model hyperparameters, and Confusion Matrices of the test set performance, to name a few. 
+
+![Alt text for your image](/images/blogimages/manualDeploy_SparkVideo.gif){: .shadow}
+
+When the team is done with the code and model review,  the merge request gets approved, and the script that generated the model is merged into the main codebase, along with its respective commit and the CI pipeline associated to it. This takes us to the next job: 
+
+### Register-model
+
+This job uses an integration between GitLab and Comet to upload the reviewed and accepted version of the model to the Comet Model Registry. If you recall, the Model Registry is where models intended for production can be logged and versioned. In order to run the commands that will register the model, we need to set up these variables: 
+
+- COMET_WORKSPACE
+- COMET_PROJECT_NAME 
+ 
+In order to do that, follow the steps described [here](https://docs.gitlab.com/ee/ci/variables/#add-a-cicd-variable-to-an-instance).
+
+It is worth noting that the `register-model` job only runs when the merge request gets reviewed and approved, and this behavior is obtained by setting `only: main` at the end of the job.
+
+Finally, we decide to let a team member have final control of the deployment so therefore we define a manual job:
+`Deploy-ml-ui`
+
+![Alt text for your image](/images/blogimages/deployuiml.png){: .shadow}
+
+When triggered, this job will import the model from Comet’s Model Registry and automatically create the necessary containers to build the user interface and deploy to a Kubernetes cluster. 
+
+![Alt text for your image](/images/blogimages/downstream.png){: .shadow}
+
+This job triggers a downstream pipeline, which means that the UI for this MNIST application resides in a different project. This keeps the codebase for the UI and model training separated but integrated and connected at the moment of deploying the model to a production environment.
+
+![Alt text for your image](/images/blogimages/multipipeline_SparkVideo.gif){: .shadow}
+
+## Key takeaways
+
+In this post, we addressed some of the challenges faced by ML and software teams when it comes to collaborating on delivering ML-powered applications. Some of these challenges include:
+
+* The discrepancy in the frequency with which each of these teams need to iterate on their codebases and CI/CD pipelines.
+
+* The fact that only a single set of experiment assets from an ML experimentation pipeline is relevant to the application.
+
+* The challenge of syncing a model or other experiment assets across independent codebases.   
+
+Using The GitLab DevOps Platform and Comet, we can start bridging the gap between ML and software engineering teams over the course of a project. 
+
+By having model performance metrics adopted into software development workflows like the one we saw in the issue and merge request, we can keep track of the code changes, discussions, experiments, and models created in the process. All the operations executed by the team are recorded, can be audited, are end-to end-traceable, and (most importantly) reproducible. 
+
+Watch a demo of this process:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/W_DsNl5aAVk" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+_About Comet:_
+Comet is an MLOps Platform that is designed to help data scientists and teams build better models faster! Comet provides tooling to Track, Explain, Manage, and Monitor your models in a single place! 
+
+Learn more about Comet [here](https://www.comet.ml/site/) and get started for free!
+
+
+

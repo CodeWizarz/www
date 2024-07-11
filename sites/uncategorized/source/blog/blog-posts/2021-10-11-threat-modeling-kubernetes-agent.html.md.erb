@@ -1,0 +1,160 @@
+---
+title: "Threat modeling the Kubernetes Agent: from MVC to continuous improvement"
+author: Vitor Meireles De Sousa
+author_gitlab: vdesousa
+author_twitter: Muffinbox33
+categories: security
+image_title: '/images/blogimages/threat-modeling-KA/pexels-jesus-miron-garcia-3043592.jpeg'
+description: "Learn how we put our threat model into action iteratively and expanded the process into a full-fledged standalone activity."
+tags: security
+twitter_text: "Learn how we put our threat model into action, iteratively, at @gitlab as we threat modeled the #Kubernetes Agent."
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2021/07/09/creating-a-threat-model-that-works-for-gitlab/"
+  - "/blog/2021/07/23/announcing-package-hunter/"
+  - "/blog/2021/05/27/deep-dive-investigation-of-gitlab-packages/"
+---
+
+Threat modeling is more common in people’s everyday lives than they might think.  Each of us performs some level of threat modeling every time we’re in a situation where we’re evaluating threats. An everyday example I really like: crossing the street. Before we cross the street we look both ways, we evaluate the speed of each oncoming vehicle and verify the driver has seen us. Finally, if the lights are green, we cross the street. This is threat modeling!
+
+_If you’re interested in learning more about what threat modeling is and how we’re developing our threat model here at GitLab, you can read about [“How we’re creating a threat model framework that works for GitLab“](/blog/2021/07/09/creating-a-threat-model-that-works-for-gitlab/) by my teammate [Mark Loveless](/company/team/#mloveless)._
+
+## Threat modeling IRL
+
+In this blog post I’ll talk about how we put our threat modeling process into action iteratively with an in-depth look into how we developed the process from a security assessment with a side of threat modeling to a full-fledged standalone activity.  
+
+### Our threat modeling MVC
+
+We rolled out the initial iteration of the GitLab threat model in November of 2020. One of the first projects we assessed through that new process was GitLab’s [Kubernetes Agent](https://docs.gitlab.com/ee/user/clusters/agent/) beta. At that time, my colleague [Joern Schneeweisz](/company/team/#joernchen) performed an initial threat model, which was actually more of a security assessment in which threat modeling activities were incorporated. In this [data flow diagram](/handbook/security/threat_modeling/howto.html#tools-and) from our initial threat model, you can see how the [architecture for the Kubernetes Agent looked in May 2020](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/f374356751aec8cb65b9dea4de3ba618805c2414/docs/architecture.md):
+
+```mermaid
+graph TB
+  agentk -- gRPC bidirectional streaming --> kgb
+
+  subgraph "GitLab"
+  kgb[kgb]
+  GitLabRoR[GitLab RoR] -- gRPC --> kgb
+  kgb -- gRPC --> Gitaly[Gitaly]
+  kgb -- REST API --> GitLabRoR
+  end
+
+  subgraph "Kubernetes cluster"
+  agentk[agentk]
+  end
+```
+
+This first review, despite our threat model being early stage, still allowed us to identify issues and findings (like the Agent exposing public projects with private repositories [(fixed with this merge request)](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/48314) or the Agent name being vulnerable to path traversal attacks [(fixed with this merge request)](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/37564)) that benefited our security and the broader engineering teams. Plus, the cross-organizational feedback we received during this iteration was key to improving our threat model integration and templates.
+
+### Increasing capabilities expand the threats
+
+Four months had passed since the initial assessment; it was time to revisit our previous findings and to review the expanded capabilities of the Kubernetes Agent feature. The [architecture had also evolved](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/154f538c997b4064294a54695846092c348bada8/doc/architecture.md#high-level-architecture), and at a high level we can see the product is changing names (`kgb` changed to `kas`, for Kubernetes Agent Server (KAS)). 
+
+```mermaid
+graph TB
+  agentk -- gRPC bidirectional streaming --> nginx
+
+  subgraph "GitLab"
+  nginx -- proxy pass port 5005 --> kas
+  kas[kas]
+  GitLabRoR[GitLab RoR] -- gRPC --> kas
+  kas -- gRPC --> Gitaly[Gitaly]
+  kas -- REST API --> GitLabRoR
+  end
+
+  subgraph "Kubernetes cluster"
+  agentk[agentk]
+  end
+```
+
+By this time the threat modeling template we were using had evolved, and our [Application Security team](/handbook/security/security-engineering/application-security/) had used it in several other reviews. 
+
+GitLab’s practice of [dogfooding](/handbook/values/#dogfooding) means we use issues to track our reviews. At the time of this second review, our threat modeling template now had a more structured approach where reviewers had sections that would 1) guide them throughout the review 2) require them to provide specific information.
+
+Because our process was more robust now we moved the threat modeling activity of our security assessments into a dedicated repository, giving us a single source of truth. [The template](https://gitlab.com/gitlab-com/gl-security/security-research/threat-modeling-template/-/blob/3486ca53baf13d4aaba28dd340df153b2b83ea05/threat_model.md) had evolved to also include:
+
+* An “Application decomposition” section where the reviewer must enter details such as use case, external entry points, trust levels, data flow diagram, previous security issues and known references and best practices.
+* A dedicated threat analysis section.
+* The use of issue comments to detail each section of the threat modeling allowing us to easily reference sections individually via direct link.
+* The conversion and merge of the completed issue to an MD file, saved into the dedicated repository for future use. 
+
+### What is better than iteration? More iteration
+
+Since our second review in October 2020, the Kubernetes Agent feature had evolved significantly, so we performed another assessment in February 2021. The difference this time was that we now had a [formal threat modeling process in place](/handbook/security/threat_modeling/). 
+
+**To better understand the Kubernetes Agent feature, we added more details to our architectural diagram:**
+
+_Legend:_
+* Dotted arrows/flow: out of scope of the Architecture or TM
+* grpc: Google Remote Procedure Call
+* grpcs: grpc over SSL/TLS
+* ws: WebSocket
+* wss: ws over SSL/TLS
+
+![Detailed architectural diagram of the Kubernetes Agent](/images/blogimages/threat-modeling-KA/ka-architectural-diagram.png){: .shadow.medium.center}
+Detailed architectural diagram of the Kubernetes Agent.
+{: .note.text-center}
+
+
+**The data flow diagram we were using also evolved:**
+
+_Legend:_
+* Dotted arrows/flow: out of scope of the architecture or threat model
+* grpc: Google remote procedure call
+* grpcs: grpc over SSL/TLS
+* ws: WebSocket
+* wss: ws over SSL/TLS
+
+![file name](/images/blogimages/threat-modeling-KA/ka-data-flow.png){: .shadow.medium.center}
+An evolved data flow diagram for the Kubernetes Agent.
+{: .note.text-center}
+
+And, naturally, as the features evolved, the threats evolved. Through our latest threat modeling we discovered that:
+
+* Listeners are used by the Agent and the KAS for observability and health checking. These listeners are unrestricted but they do listen on localhost by default.
+* On GitLab’s side, developers would be able to deploy an application to another cluster on another corporate network. This is limited by Kubernetes' own authorisations defined for each cluster.
+* While brainstorming for threats, we thought about whether a user would be able to access unauthorised projects through indirect access on Gitaly. Thankfully, this is well mitigated since a few conditions are necessary: 
+     * A user must have access to the Agent's pod
+     * A user must be able to modify and reply to requests from the Agent pod 
+          * However, each Agent also needs to submit a secret token, otherwise the [request is denied](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/5b7ca0b9fbc8daba28ca552dc26aab45e482cf0c/internal/module/agent_configuration/server/server.go#L55) (using [GitLab's client](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/5b7ca0b9fbc8daba28ca552dc26aab45e482cf0c/internal/gitlab/client.go)) GetAgentInfo implementation. That implementation [generates and passes a JWT token](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/5b7ca0b9fbc8daba28ca552dc26aab45e482cf0c/internal/gitlab/client.go#L108-123), along with the [Agent token](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/5b7ca0b9fbc8daba28ca552dc26aab45e482cf0c/internal/gitlab/do_options.go#L103-109). The Agent must also be configured to consult only authorised repositories, which makes it impossible for a user to access other repositories from the Agent.
+* On local installations, it’s possible to use unencrypted communications between the Kubernetes Agent and the KAS. However, on gitlab.com we have enforced secure communications.
+
+## Continuous improvement and iteration
+
+Threat modeling, just like anything in security, isn’t something you do once and are done with it. As we’ve seen with the reviews we’ve performed on the Kubernetes Agent, threat modeling involves iteration and constant adoption of ever-changing features and attack surfaces of a product.
+
+Our threat model is now mature enough that it's an established process, performed as a separate review and merged into a dedicated repository at completion. In the future, we hope to be able to publicly share those threat models to help customers, the community and to continue strengthening our [hackerone program](https://hackerone.com/gitlab).
+
+For the next iterations we’re looking for broad adoption of threat modeling across GitLab's engineering teams and beyond. We plan to use our threat model as a way to improve  [asynchronous communication](/company/culture/all-remote/asynchronous/) between the different [security stable counterparts](/handbook/security/security-engineering/application-security/stable-counterparts.html) that operate across the organization. These stable counterparts ensure security practices are integrated early on in the development process and also allow us to ensure better coverage across vacations and time zones.
+
+## About Kubernetes
+
+Until then, if you’re interested in more threat modeling details specific to Kubernetes itself, I highly recommend the [Kubernetes Security Audit Working Group Kubernetes threat model](https://github.com/kubernetes/community/tree/d538271e3f5eed22429ded165aeb2557c6277967/wg-security-audit). One of my fellow GitLab teammates, [Marco Lancini](/company/team/#mlancini) has published a great post, [“The Current State of Kubernetes Threat Modelling”](https://www.marcolancini.it/2020/blog-kubernetes-threat-modelling/) on his personal blog which contains useful information on different methods used to perform a threat model for Kubernetes. 
+
+## How to threat model
+
+And, if you’re interested in how we’re rolling out threat modeling across GitLab, to teams beyond Security and Engineering, we’ve been tweaking our [how to threat model](/handbook/security/threat_modeling/howto.html) guide to help as many team members as possible understand what threat modeling is and how and where to get started. Perhaps you’ll find some helpful tips and tricks there.
+
+And, keep an eye on this space, we’re planning to revisit threat modeling in blog posts where we’ll dive deeper into the PASTA methodology we’re using and take a closer look at what threat modeling looks like in practice here at GitLab.
+
+Have something to share? Comment below or find me on twitter at [@muffinbox33](https://twitter.com/Muffinbox33).
+
+_Also, I would like to take a moment to thank the Configure team and [Mikhail](/company/team/#ash2k) for their awesome collaboration during the various threat models we have performed._
+
+Happy threat modeling!
+
+Cover image by [Jesús Mirón García](https://www.pexels.com/@jesus-miron-garcia-1583477?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels) on [Pexels](https://www.pexels.com/photo/timelapse-photography-of-vehicles-on-road-3043592/?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels)
+{: .note}
+
+
+## Read more on Kubernetes: 
+
+- [How to install and use the GitLab Kubernetes Operator](/blog/2021/11/16/gko-on-ocp/)
+
+- [How to deploy the GitLab Agent for Kubernetes with limited permissions](/blog/2021/09/10/setting-up-the-k-agent/)
+
+- [A new era of Kubernetes integrations on GitLab.com](/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/)
+
+- [Understand Kubernetes terminology from namespaces to pods](/blog/2020/07/30/kubernetes-terminology/)
+
+- [What we learned after a year of GitLab.com on Kubernetes](/blog/2020/09/16/year-of-kubernetes/)

@@ -1,0 +1,404 @@
+---
+title: "What tracking down missing TCP Keepalives taught me about Docker, Golang, and GitLab"
+author: Stan Hu
+author_gitlab: stanhu
+author_twitter: stanhu
+categories: engineering
+image_title: '/images/blogimages/docker-tcp-keepalive-debug/network.jpg'
+description: "An in-depth recap of debugging a bug in the Docker client library."
+twitter_text: "What Tracking Down Missing TCP Keepalives Taught Me About Docker, Golang, and GitLab"
+tags: community, git, GitLab, CI, Docker, TCP, Go, Golang, keepalives
+postType: content marketing
+ee_cta: false
+merch_banner: merch_two
+merch_sidebar: merch_two
+related_posts:
+  - "/blog/2018/11/14/how-we-spent-two-weeks-hunting-an-nfs-bug/"
+  - "/blog/2019/08/27/tyranny-of-the-clock/"
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2019-12-03.
+{: .alert .alert-info .note}
+
+What began as failure in a GitLab static analysis check led to a
+dizzying investigation that uncovered a subtle [bug in the Docker client
+library code](https://github.com/docker/for-linux/issues/853) used by
+the GitLab Runner. We ultimately worked around the problem by upgrading
+the Go compiler, but in the process we uncovered an unexpected change in
+the Go TCP keepalive defaults that fixed an issue with Docker and GitLab
+CI.
+
+This investigation started on October 23, when backend engineer [Luke
+Duncalfe](/company/team/#.luke) mentioned, "I'm seeing
+[`static-analysis` failures with no output](https://gitlab.com/gitlab-org/gitlab/-/jobs/331174397).
+Is there something wrong with this job?" He opened [a GitLab
+issue](https://gitlab.com/gitlab-org/gitlab/issues/34951) to discuss.
+
+When Luke ran the static analysis check locally on his laptop, he saw
+useful debugging output when the test failed. For example, an extraneous
+newline would accurately be reported by Rubocop. However, when the same
+test ran in GitLab's automated test infrastructure, the test failed
+quietly:
+
+![Failed job](/images/blogimages/docker-tcp-keepalive-debug/job-failure.png){: .shadow.center}
+
+Notice how the job log did not include any clues after the `bin/rake
+lint:all` step. This made it difficult to determine whether a real
+problem existed, or whether this was just a flaky test.
+
+In the ensuing days, numerous team members reported the same problem.
+Nothing kills productivity like silent test failures.
+
+## Was something wrong with the test itself?
+
+In the past, we had seen that if that specific test generated enough
+errors, [the output buffer would fill up, and the continuous integration
+(CI) job would lock
+indefinitely](https://gitlab.com/gitlab-org/gitlab-foss/issues/61432). We
+thought we had [fixed that issue months
+ago](https://gitlab.com/gitlab-org/gitlab-foss/merge_requests/28402). Upon
+further review, that fix seemed to eliminate any chance of a thread
+deadlock.
+
+Did we have to flush the buffer? No, because the Linux kernel will do
+that for an exiting process already.
+
+## Was there a change in how CI logs were handled?
+
+When a test runs in GitLab CI, the [GitLab
+Runner](https://gitlab.com/gitlab-org/gitlab-runner/) launches a Docker
+container that runs commands specified by a `.gitlab-ci.yml` inside the
+project repository. As the job runs, the runner streams the output to
+the GitLab API via PATCH requests. The GitLab backend saves this data
+into a file. The following sequence diagram shows how this works:
+
+```plantuml
+== Get a job! ==
+Runner -> GitLab: POST /api/v4/jobs/request
+GitLab -> Runner: 201 Job was scheduled
+
+== Job sends logs (1 of 2) ==
+Runner -> GitLab: PATCH /api/v4/job/:id/trace
+GitLab -> File: Save to disk
+GitLab -> Runner: 202 Accepted
+
+== Job sends logs (2 of 2) ==
+Runner -> GitLab: PATCH /api/v4/job/:id/trace
+GitLab -> File: Save to disk
+GitLab -> Runner: 202 Accepted
+```
+
+[Henrich Lee Yu](/company/team/#engwan) mentioned
+that we had recently [disabled a feature flag that changed how GitLab
+handled CI job
+logs](https://docs.gitlab.com/ee/administration/job_logs.html#new-incremental-logging-architecture). [The
+timing seemed to line
+up](https://gitlab.com/gitlab-org/gitlab/issues/34951#note_236723888).
+
+This feature, called live CI traces, eliminates the need for a shared
+POSIX filesystem (e.g., NFS) when saving job logs to disk by:
+
+1. Streaming data into memory via Redis
+2. Persisting the data in the database (PostgreSQL)
+3. Archiving the final data into object storage
+
+When this flag is enabled, the flow of CI job logs looks something like
+the following:
+
+```plantuml
+== Get a job! ==
+Runner -> GitLab: POST /api/v4/jobs/request
+GitLab -> Runner: 201 Job was scheduled
+
+== Job sends logs ==
+Runner -> GitLab: PATCH /api/v4/job/:id/trace
+GitLab -> Redis: Save chunk
+GitLab -> Runner: 202 Accepted
+...
+== Copy 128 KB chunks from Redis to database ==
+GitLab -> Redis: GET gitlab:ci:trace:id:chunks:0
+GitLab -> PostgreSQL: INSERT INTO ci_build_trace_chunks
+...
+== Job finishes ==
+
+Runner -> GitLab: PUT /api/v4/job/:id
+GitLab -> Runner: 200 Job was updated
+
+== Archive trace to object storage ==
+```
+
+Looking at the flow diagram above, we see that this approach has more
+steps. After receiving data from the runner, something could have gone
+wrong with handling a chunk of data. However, we still had many
+questions:
+
+1. Did the runners send the right data in the first place?
+1. Did GitLab drop a chunk of data somewhere?
+1. Did this new feature actually have anything to do with the problem?
+1. Are they really making another Gremlins movie?
+
+## Reproducing the bug: Simplify the `.gitlab-ci.yml`
+
+To help answer those questions, we simplified the `.gitlab-ci.yml` to
+run only the `static-analysis` step. We inserted a known Rubocop error,
+replacing a `eq` with `eql`. We first ran this test on a separate GitLab
+instance with a private runner. No luck there – the job showed the right
+output:
+
+```
+Offenses:
+
+ee/spec/models/project_spec.rb:55:42: C: RSpec/BeEql: Prefer be over eql.
+        expect(described_class.count).to eql(2)
+                                         ^^^
+
+12669 files inspected, 1 offense detected
+```
+
+However, we repeated the test on our staging server and found that we
+reproduced the original problem. In addition, the live CI trace feature
+flag had been activated on staging. Since the problem occurred with and
+without the feature, we could eliminate that feature as a possible
+cause.
+
+Perhaps something with the GitLab server environment caused a
+problem. For example, could the load balancers be rate-limiting the
+runners? As an experiment, we pointed a private runner at the staging
+server and re-ran the test. This time, it succeeded: the output was
+shown. That seemed to suggest that the problem had more to do with the
+runner than with the server.
+
+## Docker Machine vs. Docker
+
+One key difference between the two tests: One runner used a shared,
+autoscaled runner using a [Docker
+Machine](https://docs.docker.com/machine/overview/) executor, and the
+private runner used a [Docker
+executor](https://docs.gitlab.com/runner/executors/docker.html).
+
+What does Docker Machine do exactly? The following diagram may help
+illustrate:
+
+![Docker Machine](https://docs.docker.com/machine/img/machine.png){: .medium.center}
+
+The top-left shows a local Docker instance. When you run Docker from the
+command-line interface (e.g., `docker attach my-container`), the program
+just makes [REST calls to the Docker Engine
+API](https://docs.docker.com/engine/api/v1.40/).
+
+The rest of the diagram shows how Docker Machine fits into the
+picture. Docker Machine is an entirely separate program. The GitLab
+Runner shells out to `docker-machine` to create and destroy virtual
+machines using cloud-specific (e.g. Amazon, Google, etc.) drivers. Once
+a machine is running, the runner then uses the Docker Engine API to run,
+watch, and stop containers.
+
+Note that this API is used securely over an HTTPS connection. This is an
+important difference between the Docker Machine executor and Docker
+executor: The former needs to communicate across the network, while the
+latter can either use a local TCP socket or UNIX domain socket.
+
+## Google Cloud Platform timeouts
+
+We've known for a while that Google Cloud [has a 10-minute idle
+timeout](https://cloud.google.com/compute/docs/troubleshooting/general-tips),
+which has caused issues in the past:
+
+> Note that idle connections are tracked for a maximum of 10 minutes,
+> after which their traffic is subject to firewall rules, including the
+> implied deny ingress rule. If your instance initiates or accepts
+> long-lived connections with an external host, you should adjust TCP
+> keep-alive settings on your Compute Engine instances to less than 600
+> seconds to ensure that connections are refreshed before the timeout
+> occurs.
+
+Was the problem caused by this timeout? With the Docker Machine
+executor, we found that we could reproduce the problem with a simple
+`.gitlab-ci.yml`:
+
+```yaml
+image: "busybox:latest"
+
+test:
+  script:
+    - date
+    - sleep 601
+    - echo "Hello world!"
+    - date
+    - exit 1
+```
+
+This would reproduce the failure, where we would never see the `Hello
+world!` output. Changing the `sleep 601` to `sleep 599` would make the
+problem go away. Hurrah! All we have to do is tweak the system TCP
+keepalives, right? Google provided these sensible settings:
+
+```sh
+sudo /sbin/sysctl -w net.ipv4.tcp_keepalive_time=60 net.ipv4.tcp_keepalive_intvl=60 net.ipv4.tcp_keepalive_probes=5
+```
+
+However, enabling these kernel-level settings didn't solve the
+problem. Were keepalives even being sent? Or was there some other issue?
+We turned our attention to network traces.
+
+## Eavesdropping on Docker traffic
+
+In order to understand what was happening, we needed to be able to
+monitor the network communication between the runner and the Docker
+container. But how exactly does the GitLab Runner stream data from a
+Docker container to the GitLab server?  The following diagram
+illustrates the flow:
+
+```plantuml
+Runner -> Docker: POST /containers/name/attach
+Docker -> Runner: <container output>
+Docker -> Runner: <container output>
+Runner -> GitLab: PATCH /api/v4/job/:id/trace
+GitLab -> File: Save to disk
+GitLab -> Runner: 202 Accepted
+```
+
+First, the runner makes a [POST request to attach to the container
+output](https://docs.docker.com/engine/api/v1.40/#operation/ContainerAttach).
+As soon as a process running in the container outputs some data, Docker
+will transmit the data over this HTTPS stream. The runner then copies
+this data to GitLab via the PATCH request.
+
+However, as mentioned earlier, traffic between a GitLab Runner and the
+remote Docker machine is encrypted over HTTPS on port 2376. Was there an
+easy way to disable HTTPS? Searching through the code of Docker Machine,
+we found that it did not appear to be supported out of the box.
+
+Since we couldn't disable HTTPS, we had two ways to eavesdrop:
+
+1. Use a man-in-the-middle proxy (e.g. [mitmproxy](https://mitmproxy.org/))
+1. Record the traffic and decrypt the traffic later using the private keys
+
+## Ok, let's be the man-in-the-middle!
+
+The first seemed more straightforward, since [we already had experience
+doing this with the Docker
+client](https://docs.gitlab.com/ee/administration/packages/container_registry.html#running-the-docker-daemon-with-a-proxy).
+
+However, after [defining the proxy variables for GitLab
+Runner](https://docs.gitlab.com/runner/configuration/proxy.html#adding-proxy-variables-to-the-runner-config),
+we found we were only able to intercept the GitLab API calls with
+`mitmproxy`. The Docker API calls still went directly to the remote
+host. Something wasn't obeying the proxy configuration, but we didn't
+investigate further. We tried the second approach.
+
+## Decrypting TLS data
+
+To decrypt TLS data, we would need to obtain the encryption keys. Where
+were these located for a newly-created system with `docker-machine`? It
+turns out `docker-machine` worked in the following way:
+
+1. Call the Google Cloud API to create a new machine
+1. Create a `/root/.docker/machine/machines/:machine_name` directory
+1. Generate a new SSH keypair
+1. Install the SSH key on the server
+1. Generate a new TLS certificate and key
+1. Install and configure Docker on the newly-created machine with TLS certificates
+
+As long as the machine runs, the directory will contain the information
+needed to decode this traffic. We ran `tcpdump` and saved the private keys.
+
+Our first attempt at decoding the traffic failed. Wireshark could not
+decode the encrypted traffic, although general TCP traffic could still
+be seen. Researching more, we found out why: If the encrypted traffic
+used a [Diffie-Hellman key
+exchange](https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_key_exchange),
+having the private keys would not suffice! This is by design, a property
+called [perfect forward
+secrecy](https://en.m.wikipedia.org/wiki/Forward_secrecy).
+
+To get around that limitation, we modified the GitLab Runner to disable
+cipher suites that used the Diffie-Hellman key exchange:
+
+```diff
+diff --git a/vendor/github.com/docker/go-connections/tlsconfig/config_client_ciphers.go b/vendor/github.com/docker/go-connections/tlsconfig/config_client_ciphers.go
+index 6b4c6a7c0..a3f86d756 100644
+--- a/vendor/github.com/docker/go-connections/tlsconfig/config_client_ciphers.go
++++ b/vendor/github.com/docker/go-connections/tlsconfig/config_client_ciphers.go
+@@ -10,8 +10,6 @@ import (
+
+ // Client TLS cipher suites (dropping CBC ciphers for client preferred suite set)
+ var clientCipherSuites = []uint16{
+-       tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+-       tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+-       tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+-       tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
++       tls.TLS_RSA_WITH_AES_256_CBC_SHA,
++       tls.TLS_RSA_WITH_AES_128_CBC_SHA,
+ }
+```
+
+## Serendipity with Go compiler versions!
+
+In rebuilding the runner, we accidentally compiled the GitLab Runner
+with a current version of the Go compiler, and this proved to be
+serendipitous. The Wireshark screenshot below was taken with a test run
+with the official GitLab Runner v12.4.1 that was built with Go
+v1.10.8. Notice there is a 12-minute gap (due to a `sleep 700`) with no
+keepalives, and then we see a TCP RST from the remote Docker machine:
+
+![No TCP keepalives](/images/blogimages/docker-tcp-keepalive-debug/docker-no-keepalive.png){: .shadow.center}
+
+Since no keepalives were present, the Google 10-minute timeout closed
+the connection and prevented the runner from receiving any more data.
+
+The next screenshot is a test with the same runner version with Go
+v1.12.6. Notice all the 15-second TCP keepalives highlighted in red
+during the idle time:
+
+![TCP keepalives prsent](/images/blogimages/docker-tcp-keepalive-debug/docker-keepalive-present.png){: .shadow.center}
+
+Eureka! As it turns out, Go v1.12 enabled 15-seconds by default via
+[this
+commit](https://github.com/golang/go/commit/5bd7e9c54f946eec95d32762e7e9e1222504bfc1). Using
+this updated version solved the problem! Older versions of Go did not
+enable keepalives, nor did they obey the system kernel setting.
+
+But didn't the Docker client attempt to [set a 30-second TCP
+keepalive](https://gitlab.com/gitlab-org/gitlab-runner/blob/f3efeb7455bf91a43a5385ebc0b341723102dd57/vendor/github.com/docker/docker/client/hijack.go#L64-72)?
+As it turns out, this doesn't work when the connection uses TLS. In [the
+code that listens to the
+container](https://gitlab.com/gitlab-org/gitlab-runner/blob/f3efeb7455bf91a43a5385ebc0b341723102dd57/vendor/github.com/docker/docker/client/hijack.go#L69),
+the keepalive is only set if the connection is `net.TCPConn`. However,
+with a remote Docker machine, the connection is of type `tls.Conn`. As
+mentioned in
+[Reddit](https://www.reddit.com/r/golang/comments/5hfj0s/tlsconn_does_not_provide_keepalive_is_this/),
+`tls.Conn` doesn't provide keepalive settings since the underlying
+connection doesn't have to be TCP.
+
+## Conclusion
+
+In short, Go v1.12+ masks a bug in the [Docker client
+library](https://github.com/docker/for-linux/issues/853). The client
+library should be enabling a TCP keepalive every 30 seconds. However, it
+skips that step when a TLS connection is used, but newer versions of the
+Go compiler will enable keepalives once every 15 seconds.
+
+The lack of keepalives prevented users from seeing complete GitLab CI
+job log data only under specific conditions:
+
+1. The runner had to be compiled with an old Go compiler (before v1.12).
+1. It had to use the Docker Machine executor.
+1. A job had to idle for longer than the allowed network timeout (e.g. 10 minutes).
+
+We worked around the problem by [compiling the GitLab Runner with Go
+v1.12.13](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1667),
+and this enables a 15-second keepalive by default. We were surprised
+that Go doesn't use the kernel settings to turn on TCP keepalives, but
+this may be done for cross-platform compatibility reasons.
+
+We never expected that a simple static analysis failure would lead us
+down this rabbit hole, but the debugging techniques described here will
+invariably prove useful in the future. At the very least, this journey
+illuminated how Go, Docker, and GitLab work together.
+
+<%= partial "includes/blog/blog-merch-banner" %>
+
+Cover image by [Joshua Sortino](https://unsplash.com/@sortino) on [Unsplash](https://unsplash.com/photos/LqKhnDzSF-8)
+{: .note}

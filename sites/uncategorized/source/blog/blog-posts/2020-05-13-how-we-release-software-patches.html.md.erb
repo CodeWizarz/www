@@ -1,0 +1,106 @@
+---
+title: "Inside GitLab: How we release software patches"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: engineering
+image_title: '/images/blogimages/patch.jpg'
+description: "At GitLab, we tackle software patches in two ways – hands on and automatically. Learn how the release manager works to create and deliver essential fixes with auto-deploy releases on GitLab.com and patch releases for self-managed users."
+tags: inside GitLab
+twitter_text: "Learn how the @GitLab release manager works to create and deliver essential fixes to GitLab.com and patch releases to self-managed users"
+featured: yes
+postType: product
+merch_banner: merch_six
+---
+
+You can set your smartwatch by it: On the 22nd of every month, GitLab self-managed users can expect to see an update for the latest version of our self-managed product. In our monthly release, you might find new product features, iterations on existing features, and oftentimes you’ll see the end-result of requests for tooling or merge requests submitted by the community.
+
+But just as in life, rarely is software development perfect. When a bug or security vulnerability surfaces, the release manager on the Delivery team will have to create a patch release for our self-managed customers. GitLab.com is continuously updated through the continuous delivery process. We call this CD process auto-deployments to avoid ambiguity with GitLab CD features. The auto-deploy process might include suggestions from merge requests submitted by users, customers, and our internal development team. So at GitLab, tackling the pesky problem of releasing software patches is solved in two very different ways.
+
+"We are ensuring daily that everything built by developers is deployed on all environments prior to deploying to GitLab.com," explains [Marin Jankovski](/company/team/#marin), senior engineering manager, Infrastructure. "You can think of a self-managed release as a snapshot of a GitLab.com deployment, with additional actions taken to ensure that our customers can use the same package for their own self-managed installations."
+
+Regardless of the origin of the bug or vulnerability, GitLab.com customers will receive the fix shortly after it has been created, which is a benefit of an automated CD process. The fixes for self-managed customers require specific preparation by the release manager.
+
+The Delivery team works hard to automate more of the processes involved in creating a release to reduce the [mean time to production (MTTP)](/handbook/engineering/infrastructure/performance-indicators/#mean-time-to-production-mttp), which refers to the amount of time between when a developer merges a merge request to when it is deployed to GitLab.com.
+
+"The whole mission of the Delivery Team is making sure that we can deliver faster as a company or at least enabling people to deliver faster, right?" says Marin.
+
+Both our self-managed and GitLab.com customers benefit from the Delivery team’s efforts to reduce cycle time and speed up deployments. In this blog post, we explain the similarities and differences between these two types of [GitLab releases](/handbook/engineering/releases/), and how the Delivery team prepares a patch release for our self-managed GitLab users and how they ensure that GitLab.com is always current using auto-deployments.
+
+## What does a release manager do?
+
+Members of the GitLab Delivery team [rotate the responsibilities of being a release manager](/community/release-managers/) for our monthly self-managed releases, as well as the patch and security releases that might be shipped in-between. They are also responsible for efforts to migrate the company to automated, continuous deployments.
+
+Our self-managed releases and our GitLab.com releases use similar workflows and technology, but operate on different [timelines](/handbook/engineering/releases/#timelines), Marin explains.
+
+The main priority for the release manager, regardless of the release type, is ensuring that GitLab stays available and secure since the application runs on GitLab.com, ensuring that the same issues do not trickle down to self-managed customer's infrastructure.
+
+When a bug or security vulnerability is reported fixed in GitLab, it is up to the release manager to evaluate whether or not it merits a patch or security release for our self-managed users. If the release manager decides the bug or vulnerability merits an update, they will start the preparation work.
+
+The release manager has to decide whether or not to prepare a patch release or when to deploy it, and that largely depends on the context of the situation: "And for now machines are not as good dealing with the context as humans are," says Marin.
+
+## All about patch releases
+
+### What is a patch release and why do we need them?
+
+The release manager decides whether or not to issue a patch release based on the [severity of the bug being reported](/handbook/engineering/quality/issue-triage/#sts=Severity). The bugs are ranked based upon their severity – an S4 or S3 bug may be stylistic, such as a pixel or icon that is off tilt. It’s no less important, but it is less likely to impact someone’s workflow, and so it is unlikely that a patch release will be created just to fix an S4 or S3 vulnerability, Marin explains. Whereas an S1 or S2 vulnerability means a user may be prevented from upgrading to the newest version or there is a significant error impacting a user’s workflow. If an S1 or S2 bug is reported then that means a lot of people are likely experiencing it, so the release manager begins to prepare the patch release straightaway.
+
+Once the fix is ready for an S1 or S2 vulnerability, the release manager will start the patch release. For example, the [GitLab 12.10.1 patch release](/releases/2020/04/24/gitlab-12-10-1-released/) was created after a few blocker issues were identified and developers fixed the underlying problem. The release manager estimated whether the assigned severities were correct, and after confirming, the patch release process was initiated and released within 24 hours of the blockers being identified.
+
+When the queue of S4s, S3s, and S2s starts to grow the release manager will look at the context to determine the urgency of the patch release. When the bugs start to pile up, the release manager will bundle the items together and ship them. A [patch or security release blog post](/releases/2020/04/24/gitlab-12-10-1-released/) summarizes the various fixes and updates that are pushed out to users in the form of patch or security releases.
+
+### How does the release manager create a patch release?
+
+We use GitLab CI and various other GitLab features such as our ChatOps function to create GitLab patch release. The release manager will start the patch release by triggering the ChatOps command in our internal `#releases` channel in Slack.
+
+`/chatops run release prepare 12.10.1`
+
+The ChatOps function works within Slack to trigger various events that GitLab then picks up and executes. For example, the Delivery team set-up ChatOps to automate a number of action items for the patch release, such as preparing the [relevant patch release issues](https://gitlab.com/gitlab-org/release/tasks/-/issues/1305), actionable items within the release, and so on.
+
+Once the release manager triggers the ChatOps command using Slack, the rest of the process is automated within GitLab using our [CI/CD functions](/features/continuous-integration/). There is a lot of back-and-forth between ChatOps in Slack and GitLab throughout the release process as the release manager triggers some of the core steps in the process.
+
+Watch the video below for an in-depth look at the technical process behind preparing a patch release for GitLab.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/lHag9jARbIg" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+
+## Inside auto-deployments on GitLab.com
+
+### How do releases work on GitLab.com?
+
+The process and tools used to update GitLab.com are similar to those used for creating a patch release. Updating GitLab.com requires less manual actions from the release manager.
+
+Instead of using ChatOps to trigger the deployment, we use CI features such as [scheduled pipelines](https://docs.gitlab.com/ee/ci/pipelines/schedules.html#working-with-scheduled-pipelines) which allow the release manager to schedule certain actions to happen at a particular time. Instead of a manual process, there is a pipeline every hour which checks for any new changes to GitLab projects, the changes are automatically pulled in, packaging and deployment scheduled, and automatically runs the QA testing and other required steps.
+
+"So you have a lot of deployments happening on all of the different environments, before GitLab.com. And then once all these environments are in a good state and testing shows good results, the release manager takes an action to promote a deployment on GitLab.com," says Marin.
+
+The CI/CD technology that powers updates to GitLab.com automates the release process, up to the point where a release manager will have to manually trigger deployment to the production environment for GitLab.com.
+
+Marin takes a deep dive into the process behind creating an update to GitLab.com in the video below. Watch to learn more about the process behind issuing an auto-deploy release.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/_G-EWRpCAz4" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## What’s next for the Delivery team
+
+The main difference between auto-deploy releases on GitLab.com and patch releases for self-managed customers is that the latter process is longer and requires more manual action on the part of the release manager.
+
+"Sometimes we are delayed with creating releases for our self-managed customers because of the handover issues, because of the tooling issues, because of the too many variables that go into producing a single release," says Marin.
+
+One of the short-term [goals for the Delivery team](/handbook/engineering/infrastructure/team/delivery/#vision) is to reduce the amount of manual intervention required on the part of the release manager to [increase release velocity](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/170). The team is working to simplify, streamline, and automate the release process, which will help turn around lower-tier severity fixes faster. The focus on speed is indicated by the core key performance indicator: Reduce the MTTP – the time it takes for a merge request to deploy to GitLab.com – from its current 50 hours to eight hours.
+
+The Delivery team is also working to drive the changes necessary to shift [GitLab.com to a Kubernetes-based infrastructure](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/112). These are two different approaches that share the same goal: Shipping faster on GitLab.com and for self-managed customers.
+
+## Have ideas for us?
+
+Everyone can contribute to GitLab, and we welcome feedback from our readers. If you have ideas for the Delivery team, feel empowered to [create an issue and attach the label `team: Delivery`](https://gitlab.com/groups/gitlab-org/-/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=team%3A%3ADelivery).
+
+Cover photo by [Kyle Hinkson](https://unsplash.com/@kajhinkson?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/@kajhinkson?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note.text-center}

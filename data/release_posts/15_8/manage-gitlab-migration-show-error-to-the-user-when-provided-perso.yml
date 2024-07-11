@@ -1,0 +1,18 @@
+---
+features:
+  secondary:
+  - name: "Check personal access token before migrations start"
+    available_in: [core, premium, ultimate]
+    gitlab_com: true
+    documentation_link: 'https://docs.gitlab.com/ee/user/group/import/#connect-to-the-source-gitlab-instance'
+    reporter: m_frankiewicz
+    stage: manage
+    categories:
+    - Importers
+    issue_url: ['https://gitlab.com/gitlab-org/gitlab/-/issues/375057', 'https://gitlab.com/gitlab-org/gitlab/-/issues/383758']
+    description: |
+      Previously, GitLab validated personal access tokens only after migrations had started. This meant group migrations by direct transfer
+      could fail mid-migration because the personal access token didn't have sufficient scope or was no longer valid.
+
+      Now we perform an early check and return an informative error when the scope is not sufficient or the token has expired. This avoids starting
+      migrations that will definitely fail.

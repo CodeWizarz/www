@@ -1,0 +1,111 @@
+<% add_extra_js('libs/moment.min.js') %>
+<% add_extra_js('libs/Chart.min.js') %>
+
+<canvas id="<%= unique_id %>" width="100%" height="100%"></canvas>
+
+<script>
+
+window.addEventListener('load', function() {
+  var ctx = document.getElementById('<%= unique_id %>').getContext('2d');
+
+  Chart.plugins.register(verticalLinePlugin); // Defined in maturity.js
+  setTimeout(() => {
+    // Colors are defined in maturity.js
+    var myChart = new Chart(ctx, {
+      type: 'line',
+        data: {
+          labels: [ <% dates.each{ | date | concat "'#{date}', " } %> ],
+          datasets: [
+            {
+              label: 'Lovable',
+              fill: true,
+              lineTension: 0,
+              backgroundColor: colors.orange.fill,
+              pointBackgroundColor: colors.orange.stroke,
+              borderColor: colors.orange.stroke,
+              pointHighlightStroke: colors.orange.stroke,
+              pointHitRadius: 20,
+              data: [ <% lovable.each{ | count | concat "'#{count}', " } %> ]
+            },{
+              label: 'Complete',
+              fill: true,
+              lineTension: 0,
+              backgroundColor: colors.green.fill,
+              pointBackgroundColor: colors.green.stroke,
+              borderColor: colors.green.stroke,
+              pointHighlightStroke: colors.green.stroke,
+              pointHitRadius: 20,
+              data: [ <% complete.each{ | count | concat "'#{count}', " } %> ]
+            },{
+              label: 'Viable',
+              fill: true,
+              lineTension: 0,
+              backgroundColor: colors.yellow.fill,
+              pointBackgroundColor: colors.yellow.stroke,
+              borderColor: colors.yellow.stroke,
+              pointHighlightStroke: colors.yellow.stroke,
+              pointHitRadius: 20,
+              data: [ <% viable.each{ | count | concat "'#{count}', " } %> ]
+            },{
+              label: 'Minimal',
+              fill: true,
+              lineTension: 0,
+              backgroundColor: colors.red.fill,
+              pointBackgroundColor: colors.red.stroke,
+              borderColor: colors.red.stroke,
+              pointHighlightStroke: colors.red.stroke,
+              pointHitRadius: 20,
+              data: [ <% minimal.each{ | count | concat "'#{count}', " } %> ]
+            },{
+              label: 'Planned',
+              fill: true,
+              lineTension: 0,
+              backgroundColor: colors.blue.fill,
+              pointBackgroundColor: colors.blue.stroke,
+              borderColor: colors.blue.stroke,
+              pointHighlightStroke: colors.blue.stroke,
+              pointHitRadius: 20,
+              data: [ <% planned.each{ | count | concat "'#{count}', " } %> ]
+          }
+        ]
+      },
+      options: {
+        scales: {
+          xAxes: [{
+            type: 'time',
+            time: {
+              parser: 'YYYY-MM-DD'
+            },
+            <% if embed %>
+              display: false,
+            <% end %>
+          }],
+          yAxes: [{
+            stacked: true,
+            scaleLabel: {
+              labelString: 'Categories per maturity level',
+              display: true,
+            },
+            ticks: {
+              max: <%= planned[0] + minimal[0] + viable[0] + complete[0] + lovable[0] %>,
+            },
+            <% if embed %>
+            display: false,
+            <% end %>
+          }]
+        },
+        legend: {
+          display: true,
+          position: 'bottom',
+          <% if embed %>
+              display: false,
+          <% end %>
+        },
+        maintainAspectRatio: false,
+      },
+      lineAtIndex: [ <%= dates.index(Date.today.strftime('%Y-%m-%d')) %> ],
+    });
+  }, "1000")
+});
+
+</script>

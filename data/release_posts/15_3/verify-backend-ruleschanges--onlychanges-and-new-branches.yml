@@ -1,0 +1,15 @@
+---
+features:
+  secondary:
+  - name: "Improved behavior of CI/CD `changes` with new branches"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/ci/yaml/#ruleschanges'
+    reporter: dhershkovitch
+    stage: verify
+    categories:
+    - Pipeline Authoring
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/293645'
+    description: |
+      Configuring CI/CD jobs to run on pipelines when certain files are changed by using `rules: changes` is very useful with merge request pipelines. It compares the source and target branches to see what has changed, and adds jobs as needed. Unfortunately, `changes` does not work well with branch pipelines. For example, if the pipeline runs for a new branch, `changes` has nothing to compare to and always returns `true`, so jobs might run unexpectedly.
+
+      In this release we're adding `compare_to` to `rules:changes` for both jobs and `workflow:rules`, to improve the behavior in branch pipelines. You can now configure your jobs to check for changes between the new branch and the defined comparison branch. Jobs that use `rules:changes:compare` will work the way you expect, comparing against the branch you define. This is useful for monorepos, where many independent jobs could be configured to run based on which component in the repo is being worked on.

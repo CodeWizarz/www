@@ -1,0 +1,191 @@
+---
+title: "How to use Git rebase in real life"
+author: Toon Claes
+author_gitlab: toon
+categories: engineering
+image_title: '/images/blogimages/rebase-in-real-life.jpg'
+description: "From fixup to autosquash here are real world ways to leverage Git rebase."
+twitter_text: "How to apply Git rebase techniques in real life."
+tags: git, workflow, tutorial
+featured: yes
+---
+
+My colleague [Chris](/company/team/#chriscool) recently wrote about [how to take advantage of Git
+rebase](/blog/2022/10/06/take-advantage-of-git-rebase/). In this post we'll
+explain how you can take these techniques, and apply them to daily developer life.
+
+## Fixup
+
+Imagine you have created a merge request, and there are some pipeline failures
+and some comments from reviews, and suddenly your [commit history](/blog/2018/06/07/keeping-git-commit-history-clean/) looks something
+like this:
+
+```shell
+$ git log --oneline
+
+8f8ef5af (HEAD -> my-change) More CI fixes
+e4fb7935 Apply suggestion from reviewer
+c1a1bec6 Apply suggestion from reviewer
+673222be Make linter happy
+a0c30577 Fix CI failure for X
+5ff160db Implement feature Y
+f68080e3 Implement feature X
+3cdbc201 (origin/main, origin/HEAD, main) Merge branch 'other-change' into 'main'
+...
+```
+
+In this example there are 2 commits implementing feature X and Y, followed by a
+handful of commits that aren't useful on their own. We used the fixup feature of
+Git rebase to get rid of them.
+
+### Finding the commit
+
+The idea of this technique is to integrate the changes of these follow-up
+commits into the commits that introduced each feature. This means for each
+follow-up commit we need to determine which commit they belong to.
+
+Based on the filename you may already know which commits belong together, but if
+you don't you can use git-blame to find the commit.
+
+```shell
+git blame <revision> -L<start>,<end> <filename>
+```
+
+With the option `-L` we'll specify a range of a line numbers we're interested in.
+Here `<end>` cannot be omitted, but it can be the same as `<start>`. You can
+omit `<revision>`, but you probably shouldn't because you want to skip over the
+commits you want to rebase away. Your command will look something like this:
+
+```shell
+$ git blame 5ff160db -L22,22 app/model/user.rb
+
+f68080e3 22) scope :admins, -> { where(admin: true) }
+```
+
+This tells us line `22` was touched by `f68080e3 Implement feature X`.
+
+Now repeat this step until you know the commit for each of the commits you want
+to rebase out.
+
+### Interactive rebase
+
+The next step is to start the interactive rebase:
+
+```shell
+$ git rebase -i main
+```
+
+Here you're presented with the list of instructions in your `$EDITOR`:
+
+``` text
+pick 8f8ef5af More CI fixes
+pick e4fb7935 Apply suggestion from reviewer
+pick c1a1bec6 Apply suggestion from reviewer
+pick 673222be Make linter happy
+pick a0c30577 Fix CI failure for X
+pick 5ff160db Implement feature Y
+pick f68080e3 Implement feature X
+```
+
+Now you'll need to change these instructions to something like this:
+
+```text
+fixup 8f8ef5af More CI fixes
+fixup e4fb7935 Apply suggestion from reviewer
+fixup 673222be Make linter happy
+pick 5ff160db Implement feature Y
+fixup c1a1bec6 Apply suggestion from reviewer
+fixup a0c30577 Fix CI failure for X
+pick f68080e3 Implement feature X
+```
+
+As you can see I've reordered the commits, and I've changed some occurrences of
+`pick` to `fixup`.
+
+The Git rebase will process this list bottom-to-top. It takes each line with
+`pick` and uses its commit message. On each line starting with `fixup` it
+integrates the changes into the commit below. When you've saved this file and
+closed your `$EDITOR`, the Git history will look something like this:
+
+```shell
+$ git log --oneline
+
+e880c726 (HEAD -> my-change) Implement feature Y
+e088ea06 Implement feature X
+3cdbc201 (origin/main, origin/HEAD, main) Merge branch 'other-change' into 'main'
+...
+```
+
+## Autosquash
+
+Using autosquash can be an alternative technique to the above. First we'll
+uncommit all the commits we want to get rid of.
+
+```shell
+git checkout f68080e3
+```
+
+Now all changes only exist in your working tree, and are gone from the commit
+history. You can use `git add` or `git add -p` to stage all changes related to
+`e088ea06 Implement feature X`. Instead of running `git commit` or `git commit -m`
+we'll use the `--fixup` option:
+
+```shell
+$ git commit --fixup e088ea06
+```
+
+Now the history will look something like:
+
+```shell
+$ git log --oneline
+
+e744646b (HEAD -> my-change) fixup! Implement feature X
+5ff160db Implement feature Y
+f68080e3 Implement feature X
+3cdbc201 (origin/main, origin/HEAD, main) Merge branch 'other-change' into 'main'
+...
+```
+
+All remaining changes should now belong to `5ff160db Implement feature Y` so we
+can run:
+
+```shell
+$ git add .
+
+$ git commit --fixup 5ff160db
+
+$ git log --oneline
+
+18c0fff9 (HEAD -> my-change) fixup! Implement feature Y
+e744646b fixup! Implement feature X
+5ff160db Implement feature Y
+f68080e3 Implement feature X
+3cdbc201 (origin/main, origin/HEAD, main) Merge branch 'other-change' into 'main'
+...
+```
+
+You can now review the `fixup!` commits and if you're happy with it, run:
+
+```shell
+$ git rebase -i --autosquash main
+```
+
+You see we provide the extra option `--autosquash`. This option will look for
+`fixup!` commits and automatically reorder those and set their instruction to
+`fixup`. Normally there's nothing for you to be done now, and you can just close
+the instruction list in your editor. If you type `git log` now you'll see the
+`fixup!` commits are gone.
+
+## Alternatives
+
+Finally, there are some tools that allow you to _absorb_ commits more easily, for
+example:
+
+* [lib.rs/crates/git-absorb](https://lib.rs/crates/git-absorb)
+* [github.com/MrFlynn/git-absorb](https://github.com/MrFlynn/git-absorb)
+* [gitlab.com/bertoldia/git-absorb](https://gitlab.com/bertoldia/git-absorb)
+* [github.com/tummychow/git-absorb](https://github.com/tummychow/git-absorb)
+* [github.com/torbiak/git-autofixup](https://github.com/torbiak/git-autofixup)
+
+[Cover image](https://unsplash.com/photos/qAShc5SV83M) by [Yung Chang](https://unsplash.com/@yungnoma) on [Unsplash](https://unsplash.com/).
+{: .note}

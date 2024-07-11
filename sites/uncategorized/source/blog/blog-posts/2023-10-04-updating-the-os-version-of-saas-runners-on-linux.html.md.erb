@@ -1,0 +1,66 @@
+---
+title: "Upgrading the operating system version of our SaaS runners on Linux"
+author: Gabriel Engel
+author_gitlab: gabrielengel_gl
+categories: news
+image_title: /images/blogimages/security-pipelines.jpg
+description: "With GitLab 17.0, we are updating the operating system version of our SaaS runners on Linux. Learn what will change and how to mitigate potential incompatibilities."
+tags: CI/CD, product, news
+twitter_text: "With GitLab 17.0, we are updating the operating system version of our SaaS runners on Linux, causing incompatibilities with older Docker-in-Docker versions. Be sure to update Docker-in-Docker or Kaniko versions to not be affected."
+featured: no
+postType: product
+
+---
+GitLab 17.0, due in May 2024, comes with an upgrade to the container-optimized operating system ([COS](https://cloud.google.com/container-optimized-os/docs)) of the ephemeral VMs used to execute jobs for [SaaS runners on Linux](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html). That COS upgrade includes a Docker Engine upgrade from Version 19.03.15 to Version 23.0.5, which introduces a known compatibility issue.  
+
+## Who will be impacted by the change?
+The fleet of [SaaS runners on Linux](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html) with the tags `saas-linux-*-amd64` will receive an update. This change does not affect the SaaS Runners on macOS and Windows.
+
+### Using Docker-in-Docker
+Using [Docker-in-Docker based jobs](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#use-docker-in-docker)
+with a version prior to `20.10` on a host that uses Docker Engine 20.10 or newer, you'll get the following error:
+
+```plaintext
+cgroups: cgroup mountpoint does not exist: unknown
+```
+
+### Using Kaniko
+[Using Kaniko to build container images](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html) is another impacted use case.
+Kaniko versions older than `v1.9.0`, are unable to detect the container runtime and fail with the error:
+
+```plaintext
+kaniko should only be run inside of a container, run with the --force flag if you are sure you want to continue
+```
+
+## How to fix the issue
+To fix this, simply update the version of Docker-in-Docker or Kaniko images used in your job.
+In general, we strongly advise the regular testing and updating to the latest possible version, and referencing it explicitly in the job definition.
+This will prevent your jobs from randomly failing when image updates are published.
+
+### Using Docker-in-Docker
+Update your jobs to use `docker:dind` in Version 20.10 or newer, such as:
+
+```yaml
+job:
+  services:
+  - docker:24.0.5-dind
+  image: docker:24.0.5
+  script:
+  - ...
+```
+
+### Using Kaniko
+Update your jobs to use `gcr.io/kaniko-project/executor` in Version `v1.9.0` or newer, such as:
+
+```yaml
+job:
+  image: gcr.io/kaniko-project/executor:v1.14.0
+  script:
+  - ...
+```
+
+## Read more
+- [What are SaaS runners?](https://docs.gitlab.com/ee/ci/runners/)
+- [SaaS runners on Linux documentation](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html)
+- [Building Docker images with Docker documentation](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html)
+- [Building Docker images with Kaniko documentation](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html)

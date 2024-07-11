@@ -1,0 +1,125 @@
+---
+title: "How we measure engineering productivity at GitLab"
+author: "Clement Ho"
+author_gitlab: ClemMakesApps
+author_twitter: ClemMakesApps
+categories: engineering
+image_title: "/images/blogimages/measuring-engineering-productivity/background.jpg"
+description: "Learn about how we measure and iterate through this metric"
+tags: "inside GitLab"
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the "Install GitLab" banner
+featured: no
+merch_banner: merch_seven
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2020-09-02.
+{: .alert .alert-info .note}
+
+One of the challenges in a rapidly growing engineering organization is determining how your organization's productivity scales over time. Companies that grow quickly often face a slow down in output because of inefficiencies and communication challenges. For example, a task that you used to be able to ask another coworker to do may now need a comprehensive approval flow.
+
+At GitLab, we went from 100 to 280 engineers in 1.5 years. As a startup, it was critical that we continued our momentum of:
+
+![Shipping monthly releases => Provide more value to users => Increasing revenue](/images/blogimages/measuring-engineering-productivity/momentum.png){: .shadow.center}
+
+As a result, we created several [Key Performance Indicators](/company/kpis/#what-are-kpis) (KPIs) and Performance Indicators (PIs) around this:
+
+- [Throughput](/handbook/engineering/development/performance-indicators/#throughput)
+- [Product MRs Review to Merge time (RTMT)](/handbook/engineering/development/performance-indicators/#review-to-merge-time-rtmt)
+- [Development Department Member MR Rate](/handbook/engineering/development/performance-indicators/#development-department-member-mr-rate)
+- [Say Do Ratio](/handbook/engineering/development/performance-indicators/#say-do-ratios)
+- [Product MRs by Type](/handbook/engineering/development/performance-indicators/#product-mrs-by-type)
+
+The primary one that is often discussed in engineering leadership at GitLab is [Merge Request (MR)](/features/continuous-integration/) Rate.
+
+In this blog post, I'll take a deep dive into how we measure engineering productivity at GitLab using MR Rate, the challenges we've encountered, and what we do to increase this metric. I hope that through this, you'll have a deeper understanding of how we operate at GitLab and inspire you to reflect on how your organization measures engineering productivity.
+
+## What is MR Rate?
+
+![MR Rate = (Total MRs for a team in a given month)/(number of team members employed during that month)](/images/blogimages/measuring-engineering-productivity/mr-rate-formula.jpeg){: .shadow.center}
+
+**Note:** We include management roles in the team count because we want this metric to be a team metric and want managers to be accountable for their team's metric.
+
+We use this metric because:
+
+1. We want to incentivize everyone to [iterate](/handbook/values/#iteration) and break down work into smaller MRs because smaller MRs have a faster review time and get merged faster (better developer and maintainer review experience)
+1. The quicker we can deliver features to users, the faster we can iterate upon them
+1. Every MR into the codebase improves the codebase, and every improvement has the downstream effect of making the product better
+
+When viewed at an organization level, this metric helps us understand how productivity in the organization changes over time. Although this metric seems simple, it actually requires a lot of detailed analysis as there are many situations to examine:
+
+- New team vs. established team
+- Team performance issues (blocking work or incorrect iteration work breakdown)
+- Individual growth (and performance management)
+- [Community contributions](/handbook/marketing/developer-relations/contributor-success/) vs. independent team contributions
+- Operational productivity constraints
+
+At first, we measured MRs based on labels associated with the product domain (which generally maps to an existing engineering team). As an open core company, this allowed us to easily aggregate community contributions into the metric. We wanted to account for them because we want to continue encouraging team members to support community contribution MRs and recognize that these MRs continue to help provide the product with more value to users.
+
+Unfortunately, as our organization grew over time, this metric became confusing. Although we had a bot that would label MRs, we occasionally had bad data and mislabeled MRs. In addition, certain teams with product areas that were more mature had more community contributions than others. The combination of these issues evolved the metric into multiple types.
+
+- MR Rate measured through labeling
+- Team MR Rate measured through MR authorship (also known as Narrow MR Rate)
+
+It's likely that over time this may continue to evolve but for now, these new types of MR Rates have brought more clarity within our organization.
+
+## What are the challenges with MR Rate?
+
+There are many challenges, but we'll highlight a few notable ones.
+
+First of all, one metric never tells the full story. One of the challenges we faced as we hyper focused on this metric was being biased to the number given by the metric rather than truly understanding the story surrounding the metric. For example, a team with a high MR Rate could be shipping quantity over quality. By the MR Rate measurement alone, the organization could unintentionally exemplify teams with unstable features.
+
+In order to avoid these types of situations, we first ensure that we clearly define our [Definition of Done](https://docs.gitlab.com/ee/development/contributing/merge_request_workflow.html#definition-of-done) and our [maintainer](/handbook/engineering/workflow/code-review/#maintainer) [review process](https://docs.gitlab.com/ee/development/code_review.html). This allows us to set a baseline for quality so that we can set clear expectations in the organization and create clear guidance when MRs are below our standards for quality.
+
+In addition, we also use other metrics to get a fuller understanding of the story and we regularly introspect about our numbers. We intentionally accompany MR Rate with a few other metrics such as [Product MRs by Type](/handbook/engineering/development/performance-indicators/#product-mrs-by-type) to better understand the distribution of MRs and [Say Do Ratio](/handbook/engineering/development/performance-indicators/#say-do-ratios) (this is our latest addition, we're still iterating on it) to better understand how the teams are performing relative to what they committed with product management during the development milestone. We generally use MR Rate to observe trends and regularly ask ourselves, “why is this trending down?” as well as “why is this trending up so much? Is there something that this team is doing that other teams can learn from?”. These are some techniques we use to keep ourselves accountable for understanding the broader picture of the metric.
+
+Another challenge we faced with MR Rate is balancing it between a team vs. individual metric. As an organization, we want MR Rate to trend upwards over time, and we want to hold engineering leaders accountable for their teams. Engineering directors are responsible for their (organization) sub-department's metrics, and engineering managers are responsible for their team's metrics respectively.
+
+We intentionally chose not to make MR Rate an individual metric because we do not want to encourage siloed, non-collaborative behavior. For example, we do not want a team member to feel disincentivized to review other team members' MRs or unblock others. This is especially important because [collaboration](/handbook/values/#collaboration) is a company value. Although actions such as making an MR Rate leaderboard could potentially increase the metric for the organization, we have intentionally chosen not to do that because we want to encourage collaboration. We also chose not to use MR Rate as a metric for a team member's underperformance.
+
+This conscious decision is tricky (especially for smaller teams) because it can be rather difficult for engineering managers to increase their team's MR Rate trends without discussing individual metrics. When teams have less team members, each team member's total MRs in a month would be more impactful to the team's overall MR Rate compared to a larger team. Different teams have attempted to address this in different ways which we will explain in the next section.
+
+## How do we increase MR Rate?
+
+We use four primary strategies to increase MR Rate.
+
+1. Improving iteration
+1. Setting KPIs
+1. Setting goals (OKRs) to increase KPI
+1. Empowering teams to improve efficiencies
+
+Improving iteration is our primary strategy because team members who are better at iterating are able to create smaller MRs, which results in a higher MR Rate. In our experience, iteration is easy to conceptualize but difficult to apply. Our organization put together some resources (including a [training template](https://gitlab.com/gitlab-com/Product/-/blob/master/.gitlab/issue_templates/iteration-training.md)), and our CEO has set up Iteration Office Hours as an opportunity to coach (most of which are also available publicly on [YouTube](https://www.youtube.com/c/GitLabUnfiltered/search?query=iteration+office+hours+with)).
+
+From an organizational perspective, we use KPIs to monitor our MR Rate. Our organization tracks our [Development Department Narrow MR Rate](/handbook/engineering/development/performance-indicators/#development-department-narrow-mr-rate) as our primary KPI with a description, a chart with current and historical data, and a predefined target. As of writing this article, our target is 10, and we are trending toward that target over time.
+
+![Development Department Narrow MR Rate](/images/blogimages/measuring-engineering-productivity/dept-mr-rate.png){: .shadow.center}
+
+_KPI chart as of August 24, 2020_
+
+Each sub-department under the development department also has their dashboards available publicly (though these dashboards are not as organized and easy to find as the KPI). For example, the Ops sub-department tracks this on their specific [handbook page](/handbook/engineering/development/ops/#ops-sub-department-performance-indicators). We are currently working on consolidating these charts. These KPI dashboards make it easy to understand how the organization is performing and allow us to keep it top of mind.
+
+In addition to KPIs, each fiscal quarter, engineering management uses these indicators to determine how to set OKRs. In previous quarters, OKRs were set to raise MR Rate to higher targets. This quarter's goal, in light of COVID's long lasting implications, is to maintain the target, because we understand that the current situation is affecting everyone differently. OKRs help align the organization toward the same goals so that everyone understands and can contribute to these goals.
+
+From a team perspective, we also empower our engineering managers to experiment with processes to improve efficiency but stay mindful of maintaining healthy work life balance. Some engineering managers choose to use individual MR Rate values as a means of coaching and understanding more about each team member's merge requests. For example, a team member may have a lower MR Rate because he/she is a maintainer, and because of the number of MR reviews received, is unable to have completed as many MRs as he/she could do. Some teams also look through their team's MR Rate on a weekly basis and provide commentary to their directors as a means of understanding more about the metric in order to improve it over time.
+
+## Recap
+
+The MR Rate is how we've chosen to measure and increase engineering productivity at GitLab. It's not perfect, but we're constantly iterating to make it better. We have yet to determine what our ceiling is or whether we've already reached it but we will definitely share with the wider community when we get to that point. What metrics do you use to measure your organization's engineering productivity? Do you have suggestions or comments about MR Rate? Leave a comment below, and we'll read through them and do our best to respond.
+
+# Special thanks
+
+Thanks to the following engineering leaders at GitLab who opened up their calendars to share their insights on this topic:
+
+- [Eric Johnson](/company/team/#edjdev), executive vice president of Engineering
+- [Christopher Lefelhocz](/company/team/#clefelhocz1), vice president of Development
+- [Wayne Haber](/company/team/#whaber), director of Engineering, Threat Management
+- [Sam Goldstein](/company/team/#sgoldstein), director of Engineering, Op
+- [Tim Zallmann](/company/team/#timzallmann), director of Engineering, Dev
+- [Chun Du](/company/team/#cdu1), director of Engineering, Enablement
+- [Bartek Marnane](/company/team/#bmarnane), director of Engineering, Growth
+- [Todd Stadelhofer](/company/team/#tstadelhofer), director of Engineering, Secure
+- [Darby Frey](/company/team/#darbyfrey), senior manager, Engineering, Verify
+- [Daniel Croft](/company/team/#dcroft), senior manager, Engineering, Package and Release
+
+Cover image by [Frank Mckenna](https://unsplash.com/@frankiefoto) on [Unsplash](https://unsplash.com/photos/4V8JxijgZ_c)
+{: .note}

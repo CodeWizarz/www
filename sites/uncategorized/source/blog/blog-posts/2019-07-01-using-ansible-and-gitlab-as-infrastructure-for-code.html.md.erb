@@ -1,0 +1,146 @@
+---
+title: "How to use GitLab and Ansible to create infrastructure as code"
+author: Sara Kassabian and Brad Downey
+guest: true
+categories: engineering
+image_title: '/images/blogimages/gitlab-ansible-cover.png'
+description: "Explore the power of GitLab CI as we demo Ansible playbooks in infrastructure as code."
+tags: demo, CI/CD
+twitter_text: "Watch our tutorial on using code from @ansible playbooks with @gitlab CI for infrastructure as code."
+ee_cta: false
+featured: yes
+postType: content marketing
+related_posts:
+  - "/topics/gitops/gitops-gitlab-collaboration/"
+  - "/topics/gitops/gitops-multicloud-deployments-gitlab/"
+  - "/blog/2020/07/14/gitops-next-big-thing-automation/"
+---
+
+GitLab CI is a powerful tool that can be used for a number of things, including [infrastructure as code](/topics/gitops/infrastructure-as-code/) and [GitOps](/topics/gitops/). GitLab is tool agnostic, but we use Ansible in this demonstration because it's a language commonly used by developers for infrastructure as code. This is a [two-router demo](https://gitlab.com/bdowney/ansible-demo/blob/master/ci-cd-demo/ci.yml) from the [Ansible networking class](https://github.com/ansible/workshops).
+
+What’s particularly cool about [GitLab CI](/features/continuous-integration/) is that the code from the [Ansible playbook](https://docs.ansible.com/ansible/latest/cli/ansible-playbook.html) can be edited and shipped without ever having to install any dependencies locally. The demo project, which calls for an update to the SNMP strings on all devices monthly per our security policy, can be done entirely on [GitLab.com](/pricing/) , our hosted service.
+
+The first step is to open up the Ansible playbook, where we see four tasks:
+
+*   Gather router facts
+*   Display version
+*   Display serial number
+*   Configure SNMP
+
+Configuring the SNMP strings is the focus of this demo, which can be achieved in a simple series of steps.
+
+### Start with the issue board
+
+Every plan at GitLab starts in the same place: [with an issue](/handbook/marketing/strategic-marketing/getting-started/101/). So the first step in the GitLab workflow is to check out the issue board within the [ansible-demo project](https://gitlab.com/bdowney/ansible-demo/-/boards). On the [ansible-demo issue board](https://gitlab.com/bdowney/ansible-demo/issues), we see that there is already an issue to [change SNMP strings on all routers](https://gitlab.com/bdowney/ansible-demo/issues/4). There is a link to the GitLab security policy wiki within the issue stating that SNMP strings must be rotated monthly and that there must be different strings for read-only and read-write.
+
+![Security policies](/images/blogimages/ansible_screenshots/security_policies_1A.png){: .shadow.medium.center}
+GitLab security policy calls for updating SNMP strings monthly.
+{: .note.text-center}
+
+We then check that the commands to configure the SNMP strings in the [two-router demo](https://gitlab.com/bdowney/ansible-demo/blob/master/ci-cd-demo/ci.yml) follow the GitLab security policy outlined in the issue.
+
+![Ansible SNMP change](/images/blogimages/ansible_screenshots/ansible_snmp_change_2.png){: .shadow.medium.center}
+The commands to configure the SNMP strings are available in the Ansible playbook.
+{: .note.text-center}
+
+Next, return to the issue and assign to yourself and switch the label from `to-do` to `doing` in the right sidebar of the issue, or by dragging between columns in the issue board.
+
+### Create a merge request
+
+The next step is to create a merge request (MR) from the issue. Double-check that the [“Work in Progress” (WIP) flag](https://docs.gitlab.com/ee/user/project/merge_requests/drafts.html) is attached to your MR so it isn’t merged with master prematurely. Rather than connect locally, we use GitLab’s [Web IDE](https://docs.gitlab.com/ee/user/project/web_ide/) because the changes to the SNMP strings are small.
+
+*   We open the [CI/CD](/topics/ci-cd/) demo section.
+*   Go to the Ansible playbook.
+*   Edit the SNMP section so it reads:
+
+```
+-snmp-server community New-SNMP-DEMO1 RO
+
+-snmp-server community Fun-SNMP-RW-STR RW
+```
+
+*   Note that the RO and RW are set to different strings, per the [GitLab security policy](https://gitlab.com/bdowney/ansible-demo/wikis/Security-Policies) outlined in the [issue](https://gitlab.com/bdowney/ansible-demo/issues/1).
+
+### Commit changes
+
+Now that the SNMP string has been updated based on the guidelines, commit the changes. Open the side-by-side comparison of the changes to see the MR has been updated with your latest commit.
+
+![Commit changes](/images/blogimages/ansible_screenshots/side-by-side_3.png){: .shadow.medium.center}
+The side-by-side comparison tool is an easy way to visualize your changes.
+{: .note.text-center}
+
+### Results
+
+Committing the changes will automatically kick off a GitLab CI pipeline. This will perform tasks such as:
+
+  * Syntax checking
+  * Dry-runs
+  * Testing of changes in lab/simulated environment
+
+We can view the progress and output of each job in the GitLab CI pipeline to execute the SNMP updates.
+
+![Job running](/images/blogimages/ansible_screenshots/job_running_4.png){: .shadow.medium.center}
+See the output from your job showing that the SNMP updates in the simulated environment were successful.
+{: .note.text-center}
+
+All of these tasks will be run and documented in the MR.
+
+![Pipeline](/images/blogimages/ansible_screenshots/pipeline_5A.png){: .shadow.medium.center}
+The checkmarks indicate that each task in the GitLab CI pipeline passed.
+{: .note.text-center}
+
+Next, you can log into your lab routers and see the changes.
+
+![routers snmp](/images/blogimages/ansible_screenshots/routersnmp_6.png){: .shadow.medium.center}
+The changes to the RO and RW SNMP strings are reflected in the routers.
+{: .note.text-center}
+
+### MR review
+
+An optional step is to implement [MR approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/). Implementing approvals gives more users the ability to review the changes before they are sent to production.
+
+![approvers](/images/blogimages/ansible_screenshots/approvers_7.png){: .shadow.medium.center}
+The MR can be set up so another user has to review your work before it can be merged into master.
+{: .note.text-center}
+
+### Merging into master
+
+The changes can be merged into master once the testing is complete. This is the branch that holds our production environment code.
+
+When you're ready, click on the `Resolve Work In Progress` button. Then click `Merge`.
+
+Resolving the WIP status will allow the MR to be merged and close out the issue.
+
+Now a new pipeline will run all of the tests that were performed with the additional step of running the playbook in the production environment.
+
+You can view the progress and logs from the pipelines screen. Once this process is complete, you can log into your production routers and see that the SNMP security strings have been updated.
+
+### The magic of GitLab CI
+
+The magic that made all of this possible is GitLab CI. GitLab CI pipelines are a string of sequential tasks that execute everything you need to test and implement your Ansible code.
+
+GitLab CI is configured with a single simple [YAML file](/blog/2020/10/01/three-yaml-tips-better-pipelines/) that lives in the repository, named `.gitlab-ci.yml`.
+
+In this demonstration you will see our `.gitlab-ci.yml` file contains three stages.
+
+1. Deploy: This creates the two-router simulation network, in AWS, using Ansible.
+2. Demo: This executes the playbook that will change the SNMP strings.
+3. Destroy: This destroys the two-router simulation network.
+
+GitLab CI starts with a base image, in this case we are using a Docker image that contains all the required Ansible binaries and dependencies. We specify the commands to be run at each stage and the dependencies as necessary.
+
+![More code](/images/blogimages/ansible_screenshots/more_code_9A.png){: .shadow.medium.center}
+A simple YAML file contains the three stages of the GitLab CI.
+{: .note.text-center}
+
+![More Code](/images/blogimages/ansible_screenshots/more_code_10A.png){: .shadow.medium.center}
+A look inside the demo stage of the GitLab CI, which executes the Ansible playbook.
+{: .note.text-center}
+
+Peering under the hood of our pipelines shows how GitLab CI can be used to build infrastructure as code without ever having to install any Ansible dependencies onto your computer. This is just one example of how GitLab CI can be used to execute infrastructure as code. Watch the video below to see the full tutorial:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/M-SgRTKSeOg" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->

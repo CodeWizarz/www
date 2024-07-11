@@ -1,0 +1,137 @@
+---
+title: "Update: Changes to GitLab CI/CD and Docker in Docker with Docker 19.03"
+author: Steve Azzopardi
+author_gitlab: steveazz
+author_twitter: steveazz
+categories: news
+description: "If you are using the Docker in Docker workflow you may need to enable TLS or explicitly turn it off."
+ee_cta: false
+install_cta: false
+postType: product
+tags: releases, CI/CD
+twitter_text: "Update: Changes to @gitlab CI/CD and Docker in Docker with @Docker 19.03"
+---
+
+Last week Docker released a new version,
+[19.03](https://docs.docker.com/engine/release-notes/#19030), which
+brings a few exciting features with it.
+
+One of the features affects GitLab CI/CD when using the [Docker in Docker
+workflow](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#use-docker-in-docker-executor).
+As of version 19.03, [`docker:dind`](https://hub.docker.com/_/docker)
+will automatically generate TLS certificates and require using them for
+communication. This is from [Docker's official
+documentation](https://hub.docker.com/_/docker#tls):
+
+> Starting in 18.09+, the dind variants of this image will automatically generate TLS certificates in the directory specified by the DOCKER_TLS_CERTDIR environment variable.
+> Warning: in 18.09, this behavior is disabled by default (for compatibility). If you use --network=host, shared network namespaces (as in Kubernetes pods), or otherwise have network access to the container (including containers started within the dind instance via their gateway interface), this is a potential security issue (which can lead to access to the host system, for example). It is recommended to enable TLS by setting the variable to an appropriate value (-e DOCKER_TLS_CERTDIR=/certs or similar). In 19.03+, this behavior is enabled by default.
+
+When you upgrade to 19.03 (which is done automatically if using
+`docker:dind`) you may start seeing an issue like:
+
+```
+docker: Cannot connect to the Docker daemon at tcp://docker:2375. Is the docker daemon running?.
+```
+
+To fix the problem above you have two options:
+
+1. Configure [GitLab Runner](https://docs.gitlab.com/runner/) to use TLS.
+1. Explicitly turn off TLS.
+
+The shared Runners available on GitLab.com support both workflows, which
+are described in detail below.
+
+You may notice that we are now also suggesting a specific version such as
+`docker:19.03.0-dind` and not `docker:dind`. This is to help prevent users'
+jobs randomly failing when a new update comes out.
+
+## Configure TLS
+
+Since the service `docker:dind` will create the certificates, we need to
+have the certificate shared between the service and the job container.
+To do this we have to add a mount inside of the
+[volumes](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnersdocker-section)
+under the `[runners.docker]` section.
+
+For example:
+
+```toml
+[[runners]]
+  name = "My Docker Runner"
+  url = "http://gitlab.com"
+  token = ""
+  executor = "docker"
+  [runners.custom_build_dir]
+  [runners.docker]
+    privileged = true
+    volumes = ["/certs/client", "/cache"]
+    shm_size = 0
+```
+
+If you're a GitLab.com user, we've already done the config change above for you on the
+Shared Runners.
+
+Also, update `.gitlab-ci.yml` accordingly to specify the
+`DOCKER_TLS_CERTDIR`
+
+```yml
+image: docker:19.03.0
+
+variables:
+  DOCKER_DRIVER: overlay2
+  # Create the certificates inside this directory for both the server
+  # and client. The certificates used by the client will be created in
+  # /certs/client so we only need to share this directory with the
+  # volume mount in `config.toml`.
+  DOCKER_TLS_CERTDIR: "/certs"
+
+services:
+  - docker:19.03.0-dind
+
+before_script:
+  - docker info
+
+build:
+  stage: build
+  script:
+    - docker build -t my-docker-image .
+    - docker run my-docker-image /script/to/run/tests
+```
+
+## Disable TLS
+
+You might not have access to update the volume mounting inside of the
+`config.toml`, so the only option is to disable TLS. You can do this by
+setting the environment variable `DOCKER_TLS_CERTDIR` to an empty value.
+
+For GitLab.com Shared Runners users this is done already using the
+[environment settings](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runners-section),
+which works the same way.
+
+```yml
+image: docker:19.03.0
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+
+services:
+  - docker:19.03.0-dind
+
+before_script:
+  - docker info
+
+build:
+  stage: build
+  script:
+    - docker build -t my-docker-image .
+    - docker run my-docker-image /script/to/run/tests
+```
+
+We would like to thank the rest of the community with all the feedback
+and help throughout
+[#4501](https://gitlab.com/gitlab-org/gitlab-runner/issues/4501).
+
+---
+
+2019-08-02 update: we've changed the version used in the examples from 19.03 to 19.03.0 to make it even more explicit

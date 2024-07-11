@@ -1,0 +1,18 @@
+features:
+  secondary:
+    - name: "Use Composer v2 with the GitLab Package Registry"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/api/packages/composer.html#v2-package-metadata'
+      reporter: trizzi
+      stage: package
+      categories:
+        - 'Package Registry'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/259840'
+      description: |
+        You use [Composer](https://getcomposer.org/) to publish, share, and download your PHP dependencies to your GitLab Project. Six months ago, a new major version (v2) of Composer was launched with a variety of changes, including significant performance improvements, architectural updates, and runtime features. You can read more about the changes [here](https://blog.packagist.com/composer-2-0-is-now-available/).
+
+        Until recently, you couldn't take advantage of these improvements because the GitLab registry didn't support Composer v2. This prevented some of you from using the GitLab registry at all. As an MVC, we focused on adding support for the mandatory parameter `metadata-URL`. We added a new endpoint `GET group/:id/-/packages/composer/p2/:package_name`, which returns the metadata for all packages in your repository. When Composer looks for a package, it replaces `%package%` with the package name and fetches that URL.
+
+        This means we've added a new endpoint `GET group/:id/-/packages/composer/p2/:package_name` which will return the metadata for all packages in your repository. 
+
+        Please note that there are two parameters considered optional. We have issues open to add support for the [`providers-api`](https://gitlab.com/gitlab-org/gitlab/-/issues/324706) and [`list-api`](https://gitlab.com/gitlab-org/gitlab/-/issues/324707) parameters. We hope to prioritize them in an upcoming milestone.

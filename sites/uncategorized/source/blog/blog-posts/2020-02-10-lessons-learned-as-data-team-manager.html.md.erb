@@ -1,0 +1,198 @@
+---
+title: "Lessons learned managing the GitLab Data team"
+author: Taylor A Murphy, PhD
+author_gitlab: tayloramurphy
+author_twitter: tayloramurphy
+categories: culture
+image_title: '/images/blogimages/gitlab-values-cover.png'
+description: "Staff Data Engineer Taylor Murphy shares his lessons and takeways from one year as the Data team manager."
+tags: data, lessons, management
+twitter_text: "Data @GitLab team manager @tayloramurphy shares lessons from one year in his role"
+featured: yes
+postType: content marketing
+merch_banner: merch_one
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2020-02-19.
+{: .alert .alert-info .note}
+
+From April 2018 to May 2019 I was the manager of the Data team for GitLab. I took this role after my manager left, when I started reporting directly to the CFO as a Data Engineer.
+
+I remember saying to him "this doesn't seem like the right level of abstraction for you," and proposed I step up to become the manager. I also said I didn't want to do this for a long period of time, since I intentionally came to GitLab to move from a manager role to an individual contributor role and focus on Data Engineering.
+
+What follows are a few lessons I learned (and relearned!) in my one-year stint as the manager of the Data team. Eventually, I aim to become a manager again and I hope to remember these lessons and learn even more.
+
+### Plan for growth
+
+While I was Data team manager, GitLab grew in size by ~300%. Having only worked previously at established companies and at a very small startup, I was not prepared for this level of growth and the strain it would put on our resources.
+
+I recently surveyed colleagues of mine in the data community and discovered that, as a percentage of headcount, most Data teams are anywhere from 2-8%.
+
+This means a 200-person company should have at least four people, and realistically around 10 people, focused on data. This includes analysts, engineers, scientists, and managers.
+In April of 2018, we were at < 1% (1/300) and would continue to be < 1% throughout 2018.
+
+As the company grew, I did not wholly understand how the business was planning to grow and how the Data team would scale to meet the data needs of the organization. This lack of strategic thinking led to a situation where I felt blindsided and overwhelmed by the number of requests for data and analytics.
+
+Even with the addition of the excellent people I was able to hire, I wasn't doing as good a job as I needed to help my team truly succeed.
+
+Lesson: Understand the trajectory of the company, the workload you have and expect to have, pick a gearing ratio for headcount, stick to your hiring targets, and think about [team structure](https://blog.getdbt.com/data-team-structure-examples/).
+{: .alert .alert-gitlab-purple}
+
+### Individual contributor or manager? Pick one
+
+By the end of 2018, the Data team was a three-person team: one data analyst, one data engineer, and me.
+Thankfully, the three of us were, I'm not ashamed to say, excellent at our jobs and performed at a level beyond what you would expect three FTEs to handle.
+
+But even we have limits and couldn't do it all.
+
+Due to the volume of work we were trying to accomplish, it was critical that I take on analyst and engineering work as well.
+
+This created a situation where I was splitting my brain and my attention trying to do too many things at once.
+
+Some days would be all manager work, and I would make zero progress on issues assigned to me. Others would be IC work, and I would fall behind on managerial tasks. The worst days were when I would try to do both, and everything would suffer.
+
+As time went on this split brain effect would become worse – the signs of burnout were starting to ramp up rapidly.
+
+I was able to hire more people, which put more demand on the manager side of me, yet the volume of work was increasing while I was still the primary contributor and maintainer of our codebase. By the end, I didn't feel like I was a good manager, and I felt like my technical skills were rapidly atrophying.
+
+Lesson: If you're a manager, be a manager. Yes, you'll have to pick up some work, especially at a startup, but figure out your exit plan so you can pass that work to your team who will be much better at accomplishing it than you.
+{: .alert .alert-gitlab-purple}
+
+### Hire awesome people
+
+This should go without saying, but hire excellent people and your life will be better. My first four hires for the Data team (two in 2018, two in early 2019) have blown me away with their skill, curiosity, tenacity, and intelligence.
+
+I learned from my previous job and past bosses the value in finding great people and the force multiplier they can have on the work you're trying to accomplish.
+
+Lesson: Continue hiring great people! But think about how to scale it.
+{: .alert .alert-gitlab-purple}
+
+### Invest in process
+
+This lesson I learned from [Emilie Schario](https://gitlab.com/emilie), the first Data Analyst I hired. She taught me to think about how and where we'll need processes as the company scaled, so we could remain [efficient](/handbook/values/#efficiency).
+
+We, of course, used GitLab for managing our code, and we had built-in merge request workflows, but she took the time to think about the messy "people stuff" surrounding the technology.
+
+A short list of artifacts she created:
+
+- [Onboarding issue for new analysts](https://gitlab.com/gitlab-data/analytics/-/blob/master/.gitlab/issue_templates/Data%20Onboarding.md)
+- [Onboarding script to get new analysts up and running quickly](https://gitlab.com/gitlab-data/analytics/-/blob/master/admin/onboarding_script.sh)
+- [Merge request templates, so everyone is working off the same checklist](https://gitlab.com/gitlab-data/analytics/-/blob/master/.gitlab/merge_request_templates/dbt%20Model%20Changes.md)
+
+And many more I'm sure I'm forgetting.
+
+While she wasn't the manager, she had the experience and understood the parts of working at a company that can slow down team members, and she worked to automate as much of it as possible. I've heard from many people outside the company how much they appreciate our documentation in general and our onboarding process in particular.
+
+That is a testament to thinking about scale and having the empathy to continually step into the shoes of a GitLab learner and to see things from an outsider's perspective.
+
+As Data teams have grown and evolved they've also [become more technical](https://blog.getdbt.com/what-is-an-analytics-engineer/). These mean it's important to invest in the technical process as well – this means you should have [version control](/topics/version-control/), change control (merge requests), automated testing, and [documentation on everything you're doing](https://dbt.gitlabdata.com/).
+
+Certain tools make implementing technical processes better and easier, which I'll highlight in the next section.
+
+Lesson: (1) Think about process deeply and document everything. (2) Maintain the mind of a learner and continually think about what day one with GitLab is like for new people. (3) Invest in process, documentation, and testing - they are gifts you give your future self.
+{: .alert .alert-gitlab-purple}
+
+### Pick excellent tools
+
+Along with process, picking the right tools can be a force multiplier for team productivity. When the Data team started, we were using PostgreSQL as our data warehouse. Postgres is not column-oriented, and at a certain point it doesn't make sense to use it as an analytics database.
+
+We went with Postgres anyway because we believe in using a [boring solution](/handbook/values/#boring-solutions) and it aligns with our value of [iteration](/handbook/values/#iteration). For the volume of data we were throwing at it, Postgres did admirably. We used the CloudSQL-hosted version which enabled us to do cool, programmatic things with GitLab CI (I'll save that for another post).
+
+Once we outgrew Postgres we decided to move to Snowflake.
+
+Of course, being GitLab, we use GitLab the product for anything and everything, which saved us much of the stress around picking tools. It has all the things you want from a coding perspective, and it has enough of the things you need to be productive as a manager. No need for Trello, Jira, and a dozen other tools.
+
+By far though, the best tool for the Data team's productivity is [dbt (data build tool)](https://www.getdbt.com/). I could talk forever about how great dbt is, but suffice to say that we would not be where we are today and we would not have been able to support the organization this well with such a small crew, were it not for dbt and the great community behind it.
+
+Lesson: Find the best tools you can for your team. Use dbt!
+{: .alert .alert-gitlab-purple}
+
+### Handling under-performers is a challenge
+
+Up until 2019, I'd never hired somebody who didn't perform well in their job, aside from a few interns.
+I'd like to think most of this was my ability to find good people, but it was probably luck, if I'm being honest.
+
+Last year challenged me with two under-performers on the team that I now realize I could have supported better. Having those difficult conversations with people was hard when I wasn't 100% in the manager brain space. My advice is to pay attention to those first few weeks of productivity, and if you find there are gaps, either in skills or motivation, do whatever you can to call out the gaps in a friendly and productive way, and then give your people every opportunity to become better.
+
+Lesson: Be a good manger, notice things early, and help your team proactively.
+{: .alert .alert-gitlab-purple}
+
+### So many meetings
+
+GitLab has a great culture around meetings.
+
+They [always start on time](/handbook/communication/#video-calls), there [must be an agenda for every meeting](/handbook/communication/#scheduling-meetings), and [people aren't afraid to end meetings early if everything on the agenda is done](/handbook/values/#be-respectful-of-others-time).
+Even with this rigor and discipline you will find yourself on the ["Manager's Schedule"](http://www.paulgraham.com/makersschedule.html) and will be in a lot of meetings. But that's okay! That's part of your job.
+
+I will always argue that you should still try to reduce the time you're in meetings, but if you're in a meeting, do your best to ensure your team *isn't* also in a meeting, if at all possible. Meetings are terrible for makers (i.e., your direct reports). Shield your team from them as much as possible.
+
+Lesson: Meetings are a part of the job, reduce them as much as you can, and protect your team from unnecessary meetings.
+{: .alert .alert-gitlab-purple}
+
+### You need executive buy-in and representation
+
+Part of the reason I was excited to join GitLab was because the C-Suite clearly supported having a Data team in the organization.
+The CEO and CFO understood the value a Data team could bring, even if the specifics and execution were blurry.
+This is important! You will be in a tough spot if your company has nobody on the executive team that understands the value that good descriptive and predictive analytics can provide.
+Data literacy is a cultural attribute, and it's [near impossible to grow literacy](https://towardsdatascience.com/is-your-company-too-dumb-to-be-data-driven-696932d597c3) in an organization if the CEO isn't driving it in some way.
+
+At a certain scale though, you need Data leadership beyond a team manager.
+You absolutely need someone at the Director level and up that can advocate and champion Data literacy and fluency across the functional areas of the organization.
+Managers can't be expected to spend much time on this since there is so much daily work to be done.
+
+Lesson: Be wary of organizations that don't have C-Suite buy-in around the data function.
+Advocate for a Director-level and up position that can be the cheerleader for Data across the organization.
+{: .alert .alert-gitlab-purple}
+
+### Plan to spend some money
+
+Executive level buy-in for a Data team is important because of this fact: Starting a Data team can be expensive. To be effective, you'll need to hire several people or empower your single data lead to purchase some third-party software.
+
+Out of the gate you'll need an extract and load tool like Stitch or Fivetran, you'll need a data warehouse (e.g., Snowflake, BigQuery, Redshift), you'll need compute to run transform jobs, and you'll want a BI tool.
+There are free tools that can sustain you for a while, but plan to invest some money up front if you're in it for the long haul.
+
+Lesson: Long term success will require investment. You can start cheaply, but to scale requires resources.
+{: .alert .alert-gitlab-purple}
+
+### Don't reinvent the wheel
+
+Especially for things like extracting data from tools such as Salesforce, Zendesk, or Zuora, please, please, PLEASE don't write your own scripts to do this. Just pay a company to do it for you. You'll waste a ton of time doing something that doesn't deliver business value and will probably come back to bite you in the end.
+
+You should spend most of your time [delivering value for the business](https://blog.getdbt.com/the-startup-founder-s-guide-to-analytics/) in the form of automated reporting and generating insights, not writing a Salesforce to Snowflake extractor for the thousandth time.
+
+Lesson: Pay for Stitch or Fivetran for common data extractions.
+{: .alert .alert-gitlab-purple}
+
+### Manager is a different career
+
+Don't think about becoming a manager as an extension of your individual contributor career. It *is* a different career path and your IC-skills will certainly help you be a better manager. However, management is its own set of skills and choosing to go into this field puts you on a different career path. It's not necessarily better depending on how you define success.
+
+Go into management with open eyes and a full understanding that you are switching tracks and not "moving ahead". It isn't permanent, though, and can be reversed if you choose.
+
+Lesson: Don't assume the move to manager is the default for an IC. Think deeply about your [career](https://www.locallyoptimistic.com/post/career-ladders-part-1/). Read [about the Engineer/Manager Pendulum](https://charity.wtf/2017/05/11/the-engineer-manager-pendulum/).
+{: .alert .alert-gitlab-purple}
+
+### It's okay to be a little selfish
+
+One area I've struggled with for a while is making the effort to be a little selfish. I can have a people-pleaser mentality which, when applied to the business of a startup, can be useful: Startups need people that are willing to do what it takes to make the company successful (within reason!). But once the company is in a growth stage or beyond, that mentality is a recipe for burnout.
+
+At my previous company, we were less than 30 people. Having the attitude of trying to do and learn as much as possible was a good strategy for me. I learned a ton, was given a bunch of responsibility, and helped the business grow. That strategy worked for me at GitLab for a while too. After some time passed, it was clear I couldn't keep up with everything, and my sanity would start to suffer without a fix.
+
+Being selfish in this case meant I had to be okay with wanting to take a "step back" from the manager role to the IC role (Spoiler: it's not a step back! See the previous point).
+
+I had to admit to myself that I wanted to focus on programming more and that continuing down the manager track wasn't currently right for me.
+
+It felt selfish because it was hard in the moment to see that what the business needed was somebody who *wanted* to be the manager. It didn't need me to continue in the role just because I happened to currently be in the role.
+
+While there were short-term ramifications for the team because of my move to an IC role, I know that I'm healthier for it, and we now have two excellent managers who are leading the team further than I could have.
+
+Lesson: (1) It's a *good* thing to prioritize and be selfish about your mental health. (2) It's okay to say "No, I can't do this anymore". (3) Companies need people who want to be in their jobs - performance is better and people are happier.
+{: .alert .alert-gitlab-purple}
+
+### Fin
+
+My hope is that these lessons are valuable to you, and are applicable in your own life and career. I would love to hear from you if you disagree with any of these, or if you have your own stories and lessons to share about your career in data; please reach out on [Twitter](https://twitter.com/tayloramurphy), via email (tmurphy at gitlab.com), or in an [issue in our main project](https://gitlab.com/gitlab-data/analytics/).
+
+Thank you for reading and thank you to GitLab for enabling my growth as a Data professional.
+
+*Special thanks to [Emilie Schario](https://gitlab.com/emilie) for her review on multiple drafts of this post.*

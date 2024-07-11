@@ -1,0 +1,59 @@
+---
+title: "Get the most out of the Checkmarx integration with GitLab"
+author: Valerie Silverthorne
+author_gitlab: vsilverthorne
+author_twitter: ValSilverthorne 
+categories: engineering
+image_title: "/images/blogimages/checkmarx.jpg"
+description: "Make it easier for developers to find bugs and for dev and sec to get along. Here’s what you need to know about the GitLab/Checkmarx integration."
+tags: security, code review, developer survey
+twitter_text: "The Checkmarx integration with @gitlab makes it easier for developers to find bugs before it’s too late. Here’s what you need to know." 
+featured: no 
+---
+
+In our 2020 Global DevSecOps survey, 65% of respondents said their organizations were shifting security left. Shifting left is the holy grail of [DevOps](/topics/devops/), certainly, but there’s reason to believe most organizations actually aren’t quite *left* enough: Less than 20% of respondents said developers were able to access either SAST or DAST scans from within their pipelines or IDEs.
+
+It’s perhaps not surprising that, in the [same survey](/developer-survey/), security pros complained rather bitterly about developers finding too few bugs too late in the process.
+
+One solution to this problem is to [integrate application security testing](/topics/devsecops/) earlier and actually within a development tool. During [our 2020 virtual user conference](/events/commit/), Commit, [James Brotsos](https://www.linkedin.com/in/jbrotsos/), a senior solutions engineer with [Checkmarx](https://www.checkmarx.com), walked attendees through the process of integrating his company’s security testing platform with GitLab.
+
+“(Integrating app security testing) really does free up time to focus on things that actually matter to developers, which is writing code,” James said during his presentation. “With this methodology, we are shifting far left into the software development life cycle. We still are providing governance and gating capabilities, constantly scanning the latest code and this replaces the need to scan it in the IDE.”
+
+## Getting started
+
+To get the most out of an integrated security testing platform, James said companies should start by making a series of decisions: 
+
+What do you want to scan? Commits or merge requests?
+When do you want to scan? Nightly, weekly, more often?
+How do you want the data? Via the Checkmarx platform, emails, Slack messages, inside GitLab or through auto ticket creation?
+
+“We have an interactive security testing platform which is an agent that runs on a test server,” James explained. “It’s running your code, it monitors traffic driven from functional tests and it could run security types of queries on top of that. We provide… all these types of vulnerabilities and we train you how to fix them.”
+
+At the heart of the GitLab integration with Checkmarx is CxFlow, a spring boot application that initiates scans and pursues results, James said. Scanning is initiated by integrating with [GitLab’s CI/CD](/topics/ci-cd/), or through a merge request or pushed code, triggering an already existing pipeline. That pipeline needs just a single edit to include the stage to execute a security scan.
+
+The integration is completely customizable and developers can get what they need when they need it. CxFlow drives a result feedback loop so no manual intervention is required and developers can filter the types of defects created based on any filtering criteria. “The results are easy to consume in a way that developers want to consume them… and the results are actionable,” James said.
+
+When it comes to defect tracking, CxFlow solves the problem of having the same vulnerability type in the same file by creating just a single issue where the ticket automatically closes once its been dealt with. And developers can choose how they receive feedback: through GitLab’s security dashboard or issues, or through Jira, email, ServiceNow and Rally.
+
+## The nuts and bolts
+
+To tie security scanning into GitLab, start by setting up the global variables that will allow access to the Checkmarx server. After that the CI/CD pipeline can kick off. Separate the Checkmarx stages from the GitLab CI file – you don’t want to “pollute” any existing YAML file set up by your DevOps team. Just include another YAML file with this stage or extension and that will allow you to have the Checkmarx-specific information which will kick off the CxFlow CLI.
+
+So once the CxFlow starts to run inside that container, it will initiate a scan inside Checkmarx. The results will be sent back to CxFlow. “Depending on how you want to consume those results, we can update the security dashboard, we can update the issues, we can update the merge request, or we can update all three of them at the same time,” James said.
+
+CxFlow can also create issues automatically that can then be triaged to an epic or assigned to a specific user. “This way you can treat all security vulnerabilities as you would any other defect or any other kind of issue,” James said.
+
+“This is a pretty effortless option for the development teams to scan projects quickly,” James said. “There is no overhead when configuring and managing these builds. You can quickly automate the scan of multiple repositories and there's no overhead in configuring and managing all of these different repos that you might have.”
+
+## A deeper dive
+
+A more detailed look at this project can be found [on the Checkmarx website](https://checkmarx.atlassian.net/wiki/spaces/SD/pages/1929937052/GitLab+Integration) or watch the entire Commit presentation:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/W1Wk3PN0o1M" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+Cover image by [JJ Ying](https://unsplash.com/@jjying) on [Unsplash](https://unsplash.com)
+{: .note}

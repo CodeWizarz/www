@@ -1,0 +1,17 @@
+---
+features:
+  secondary:
+  - name: "Concurrent Git repository backups"
+    available_in: [core, starter, premium, ultimate]
+    gitlab_com: false
+    documentation_link: 'https://docs.gitlab.com/ee/raketasks/backup_restore.html#back-up-git-repositories-concurrently'
+    reporter: jramsay
+    stage: create
+    categories:
+    - Backup/Restore of GitLab instances
+    - Gitaly
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/222488'
+    description: |
+      Backups protect against data loss events and should be run regularly, and before maintenance and upgrades. For this reason, GitLab has a `gitlab-backup` script so that system administrators can back up everything. As the number and size of repositories increases, backing up repository data using the script becomes impossibly slow.
+
+      A significant reason why the script is slow is that repositories are backed up one by one. This underutilizes the available CPU and memory resources, particularly when there are multiple Gitaly nodes. Adding concurrency allows multiple repositories to be backed up at the same time, significantly reducing backup time.

@@ -1,0 +1,187 @@
+---
+title: "How we used delayed replication for disaster recovery with PostgreSQL"
+author: Andreas Brandl
+author_gitlab: abrandl
+author_twitter: afirel
+categories: engineering
+image_title: "/images/blogimages/mathew-schwartz-397471-unsplash.jpg"
+description: "Replication is no backup. Or is it? Let's take a look at delayed replication and how we used it to recover from accidental label deletion."
+tags: inside GitLab, open source,
+ee_cta: false
+featured: yes
+postType: content marketing
+twitter_text: "How we used delayed replication for disaster recovery with @PostgreSQL"
+---
+
+The [infrastructure team](/handbook/engineering/infrastructure/) at GitLab is responsible for the operation of [GitLab.com](https://gitlab.com/), the largest GitLab instance in existence: With about 3 million users and nearly 7 million projects, it is one of the largest single-tenancy, open source SaaS sites on the internet. The PostgreSQL database system is a critical part of the infrastructure that powers GitLab.com and we employ various strategies to provide resiliency against all kinds of data-loss-inducing disasters. Those are highly unlikely of course, but we are well prepared with backup and replication mechanisms to recover from these scenarios.
+
+It's a misconception to think of replication as a means to back up a database ([see below](#summing-up)). However, in this post, we're going to explore the power of delayed replication to recover data after an accidental deletion: On [GitLab.com](https://gitlab.com), a user [deleted a label](https://gitlab.com/gitlab-com/gl-infra/production/issues/509) for the [`gitlab-ce`](https://gitlab.com/gitlab-org/gitlab-ce/) project, thereby also losing the label's association with merge requests and issues.
+
+With a delayed replica in place, we were able to recover and restore that data in under 90 minutes. We'll look into that process and how delayed replication helped to achieve this.
+
+### Point-in-time recovery with PostgreSQL
+
+PostgreSQL comes with a built-in feature to recover the state of a database to a certain point in time. This is called *[Point-in-Time Recovery](https://www.postgresql.org/docs/current/continuous-archiving.html)* (PITR), which leverages the same mechanics that are used to keep a replica up to date: Starting from a consistent snapshot of the whole database cluster (a *basebackup*), we apply the sequence of changes to the database state until a certain point in time has been reached.
+
+In order to use this feature for a cold backup, we regularly take a basebackup of the database and store this in the *archive* (at GitLab, we keep the archive in [Google Cloud Storage](https://cloud.google.com/storage/)). Additionally, we keep track of changes to the database state by archiving the [*write-ahead log*](https://www.postgresql.org/docs/current/wal-intro.html) (WAL). With that in place, we can perform PITR to recover from a disaster: Start with a snapshot that was taken before the disaster happened and apply changes from the WAL archive until right before the disastrous event.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+### What is delayed replication?
+
+*Delayed replication* is the idea of applying time-delayed changes from the WAL. That is, a transaction that is committed at physical time `X` is only going to be visible on a replica with delay `d` at time `X + d`.
+
+For PostgreSQL, there are two ways of setting up a physical replica of the database: *Archive recovery* and *streaming replication*. [Archive recovery](https://www.postgresql.org/docs/11/archive-recovery-settings.html) essentially works like PITR but in a continuous way: We keep retrieving changes from the WAL archive and apply them to the replica state in a continuous fashion. On the other hand, [streaming replication](https://wiki.postgresql.org/wiki/Streaming_Replication) directly retrieves the WAL stream from an upstream database host. We prefer archive recovery for delayed replication because it is simpler to manage and delivers an adequate level of performance to keep up with the production cluster.
+
+### How to set up delayed archive recovery
+
+Configuration of [recovery options](https://www.postgresql.org/docs/11/recovery-config.html) mostly go into `recovery.conf`. Here's an example:
+
+```
+standby_mode = 'on'
+restore_command = '/usr/bin/envdir /etc/wal-e.d/env /opt/wal-e/bin/wal-e wal-fetch -p 4 "%f" "%p"'
+recovery_min_apply_delay = '8h'
+recovery_target_timeline = 'latest'
+```
+
+With these settings in place, we have configured a delayed replica with archive recovery. It uses [wal-e](https://github.com/wal-e/wal-e) to retrieve WAL segments (`restore_command`) from the archive and delays application of changes by eight hours (`recovery_min_apply_delay`). The replica is going to follow any timeline switches present in the archive, e.g. caused by a failover in the cluster (`recovery_target_timeline`).
+
+It is possible to configure streaming replication with a delay using `recovery_min_apply_delay`. However, there are a few pitfalls regarding replication slots, hot standby feedback, and others that one needs to be aware of. In our case, we avoid them by replicating from the WAL archive instead of using streaming replication.
+
+It is worth noting that `recovery_min_apply_delay` was only introduced in PostgreSQL 9.4. However, in previous versions, a delayed replica is typically implemented with a combination of [recovery management functions](https://www.postgresql.org/docs/9.3/functions-admin.html) (`pg_xlog_replay_pause(), pg_xlog_replay_resume()`) or by withholding WAL segments from the archive for the duration of the delay.
+
+### How does PostgreSQL implement it?
+
+It is particularly interesting to see how PostgreSQL implements delayed recovery. So let's look at [`recoveryApplyDelay(XlogReaderState)`](https://gitlab.com/postgres/postgres/blob/c24dcd0cfd949bdf245814c4c2b3df828ee7db36/src/backend/access/transam/xlog.c#L6124) below. It is called from the [main redo apply loop](https://gitlab.com/postgres/postgres/blob/c24dcd0cfd949bdf245814c4c2b3df828ee7db36/src/backend/access/transam/xlog.c#L7196) for each record read from WAL.
+
+```c
+static bool
+recoveryApplyDelay(XLogReaderState *record)
+{
+	uint8		xact_info;
+	TimestampTz xtime;
+	long		secs;
+	int			microsecs;
+
+	/* nothing to do if no delay configured */
+	if (recovery_min_apply_delay <= 0)
+		return false;
+
+	/* no delay is applied on a database not yet consistent */
+	if (!reachedConsistency)
+		return false;
+
+	/*
+	 * Is it a COMMIT record?
+	 *
+	 * We deliberately choose not to delay aborts since they have no effect on
+	 * MVCC. We already allow replay of records that don't have a timestamp,
+	 * so there is already opportunity for issues caused by early conflicts on
+	 * standbys.
+	 */
+	if (XLogRecGetRmid(record) != RM_XACT_ID)
+		return false;
+
+	xact_info = XLogRecGetInfo(record) & XLOG_XACT_OPMASK;
+
+	if (xact_info != XLOG_XACT_COMMIT &&
+		xact_info != XLOG_XACT_COMMIT_PREPARED)
+		return false;
+
+	if (!getRecordTimestamp(record, &xtime))
+		return false;
+
+	recoveryDelayUntilTime =
+		TimestampTzPlusMilliseconds(xtime, recovery_min_apply_delay);
+
+	/*
+	 * Exit without arming the latch if it's already past time to apply this
+	 * record
+	 */
+	TimestampDifference(GetCurrentTimestamp(), recoveryDelayUntilTime,
+						&secs, &microsecs);
+	if (secs <= 0 && microsecs <= 0)
+		return false;
+
+	while (true)
+	{
+        // Shortened:
+        // Use WaitLatch until we reached recoveryDelayUntilTime
+        // and then
+        break;
+	}
+	return true;
+}
+```
+
+The takeaway here is that the delay is based on the physical time that was recorded with the commit timestamp of the transaction (`xtime`). We can also see that the delay is only applied to commit records but not to other types of records: Any data changes are directly applied but the corresponding commit is delayed, so these changes only become visible after the configured delay.
+
+### How to use a delayed replica to recover data
+
+Let's say we have a production database cluster and a replica with eight hours of delay. How do we use this to recover data? Let's look at how this worked in the case of the [accidental label deletion](https://gitlab.com/gitlab-com/gl-infra/production/issues/509).
+
+As soon as we were aware of the incident, we [paused archive recovery](https://www.postgresql.org/docs/9.3/functions-admin.html) on the delayed replica:
+
+```sql
+SELECT pg_xlog_replay_pause();
+```
+
+Pausing the replica eliminated the risk of the replica replaying the `DELETE` query. This is useful if you need more time to investigate.
+
+The recovery approach is to let the delayed replica catch up until right before the point the `DELETE` query occurred. In our case we knew roughly the physical time of the `DELETE` query. We removed `recovery_min_apply_delay` and added `recovery_target_time` to `recovery.conf`. This effectively lets the replica catch up as fast as possible (no delay) until a certain point in time:
+
+```
+recovery_target_time = '2018-10-12 09:25:00+00'
+```
+
+When operating with physical timestamps, it's worth adding a little margin for error. Obviously, the bigger the margin, the bigger the data loss. On the other hand, if the replica recovers beyond the actual incident timestamp it also replays the `DELETE` query and we would have to start over (or worse: use a cold backup to perform PITR).
+
+After restarting the delayed Postgres instance, we saw a lot of WAL segments being replayed until the target transaction time was reached. In order to get a sense of the progress during this phase, we can use this query:
+
+```sql
+SELECT
+  -- current location in WAL
+  pg_last_xlog_replay_location(),
+  -- current transaction timestamp (state of the replica)
+  pg_last_xact_replay_timestamp(),
+  -- current physical time
+  now(),
+  -- the amount of time still to be applied until recovery_target_time has been reached
+  '2018-10-12 09:25:00+00'::timestamptz - pg_last_xact_replay_timestamp() as delay;
+```
+
+We know recovery is complete when the replay timestamp does not change any more. We can consider setting a [`recovery_target_action`](https://www.postgresql.org/docs/11/recovery-target-settings.html) in order to shut down, promote or pause the instance once replay has completed (the default is to pause).
+
+The database is now in the state preceding the disastrous query. We can start to export data or otherwise make use of the database. In our case, we exported information about the label that was deleted and its association with issues and merge requests and imported that data into our production database. In other cases with more severe data loss, it can be favorable to promote the replica and continue to use it as a primary. However this means that we lose any data that was entered into the database after the point in time we recovered to.
+
+A more precise alternative to using physical timestamps for targeted recovery is using transaction ids. It is good practice to log transaction ids for e.g. DDL statements (like `DROP TABLE`) using `log_statements = 'ddl'`. If we had a transaction id at hand, we could have used `recovery_target_xid` instead in order to replay to the transaction that preceded the `DELETE` query.
+
+For the delayed replica, the way back to normal is simple: Revert changes to `recovery.conf` and restart Postgres. After a while, the replica is going to show a delay of eight hours again – ready for any future disasters.
+
+### Benefits for recovery
+
+The major benefit from a delayed replica over using a cold backup is that it eliminates the step of restoring a full snapshot from the archive. This can easily take hours, depending on network and storage speeds. In our case, it takes roughly five hours to retrieve the full ~2TB basebackup from the archive. In addition to that, we would have to apply 24 hours' worth of WAL in order to recover to the desired state (in the worst case).
+
+With a delayed replica in place, we get two benefits over a cold backup:
+
+1. No need to retrieve a full basebackup from the archive and
+2. we have a *fixed* window of eight hours' worth of WAL that needs to be replayed to catch up.
+
+In addition to that, we continuously test our ability to perform PITR from the WAL archive and would quickly realize WAL archive corruption or other WAL-related problems by monitoring the lag of the delayed replica.
+
+In our example case, completing recovery took 50 minutes and translated to a recovery rate of 110 GB worth of WAL per hour (the archive was still on [AWS S3](https://aws.amazon.com/s3/) at that time). The incident was mitigated and data recovered and restored 90 minutes after work was started.
+
+### Summing up: Where delayed replication can be useful (and where it's not)
+
+Delayed replication can be used as a first resort to recover from accidental data loss and lends itself perfectly to situations where the loss-inducing event is noticed within the configured delay.
+
+Let's be clear though: *Replication is not a backup mechanism*.
+
+Backup and replication are two mechanisms with distinct purposes: A *cold backup* is useful to recover from a disaster, for example an accidental `DELETE` or `DROP TABLE` event. In this case, we utilize a backup from cold storage to restore an earlier state of a table or the whole database. On the other hand, a `DROP TABLE` query replicates nearly instantly to all replicas in a running cluster – hence normal replication on its own is not useful to recover from this scenario. Instead, the purpose of *replication* is mostly to guard database availability against failures of individual database servers and to distribute load.
+
+Even with a delayed replica in place, there are situations where we really want a cold backup that is stored in a safe place: data center failures, silent corruption, or other events that aren't visible right away, are prime candidates to rely on cold backups. With replication only, we'd be out of luck.
+
+Note: For [GitLab.com](https://gitlab.com/), we currently only provide system-level resiliency against data loss and do not provide user-level data recovery in general.
+
+Photo by [Mathew Schwartz](https://unsplash.com/photos/sb7RUrRMaC4?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

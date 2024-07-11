@@ -1,0 +1,31 @@
+---
+title: Depth
+noindex: true
+---
+
+.sdlc-container.position-relative
+  .table-container
+    .sdlc-table
+      - Gitlab::Homepage::Stage.all!.select{|stage| stage.marketing}.each do |stage|
+        .sdlc-column
+          .stage-container
+            %a{href: "/stages-devops-lifecycle/#{stage.key}/"}
+              = partial "/includes/icons/sdlc-icons/#{stage.key}.svg"
+            %a{href: "/stages-devops-lifecycle/#{stage.key}/"}
+              %p #{stage.display_name}
+          .solutions-container
+            - categories = stage.categories.select { |category| category.marketing && category.maturity && category.maturity == 'lovable' }
+            - categories += stage.categories.select { |category| category.marketing && category.maturity && category.maturity == 'complete' }
+            - categories += stage.categories.select { |category| category.marketing && category.maturity && category.maturity == 'viable' }
+            - if categories.length >= 1
+              .current-categories
+                .stage-column
+                  .category-list
+                    - categories.each do |category|
+                      .category
+                        .category-cell
+                          %a{ href: "##{category.key}"}
+                            = partial "/images/maturity/#{maturity(category, Date.today)}.svg"
+                        .category-cell
+                          - url = category.best_link
+                          %a{ href: "#{url}" } #{category.name}

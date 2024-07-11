@@ -1,0 +1,80 @@
+---
+title: "Introducing CI/CD components and how to use them in GitLab"
+author: Dov Hershkovitch
+author_gitlab: dhershkovitch
+author_twitter: dov0211
+categories: engineering
+image_title: '/images/blogimages/buildingblocks.jpg'
+description: "Learn the main benefits for using CI/CD components in your CI/CD pipelines and how to achieve them."
+tags: tutorial, CI/CD, features
+twitter_text: "Discover GitLab's CI/CD components: reusable building blocks that streamline pipeline configurations and enhance reusability. Learn how they revolutionize CI/CD workflows in our latest blog post! #GitLab #CIComponents #DevOps #SoftwareDevelopment"
+featured: no
+postType: content marketing
+related_posts:
+  - /blog/2023/05/01/how-to-build-reusable-ci-templates/"
+  - "/blog/2023/05/08/use-inputs-in-includable-files/"
+  - "/blog/2021/11/18/deep-dive-tech-stack-behind-spamcheck/"
+---
+Welcome to the third blog in our series on GitLab's CI/CD components! If you haven't already, we encourage you to read "[How to build reusable CI/CD templates](https://about.gitlab.com/blog/2023/05/01/how-to-build-reusable-ci-templates/)" and "[Use inputs in includable files](https://about.gitlab.com/blog/2023/05/08/use-inputs-in-includable-files/)" to gain a comprehensive understanding of these exciting new capabilities. In this blog post, we'll dive in and explore the power of GitLab's CI/CD components in revolutionizing CI/CD workflows. We'll also provide a glimpse into the future of GitLab's CI/CD ecosystem, including the upcoming release of the [CI/CD catalog](https://docs.gitlab.com/ee/architecture/blueprints/ci_pipeline_components/), a framework containing a collection of these components. With these moves, GitLab is taking a significant step towards streamlining pipeline configurations and enhancing reusability. 
+
+### CI/CD components
+In [GitLab 16.1](https://about.gitlab.com/releases/2023/06/22/gitlab-16-1-released/), an exciting experimental feature called CI/CD components was introduced. CI/CD components are reusable, single-purpose building blocks that abstract away pipeline configuration units.
+
+By leveraging the power of CI/CD components, users can unlock several key benefits:
+1. **Reusability and abstraction.** CI/CD components allow pipelines to be assembled using abstractions instead of defining all the details in one place. With components encapsulating implementation details, developers can focus on composing pipelines using pre-built, reusable blocks. This approach promotes modularity, code reusability, and simplifies pipeline maintenance.
+2. **Flexibility with input.** Components support input parameters, enabling customization based on pipeline contexts, making them adaptable and reusable across various pipeline stages. Developers gain the ability to build a dynamic CI/CD catalog that is tagged and versioned, providing better control and compatibility. Developers can reference specific component versions, ensuring stability and reproducibility. By leveraging version tags, teams can maintain consistency in their pipelines while easily upgrading to newer versions when desired.
+4. **High-quality standards through testing.** Testing components as part of the development workflow to ensure quality maintains high standards is strongly recommended. By incorporating testing into the CI/CD process, developers can verify the reliability and functionality of components, identify and fix issues early on, and deliver more robust and dependable pipelines.
+5. **The CI/CD catalog.** A centralized repository of components, the CI/CD catalog is set to be released soon, and will act as a treasure trove of components curated to cover a wide range of use cases. This centralized repository offers developers a one-stop shop for discovering, integrating, and sharing components. Teams can benefit from a growing catalog of pre-built, quality-tested components, saving time and effort in configuring their pipelines.
+
+In the previous blog posts, we discussed the main benefits for the first two points (which are also available with CI/CD templates), but now let's dig deeper into components and how they could revolutionize the way you construct your pipelines.
+
+### Testing a CI/CD component
+As software development continues to evolve, ensuring the reliability and quality of code components becomes increasingly vital.
+
+One of the main benefits of using components is the ability to thoroughly test components before software is officially released, enabling a more robust and streamlined development process. In our context, a released component is versioned and will follow a structured syntax, allowing for seamless integration within pipelines. 
+
+```yaml
+include:
+  - components: /path/to/project@<version> 
+```
+One of the unique benefits of our CI/CD components is the flexibility they offer. [DevSecOps](https://about.gitlab.com/topics/devsecops/) teams can opt in for an "unofficial" release by appending `@commit_SHA`, allowing them to experiment and iterate on their code before making it an official release.
+
+```yaml
+include:
+  - components: /path/to/project@<commit_SHA> 
+```
+To make a component an official release, users must tag it, essentially creating a versioned snapshot. The tagged release will then be made available in our comprehensive CI/CD catalog (launching soon), providing users with easy access to a range of thoroughly tested and approved components. To ensure the stability and reliability of your CI/CD components, it is crucial to thoroughly test them. DevSecOps teams can leverage the power of our pipeline by utilizing the commit_SHA identifier to run comprehensive tests. If the pipeline successfully passes all tests, they can proceed to tag the component, signifying its readiness for release.
+
+By configuring a release job based on the tagged version, DevSecOps teams can confidently incorporate the official component into their projects, knowing that it has undergone testing and validation. To learn more about how to test components, you can check out our [documentation](https://docs.gitlab.com/ee/ci/components/#test-a-component) or watch this walkthrough video:
+
+<figure class="video_container">
+<iframe width="1870" height="937" src="https://www.youtube.com/embed/Vw8-ce8LNBs" title="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</figure>
+
+### Versioning and tagging
+As mentioned in the previous section, DevSecOps teams can leverage the `@version` or the `@commit_SHA` to refer to a component in their pipeline. Another option to refer to a component is by leveraging the `@latest`.
+
+```yaml
+include:
+  - components: /path/to/project@latest
+```
+This will use the latest official (tagged) available components. When used in a pipeline in combination with reliable tests, you can guarantee that your components used in a pipeline will always be tested and verified.
+
+### On the horizon: CI/CD catalog
+One of the biggest benefits of using components is yet to be seen and will be available with the launch of our CI/CD catalog. The catalog will allow users to search, find, and understand how to use components that are available across their organization, setting a framework for them to collaborate on pipeline constructs so that they can be evolved and improved over time. Stay tuned!
+
+### Dogfooding components 
+At GitLab, we believe in [dogfooding our own product](https://handbook.gitlab.com/handbook/values/#dogfooding). To demonstrate the power and practicality of CI/CD components, we have converted some of our GitLab templates into components and asked our internal team to use them and provide additional feedback. By doing so, we are actively using and testing components in real-world scenarios, uncovering insights, and continuously improving their functionality. In this [group](https://gitlab.com/gitlab-components), we’ve converted Code Quality, Container Scanning and SAST templates into CI/CD components and asked internal teams to use them.
+
+Through this dogfooding process, we are not only validating the effectiveness of CI/CD components but also gaining invaluable experience and feedback to refine and enhance our offering. It's a testament to our commitment to providing practical and reliable solutions for our users. You can view the ongoing discussions between the internal teams in this [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/390656).
+
+### Call for action
+The CI/CD component catalog is currently in an experimental phase, so we advise against using it in a production environment at this time. There is a high probability of changes being made to it. We are currently working on reorganizing the folder structure of the components to prepare for the launch of the CI/CD catalog. You can stay updated on our progress by following our [epic](https://gitlab.com/groups/gitlab-org/-/epics/10728), or let us know what you think in this dedicated [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/407556).
+
+### What's next
+GitLab's CI/CD component catalog and its accompanying CI/CD components feature are ushering in a new era of streamlined pipeline configurations. By embracing reusability, abstraction, input flexibility, versioning, and a centralized catalog, developers can build efficient, adaptable, and maintainable CI/CD workflows. The CI/CD component catalog empowers teams to accelerate their software delivery, collaborate effectively, and leverage the full potential of GitLab's CI/CD capabilities.
+
+Stay tuned for the launch of the CI/CD catalog, where you'll gain access to an extensive collection of components, unlocking new possibilities for your pipelines. GitLab remains committed to empowering developers with cutting-edge tools, driving innovation, and simplifying the complexities of modern software development.
+
+Cover image by [Alexander Grey](https://www.pexels.com/photo/assorted-color-bricks-1148496/) on [Pexels](www.pexels.com).
+{: .note}

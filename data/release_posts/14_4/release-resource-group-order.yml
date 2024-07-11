@@ -1,0 +1,16 @@
+---
+features:
+  secondary:
+  - name: "Resource group process mode"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/ci/resource_groups/#process-modes'
+    reporter: kbychu
+    stage: deploy
+    categories:
+    - 'Continuous Delivery'
+    - 'Release Orchestration'
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/202186'
+    description: |
+      Setting a resource group in your CI/CD job enables you to prevent the same job from running concurrently when the same pipeline runs in parallel. This can happen if for example, you push multiple commits in very short intervals. Running multiple deployment scripts to the same infrastructure could harm your instance and leave it in a corrupted state in the worst case scenario. By default, the process mode of a resource group is set to `unordered`, which means that a job runs whenever it's ready to run.
+
+      In GitLab 14.4, we added two more process modes that are useful when you want to enforce a specific execution order of the jobs: `oldest_first` and `newest_first`. By setting the process mode with one of these new options, the system will enforce the execution of jobs in FIFO (First in First Out) order, or LIFO (Last in First Out) order, respectively.

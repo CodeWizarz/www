@@ -1,0 +1,107 @@
+---
+title: Installing GitLab on Raspberry Pi 64-bit OS
+author: Brendan O'Leary
+author_gitlab: boleary
+author_twitter: olearycrew
+categories: engineering
+tags: "demo, integrations, performance "
+description: A Raspberry Pi enthusiast tries to run GitLab on the new 64-bit
+  OS...and here's what happened.
+image_title: /images/blogimages/anto-meneghini-gqytxsrctvw-unsplash.jpg
+twitter_text: What happened when @olearycrew tried to run @gitlab on Raspberry
+  Pi's new 64-bit OS?
+---
+
+_This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes.
+As with all projects, the items mentioned in this blog post and linked pages are subject to change or delay. The development and release, and timing of any products, features or functionality remain at the sole discretion of GitLab Inc._
+
+Recently the 64-bit version of [Raspberry Pi OS](https://www.raspberrypi.com/software/) came out of a long-awaited beta, and as a Raspberry Pi enthusiast, I was eager to get my hands on it. While the 64-bit version isn't compatible with all Pi hardware, it's exciting to see the expansion of the ecosystem to allow for better access to RAM and software compatibility as 32-bit support becomes less common.
+
+But speaking of software support - what about running GitLab on the new 64-bit OS? Did you know that GitLab already has support for [Raspberry Pi OS](/install/#raspberry-pi-os)? We even have documentation on [optomizing GitLab on a Raspberry Pi](https://docs.gitlab.com/omnibus/settings/rpi.html) for folks who want to run their self-hosted [DevOps(https://about.gitlab.com/topics/devops/) platform on simple hardware like the Pi?
+
+Now, the distribution team would want me to point out that official support for ARM64 is still [in the works](https://gitlab.com/groups/gitlab-org/-/epics/2370), but that didn't stop me from at least wanting to try to install GitLab on this exciting new platform. Remember that your mileage may vary - and don't use this in production as it isn't yet officially supported.  
+
+But that's never stopped me before, so I grabbed my Raspberry Pi 4, a new Micro SD card, and the updated [Raspberry Pi Imager](https://downloads.raspberrypi.org/imager/imager_latest.dmg) and got started.
+
+## Getting Started
+
+The typical [install for GitLab on the Raspberry Pi](/install/#raspberry-pi-os) assumes you have the standard 32-bit version of `raspbian/buster` that has been standard for some time. So following those steps, I ran into an error with the install script.
+
+When running 
+
+```bash 
+sudo curl -sS https://packages.gitlab.com/install/repositories/gitlab/raspberry-pi2/script.deb.sh | sudo bash
+```
+
+It appeared to work, but if I tried to install GitLab I'd get this error
+
+```bash
+$ sudo EXTERNAL_URL="https://gitpi.boleary.dev" apt-get install gitlab-ce
+
+Reading package lists... Done
+Building dependency tree... Done
+Reading state information... Done
+Package gitlab-ce is not available, but is referred to by another package.
+This may mean that the package is missing, has been obsoleted, or
+is only available from another source
+ 
+E: Package 'gitlab-ce' has no installation candidate
+```
+That's related to the fact that specifically this version of Raspberry Pi OS isn't supported yet - but since it is a fork of Debian Linux, I was able to work around that.
+
+## Manual Installation
+
+To get started with a slightly modified installation path, I first got the package details and appropriate prerequisite libraries installed:
+
+```bash
+curl -s https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+
+sudo apt-get update
+
+sudo apt-get install debian-archive-keyring
+
+sudo apt-get install curl gnupg apt-transport-https
+
+curl -L https://packages.gitlab.com/gitlab/gitlab-ce/gpgkey | sudo apt-key add -
+```
+
+Then I created a new sources list to point `apt` to for the installation with `sudo touch /etc/apt/sources.list.d/gitlab_gitlab-ce.list`
+
+Next, I manually added the Debian Buster repositories to that sources list I just created by modifying  `/etc/apt/sources.list.d/gitlab_gitlab-ce.list` to add:
+
+```
+deb https://packages.gitlab.com/gitlab/gitlab-ce/debian/ buster main
+deb-src https://packages.gitlab.com/gitlab/gitlab-ce/debian/ buster main
+```
+
+## Finishing Up
+From there, it was easy to install the 'standard' way, with apt-get handling the rest for me.
+
+```bash
+sudo apt-get update
+
+sudo EXTERNAL_URL="http://gitpi.boleary.dev" apt-get install gitlab-ce
+```
+
+## Next Steps
+
+Now, those who love DNS will notice that I was pointing to a fully qualified domain name, but it points to a private address if you look up that address.
+
+```bash
+dig gitpi.boleary.dev
+; <<>> DiG 9.10.6 <<>> gitpi.boleary.dev
+;; OPT PSEUDOSECTION:
+; EDNS: version: 0, flags:; udp: 512
+;; QUESTION SECTION:
+;gitpi.boleary.dev.		IN	A
+
+;; ANSWER SECTION:
+gitpi.boleary.dev.	300	IN	A	100.64.205.40
+```
+
+Isn't that interesting?  What does it mean - can I access it from outside my house's network?  And how will I get it to work with HTTPs on that private address?
+
+For those answers, you'll have to stay tuned to my next article about running GitLab on the Raspberry Pi: Hosting a private GitLab server with Tailscale and LetsEncrypt.
+
+Photo by <a href="https://unsplash.com/@antomeneghini?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Anto Meneghini</a> on <a href="https://unsplash.com/s/photos/raspberries?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>
+  

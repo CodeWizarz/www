@@ -1,0 +1,85 @@
+---
+title: How to secure Google Cloud Run deployment with GitLab Auto DevOps
+author: Regnard Raquedan
+author_gitlab: rraquedan
+author_twitter: regnard
+image_title: /images/blogimages/cloud-security.png
+categories: engineering
+featured: yes
+tags: tutorial, cloud native, security
+description: This tutorial will help teams speed development, improve security, and harness the power of serverless technology.
+twitter_text: This easy-to-follow tutorial will help teams speed development, improve security, and harness the power of serverless technology.
+---
+Teams looking for efficiency often look to GitLab and serverless platforms to minimize management overhead and speed deployment times. GitLab's tight integration with [Google Cloud Run](https://cloud.google.com/run) means that teams can take advantage of the industry-leading DevSecOps platform to deliver container-based applications securely and efficiently.
+
+This tutorial will show you how to deploy applications to Cloud Run using GitLab [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/), a feature that lets developers quickly use CI/CD pipelines via pre-built templates. This approach can accelerate testing and deployment because stages and jobs are already pre-configured.
+
+## Prerequisites
+Before you begin, make sure you have the following:
+- a Google Cloud project with Cloud Run and Cloud Build APIs enabled
+- a Google Cloud service account with Cloud Run Admin, Cloud Build Service Agent, Service Account User, and Project Viewer permissions
+- a GitLab project containing your application code
+
+### Demo walkthrough
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/hIFagDyo3f8" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+
+**Step 1:** Configure Google Cloud credentials
+
+To start, use the Google Cloud service account with the necessary permissions. Once you have the service account, export its key to a JSON file and encode it using base64.
+
+**Step 2:** Add Auto DevOps to your GitLab project
+
+Navigate to your GitLab project and create a new file at the root called "gitlab-ci.yml." Add the following lines of code to include the Auto DevOps template, which automatically configures your pipeline based on project settings and configuration:
+
+```
+include:
+  - template: Auto-DevOps.gitlab-ci.yml
+```
+
+Commit the changes to your project.
+
+**Step 3:** Configure environment variables
+
+Add the following environment variables to your GitLab project:
+
+* `BASE64_GOOGLE_CLOUD_CREDENTIALS`: The base64-encoded JSON file containing your service account key. Make sure to mask this variable.
+* `PROJECT_ID`: The Google Cloud project ID.
+* `SERVICE_ID`: The service ID that will be used for Cloud Run. For this tutorial, we'll use "nodejs" as our service ID.
+
+**Step 4:** Configure the CI/CD pipeline
+
+Modify the "gitlab-ci.yml" file to add Google Cloud SDK, gcloud commands, Docker, and the necessary configurations for deploying your application to Cloud Run. 
+
+```
+image: google/cloud-sdk:latest
+```
+
+Additionally, use Google Cloud Build to generate the container image required for deployment. Commit the changes to your project.
+
+```
+deploy:
+  stage: deploy
+  script:
+    - export GOOGLE_CLOUD_CREDENTIALS=$(echo $BASE64_GOOGLE_CLOUD_CREDENTIALS | base64 -d)
+    - echo $GOOGLE_CLOUD_CREDENTIALS > service-account-key.json 
+    - gcloud auth activate-service-account --key-file service-account-key.json 
+    - gcloud config set project $PROJECT_ID 
+    - gcloud auth configure-docker
+    - gcloud builds submit --tag gcr.io/$PROJECT_ID/$SERVICE_ID
+    - gcloud run deploy $SERVICE_ID --image gcr.io/$PROJECT_ID/$SERVICE_ID --region=us-central1 --platform managed --allow-unauthenticated 
+```
+
+**Step 5:** Finalize the DAST stage
+
+Once your application has been deployed to Cloud Run, complete the dynamic application security testing ([DAST](https://docs.gitlab.com/ee/user/application_security/dast/)) stage in the CI/CD pipeline to ensure your application is more secure. Add the Cloud Run URL to your "gitlab-ci.yml" file and enable full_scan and browser_scan options. Commit the changes to your project.
+
+```
+variables:
+  DAST_WEBSITE: <project URL>
+  DAST_FULL_SCAN_ENABLED: "true"
+  DAST_BROWSER_SCAN: "true" 
+```
+
+In this tutorial, we successfully deployed a Cloud Run application using GitLab's Auto DevOps. By following these steps, you can enjoy faster development and improved security, and harness the power of serverless technology.

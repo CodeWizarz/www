@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+[ -x "$(command -v convert)" ] || { echo "This script requires ImageMagick"; exit 1; }
+
+size() {
+  du -Sh --max-depth=0 | awk '{print $1}'
+}
+
+crop() {
+  images_dir="$1"
+  manifest_file="$2"
+
+  [ -f "${manifest_file}" ] || { echo "Cannot locate ${manifest_file}."; exit 2; }
+
+  base_dir="$(pwd)"
+  cd "${images_dir}" || { echo "Cannot go into image directory: ${images_dir}."; exit 1; }
+  SIZE_BEFORE="$(size)"
+
+  shopt -s nocaseglob
+  for picture in ./*.jpg ./*.jpeg ./*.png ./*.gif
+  do
+    [[ -e "${picture}" ]] || break
+    picture="$(basename "$picture")"
+
+    [ "$(expr "${picture}" : '.\+-crop.\+')" -ne 0 ] && return
+
+    ext=".${picture##*.}"
+    basename="$(basename "$picture" "$ext")"
+    output="${basename}-crop.jpg"
+
+    echo "Converting ${picture} -> ${output}"
+    convert "${picture}" \
+      -resize 120x120^ \
+      -gravity center -crop 120x120+0+0 \
+      -strip \
+      -quality 92 \
+      -interlace JPEG \
+      "${output}"
+
+    # remove the source file
+    rm "${picture}"
+
+    sed -i "s|${picture}|${output}|g" "${manifest_file}"
+  done
+
+  echo "Cropped images at ${images_dir}: total size: ${SIZE_BEFORE} -> $(size)"
+  cd "${base_dir}" || { echo "Couldn't traverse back to ${base_dir}."; exit 1; }
+}
+
+crop "sites/uncategorized/source/images/team" "$(pwd)/data/alumni.yml"
+crop "sites/uncategorized/source/images/team/pets" "$(pwd)/data/pets.yml"

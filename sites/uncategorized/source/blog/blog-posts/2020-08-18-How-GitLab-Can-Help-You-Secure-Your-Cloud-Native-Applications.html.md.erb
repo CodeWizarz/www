@@ -1,0 +1,89 @@
+---
+title: "How GitLab improves cloud native application security and protection"
+window_title: "How GitLab Helps With Cloud Native Application Security"
+author: Nico Meisenzahl
+author_gitlab: nico-meisenzahl
+author_twitter: nmeisenzahl
+categories: unfiltered
+image_title: '/images/blogimages/gitlab-values-cover.png'
+description: "In this article, we will show you how GitLab can help you streamline your cloud native application security from a code and operations point of view by providing you with real-world examples."
+tags: cloud native, DevOps, kubernetes, open source, security 
+---
+
+{::options parse_block_html="true" /}
+
+
+
+In the [cloud-native](/topics/cloud-native/) ecosystem, decisions and changes are made on a rapid basis. Applications get adapted and deployed multiple times a week or even day. Microservices get developed decentralized with different peoples and teams involved. In such an environment, it is crucial to ensure that applications are developed and operated safely. This can be done by shifting security left into the developer lifecycle but also by using DevSecOps to empower operations with enhanced monitoring and protection for the application runtime.
+
+In this article, I would like to show you how GitLab can help you streamline your application security from a code and operations point of view by providing you with real-world examples. Before we deep dive into the example, let me first introduce you to the [GitLab Secure](https://about.gitlab.com/stages-devops-lifecycle/secure/) and [GitLab Protect](https://about.gitlab.com/stages-devops-lifecycle/govern/) product portfolio which are the foundation for this. GitLab Secure helps developers to enable accurate, automated, and continuous assessment of their applications by proactively identifying vulnerabilities and weaknesses and therefore minimizing security risk. GitLab Protect, on the other hand, supports operations by proactively protecting environments and cloud-native applications by providing context-aware technologies to reduce overall security risk. Both are backed by leading open-source projects that have been fully integrated into developer and operation processes and the GitLab user interface (UI).
+
+## Cloud Native Application Security: The attack
+
+Let’s assume we have an application hosting a web interface that allows a user to provide some input. The application is written in [Golang](https://golang.org/) and executes the input as part of an external operating system command ([os/exec](https://golang.org/pkg/os/exec/)). The application does not contain any validation or security features to validate the input, which allows us to inject additional commands that are also executed in the application environment.
+
+The application is running as containerized microservices in a Kubernetes cluster. The Kubernetes Cluster is shared across multiple teams and projects, allowing us to inject and read data in another application running next to ours. In our example, we will connect an unsecured Redis instance in a different Namespace and read/write data.
+
+Now let us take a closer look at how GitLab can help us detect the attack, permit its execution, and finally help us find and fix the root cause in our code.
+
+## Container Host Security
+
+[Container Host Security](/stages-devops-lifecycle/govern/) helps us to detect an attack in real-time by monitoring the pod for any unusual activity. It can then alert operations with detailed information on the attack itself.
+
+Container Host Security is powered by [Falco](https://falco.org/), an open-source runtime security tool that listens to the Linux kernel using eBPF. Falco parses system calls and asserts the stream against a configurable rules engine in real-time. The Falco deployment used by Container Host Security can be deployed and fully managed using [GitLab Managed Apps](https://docs.gitlab.com/ee/user/clusters/applications.html#install-falco-using-gitlab-cicd).
+
+In our example, Falco detects the injected redis-cli command, which is used to read/write data into the unsecured Redis instance. 
+
+![Container Host Security](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/falco.png)
+
+Falco can now alert operations who can use those valuable insights to define and execute further steps. 
+
+## Container Network Security
+
+A first step to permit access to the unsecured Redis instance would be to permit traffic between the application in our Kubernetes cluster. This can be done by using [Container Network Security](/stages-devops-lifecycle/govern/). Container Network Security is again fully managed by [GitLab Managed Apps](https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-cicd) and can also be configured within the GitLab project user interface.
+
+Container Network Security is powered by [Cilium](https://cilium.io/), an open-source networking plugin for Kubernetes that can be used to implement support for NetworkPolicy resources. [Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) can be used to detect and block unauthorized network traffic between pods and to/from the Internet.
+
+Implementing Network Policies for our application will block the underlying network traffic generated by the attack. The policies can be enabled within the GitLab project UI:
+
+![Network Policies](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/network-polices.png)
+
+## Web Application Firewall
+
+With Container Network Security in place, our attack isn’t able to talk to the Redis instance anymore, but it is still possible to execute other network unrelated attacks using the command injection. [Web Application Firewall (WAF)](/stages-devops-lifecycle/govern/) can now help us to increase the security and detect and block the attack at the [Kubernetes Ingress](https://kubernetes.io/docs/concepts/services-networking/ingress/) level. 
+
+The Web Application firewall is also powered by open-source. It is based on the [ModSecurity](https://kubernetes.github.io/ingress-nginx/user-guide/third-party-addons/modsecurity/) module, a toolkit for real-time web application monitoring, logging, and access control. It is preconfigured to use the [OWASP’s Core Rule Set](https://www.modsecurity.org/CRS/Documentation/), which provides generic attack detection capabilities. Like the other integrations, Web Application Firewall is also fully managed by GitLab using [GitLab Managed Apps](https://docs.gitlab.com/ee/user/clusters/applications.html#web-application-firewall-modsecurity).
+
+In our example, the Web Application Firewall detects the attack and is also able to block it:
+
+![Web Application Firewall logs](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/waf-log.png)
+
+Blocking the attack at the Ingress level will help us to deny the traffic before it hits our application. To do so, we can enable the Web Application Firewall blocking mode directly from the GitLab UI:
+
+![WAF settings](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/waf-settings.png)
+
+In addition to Container Host Security, we could have used the Web Application Firewall to detect the attack using the Thread Monitoring dashboard within our GitLab project:
+
+![Thread Monitoring](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/thread-monitoring.png)
+
+The Thread Monitoring dashboard also provides us with useful insights and metrics of our enforced Container Network Policy.
+
+## Static Application Security Testing
+
+We have now successfully protected our application runtime and ensured that no additional attacks can be executed. But we should also find and fix the root cause to ensure that such incidents are not recurring in the future. This is where [Static Application Security Testing (SAST)](/stages-devops-lifecycle/secure/) can help us. Static Application Security Testing can be easily integrated into our project using [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) and then allows us to analyze our [source code](/stages-devops-lifecycle/source-code-management/) for known vulnerabilities.
+
+In our case (a Golang application) the code scanning is executed using the open-source project [Golang Security Checker](https://github.com/securego/gosec). The results are displayed in the Security dashboard of our GitLab project for easy access:
+
+![Security Dashboard](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/sec-dashboard.png)
+
+In our example, the code scan has identified the root cause and provides us with detailed information about the vulnerability, the line of code that needs to be fixed, and the ability to easily create an issue to fix it.
+
+![SAST](/images/blogimages/2020-08-18-How-GitLab-Can-Help-You-Secure-Your-Cloud-Native-Applications/sast.png)
+
+Finally, of course, we should also talk to the team running the other application to make sure that their Redis instance gets secured too. We should also verify how the other [GitLab Secure](https://about.gitlab.com/stages-devops-lifecycle/secure/) features can help to further improve the overall security of the application.
+
+## GitLab Protect and Secure in action
+
+If you like to get more insights on GitLab Secure and Protect and want to see it in action, you are welcome to join [Wayne](https://gitlab.com/whaber), [Philippe](https://gitlab.com/plafoucriere) and myself in our session [“Your Attackers Won't Be Happy! How GitLab Can Help You Secure Your Cloud-Native Applications!”](https://gitlabcommitvirtual2020.sched.com/event/dUWw/your-attackers-wont-be-happy-how-gitlab-can-help-you-secure-your-cloud-native-applications) at GitLab Commit where you can gain further insights on Container Host Security, Container Network Security, Web Application Firewall (WAF), and Status Application Security Testing (SAST).
+
+Register today and join me and others at [GitLab Commit](https://about.gitlab.com/events/commit/) on August 26. GitLab Commit 2020 is a free 24-hour virtual experience filled with practical DevOps strategies shared by leaders in development, operations, and security. 

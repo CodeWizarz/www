@@ -1,0 +1,91 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# This support script attempts to determine if the user's local installation of the handbook is setup correctly.
+# Specifically, it attempts to validate that the user has the minimum set of requirements to run other important scripts such as
+# `bin/release-post-assemble`. THe intention here is to help non-engineering team members self-service updating their systems
+# as they carry out duties like release post assembly on an infrequent basis where the handbook dependencies may have
+# unknowingly shifted.
+#
+# usage `./bin/doctor`
+# caveat: requires some ruby version already installed
+#
+module Doctor
+  module_function
+
+  def run!
+    preamble
+    check_ruby_version
+    check_bundler_installation
+    check_installed_gems
+    check_yarn
+    outro
+  end
+
+  def check_ruby_version
+    if required_version == RUBY_VERSION
+      puts "✅ You have the proper Ruby version installed / selected"
+    else
+      $stderr.puts <<~EOS
+        ❌ Ruby Version Mismatch
+        You need to install or select #{required_version}
+        Follow the instructions at https://about.gitlab.com/handbook/git-page-update/#4-install-ruby-version-manager-rvm
+        Once you've finished with those instructions, you can rerun this script to check other components.
+      EOS
+      abort
+    end
+  end
+
+  def check_bundler_installation
+    if has_bundler?
+      puts "✅ Bundler Installed"
+    else
+      $stderr.puts <<~EOS
+        ❌ Can't find Bundler installed for #{RUBY_VERSION}
+        You need to install Bundler with the following command: gem install bundler
+        Once you've finished with those instructions, you can rerun this script to check other components.
+      EOS
+      abort
+    end
+  end
+
+  def check_installed_gems
+    system('bundler check') if has_bundler?
+  end
+
+  def check_yarn
+    yarn_check = system('yarn check --integrity')
+    if yarn_check
+      puts "✅ 'yarn check --integrity' successful"
+    else
+      $stderr.puts <<~EOS
+        ❌ 'yarn check --integrity' failed
+        Your dependencies probably don't match the yarn.lock file.
+        Please run 'yarn install' and try again.
+      EOS
+      abort
+    end
+  end
+
+  def preamble
+    puts <<~EOS
+      This tool will attempt tell you if you have all of the prerequisites to properly edit and run the GitLab handbook locally.
+      It checks the current Ruby version available to what is required, presence of the Bundler gem, 
+      the state of bundled gems, and checks yarn.
+    EOS
+  end
+
+  def outro
+    puts "Check up complete. 🍭 Enjoy the rest of your day!\n\n"
+  end
+
+  def has_bundler?
+    `gem list -l bundler`.include?('bundler')
+  end
+
+  def required_version
+    File.open('.ruby-version', &:readline).chomp
+  end
+end
+
+Doctor.run!

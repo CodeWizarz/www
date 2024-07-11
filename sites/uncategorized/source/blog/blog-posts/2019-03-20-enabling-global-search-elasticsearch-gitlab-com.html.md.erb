@@ -1,0 +1,141 @@
+---
+title: "Lessons from our journey to enable global code search with Elasticsearch on GitLab.com"
+author: Mario de la Ossa
+author_gitlab: mdelaossa
+author_twitter: mdelaossa
+categories: engineering
+image_title: "/images/blogimages/enable-global-search-elasticsearch.jpg"
+description: "Read about some of the dead ends we've encountered on the way to enabling global code search on GitLab.com, and how we're working on a way forward."
+tags: features, integrations, inside GitLab
+ee_cta: false # required only if you do not want to display the EE-trial banner
+featured: yes # reviewer should set
+twitter_text: "Enabling global code search with #elasticsearch on GitLab.com: Lessons learned"
+postType: content marketing
+related_posts:
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+  - "/blog/2019/07/16/elasticsearch-update/"
+  - "/blog/2020/01/30/insights/"
+---
+
+We're [working hard to switch our search infrastructure on GitLab.com](https://gitlab.com/groups/gitlab-org/-/epics/153) to
+take advantage of our [Elasticsearch integration](https://docs.gitlab.com/ee/integration/elasticsearch.html), which should allow us to improve global search and enable global code search for our users.
+
+Enabling this integration on GitLab.com is important to us because it will unlock better search performance and allow us
+to improve the relevance of results for our GitLab.com users – something our self-managed users have been able to take advantage of for a few years now.
+We've been working on this for a while, and have hit many dead ends and pitfalls which maybe you can learn from too.
+
+## Our plan
+
+We have two very important things that need to happen: we must reduce the Elasticsearch index size,
+and we must improve the administration of the Elasticsearch integration.
+
+## 1. Reduce index size
+
+Currently, the Elasticsearch index utilizes approximately 66 percent of the space the repos use.
+This is our biggest blocker, as this is the bare minimum amount of space required – this number goes up when you consider the need for replicas.
+
+We've attempted multiple things to get the index size down, but all of them resulted in minimal (or no) changes at all,
+so due to the complexity of implementing the changes we've decided to ignore them (at least for now).
+
+### Things we've tried
+
+#### Force merges
+
+When you delete a document from Elasticsearch, it doesn't actually free up space right away.
+Instead it does a soft delete, and Elasticsearch will release the space used in the future via an operation called a [merge](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules-merge.html).
+
+In [gitlab-org/gitlab-ee#7611](https://gitlab.com/gitlab-org/gitlab-ee/issues/7611) we investigated the possibility of forcing Elasticsearch
+to reclaim this space periodically via an operation called a [forcemerge](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-forcemerge.html).
+This seemed like a very worthwhile thing to investigate as an Elasticsearch index could theoretically grow up to 50 percent more due to these soft deletions.
+In the end though, we found out that a `forcemerge` is a blocking call, and causes extreme performance degradation while it runs –
+not something you want in a production environment!
+Sadly we were forced to abandon this, but we did learn a bit more about [how to tune Elasticsearch so merges are less painful, which we documented here](https://docs.gitlab.com/ee/integration/elasticsearch.html#deleted-documents).
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+#### NGram sizes
+
+In order to allow users to search without using exact phrases (it would be annoying if a search for "house" didn't bring up "houses" for
+example) we use what is called an [Edge NGram](https://www.elastic.co/guide/en/elasticsearch/reference/current/analysis-edgengram-tokenizer.html)
+filter for blobs (code files) and SHA1 strings (commit IDs).
+
+We have our Edge NGram filters set to create a maximum length of 40.
+Right off the bat we knew we could not lower the maximum size for our SHA1 filter, since we want our users to be able to find commits no matter how many characters of the ID they give us, and the maximum is 40.
+
+We could, however, play with the Edge NGram filter we use to analyze code, so we tested a few different scenarios in [gitlab-org/gitlab-ee#5585](https://gitlab.com/gitlab-org/gitlab-ee/issues/5585).
+We came up with conflicting results, but the savings were between 7-15 percent.
+Not bad! We still haven't changed the maximum length though, as we still need to confirm that searching is not impacted unduly with such a change.
+
+#### Separate indexes
+
+Currently, our Elasticsearch integration lumps all document types into the same index.
+This is because, in order to only return results to which a user has access, we must check the Project the object belongs to for the user's access level, which would be very expensive to do if we had to do it result per result after Elasticsearch returns the results of the query.
+
+That said, there was a chance that having separate indexes could improve our space usage, and it would definitely improve the re-indexing
+experience, so in [gitlab-org/gitlab-ee#3217](https://gitlab.com/gitlab-org/gitlab-ee/issues/3217) we took a stab at it.
+We learned that having separate indexes does nothing for space usage, which we already suspected since Elasticsearch 6.0 shipped with great support for [sparse fields](https://www.elastic.co/blog/minimize-index-storage-size-elasticsearch-6-0).
+
+We're still looking into having separate indexes, as in testing we have discovered it [greatly improves indexing speed](https://gitlab.com/gitlab-org/gitlab-ee/issues/3217#note_130304358)
+and should also improve the experience of having to re-index certain models.
+
+## 2. Improve administration capabilities for Elasticsearch
+
+Right now, all administration related to Elasticsearch must be done on the Elasticsearch cluster directly.
+We also currently require the Elasticsearch integration to be an all-or-nothing deal: you must enable it for all projects, or none of them.
+To make matters worse, when we make a change to the index schema, we require a full re-index of the entire repo right away in order for the update to work.
+We need to fix all these things and make Elasticsearch easier to administer from within GitLab if we want to have a fighting chance at
+enabling Elasticsearch support on GitLab.com.
+
+Some concrete things we're working on:
+
+### Better cluster visibility
+
+In order to help the administration of Elasticsearch, we must enable better controls for it from within GitLab.
+Issues [gitlab-org/gitlab-ee#3072](https://gitlab.com/gitlab-org/gitlab-ee/issues/3072) and
+[gitlab-org/gitlab-ee#2973](https://gitlab.com/gitlab-org/gitlab-ee/issues/2973) aim to provide a simple, but functional, admin interface
+for Elasticsearch within GitLab.
+
+### Graceful recovery
+
+Currently, if some data fails to index, whether due to a Sidekiq outage or any other reason, the only solution is to
+re-index the full Elasticsearch cluster, which is painful! In [gitlab-org/gitlab-ee#5299](https://gitlab.com/gitlab-org/gitlab-ee/issues/5299)
+we will be looking into ways to improve this.
+
+### Selective/progressive indexing
+
+In [gitlab-org/gitlab-ee#3492](https://gitlab.com/gitlab-org/gitlab-ee/issues/3492) we will be taking a look at enabling
+Elasticsearch on a project-by-project basis.
+
+### Allow disabling of code indexing
+
+In [gitlab-org/gitlab-ee#7870](https://gitlab.com/gitlab-org/gitlab-ee/issues/7870) we're investigating making
+code indexing optional. What this would mean is that global code search would not be available, but searching within a
+project would work as it currently does, backed by direct Gitaly searches. This is attractive to us as it would bring
+search improvements to Projects, Groups, Issues, and Merge Requests. This will also be a very useful feature for self-managed
+instances that want to have better search support for Issues/MRs/etc. but don't really need global code search. Indexing
+the repos to enable global code search takes an incredible amount of time, so offering the choice of disabling it gives our
+self-managed users more choice.
+
+### Shard Elasticsearch per group
+
+In [gitlab-org/gitlab-ee#10519](https://gitlab.com/gitlab-org/gitlab-ee/issues/10519) we're considering having separate Elasticsearch
+servers per group, similar to how Gitaly works, but on a group level instead of project level. Elasticsearch servers can become very large,
+reducing performance and making them less maintainable. By having a separate server per group we would also gain resiliency in case one
+cluster goes down, as only the group related to that cluster would be affected.
+
+We're still investigating this approach as there are some concerns about how search would work if we had separate Elasticsearch servers per group.
+
+## The future
+
+We haven't given up yet! We have high hopes that we'll find ways to lower usage enough to make better search available to all our users.
+
+Meanwhile, we're switching all our engineering time from lowering index usage to improving administration capabilities, as we feel that
+enabling things like selective indexing of projects will allow us to improve our Elasticsearch integration with more confidence, as we will
+be dogfooding our changes in production.
+
+If you'd like to follow along with us, feel free to check out the following epics: [gitlab-org&153](https://gitlab.com/groups/gitlab-org/-/epics/153),
+[gitlab-org&429](https://gitlab.com/groups/gitlab-org/-/epics/429), and [gitlab-org&428](https://gitlab.com/groups/gitlab-org/-/epics/428).
+If you have any concerns, comments, etc. we'll be glad to hear them. Remember, everyone can contribute!
+
+Photo by [Benjamin Elliott](https://unsplash.com/photos/vc9u77c0LO4) on [Unsplash](https://unsplash.com/)
+{: .note}

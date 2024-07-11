@@ -1,0 +1,248 @@
+---
+layout: default
+title: GitLab Hackathon
+description: "Join the community, hack on GitLab and win prizes!"
+canonical_path: "/community/hackathon/"
+suppress_header: true
+twitter_image: '/images/community/hackathon/hackathon-generic-card.png'
+extra_css:
+  - contributing.css
+  - styles-2018.css
+extra_js:
+  - countdown.js
+  - hackathon.js
+---
+- # Update the following 3 values only
+- hackathon_start_date = Date.new(2023, 12, 11)
+- meetup_event_id = "296831460"
+- hackathon_issue_id = "353"
+
+- hackathon_end_date = hackathon_start_date + 7
+- hackathon_merge_date = hackathon_end_date + 31
+- meetup_link = "https://www.meetup.com/gitlab-virtual-meetups/events/#{meetup_event_id}/"
+- kickoff_date_link = "https://www.timeanddate.com/worldclock/fixedtime.html?iso=#{hackathon_start_date.strftime('%Y%m%d')}T1200"
+
+-# Schema.org structured data.
+:javascript
+  var nextHackathonDate = {
+    start: new Date('#{hackathon_start_date.strftime('%B %-d, %Y')} 00:00:00 UTC').getTime(),
+    end: new Date('#{hackathon_end_date.strftime('%B %-d, %Y')} 00:00:00 UTC').getTime(),
+  };
+  var hackathonIssueID = '#{hackathon_issue_id}';
+  window.nextHackathonDate = nextHackathonDate;
+  window.hackathonIssueID = hackathonIssueID;
+:plain
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Hackathon",
+    "name": "GitLab Hackathon",
+    "description": "Get together with the GitLab community to contribute, learn, and win exciting prizes.",
+    "organizer" : "GitLab",
+    "startDate": "#{hackathon_start_date.strftime('%Y-%m-%d')}",
+    "endDate": "#{hackathon_end_date.strftime('%Y-%m-%d')}",
+    "eventStatus": "https://schema.org/EventScheduled",
+    "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+    "location": {
+      "@type": "VirtualLocation",
+      "url": "https://about.gitlab.com/community/hackathon/"
+    }
+  }
+  </script>
+
+.wrapper
+  .simple-hero
+    .container
+      .row
+        .col-md-8.col-md-offset-2.hero-image
+          = partial "includes/icons/hackathon-header.svg"
+
+      .row
+        %h1 GitLab Hackathon
+
+      .row
+        .col-md-6.col-md-offset-3
+          %p
+            Get together with the GitLab community to contribute, learn, and win exciting prizes.
+          %p
+            %i.fab.fa-gitlab.fa-fw{ style: "color:rgb(252,109,38); font-size:.85em", 'aria-hidden': true }
+            = "Join us from #{hackathon_start_date.strftime('%B %-d')} - #{hackathon_end_date.strftime('%B %-d')}"
+            %a{ href: '#hackathon-dates', style: "color:rgb(255,255,255);" } *
+            %i.fab.fa-gitlab.fa-fw{ style: "color:rgb(252,109,38); font-size:.85em", 'aria-hidden': true }
+          %br
+          %br
+          %span.h3#nextHackathonCountdown
+            %i.fas.fa-spinner.fa-spin.fa-fw{ style: "color:rgb(255,255,255)); font-size:.85em", 'aria-hidden': true }
+
+  #content
+    .wrapper.container.contributing-content{role: "main"}
+      .block
+        .block-content
+          %h2#joining-in.block-title
+            %a{ href: '#joining-in' } Joining in
+          %p
+            %a{ href: meetup_link } RSVP to our meetup.com event.
+          %p
+            The Hackathon is a virtual event open to anyone who is interested in contributing code, translations, UX designs and more to GitLab.
+            By participating in GitLab's Hackathon, you have the opportunity to work on issues that matter to you and advance your skills/experience while joining a global, diverse and inclusive team of contributors and GitLab team members.
+          %p
+            The Hackathon is scheduled to run for 7 days, to be inclusive. This accommodates participants who contribute during both their work hours and free time.
+            GitLab reviewers normally review MRs from Monday to Friday.
+          %p
+            %b To get started:
+          %p
+            %b Before the Hackathon
+          %p
+            %ol
+              %li
+                Block the dates on your calendar, or <a href="https://calendar.google.com/calendar/u/0?cid=Y183OTMwZmNiMGM5ZTQ3ODNiZGQzZDIzODU4YWU5YWY0MzA2ZjI4ZDk3NmE0MGM4MzNmNTA3MTBjN2NiODZiYTgyQGdyb3VwLmNhbGVuZGFyLmdvb2dsZS5jb20">subscribe</a> to the <a href="https://about.gitlab.com/handbook/marketing/community-relations/evangelist-program/#upcoming-events">GitLab Developer Evangelism calendar</a> that includes the Hackathon dates and calls.
+              %li
+                %a{ href: meetup_link } RSVP to our meetup.com event.
+              %li
+                Identify an issue and leave a comment indicating your interest in working on it. That way it's less likely for multiple people to be working on the same issue.
+          %p            
+            %b During the Hackathon
+          %p
+            :markdown
+              1. [Join the sessions](#sessions) to find more about the Hackathon or watch the recording that will be posted afterwards.
+              1. In case you don't want to work on the issues described in the <a href="#issues-to-contribute">contribute area below</a>:
+                <br>- To get started with code, check out the curated list of [issues to contribute to](https://about.gitlab.com/community/contribute/development/), based on the project you are interested in contributing to.
+              1. Leave a comment on the issue(s) you are working on. For help, you can ask directly in the issue or at the [contributors channel](#getting-help).
+              1. Create your MRs during the Hackathon dates - all MRs put up during the Hackathon dates are eligible to score points.
+              1. Checkout the live [Hackathon leaderboard!](https://gitlab-community.gitlab.io/community-projects/merge-request-leaderboard/).
+          %p
+            %b After the Hackathon
+          %p
+            :markdown
+              1. You'll have one month from the Hackathon end date to finish going through the feedback, review, and merge process for your MRs.
+              1. At the end of the month, the team will review the contributions and results will be made public within a week.
+              1. Participants and winners will be contacted to claim their prizes.
+
+      .block
+        .block-content
+          %h2#issues-to-contribute.block-title
+            %a{ href: '#issues-to-contribute' } Issues/Epics to contribute to
+
+          %p
+            When you create a MR during the Hackathon, <code>@gitlab-bot</code> will automatically identify, label, and let you know when you create an eligible merge request.
+            Contributions to all projects under the <a href="https://gitlab.com/gitlab-org">gitlab-org</a> and <a href="https://gitlab.com/gitlab-com">gitlab-com</a> groups qualify for the Hackathon. To help you get started, we've curated some issues across several areas:
+
+          %p
+          :markdown
+            | Contribution Area  | Guides | Issues |
+            |---------------|-----------------------|--------|----------------------------------|
+            | Security | [Contributing to GitLab guide](https://about.gitlab.com/community/contribute/development/#development) | [Qualifying issues](https://gitlab.com/groups/gitlab-org/-/issues?sort=created_date&state=opened&label_name[]=Security+Hackathon) |
+            | Frontend | [Frontend Development Guidelines](https://docs.gitlab.com/ee/development/fe_guide/) <br> - [Design and User Interface Changes guide](https://docs.gitlab.com/ee/development/contributing/design.html) | - [UX-related Issues](https://gitlab.com/groups/gitlab-org/-/issues/?sort=weight&state=opened&label_name%5B%5D=UX&label_name%5B%5D=Seeking%20community%20contributions),  [UX-related issues quick win](https://gitlab.com/groups/gitlab-org/-/issues/?sort=weight&state=opened&label_name%5B%5D=UX&label_name%5B%5D=quick%20win&first_page_size=100) <br> - [Frontend-related Issues](https://gitlab.com/groups/gitlab-org/-/issues/?sort=weight&state=opened&label_name%5B%5D=frontend&label_name%5B%5D=Seeking%20community%20contributions),  [Frontend-related issues quick win](https://gitlab.com/groups/gitlab-org/-/issues/?sort=weight&state=opened&label_name%5B%5D=frontend&label_name%5B%5D=quick%20win&first_page_size=100)|
+            | Backend            | [Contributing to GitLab guide](https://about.gitlab.com/community/contribute/development/#development) <br> - [GitLab's Architecture](https://docs.gitlab.com/ee/development/architecture.html) | - [Stage: Package all issues](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Apackage&label_name%5B%5D=Accepting%20merge%20requests&first_page_size=100), [Issues quick win](https://gitlab.com/gitlab-org/gitlab/-/issues?sort=created_date&state=opened&label_name%5B%5D=group::package&label_name%5B%5D=quick%20win) <br> - [Group: Respond issues](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=group%3A%3Arespond&label_name%5B%5D=Seeking%20community%20contributions), [Issues quick win](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=group%3A%3Arespond&label_name%5B%5D=quick%20win&first_page_size=100) <br> - [Group: Optimize all issues](https://gitlab.com/groups/gitlab-org/-/issues?sort=created_date&state=opened&label_name[]=group::optimize&label_name[]=Seeking+community+contributions), [Issues quick win](https://gitlab.com/groups/gitlab-org/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Aoptimize&label_name%5B%5D=quick%20win&first_page_size=20) <br> - [Group: Source Code all issues](https://gitlab.com/groups/gitlab-org/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Asource%20code&label_name%5B%5D=Seeking%20community%20contributions&first_page_size=20), [Issues quick win](https://gitlab.com/groups/gitlab-org/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Asource%20code&label_name%5B%5D=quick%20win&first_page_size=20) <br> - [Group: Editor All Issues](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=group%3A%3Aeditor&label_name%5B%5D=Seeking%20community%20contributions&assignee_id=None&first_page_size=100), [Issues quick win](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=group%3A%3Aeditor&label_name%5B%5D=quick%20win&assignee_id=None&first_page_size=100) <br> - [Group: Import All Issues](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=Seeking%20community%20contributions&label_name%5B%5D=group%3A%3Aimport), [Issues quick win](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=quick%20win&label_name%5B%5D=group%3A%3Aimport) <br> - [Group: Pipeline execution All Issues](https://gitlab.com/gitlab-org/gitlab/-/issues?sort=created_date&state=opened&label_name[]=group::pipeline+execution&label_name[]=Seeking+community+contributions), [Issues quick win](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Apipeline%20execution&label_name%5B%5D=quick%20win&first_page_size=100) <br> - [Group: Release All Issues](https://gitlab.com/gitlab-org/gitlab/-/issues?sort=created_date&state=opened&label_name[]=group::environments&label_name[]=Seeking+community+contributions), [Issues quick win](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Arelease&label_name%5B%5D=quick%20win&first_page_size=20) <br> - [Group: Compliance](https://gitlab.com/groups/gitlab-org/-/epics/8497) <br> - [Group: Analytics Instrumentation All Issues](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=created_date&state=opened&label_name%5B%5D=Seeking%20community%20contributions&label_name%5B%5D=group%3A%3Aanalytics%20instrumentation&first_page_size=20) |
+            | DevOps | [Contributing to GitLab guide](https://about.gitlab.com/community/contribute/development/#development) <br> - [GitLab's Infrastructure as Code with Terraform Guide](https://docs.gitlab.com/ee/user/infrastructure/iac/) <br> - [GitLab's Guide on CI/CD with a Kubernetes cluster](https://docs.gitlab.com/ee/user/clusters/agent/ci_cd_workflow.html) | - [GitLab's Terraform Provider All Issues](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/issues), [Issues quick win](https://gitlab.com/gitlab-org/terraform-provider-gitlab/-/issues/?sort=weight_desc&state=opened&label_name%5B%5D=quick%20win&first_page_size=20) <br> - [GitLab Agent for Kubernetes All Issues](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/issues/?sort=weight&state=opened&label_name%5B%5D=Seeking%20community%20contributions&first_page_size=20), [Issues quick win](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/issues?label_name%5B%5D=quick%20win) |
+            | [Website](https://about.gitlab.com/), [Handbook](https://about.gitlab.com/handbook/) | You can contribute to any page, by clicking "Edit this page" located in the footer of the page. | Although there is not a specific list of issues to contribute to, we encourage Hackathon participants to explore the website for typos, broken links and outdated information.  |            
+          %p{ class: "alert alert-gitlab-purple text-center" }
+            %span{ class: "h3", id: "hackathonMRCount" }
+              %i{ class: "fas fa-spinner fa-spin fa-fw", style: "color:rgb(107,79,187); font-size:.85em", "aria-hidden": true }
+
+      .block
+        .block-content
+          %h2#prize.block-title
+            %a{ href: '#prize' } Hackathon scoring and prizes
+
+          %p
+            We award 5 points for every merged MR closing an issue, and 1 point for every merged MR which does not close an issue. 
+            We are excited to offer the following prizes for this Hackathon. 
+
+          %p#hackathon-dates{ class: "alert alert-info" }
+            %i{ class: "fas fa-info-circle", style: "color: rgb(49, 112, 143);", "aria-hidden": true }
+            All qualifying MRs must be submitted between
+            = hackathon_start_date.strftime('%B %-d')
+            00:00 UTC &
+            = hackathon_end_date.strftime('%B %-d')
+            00:00 UTC and be <em>merged</em> by
+            = hackathon_merge_date.strftime('%B %-d')
+            at 00:00 UTC.
+
+          :markdown
+            | Categories | Eligibility | Description  |
+            |------------|-------------|--------------|
+            | Grand Prize | Individual(s) with the most points | A 'Tier 3' coupon to select swag from our Community Store |
+            | Second Place | Individual(s) with the second most points | A 'Tier 2' coupon to select swag from our Community Store |
+            | Merged MR | Everyone with an MR merged | A 'Tier 1' coupon to select swag from our Community Store |
+
+            Alternatively, you can opt to have trees planted to the equivalent value.
+
+            A preview of the prizes can be found in our [community swag store](https://gitlabcommunity.orderpromos.com) portal.
+
+      .block
+        .block-content
+          %h2#sessions.block-title 
+            %a{ href: '#sessions' } Hackathon tutorials and office hour sessions
+          
+          %p
+            Tutorial sessions during the Hackathon help you get kickstarted with contributing and to learn more about GitLab development. More sessions/speakers may be added as they are confirmed.
+
+          %p
+
+          %table.table
+            %thead
+              %tr
+                %th
+                  Date
+                %th
+                  Time in
+                  = link_to "UTC", "https://en.wikipedia.org/wiki/Coordinated_Universal_Time"
+                  %br
+                  (click for local time)
+                %th
+                  Topic
+                %th
+                  Session
+                %th
+                  Speakers
+
+            %tbody
+              %tr
+                %td
+                  = hackathon_start_date.strftime('%B %-d')
+                %td
+                  = link_to "12:00", kickoff_date_link
+                %td
+                  Hackathon Kickoff - Learn all about our Hackathon format, and get ready to start contributing
+                %td
+                  = link_to "Zoom", "https://gitlab.zoom.us/j/95057849090"
+                %td
+                  = link_to "Lee Tickett (@leetickett-gitlab)", "https://gitlab.com/leetickett-gitlab"
+
+          %p{ class: "alert alert-info" }
+            %i{ class: "fas fa-info-circle", style: "color: rgb(49, 112, 143);", "aria-hidden": true }
+            If you miss any of the sessions, you will find the recordings in the
+            = link_to "Hackathon Playlist", "https://www.youtube.com/playlist?list=PL05JrBw4t0KrqGydhkV_BUPrI-DBiDKfm"
+
+          %h3#getting-help.block-title
+            %a{ href: '#getting-help' } Getting help
+          %p
+            For communications during the Hackathon, we will use the <code>#contribute</code> channel in Discord.
+            This channel is for contribution-related discussions and for community members to help each other when contributing to GitLab.
+            It's open to everyone, so please join us at the <a href="https://discord.gg/gitlab">Discord Community Server</a>!
+
+      .block
+        .block-content
+          %h2#guidelines.block-title
+            %a{ href: '#guidelines' } Hackathon guidelines
+          %p
+            Hackathon organizers and GitLab team members reserve the rights to:
+          %p
+            1. Not consider a merge request part of the Hackathon if it's spam or could be part of a larger merge request, etc. If a GitLab team member decides to reject an MR, the guidance for the team member is to leave a comment informing the contributor and their thinking behind their decision.
+          %p
+            2. Block and ban a user that is not following GitLab's 
+            =link_to "Code of Conduct", "https://about.gitlab.com/community/contribute/code-of-conduct/"
+          %p
+            3. Block and ban a user that is using two or more accounts for participating in the Hackathon
+          %p
+            Disclaimer: Due to applicable trade control law and the policies of our shipping partners, prizes cannot be shipped to the following countries: Cuba, Iran, North Korea, Syria, Ukraine, Russia, and Belarus. This list is subject to change without notice.
+
+      .block
+        .block-content
+          %h2#past-events.block-title
+            %a{ href: '#past-events' } Past events
+
+          %p
+            To learn more about previous Hackathon events, visit the
+            %a{href: "https://about.gitlab.com/community/hackathon/past-events/"} past GitLab Hackathons page.

@@ -1,0 +1,249 @@
+---
+title: "Setting up GitLab CI for Android projects"
+author: Jason Yavorska
+author_twitter: j4yav
+categories: engineering
+image_title: '/images/blogimages/setting-up-gitlab-ci-for-android-projects/banner.jpg'
+description: "Learn how to set up GitLab CI to ensure your Android app compiles and passes tests."
+tags: CI/CD, user stories
+postType: content marketing
+merch_banner: merch_two
+merch_sidebar: merch_two
+related_posts:
+  - "/blog/2020/12/17/gitlab-for-cicd-agile-gitops-cloudnative/"
+  - "/blog/2019/09/26/building-a-cicd-pipeline-in-20-mins/"
+  - "/blog/2020/12/10/basics-of-gitlab-ci-updated/"
+---
+
+Note: This is a new version of a previously published blog post, updated for the current Android API level (28). Thanks Grayson Parrelli for authoring [the original post](/blog/2018/02/14/setting-up-gitlab-ci-for-android-projects/)!
+{: .alert .alert-info}
+
+Have you ever accidentally checked on a typo that broke your Android build or unknowingly broke an important use case with a new change? Continuous integration is a way for developers to avoid these headaches, allowing you to confirm that changes to your app compile, and your tests pass before they're merged in.
+
+[GitLab CI/CD](/features/continuous-integration/) is a wonderful [continuous integration](/blog/2016/08/05/continuous-integration-delivery-and-deployment-with-gitlab/) built-in solution, and in this post we'll walk through how to set up a basic config file (`.gitlab-ci.yml`) to ensure your Android app compiles and passes unit and functional tests. We assume that you know the process of creating an Android app, can write and run tests locally, and are familiar with the basics of the GitLab UI.
+
+## Our sample project
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+We'll be working with a real-world open source Android project called [Materialistic](https://github.com/hidroh/materialistic) to demonstrate how easy it is to get up and running with GitLab CI for Android. Materialistic currently uses Travis CI with GitHub, but switching over is a breeze. If you haven't seen Materialistic before, it's a fantastic open source Android reader for [Hacker News](https://news.ycombinator.com).
+
+### Testing
+
+[Unit tests](https://developer.android.com/training/testing/unit-testing/index.html) are the fundamental tests in your app testing strategy, from which you can verify that the logic of individual units is correct. They are a fantastic way to catch regressions when making changes to your app. They run directly on the Java Virtual Machine (JVM), so you don't need an actual Android device to run them.
+
+If you already have working unit tests, you shouldn't have to make any adjustments to have them work with GitLab CI. Materialistic uses [Robolectric](http://robolectric.org/) for tests, [Jacoco](https://www.eclemma.org/jacoco/) for coverage, and also has a linting pass. We'll get all of these easily running in our `.gitlab-ci.yml` example except for Jacoco, since that requires a secret token we do not have - though I will show you how to configure that in your own projects.
+
+## Setting up GitLab CI
+
+We want to be able to configure our project so that our app is built, and it has the complete suite of tests run upon check-in. To do so, we have to create our GitLab CI configuration file, called `.gitlab-ci.yml`, and place it in the root of our project.
+
+So, first things first: If you're just here for a snippet to copy-paste, here is a `.gitlab-ci.yml` that will build and test the Materialistic app:
+
+```yml
+image: openjdk:8-jdk
+
+variables:
+  ANDROID_COMPILE_SDK: "28"
+  ANDROID_BUILD_TOOLS: "28.0.2"
+  ANDROID_SDK_TOOLS:   "4333796"
+
+before_script:
+  - apt-get --quiet update --yes
+  - apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1
+  - wget --quiet --output-document=android-sdk.zip https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_TOOLS}.zip
+  - unzip -d android-sdk-linux android-sdk.zip
+  - echo y | android-sdk-linux/tools/bin/sdkmanager "platforms;android-${ANDROID_COMPILE_SDK}" >/dev/null
+  - echo y | android-sdk-linux/tools/bin/sdkmanager "platform-tools" >/dev/null
+  - echo y | android-sdk-linux/tools/bin/sdkmanager "build-tools;${ANDROID_BUILD_TOOLS}" >/dev/null
+  - export ANDROID_HOME=$PWD/android-sdk-linux
+  - export PATH=$PATH:$PWD/android-sdk-linux/platform-tools/
+  - chmod +x ./gradlew
+  # temporarily disable checking for EPIPE error and use yes to accept all licenses
+  - set +o pipefail
+  - yes | android-sdk-linux/tools/bin/sdkmanager --licenses
+  - set -o pipefail
+
+stages:
+  - build
+  - test
+
+lintDebug:
+  stage: build
+  script:
+    - ./gradlew -Pci --console=plain :app:lintDebug -PbuildDir=lint
+
+assembleDebug:
+  stage: build
+  script:
+    - ./gradlew assembleDebug
+  artifacts:
+    paths:
+    - app/build/outputs/
+
+debugTests:
+  stage: test
+  script:
+    - ./gradlew -Pci --console=plain :app:testDebug
+```
+
+Well, that's a lot of code! Let's break it down.
+
+### Understanding `.gitlab-ci.yml`
+
+#### Defining the Docker Image
+{:.special-h4}
+
+```yml
+image: openjdk:8-jdk
+```
+
+This tells [GitLab Runners](https://docs.gitlab.com/ee/ci/runners/) (the things that are executing our build) what [Docker image](https://hub.docker.com/explore/) to use. If you're not familiar with [Docker](https://hub.docker.com/), the TL;DR is that Docker provides a way to create a completely isolated version of a virtual operating system running in its own [container](https://www.sdxcentral.com/cloud/containers/definitions/what-is-docker-container-open-source-project/). Anything running inside the container thinks it has the whole machine to itself, but in reality there can be many containers running on a single machine. Unlike full virtual machines, Docker containers are super fast to create and destroy, making them great choices for setting up temporary environments for building and testing.
+
+This [Docker image (`openjdk:8-jdk`)](https://hub.docker.com/_/openjdk/) works perfectly for our use case, as it is just a barebones installation of Debian with Java pre-installed. We then run additional commands further down in our config to make our image capable of building Android apps.
+
+#### Defining variables
+
+```yml
+variables:
+  ANDROID_COMPILE_SDK: "28"
+  ANDROID_BUILD_TOOLS: "28.0.2"
+  ANDROID_SDK_TOOLS:   "4333796"
+```
+
+These are variables we'll use throughout our script. They're named to match the properties you would typically specify in your app's `build.gradle`.
+
+- `ANDROID_COMPILE_SDK` is the version of Android you're compiling with. It should match `compileSdkVersion`.
+- `ANDROID_BUILD_TOOLS` is the version of the Android build tools you are using. It should match `buildToolsVersion`.
+- `ANDROID_SDK_TOOLS` is a little funny. It's what version of the command line tools we're going to download from the [official site](https://developer.android.com/studio/index.html). So, that number really just comes from the latest version available there.
+
+#### Installing packages
+{:.special-h4}
+
+```yml
+before_script:
+  - apt-get --quiet update --yes
+  - apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1
+```
+
+This starts the block of the commands that will be run before each job in our config.
+
+These commands ensure that our package repository listings are up to date, and it installs packages we'll be using later on, namely: `wget`, `tar`, `unzip`, and some packages that are necessary to allow 64-bit machines to run Android's 32-bit tools.
+
+#### Installing the Android SDK
+
+```yml
+  - wget --quiet --output-document=android-sdk.zip https://dl.google.com/android/repository/sdk-tools-linux-${ANDROID_SDK_TOOLS}.zip
+  - unzip -d android-sdk-linux android-sdk.zip
+  - echo y | android-sdk-linux/tools/bin/sdkmanager "platforms;android-${ANDROID_COMPILE_SDK}" >/dev/null
+  - echo y | android-sdk-linux/tools/bin/sdkmanager "platform-tools" >/dev/null
+  - echo y | android-sdk-linux/tools/bin/sdkmanager "build-tools;${ANDROID_BUILD_TOOLS}" >/dev/null
+```
+
+Here we're downloading the Android SDK tools from their official location, using our `ANDROID_SDK_TOOLS` variable to specify the version. Afterwards, we're unzipping the tools and running a series of `sdkmanager` commands to install the necessary Android SDK packages that will allow our app to build.
+
+#### Setting up the environment
+
+```yml
+  - export ANDROID_HOME=$PWD/android-sdk-linux
+  - export PATH=$PATH:$PWD/android-sdk-linux/platform-tools/
+  - chmod +x ./gradlew
+  # temporarily disable checking for EPIPE error and use yes to accept all licenses
+  - set +o pipefail
+  - yes | android-sdk-linux/tools/bin/sdkmanager --licenses
+  - set -o pipefail
+```
+
+Finally, we wrap up the `before_script` section of our config with a few remaining tasks. First, we set the `ANDROID_HOME` environment variable to the SDK location, which is necessary for our app to build. Next, we add the platform tools to our `PATH`, allowing us to use the `adb` command without specifying its full path, which is important when we run a downloaded script later. Next, we ensure that `gradlew` is executable, as sometimes Git will mess up permissions.
+
+The next command `yes | android-sdk-linux/tools/bin/sdkmanager --licenses` is responsible for accepting the SDK licenses. Because the unix `yes` command results in an EPIPE error once the pipe is broken (when the sdkmanager quits normally), we temporarily wrap the command in `+o pipefile` so that it does not terminate script execution when it fails.
+
+#### Defining the stages
+
+```yml
+stages:
+  - build
+  - test
+```
+
+Here we're defining the different [stages](https://docs.gitlab.com/ee/ci/yaml/#stages) of our build. We can call these anything we want. A stage can be thought of as a group of [jobs](https://docs.gitlab.com/ee/ci/jobs/). All of the jobs in the same stage happen in parallel, and all jobs in one stage must be completed before the jobs in the subsequent stage begin. We've defined two stages: `build` and `test`. They do exactly what you think: the `build` stage ensures the app compiles, and the `test` stage runs our unit and functional tests.
+
+#### Building the app
+
+```yml
+lintDebug:
+  stage: build
+  script:
+    - ./gradlew -Pci --console=plain :app:lintDebug -PbuildDir=lint
+
+assembleDebug:
+  stage: build
+  script:
+    - ./gradlew assembleDebug
+  artifacts:
+    paths:
+    - app/build/outputs/
+```
+
+This defines our first job, called `build`. It has two parts - a linter to ensure that the submitted code is up to snuff, and the actual compilation of the code (and configuration of the `artifacts` that GitLab should expect to find). These are run in parallel for maximum efficiency.
+
+#### Running tests
+
+```yml
+debugTests:
+  stage: test
+  script:
+    - ./gradlew -Pci --console=plain :app:testDebug
+```
+
+This defines a job called `debugTests` that runs during the `test` stage. Nothing too crazy here about setting something simple like this up!
+
+If we had wanted to get Jacoco also working, that would be very straightforward. Simply adding a section as follows would work - the only additional thing you'd need to do is add a secret variable containing your personal `COVERALLS_REPO_TOKEN`:
+
+```yml
+coverageTests:
+  stage: test
+  script:
+    - ./gradlew -Pci --console=plain jacocoTestReport coveralls
+```
+
+## Run your new CI setup
+
+After you've added your new `.gitlab-ci.yml` file to the root of your directory, just push your changes to the appropriate branch and off you go! You can see your running builds in the **Pipelines** tab of your project. You can even watch your build execute live and see the runner's output, allowing you to debug problems easily.
+
+![Pipelines tab screenshot](/images/blogimages/gitlab-ci-for-android-2018/tutorial-01.png){:.shadow}
+
+After your build is done, you can retrieve your build artifacts:
+
+- First, click on your completed build, then navigate to the Jobs tab:
+
+![Build details button screenshot](/images/blogimages/gitlab-ci-for-android-2018/tutorial-02.png){:.shadow}
+
+From here, simply click on the download button to download your build artifacts.
+
+## Conclusion
+
+So, there you have it! You now know how to create a GitLab CI config that will ensure your app:
+
+- Compiles
+- Passes tests
+- Allows you to access your build artifacts (like your [APK](https://en.wikipedia.org/wiki/Android_application_package)) afterwards.
+
+You can take a look at my local copy of the Materialistic repository, with everything up and running, at [this link](https://gitlab.com/jyavorska/androidblog-2018)
+
+Enjoy your newfound app stability :)
+
+<%= partial "includes/blog/blog-merch-banner" %>
+
+<!-- closes https://gitlab.com/gitlab-com/www-gitlab-com/issues/3167 -->
+<!-- cover image: https://unsplash.com/photos/aso6SYJZGps -->
+
+<style>
+  img {
+    display: block;
+    margin: 0 auto 20px auto;
+  }
+  .special-h4 {
+    margin-top: 20px !important;
+  }
+</style>

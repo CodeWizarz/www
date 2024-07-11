@@ -1,0 +1,10 @@
+deprecations:
+  - feature_name: "Deprecation and planned removal of TSLint Secure analyzer"
+    due: September 22, 2020
+    reporter: tmccaslin
+    description: |
+      The [recent update of our ESLint Secure analyzer](#javascript--typescript-sast-analyzer-available-for-all) includes new support for TypeScript which is actively maintained. Since 2019 the [TSLint project has been deprecated](https://palantir.github.io/tslint/) in favor of ESLint. We have now unified these analyzers in [GitLab's ESLint analyzer](https://gitlab.com/gitlab-org/security-products/analyzers/eslint), which renders our TSLint analyzer obsolete. 
+      
+      We are deprecating the [TSLint Secure analyzer](https://gitlab.com/gitlab-org/security-products/analyzers/tslint) in 13.2 and have removed the [TSLint job definition from the SAST template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml). If you leverage [Auto Devops](https://docs.gitlab.com/ee/topics/autodevops/) or `include` the [GitLab Secure SAST Template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml) no action is required, as this transition will happen automatically when you update to GitLab 13.2. We recommend that anyone using the TSLint SAST job in a customized CI template to migrate to the [newly updated ESLint Job](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L85).
+
+      The next time the SAST job runs after this transition you may see previously present TSLint vulnerabilities being marked as "resolved" and new TypeScript vulnerabilities from ESLint. This behavior is expected due to the new unique vulnerability signatures from ESLint which are different from old TSLint job scan vulnerability signatures.

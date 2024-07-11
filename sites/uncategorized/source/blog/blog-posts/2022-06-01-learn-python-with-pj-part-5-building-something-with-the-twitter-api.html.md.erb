@@ -1,0 +1,115 @@
+---
+title: Learn Python with Pj! Part 5 - Build a hashtag tracker with the Twitter API
+author: Pj Metz
+author_gitlab: PjMetz
+author_twitter: MetzinAround
+categories: careers
+tags: careers, tutorial, growth
+description: Our Education Evangelist Pj Metz wraps up his five-part series with
+  this penultimate tutorial.
+image_title: /images/blogimages/python.jpg
+twitter_text: The culmination of the five-part tutorial series Learn Python
+  with Pj! helps you to build a hashtag tracker the Twitter API.
+---
+This is the fifth and final installment in the Learn Python with Pj! series. Make sure to read:
+- [Part 1 - Getting started](/blog/2022/02/08/learn-python-with-pj-part-1/)
+- [Part 2 - Lists and loops](/blog/2022/03/01/learn-python-with-pj-part-2/)
+- [Part 3 - Functions and strings](/blog/2022/04/04/learn-python-with-pj-part-3/)
+- [Part 4 - Dictionaries and Files](/blog/2022/05/05/learn-python-with-pj-part-4-dictionaries-and-files/)
+
+## Putting it all together
+I’ve completed my Python course on [Codecademy](https://codecademy.com/), and am excited to put the skills I learned into building something practical. I’ve worked with the Twitter API before; I wrote a few bots in Node.js to make them tweet and respond to tweets they’re tagged in. I thought it’d be fun to work with the API again, but this time do it in Python. I didn’t just want to make another bot, so I had to figure out something else. In this case, I made a bot that can track hashtags being used in real time on Twitter.
+
+Here’s [my repo](https://gitlab.com/MetzinAround/python-hashtagger) containing a few different files, but `live_tweets.py` is what we’ll focus on for this blog. Let’s talk about how I built it and what it does. 
+
+```python
+import tweepy
+import config
+
+auth = tweepy.OAuth1UserHandler(config.consumer_key, config.consumer_secret, config.access_token, config.access_token_secret
+)
+
+api = tweepy.API(auth) 
+
+#prints the text of the tweet using hashtag designated in stream.filter(track=[])
+class LogTweets(tweepy.Stream):
+        def on_status(self, status):
+                date = status.created_at
+                username = status.user.screen_name
+                
+                try:
+                        tweet = status.extended_tweet["full_text"]
+                except AttributeError:
+                        tweet = status.text
+
+                print("**Tweet info**")
+                print(f"Date: {date}")
+                print(f"Username: {username}")
+                print(f"Tweet: {tweet}")
+                print("*********")
+                print("********* \n")
+              
+
+if __name__ == "__main__":         
+        #creates instance of LogTweets with authentication
+        stream = LogTweets(config.consumer_key, config.consumer_secret, config.access_token, config.access_token_secret)
+
+
+        #hashtags as str in list will be watched live on twitter. 
+        hashtags = []
+        print("Looking for Hashtags...")
+        stream.filter(track=hashtags)
+
+
+```
+
+Here’s how this all works. First, we import two modules: [Tweepy](https://www.tweepy.org/) and config. Tweepy is a wrapper that makes using the Twitter API very easy. Config allows us to use config files and keep our secrets safe. This is important since using the Twitter API involves four keys that are specific to your Twitter developer account. Getting these keys is covered in this Twitter [documentation](https://developer.twitter.com/en/docs/twitter-api/getting-started/getting-access-to-the-twitter-api). We’ll talk about what’s in the config file and how it works later. 
+
+The next line defines the variable `auth` using tweepy’s built in authorization handler. Normally, you’d put in the keys directly here, but since we’re trying to keep secrets safe, we handle those through the config file. In order to call those variables hosted in the config file, we type `config.variable_name`. Finally, in order to access the tweepy api, we create the variable `api` with the auth variable from the line above passed into `tweepy.API()`. Now, the variable `api` will give us access to all the features in Tweepy’s Twitter API library. 
+
+> You’re invited! Join us on June 23rd for the [GitLab 15 launch event](https://page.gitlab.com/fifteen) with DevOps guru Gene Kim and several GitLab leaders. They’ll show you what they see for the future of DevOps and The One DevOps Platform.
+
+For our purposes, we want to find a hashtag being used, then collect the tweet that used it and print some information about the tweet to the console. To make this happen, we’ve created a class called `LogTweets` that takes an input `tweepy.Stream`. Stream is a Twitter API term that refers to all of the tweets being posted on Twitter at any given moment. Think of it as opening a window looking out onto every single tweet as it’s posted. We have to make this open connection in order to be able to find tweets that are using our hashtag. Inside `LogTweets`, we define a function called `on_status` with the parameters `self` and `status`. `On_status` will be called when a status is detected in the stream. `Self` is required as the first parameter in any class function, and `status` in this function will be referring to the status posted by a Twitter user, often called a tweet.
+
+In our case, we’re going with status because `tweet` will represent the text of the status itself. We define `date` and `username` using Tweepy documentation: `created_at` is the date and `user.screen_name` is the username of the person who posted the status.
+
+Next is a `try/except` block. Try/except is a concept that works similarly to an if statement, but it allows for error handling a little bit better. It essentially says, “Try this, but if there’s a problem, do this instead.” In this case, we try to define the variable `tweet` as `.extended_tweet[“full_text”]`. This checks if the status we’re working with has the `extended_tweet` attribute. Twitter used to be limited to 140 characters, and when they increased the limit to 280, the `extended_tweet` became necessary.
+
+Now, if you want to capture the full tweet, you need the `extended_tweet` attribute. Inside of that attribute is the key `full_text`. Longer tweets will need that full_text or it will cut off at the 140 character limit. This `try` command checks if that key exists; if it does, `tweet` is equal to that full text.
+
+However, if an `AttributeError` happens, we just grab the regular text and set it equal to the variable `tweet`. Next, we print some info to the terminal. Whenever this function is called, the six lines will print to the console with the variables created above replaced by whatever status info was passed in. This makes it easier to keep track of what we’re looking at in the terminal. 
+
+Next, we have an important if statement: `if __name__ == "__main__":`. This is used to indicate what happens when the file is run. Basically, files in Python receive a property called `__name__` from the compiler. The file that is called to be run directly is called `__main__`. Other files not run are given names equal to the file name. Therefore, anything under this if statement will only run if the file is being called directly by the compiler. 
+
+Next, we create an instance of `LogTweets` called `stream`. We pass in the authentication information from the config file just like we did for the `auth` variable in the beginning of the code. This “opens up” the stream and we are now looking at all the tweets being sent in real time. In order to narrow our search, we need something to look for. The variable `hashtags` is an empty list that must be populated with strings of the hashtags we’re looking to track. This list will be put into the keyword `track` in a few lines. 
+
+`Track` is an important keyword for the stream. It tells the instance what word we are looking for, input as a list of strings. These words can show up in any form, so it’s very broad.  If we didn’t put the hashtag in front of it, it would simply look for that word no matter where it showed up, so we might have too many results. By looking for hashtags, we narrow our search only to people using that specific hashtag, not just the word wherever it is. To search for terms, you have to put them into the list as a string before running the code. 
+
+When the code is run by typing `python3 live_tweets.py` into the terminal, this is what the output looks like in the terminal.
+
+![Output in terminal](/images/blogimages/pythonwithpj5.png){: .shadow}
+
+
+That’s it! That’s how the bot works, but we still need to talk about `config.py` and why we used it before. Here’s the contents of the file: 
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+consumer_key = os.getenv("consumer_key")
+consumer_secret = os.getenv("consumer_secret")
+access_token = os.getenv("access_token")
+access_token_secret = os.getenv("access_token_secret")
+```
+
+I tricked you! This doesn’t have the keys there either! Using `import os` and `import dotenv import load_dotenv` gives us access to something very important to keep secret keys safe: environmental variables. An environmental variable can be set in many different places, but in this case, our local repo has a file called `.env` that holds the actual keys.
+
+This is there so I can test the app and run it on my machine. To use it somewhere else, you’d have to have environmental variables set up to hold the keys for the Twitter API. When I run my bots on Heroku, I keep the keys in the settings so it has access to the keys it needs to run. I use a `.gitignore` file that keeps my `.env` file from being committed to GitLab. 
+
+As you can see, the variables in `config.py` are set to `os.getenv(“name_of_key”)`. When we import `config.py` as `import config`, we gain access to these variables by calling `config.name_of_variable` in our main file. 
+
+So, for now, that’s what I built! It’s not much and I pieced it together using a lot of documentation from Twitter and Tweepy as well as a few tutorials and plenty of Stackoverflow, but it got built and it works the way I want it to!
+
+I’ve really enjoyed learning Python online and writing about it for everyone who has been reading it. I encourage anyone learning a new language or skill to write about it; it has really helped solidify my learning, and who knows, maybe I’ve helped someone else understand something in Python as well. 
+

@@ -1,0 +1,148 @@
+---
+title: "GitLab.com is moving to 13.0, with narrow breaking changes"
+author: Joshua Lambert
+author_gitlab: joshlambert
+author_twitter: gitlab
+categories: news
+description: "Our next release, 13.0, will include narrow breaking changes. Find out how this could affect you and what you need to do."
+twitter_text: "GitLab.com is moving to 13.0, including narrow breaking changes. Find out how this could affect you and if so what to do."
+featured: no
+tags: news, production, releases
+postType: product
+merch_banner: merch_two
+---
+
+GitLab 13.0 is coming on May 22, 2020 to GitLab.com. Along with the
+[exciting new features](https://www.youtube.com/playlist?list=PL05JrBw4t0KqWysAAKFYYIE2Tf9IZB5bv), it also includes
+[planned deprecations](https://about.gitlab.com/releases/2020/04/22/gitlab-12-10-released/#release-deprecations) because it is this year's major version release. We try to minimize these changes, but some are important enough to warrant the change in functionality.
+
+These changes will be going live on GitLab.com over the next few days, through our [daily deployments](https://about.gitlab.com/handbook/engineering/infrastructure/library/scheduled-daily-deployments/), leading up to the official release of 13.0 on May 22nd. Keep reading to learn more about these important changes.
+
+## Auto DevOps default PostgreSQL chart version changing to 8.2.1
+
+As part of updating Auto DevOps to support Kubernetes 1.16, the default PostgreSQL chart version is changing from 0.7.1 to 8.2.1.
+
+To migrate your existing 0.7.1 PostgreSQL database to the newer 8.2.1-based database,
+follow the [upgrade guide](https://docs.gitlab.com/ee/topics/autodevops/upgrading_postgresql.html)
+to backup your database, install the new version of PostgreSQL, and restore your database.
+
+To remain on the old default, you will need to explicitly set the
+`AUTO_DEVOPS_POSTGRES_CHANNEL` CI variable to `1`.
+
+## Auto DevOps Auto Deploy default setting for `deploymentApiVersion` changing
+
+Because several APIs [were removed](https://kubernetes.io/blog/2019/07/18/api-deprecations-in-1-16/)
+in Kubernetes 1.16, the `deploymentApiVersion` setting is changing to a new default
+of `apps/v1` in [GitLab 13.0](https://gitlab.com/gitlab-org/charts/auto-deploy-app/issues/47). 
+
+If you are using Kubernetes 1.9 and below, you will need to upgrade your Kubernetes
+cluster to get `apps/v1` version support. For Auto DevOps,
+[GitLab requires](https://docs.gitlab.com/ee/topics/autodevops/#requirements) Kubernetes 1.12+.
+
+## Auto DevOps and Secure Configuration templates are changing to `rules` instead of `only/except`
+
+The use of [`only` and `except`](https://docs.gitlab.com/ee/ci/yaml/#only--except) is
+discouraged in favor of [`rules`](https://docs.gitlab.com/ee/ci/yaml/#rules).
+`rules` provides more verbose and expressive job execution  logic that is less
+complex to evaluate and understand. 
+
+Auto DevOps and Secure [configuration templates](https://docs.gitlab.com/ee/ci/yaml/#includetemplate)
+that use `only` and `except` are changing to `rules`. Users who have customized
+job templates will need to transition as these two configuration options cannot
+be used together. We have [documentation available for help migrating your templates](https://docs.gitlab.com/ee/user/application_security/#transitioning-your-onlyexcept-syntax-to-rules).
+
+This change will affect the following job configuration templates: 
+
+- `Build.gitlab-ci.yml`
+- `Test.gitlab-ci.yml`
+- `Deploy.gitlab-ci.yml`
+- [Secure vendored `.gitlab-ci.yml` templates](https://gitlab.com/groups/gitlab-org/-/epics/2300)
+  - `Container-scanning.gitlab-ci.yml`
+  - `DAST.gitlab-ci.yml`
+  - `Dependency-Scanning.gitlab-ci.yml`
+  - `License-Management.gitlab-ci.yml`
+  - `License-Scanning.gitlab-ci.yml`
+  - `SAST.gitlab-ci.yml`
+
+Any customization to these templates using `only` and `except` must be changed to
+the [`rules`](https://docs.gitlab.com/ee/ci/yaml/#rules) syntax. `only/except` can’t be used in 
+combination with `rules` since it’s intended to be replaced by that functionality.
+Please see [our troubleshooting doc](https://docs.gitlab.com/ee/user/application_security/#getting-error-message-sast-job-config-key-may-not-be-used-with-rules-onlyexcept)
+for guidance on transition your rules or pinning to the previous version.
+
+We would love to hear more about these cases in [this `rules` improvement issue](https://gitlab.com/groups/gitlab-org/-/epics/2783).
+
+Relevant issues: 
+
+- [Moving Auto DevOps jobs syntax to `rules`](https://gitlab.com/gitlab-org/gitlab/-/issues/213336)
+- [Transition to rules syntax for Secure's vendored templates](https://gitlab.com/groups/gitlab-org/-/epics/2300)
+
+## Offset pagination limit of 50,000 for `/projects` endpoint
+
+An offset-based pagination limit of `50,000` is being applied to the `/projects`
+API endpoint on GitLab.com. Integrations that make API calls with offsets above
+`50,000` must switch to [keyset-based pagination](https://docs.gitlab.com/ee/api/#keyset-based-pagination),
+which will offer significantly improved response times and reduced load on the
+GitLab server. Self-managed instances can customize the limit to a desired value.
+
+To optimize performance, keyset-based pagination only offers ordering based on
+project `id`. Use cases that require more flexible ordering options can continue
+to use offset-based pagination, provided the offsets remain below the limit.
+If use cases require flexible ordering options with deep offsets, we recommend
+sorting client-side.
+
+## Removing GitLab Snippets content from search
+
+As we continue to work towards [version control for Snippets](https://gitlab.com/groups/gitlab-org/-/epics/239),
+we are making a change to search for Snippets in the UI and API that removes snippet
+**Content** from search results. **Title** and **Description** will still be
+accessible via search and API.
+
+## Introducing a new `id` field which replaces the deprecated `cve` field in the JSON common security report
+
+As we add (and encourage third-party vendors to add) more security integrations,
+we're working to improve our current JSON common report format. The primary field
+`cve` property is confusing, as it does not contain CVE data and should therefore
+be removed. We are introducing the `id` field, which is automatically calculated
+for GitLab scanners and required for third-party partner scanners. The `id` field
+will eventually replace `cve` as a unique identifier. Anyone leveraging the `cve`
+property in security reports, with custom scripts or as an integrator into our
+Secure features, will eventually need to stop using the `cve` property and instead
+should start using the new `id` property. Please be aware that today `id` and
+`cve` are both required fields.
+
+- [Container Scanning - Reports JSON format](https://docs.gitlab.com/ee/user/application_security/container_scanning/#reports-json-format)
+- [Dependency Scanning - Reports JSON format](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#reports-json-format)
+- [Static Application Security Testing (SAST) - Reports JSON format](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format)
+
+## Removal of `token` attribute in Runner's details API
+
+We are removing the `token` attribute from the Runners API endpoint that gets details
+of a Runner by its ID. You can provide feedback in 
+[the related issue](https://gitlab.com/gitlab-org/gitlab/-/issues/214322) or your
+usual support channels.
+
+## Removal of deprecated project paths
+
+With the introduction of [subgroups](https://about.gitlab.com/solutions/subgroups/), GitLab's URL path structure became more complex. We've been [introducing a separator](https://gitlab.com/gitlab-org/gitlab/-/issues/214217), `/-/`, to improve clarity between groups, projects, and pages within a project. For example, `https://gitlab.com/gitlab-org/gitlab/issues` is now `https://gitlab.com/gitlab-org/gitlab/-/issues`. These changes result in improved performance, stability, and simplicity. 
+
+As we introduce the separator to additional pages, we automatically redirect requests to the old paths to the new ones. With GitLab 13.0, we are [removing this redirect](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/26808) for pages which have had the separator since GitLab 12.0.
+
+Regular usage of GitLab will not be impacted by this change. However bookmarks or scripting created over a year ago, utilizing an affected path, will need to be updated to utilize the new path.
+
+## GitLab Runner 13.0 breaking changes
+
+- [Windows Batch `cmd` for the shell executor](https://gitlab.com/gitlab-org/gitlab-runner/issues/6099): In GitLab 11.11, we deprecated the use of Windows Batch executor for the GitLab Runner in favor of PowerShell. In 13.0 we will deprecate the use of Windows batch (cmd) from the Runner shell executor.  When a user registers a new runner shell executor it will now default to `powershell`. The Cmd shell remains included in future versions of GitLab Runner. However, any new Runner feature is to be tested and supported only for use with PowerShell.
+- [debug/jobs/list?v=1 endpoint](https://gitlab.com/gitlab-org/gitlab-runner/issues/6361): In 13.0, the `/debug/jobs/list?v=1` endpoint used for monitoring is replaced with the `/debug/jobs/list?v=2` endpoint.
+- [Docker services flag on register command](https://gitlab.com/gitlab-org/gitlab-runner/issues/6404): In GitLab Runner 12.7 we introduced the ability to allow a service alias from `config` in the Docker executor. In 13.0, the old structure, `--docker-services` will also be removed. This means that the following option `gitlab-runner register --docker-services postgres` will no longer set the service as the configuration is no longer an array of strings. For users with automation that relies on the `--docker-services` flag, click here for a [migration](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/6404#migration) example.
+- [Legacy build directory caching feature flag](https://gitlab.com/gitlab-org/gitlab-runner/issues/4180): In GitLab Runner 13.0 we will remove the legacy build directory caching feature flag that was introduced in 11.10. We highly recommend that users do not store anything in the `Builds Directory`. Refer to the [Build Directory](https://docs.gitlab.com/runner/best_practice/#build-directory) section of the best practices documentation page for additional details.
+- [Windows 1803 support end of life](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/6553): In GitLab Runner 13.0, Windows 1803 is no longer supported.
+- [Fedora 29 support end of life](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/16158): In GitLab Runner 13.0, Fedora 29 is no longer supported.
+
+## To utilize License Compliance you must use the new License Scanning template
+
+As of GitLab 13.0 for self-managed, and this week for GitLab.com users, we have removed the License-Management.gitlab.ci.yml template (deprecated since GitLab 12.8). You must replace it with the License-Scanning.gitlab-ci.yml template instead. For more details visit [the documentation](https://docs.gitlab.com/ee/user/compliance/license_compliance/#migration-from-license_management-to-license_scanning).
+
+If you are directly referencing the results of the License Scan running as part of License Compliance, you also need to use the new report type artifacts:reports:license_scanning instead of artifacts:reports:license_management. This is optional with the release of GitLab 12.8 through GitLab 12.10, but mandatory with the release of GitLab 13.0. This will not apply to users of versions GitLab 12.7 and earlier.
+
+This change was made because GitLab License Management is now renamed to GitLab License Compliance. After review with users and analysts, we determined that this new name better indicates what the feature is for, aligns with existing market terminology, and reduces confusion with GitLab subscription licensing features. You can find the research and work on this issue in the epic Rename License Management to License Compliance. The analyses of your projects done as a part of License Compliance will be called License Scanning.

@@ -1,0 +1,315 @@
+---
+title: "Set up Flux for GitOps to deploy workloads on OpenShift"
+author: Bart Zhang
+author_gitlab: bartzhang
+author_twitter:
+image_title: '/images/blogimages/genericworkflow.jpg'
+guest: false
+categories: engineering
+tags: tutorial, GitOps
+featured: yes
+description: "Learn how to set up a sample project, complete a bootstrap Flux installation, and authenticate your installation with a project deploy token."
+twitter_text: "In this tutorial, you'll set up a sample project, complete a bootstrap Flux installation, and authenticate your installation with a project deploy token."
+---
+
+In February, we announced that [Flux CD would be our recommended approach to do GitOps with GitLab](https://about.gitlab.com/blog/2023/02/08/why-did-we-choose-to-integrate-fluxcd-with-gitlab/). This tutorial explains how to set up GitLab and Flux to deploy workloads on Red Hat OpenShift. You’ll set up a sample project, complete a bootstrap Flux installation, and authenticate your installation with a project deploy token. By the end of this tutorial, you should be able to deploy an example NGINX workload to OpenShift from a GitLab Repo via Flux.
+
+You can find the fully configured tutorial project in [this GitLab repository](https://gitlab.com/gitlab-partner-demos/red-hat-demos/flux). It works in conjunction with [this repository](https://gitlab.com/gitlab-partner-demos/red-hat-demos/web-app-manifests), which contains the example OpenShift manifest. 
+
+### To set up Flux for GitOps:
+1. Create a personal access token
+2. Create the Flux repository
+3. Create the OpenShift manifest repository
+4. Configure Flux to sync your manifests
+5. Verify your configuration
+
+### Prerequisites:
+You must have an OpenShift cluster running. Cluster-admin privileges are required to install Flux on OpenShift, which can either be installed via OperatorHub or the CLI.
+
+When installing Flux with CLI, you need to set the nonroot SCC for all controllers in the flux-system namespace like this:
+
+```
+NS="flux-system"
+oc adm policy add-scc-to-user nonroot system:serviceaccount:${NS}:kustomize-controller
+oc adm policy add-scc-to-user nonroot system:serviceaccount:${NS}:helm-controller
+oc adm policy add-scc-to-user nonroot system:serviceaccount:${NS}:source-controller
+oc adm policy add-scc-to-user nonroot system:serviceaccount:${NS}:notification-controller
+oc adm policy add-scc-to-user nonroot system:serviceaccount:${NS}:image-automation-controller
+oc adm policy add-scc-to-user nonroot system:serviceaccount:${NS}:image-reflector-controller
+```
+Expected output:
+```
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:nonroot added: "kustomize-controller"
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:nonroot added: "helm-controller"
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:nonroot added: "source-controller"
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:nonroot added: "notification-controller"
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:nonroot added: "image-automation-controller"
+clusterrole.rbac.authorization.k8s.io/system:openshift:scc:nonroot added: "image-reflector-controller"
+```
+
+Also, you'll need to [patch your Kustomization](https://access.redhat.com/documentation/en-us/openshift_container_platform/4.8/html/security_and_compliance/seccomp-profiles) to remove the SecComp Profile and enforce runUserAs to the same UID provided by the images to prevent OpenShift to alter the user expected by our controllers, prior to bootstrapping the cluster.
+
+You’ll need to create a Git repository and clone it locally. I chose to create [the web-app-manifests repository](https://gitlab.com/gitlab-partner-demos/red-hat-demos/web-app-manifests) to store my manifest file once it is created through the following steps.
+
+Create the file structure required by bootstrap using the following command:
+
+```
+git clone https://gitlab.com/gitlab-partner-demos/red-hat-demos/flux/
+cd flux
+mkdir -p clusters/my-cluster/flux-system
+touch clusters/my-cluster/flux-system/gotk-components.yaml \
+    clusters/my-cluster/flux-system/gotk-sync.yaml \
+    clusters/my-cluster/flux-system/kustomization.yaml
+```
+
+Add the following YAML snippet and its patches section to flux/clusters/my-cluster/flux-system/kustomization.yaml:
+
+```
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - gotk-components.yaml
+  - gotk-sync.yaml
+patches:
+  - patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: all
+      spec:
+        template:
+          spec:
+            containers:
+              - name: manager
+                securityContext:
+                  runAsUser: 65534
+                  seccompProfile:
+                    $patch: delete      
+    target:
+      kind: Deployment
+      labelSelector: app.kubernetes.io/part-of=flux
+```
+
+Commit and push the changes to main branch:
+
+```
+cd ~/flux
+git add -A && git commit -m "init flux for openshift" && git push
+```
+
+### Create a personal access token
+
+To authenticate with the Flux CLI, you must create a GitLab personal access token ([PAT](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)) with the api scope:
+1. In the upper-right corner, select your avatar.
+2. Select Edit profile.
+3. On the left sidebar, select Access Tokens.
+4. Enter a name and expiry date for the token.
+5. Select the api scope.
+6. Select Create personal access token.
+7. Copy the new token to your clipboard.
+
+Note: You can also use a project or group access token with the api scope.
+
+### Create the Flux repository
+Create a Git repository, install Flux, and authenticate Flux with your repo in RedHat OpenShift:
+1. Make sure you are logged in as an OpenShift user in your CLI to access your cluster. `oc login` command is useful here.
+2. [Install the Flux CLI](https://fluxcd.io/flux/installation/#bootstrap). You must install Flux v2 or higher. `brew install fluxcd/tap/flux` on Mac OSX. Check your flux version with `flux -v`. Mine is `flux version 2.0.0-rc.1`.
+3. In GitLab, create a new empty project called `flux`. I chose to use [the respository in this readme](https://gitlab.com/gitlab-partner-demos/red-hat-demos/flux/)
+4. From your shell, export a GITLAB_TOKEN environment variable with the value of your personal access token. For example, `export GITLAB_TOKEN=<personal-access-token>`.
+5. Run the bootstrap command. The exact command depends on whether you are creating the Flux repository under a GitLab user, group, or subgroup. For more information, see the Flux bootstrap documentation.
+
+In this tutorial, you’re working with a public project in a subgroup. The bootstrap command looks like this:
+
+```
+cd ~/flux
+flux bootstrap gitlab \
+  --owner=gitlab-partner-demos/red-hat-demos \
+  --repository=flux \
+  --branch=master \
+  --path=clusters/my-cluster \
+  --token-auth
+```
+Expected output:
+```
+► connecting to https://gitlab.com
+► cloning branch "master" from Git repository "https://gitlab.com/gitlab-partner-demos/red-hat-demos/flux.git"
+✔ cloned repository
+► generating component manifests
+✔ generated component manifests
+✔ component manifests are up to date
+► installing components in "flux-system" namespace
+✔ installed components
+✔ reconciled components
+► determining if source secret "flux-system/flux-system" exists
+✔ source secret up to date
+► generating sync manifests
+✔ generated sync manifests
+✔ sync manifests are up to date
+► applying sync manifests
+✔ reconciled sync configuration
+◎ waiting for Kustomization "flux-system/flux-system" to be reconciled
+```
+
+This command installs the Flux agent on the OpenShift cluster and configures it to manage itself from the repository flux-config. The command also automatically creates the project deploy token required to access the flux-config repository.
+
+Great work! You now have a repository bootstrapped with a Flux configuration. Any updates to your repository are automatically synced to the cluster.
+
+### Create the OpenShift manifest repository
+Next, create a repository for your Flux manifest files. These are stateful files that track the current running configuration by
+the Flux agent. I chose to use [web-app-manifests](https://gitlab.com/gitlab-partner-demos/red-hat-demos/web-app-manifests) project to track my manifest files.
+1. In GitLab, create a new repository called `web-app-manifests`.
+1. Add a file to web-app-manifests named `nginx-deployment.yaml` with the following contents:
+
+```
+apiVersion: apps/v1
+
+kind: Deployment
+
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx-unprivileged
+        image: nginxinc/nginx-unprivileged:latest
+        ports:
+        - containerPort: 80
+```
+
+In the new `web-app-manifests` repository, create a [GitLab deploy token](https://docs.gitlab.com/ee/user/project/deploy_tokens/) with only the `read_repository` scope.
+
+Store your deploy token username and password somewhere safe. I used environmental variables to save mine:
+
+```
+export GITLAB_DEPLOY_TOKEN_USER=<my-gitlab-deployment-token-username>
+export GITLAB_DEPLOY_TOKEN_PASS=<my-gitlab-deployment-token-password>
+env |grep GITLAB_DEPLOY_TOKEN
+```
+Expected output:
+```
+GITLAB_DEPLOY_TOKEN_USER=myGitLabUserName
+GITLAB_DEPLOY_TOKEN_PASS=MySecretToken
+```
+
+In Flux CLI, create a secret with your deploy token and point the secret to the new repository. For example:
+
+```
+flux create secret git flux-deploy-authentication \
+         --url=https://gitlab.com/gitlab-partner-demos/red-hat-demos/web-app-manifests \
+         --namespace=default \
+         --username=$GITLAB_DEPLOY_TOKEN_USER \
+         --password=$GITLAB_DEPLOY_TOKEN_PASS
+```
+Expected output:
+```
+► git secret 'flux-deploy-authentication' created in 'default' namespace
+```
+
+To check if your secret was generated successfully, run:
+
+```
+oc -n default get secrets flux-deploy-authentication -o yaml
+```
+Expected output:
+```
+apiVersion: v1
+data:
+  password: Base64EncodedPassword=
+  username: Base64EncodedUsername
+kind: Secret
+metadata:
+  creationTimestamp: "2023-04-20T18:22:33Z"
+  name: flux-deploy-authentication
+  namespace: default
+  resourceVersion: "8168670"
+  uid: 16292254-83cd-4df2-8a9c-bc4c718e4b4a
+type: Opaque
+```
+
+Under data, you should see base64-encoded values associated with your token username and password.
+
+Congratulations! You now have a manifest repository, a deploy token, and a secret generated directly on your cluster.
+
+### Configure Flux to sync your manifests
+Next, tell flux-config to sync with the web-app-manifests repository.
+
+To do so, create a [GitRepository resource](https://docs.openshift.com/container-platform/3.11/dev_guide/application_lifecycle/new_app.html) in OpenShift:
+
+1. Clone the flux repo to your machine.
+```
+# Remember that we already have the flux repo cloned into our home dir.
+cd ~/flux
+git pull
+```
+
+2. In your local clone of flux, add the GitRepository file `clusters/my-cluster/web-app-manifests-source.yaml`:
+  
+```
+---
+apiVersion: source.toolkit.fluxcd.io/v1beta2
+kind: GitRepository
+metadata:
+  name: web-app-manifests
+  namespace: default
+spec:
+  interval: 1m0s
+  ref:
+    branch: main
+  secretRef:
+    name: flux-deploy-authentication
+  url: https://gitlab.com/gitlab-org/configure/examples/flux/web-app-manifests
+```
+
+This file uses secretRef to refer back to the deploy token secret you created in the last step.
+
+![Flux Operator - Git Repositories](/images/blogimages/flux-git-repos.png "Flux Operator - Git Repositories")
+
+In your local clone of flux, add the GitRepository file `clusters/my-cluster/web-app-manifests-kustomization.yaml`:
+```
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: nginx-source-kustomization
+  namespace: default
+spec:
+  interval: 1m0s
+  path: ./
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: web-app-manifests
+    namespace: default
+  targetNamespace: default
+```
+
+This file adds a Kustomization resource that tells Flux to sync the manifests from web-app-manifests with Kustomize.
+
+Commit the new files and push.
+
+![](/images/blogimages/flux-kustomizations.png "Flux Kustomization")
+
+### Verify your configuration
+You should see a newly created nginx-deployment pod in your cluster. This validates that your workload has been deployed via Flux.
+
+![Flux Workload Validation](/images/blogimages/flux-nginx-workload.png "Flux Workload Validation")
+
+On the CLI, check whether the nginx-deployment pod is running in the namespace you designated, run the following:  `kubectl get pods -n <namespace>`.
+
+```
+NAME                                READY   STATUS    RESTARTS   AGE
+nginx-deployment-589f7f7949-4zz9j   1/1     Running   0          14m
+```
+
+We were able to use GitLab and Flux to deploy an example workload to Red Hat OpenShift using the methodology shared in this solution tutorial. This deployment methodology offers flexibility and control over the deployment process - you can easily choose which repos to watch and continuously sync manifests against, and you can leverage fine-grained GitLab user, project or group deployment tokens to limit the scope of access the Flux agent compenent has.
+

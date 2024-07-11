@@ -1,0 +1,195 @@
+---
+title: "GitLab's data migration process for Advanced Search"
+author: Dmitry Gruzd
+author_gitlab: dgruzd
+categories: engineering
+image_title: '/images/blogimages/advanced-search-migrations.jpg'
+description: "We needed a more streamlined data migration process for Advanced search. Here's what we did."
+tags: features, releases, workflow
+postType: technical marketing
+related_posts: 
+  - "/blog/2020/04/28/elasticsearch-update//"
+  - "/blog/2019/07/16/elasticsearch-update/"
+  - "/blog/2019/05/02/gitlab-journey-from-azure-to-gcp/"
+---
+
+For some time now, GitLab has been working on enabling the Elasticsearch
+integration on GitLab.com to allow as many GitLab.com users as possible access
+to the [Advanced Global Search](https://docs.gitlab.com/ee/user/search/advanced_search.html)
+features. Last year, after enabling Advanced Search for all licensed customers on
+GitLab.com we were thinking how to simplify the rollout of some Advanced Search
+features that require changing the data in Elasticsearch.
+
+(If you're interested in the lessons we learned on our road to Enabling
+Elasticsearch for GitLab.com, you can read [all about it](/blog/2020/04/28/elasticsearch-update/).
+
+## The data migration process problem 
+
+Sometimes we need to change mappings of an index or backfill a field, and
+reindexing everything from scratch or using [Zero downtime reindexing](https://docs.gitlab.com/ee/integration/elasticsearch.html#zero-downtime-reindexing)
+might seem like an obvious solution. However, this is not a scalable option for
+big GitLab instances. GitLab.com is the largest known installation of GitLab and
+as such has a lot of projects, code, issues, merge requests and other things that
+need to be indexed. For example, at the moment our Elasticsearch cluster has
+almost 1 billion documents in it. It would take many weeks or even months to
+reindex everything and for all that time indexing would need to remain paused, therefore
+search results would quickly become outdated.
+
+## Original plan for multi-version support
+
+Originally, we were planning to introduce multi-version support using an approach
+that is fully reliant on GitLab to manage both indices, reading from the old one
+and writing to both until the migration is finished. You can read more information at
+[!18254](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/18254) and
+[&1769](https://gitlab.com/groups/gitlab-org/-/epics/1769). As of writing this,
+most of the code for this approach still exists in GitLab in a half-implemented form.
+
+There were 2 primary concerns with this approach:
+
+1. Reindexing would require the GitLab application to read every single document
+from the storage and send it to Elasticsearch again. Doing so
+would put a big strain on different parts of the application, such as database,
+Gitaly, and Sidekiq.
+1. Reindexing everything from GitLab to the cluster again may be very wasteful on
+occasions where you only need to change a small part of the index. For example, if
+we want to add epics to the index, it is very wasteful to reindex every document
+in the index when we could very quickly just index all the epics. There are many
+situations where we will be trying to perform some migration that can be done more
+efficiently using a targeted approach (e.g. adding a new field to a document type
+only requires reindexing all the documents that actually have that field).
+
+For these reasons we've decided to create a different data migration process.
+
+## Our revised data migration process
+
+We took inspiration from the [Rails DB migrations](https://guides.rubyonrails.org/active_record_migrations.html).
+We wanted to apply the best practices from it without having to re-architect what
+the Rails team has already implemented.
+
+For example, we've decided that we would have a special directory with time-stamped
+migration files. We wanted to achieve a strict execution order so that many
+migrations might be shipped simultaneously. A special background processing worker
+will be checking this folder on schedule. This is slightly different to rails background migrations where the operator is required to manually run the migration. We decided to make it fully automated and run it in the background to avoid the need for self-managed customers to add extra steps to the migration process. This would have likely made it much more difficult for everyone involved as there are many ways to run GitLab. This extra constraint also forces us to always think of migrations as possibly incomplete at any point in the code which is essential for zero-downtime.
+
+At first, we wanted to store the migration state in the Postgresql database, but
+decided against it since this may not be perfect for the situation where a user
+wants to connect a new Elasticsearch cluster to GitLab. It's better to store the
+migrations themselves in the Elasticsearch cluster itself so they're more likely to be in
+sync with the data.
+
+You can see your new migration index in your Elasticsearch cluster. It's called
+`gitlab-production-migrations`. GitLab stores a few fields there. We use the
+version number as the document id. This is an example document:
+
+```
+{
+    "_id": "20210510143200",
+    "_source": {
+        "completed": true,
+        "state": {
+        },
+        "started_at": "2021-05-12T07:19:08.884Z",
+        "completed_at": "2021-05-12T07:19:08.884Z"
+    }
+}
+```
+
+The state field is used to store data that's required to run batched migrations.
+For example, for batched migrations we store a slice number and a task id for
+current Elasticsearch reindex operation and we update the state after every run.
+
+This is how an example migration looks:
+
+```ruby
+class MigrationName < Elastic::Migration
+  def migrate
+    # Migrate the data here
+  end
+
+  def completed?
+    # Return true if completed, otherwise return false
+  end
+end
+```
+
+This looks a lot like [Rails DB migrations](https://guides.rubyonrails.org/active_record_migrations.html),
+which was our goal from the beginning. The main difference is that it has an additional method to
+check if a migration is completed. We've added that method because we need to
+execute asynchronous tasks quite often and we want to check if it's completed
+later in a different worker process.
+
+## Migration framework logic
+
+This is a simple flow chart to demonstrate the high level logic of the new migration framework.
+
+```mermaid
+graph TD
+    CRON(cron every 30 minutes) --> |executes| WORKER[MigrationWorker]
+    WORKER --> B(an uncompleted migration is found)
+    B --> HALT(it's halted)
+    B --> UN(it's uncompleted)
+    B --> COMP(it's finished)
+    HALT --> WARN(show warning in the admin UI)
+    WARN --> EX(exit)
+    UN --> PREF(migration preflight checks)
+    PREF --> RUN(execute the migration code)
+    COMP --> MARK(mark it as finished)
+    MARK --> EX
+```
+
+As you can see above, there are multiple different states of a migration. For example,
+the framework allows it to be halted when it has too many failed attempts. In
+that case, the warning will be shown in the admin UI with a button for restarting
+the migration.
+
+![How the warning looks like](/images/blogimages/advanced_search/halted_warning.png)
+
+## Configuration options
+
+We've introduced many useful configuration options into the framework, such as:
+
+- `batched!` - Allows the migration to run in batches. If set, the worker will
+re-enqueue itself with a delay which is set using the `throttle_delay` option
+described below. We use this option to reduce the load and ensure that the
+migration won't time out.
+
+- `throttle_delay` - Sets the wait time in between batch runs. This time should be
+set high enough to allow each migration batch enough time to finish.
+
+- `pause_indexing!` - Pauses indexing while the migration runs. This setting will
+record the indexing setting before the migration runs and set it back to that
+value when the migration is completed. GitLab only uses this option when
+absolutely necessary since we attempt to minimize the downtime as much as possible.
+
+- `space_requirements!` - Verifies that enough free space is available in the
+cluster when the migration is running. This setting will halt the migration if the
+storage required is not available. This option is used to
+prevent situations when your cluster runs out of space when attempting to execute
+a migration.
+
+You can see the up-to-date list of options in this development [documentation section](https://docs.gitlab.com/ee/development/elasticsearch.html#migration-options-supported-by-the-elasticmigrationworker).
+
+## Data migration process results
+
+We implemented the Advanced Search migration framework in the 13.6 release and
+have been improving it since. You can see some details in the original issue
+[#234046](https://gitlab.com/gitlab-org/gitlab/-/issues/234046). The only
+requirement for this new feature is that you should create your index using at
+least version 13.0. We have that requirement since we're heavily utilizing
+aliases, which were introduced in 13.0. As you might know, over the last few
+releases we've been working on separating different document types into their own
+indices. This migration framework has been a tremendous help for our initiative.
+We've already completed the migration of issues (in 13.8), comments (in 13.11),
+and merge requests (in 13.12) with a noticeable performance improvement.
+
+Since we've accumulated so many different migrations over the last few releases
+and they require us to support multiple code paths for a long period of time,
+we've decided to remove older migrations that were added prior to the 13.12
+release. You can see some details in this [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/329952).
+We plan to continue the same strategy in the future, which is one of the reasons
+why you should always upgrade to the latest minor version before migrating to a
+major release.
+
+If you're interested in contributing to features that require Advanced Search
+migrations, we have a dedicated [documentation section](https://docs.gitlab.com/ee/development/elasticsearch.html#creating-a-new-advanced-search-migration)
+that explains how to create one and lists all available options for it.

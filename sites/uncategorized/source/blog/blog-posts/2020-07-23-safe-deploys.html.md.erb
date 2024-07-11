@@ -1,0 +1,89 @@
+---
+title: "GitLab's guide to safe deployment practices"
+author: Orit Golowinski 
+author_gitlab: ogolowinski
+author_twitter: Go_Orit
+categories: engineering
+image_title: '/images/blogimages/safe_deploy.jpg'
+description: "It's important to safeguard your deployment process. Here's our best advice to protect your environments."
+tags: CI/CD, releases, security
+twitter_text: "Want to deploy safely with @gitlab? Here's what you need to know."
+featured: no 
+postType: content marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+Here at GitLab we understand the importance of safe deployment practices. 
+
+[Progressive delivery](/direction/ops/#progressive-delivery) is continuous delivery with fine-grained control over who sees the change. This ensures that all code and configuration updates go through the [CI/CD stages](/topics/ci-cd/) to catch any regressions or bugs before they reach customers. If something does make it past those gates, progressive delivery makes sure any negative impact is as small as possible.
+
+We have recently added several features that add safeguards to your deployment process, which we will review in this blog post.
+
+### Protected Environments
+
+It is important that deploy jobs are restricted to only those who are authorized to deploy in that environment, and we call this restriction by roles "protected". While this feature has been around for a while, it is important to remember that this should be the first step to take when thinking about safe deployments. 
+
+Take a deeper dive into [protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html).
+
+### Sequential Deployment (or Safe Continuous Deployment)
+
+If your project follows the Continuous Deployment practice that deploys the `master` branch to the production environment with GitLab CI/CD pipelines, you may encounter the following problems due to the asynchronous nature of pipeline jobs:
+
+- Multiple deployment jobs run concurrently, targeting the same environment. This can make the environment unstable because the deployment script could conflict and finish in an incomplete state.
+- An older deployment job could overwrite the latest deployment, resulting in an unintentional rollback. Some users could be exposed to old feature sets on the production website even though the pipeline shows that the latest deployment job successfully finished.
+- A pipeline might deploy to production at the worst time, such as on a holiday or over the weekend, when there is limited staff available to solve potential problems.
+
+To address these problems, GitLab provides the following options:
+
+* [Limit job concurrency](https://docs.gitlab.com/ee/ci/yaml/#resource_group)
+* [Prevent deployment of old versions](https://docs.gitlab.com/ee/ci/pipelines/settings.html#skip-outdated-deployment-jobs)
+* [Deploy freeze](https://docs.gitlab.com/ee/user/project/releases/index.html#prevent-unintentional-releases-by-setting-a-deploy-freeze)
+
+
+## Limit job concurrency
+
+You can limit deployment concurrency by adding a `resource_group` to any `.gitlab-ci.yml` jobs that should run one at a time. For example:
+
+* Pipeline-A starts running with SHA-A
+* Pipeline-B starts running with SHA-B (newer)
+* Pipeline-A starts a deployment
+* Pipeline-B waits for Pipeline-A's deployment to finish
+
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/m6eZb6U-M2A" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+### Prevent deployment of old versions
+
+The execution order of pipeline jobs can vary from run to run, which could cause undesired behavior. For example, a deployment job in a newer pipeline could finish before a deployment job in an older pipeline. This creates a race condition where the older deployment finishes later, overwriting the "newer" deployment.
+
+You can ensure that older deployment jobs are cancelled automatically when a newer deployment runs by enabling the [prevent deployment of old versions](https://docs.gitlab.com/ee/ci/pipelines/settings.html#skip-outdated-deployment-jobs) feature.
+
+* Pipeline-A starts running with SHA-A
+* Pipeline-B starts running with SHA-B (newer)
+* Pipeline-B finishes. Now SHA-B is on the production environment
+* Pipeline-A is canceled automatically because it was going to deploy SHA-A to production
+
+![Prevent deployment of old versions](/images/blogimages/older_job.png){: .shadow}
+
+## Deployment Freeze
+
+To prevent deployments for a particular period, such as during a planned holiday when most employees are out, you can set up a deploy freeze. During a deploy freeze, no deployments can be executed. This is helpful to ensure that deployments do not happen unexpectedly.
+
+Find more detailed information about [deployment safety](https://docs.gitlab.com/ee/ci/environments/deployment_safety.html).
+
+**Read more about GitLab and safety:**
+
+* [Capitalize on GitLab security tools](https://docs.gitlab.com/ee/integration/jenkins.html)
+
+* How app sec engineers [can use GitLab to improve security](/blog/2020/07/07/secure-stage-for-appsec/)
+
+* Wondering [how secure GitLab is?](/blog/2020/06/24/soc2-compliance/)
+
+Cover image by [Mathew Schwartz](https://unsplash.com/photos/qcpwU_oMyu8) on [Unsplash](https://unsplash.com)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>
+

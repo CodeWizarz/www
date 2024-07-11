@@ -1,0 +1,56 @@
+<% 
+## Get the URL of the page
+url = full_url(current_page)
+## Set author to twitter handle, or just the author, or nothing
+if current_article.data.author_twitter 
+  author_twitter = current_article.data.author_twitter
+  author = current_article.data.author
+elsif current_article.data.author 
+  author = current_article.data.author
+else 
+  author = "GitLab"
+end
+## Set text to what is designated in blog post
+text = current_article.data.twitter_text
+
+tweet_text = "“#{text}” – #{author}"
+
+
+if author_twitter
+  twitter_link_text = author ? "“#{text}” – @#{author_twitter}" : text
+else
+  twitter_link_text = author ? "“#{text}” – #{author}" : text
+end
+twitter_link = "http://twitter.com/share?text=#{URI.encode_www_form_component(twitter_link_text)}&url=#{url}"
+
+%>
+
+<a
+  href="<%= twitter_link %>"
+  class="slpClickToTweet slp-max-w-screen-sm slp-flex slp-flex-wrap slp-justify-end slp-font-normal slp-p-32 slp-shadow-md slp-rounded slp-mx-auto slp-my-32 slp-no-underline slp-border slp-border-grayscale-highlight slp-border-solid hover:slp-shadow-lg slp-ease-in-out slp-transition-all slp-duration-300 slp-text-grayscale-333"
+  data-ga-name="click to tweet"
+  data-ga-locatin="body"
+>
+  <p class="slpClickToTweet__body slp-mb-6 slp-text-md">
+    <%= tweet_text %>
+  </p>
+  <p
+    href="https://twitter.com/share?text=%22How%20software%20developers%20can%20future-proof%20their%20careers%20(and%20why%20it%E2%80%99s%20better%20to%20be%20a%20generalist%20than%20a%20specialist).%2014%20DevOps%20practitioners%2C%20analysts%2C%20and%20%40gitlab%20execs%20weigh%20in%22&amp;url=https://current-page-url-here.com"
+    class="slpClickToTweet__anchor slp-flex slp-items-center slp-text-xs slp-leading-10 slp-mb-0"
+  >
+    <svg
+      width="16"
+      height="13"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      class="slpClickToTweet__logo slp-mr-4 slp-text-xs"
+    >
+      <path
+        d="M7.769 3.3l.035.537-.578-.066C5.12 3.52 3.283 2.665 1.723 1.231L.96.519l-.197.525c-.416 1.172-.15 2.41.717 3.242.462.46.358.526-.44.252-.277-.088-.52-.153-.543-.12-.08.076.197 1.073.416 1.467.3.548.914 1.084 1.584 1.402l.567.252-.67.01c-.648 0-.671.012-.602.242.231.711 1.144 1.467 2.162 1.796l.717.23-.625.35a6.835 6.835 0 01-3.098.81c-.52.011-.948.055-.948.088 0 .11 1.41.723 2.231.964 2.463.712 5.388.405 7.584-.81 1.56-.866 3.122-2.585 3.85-4.25.393-.887.786-2.508.786-3.285 0-.504.035-.57.682-1.172.382-.35.74-.734.81-.843.115-.208.104-.208-.486-.022-.983.328-1.122.284-.636-.208.358-.35.786-.986.786-1.172 0-.033-.173.022-.37.12-.208.11-.67.274-1.017.373l-.624.186-.567-.362c-.312-.197-.751-.416-.983-.481-.59-.154-1.49-.132-2.023.043C8.578.64 7.665 1.91 7.77 3.3z"
+        fill="#1DA1F2"
+      ></path>
+    </svg>
+    Click to tweet
+  </p>
+</a>
+ 

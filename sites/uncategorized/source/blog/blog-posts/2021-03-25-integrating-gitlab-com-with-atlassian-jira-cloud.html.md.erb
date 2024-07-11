@@ -1,0 +1,121 @@
+---
+title: "How to integrate GitLab.com with Jira Cloud"
+author: Tye Davis
+author_gitlab: davistye
+author_twitter: tyed19
+categories: engineering
+image_title: '/images/blogimages/twopeasinapod.jpg'
+featured: no
+description: "Check out how to use the GitLab App on the Atlassian Marketplace to connect your merge requests, branches, and commits to a Jira issue."
+tags: cloud native, DevOps, CD
+twitter_text: "Connect your GitLab MR's, Branches and Commits with Jira Issues"
+postType: content marketing
+related_posts:
+  - "/blog/2018/03/05/gitlab-for-agile-software-development"
+  - "/blog/2020/11/11/gitlab-for-agile-portfolio-planning-project-management/"
+  - "/blog/2020/12/17/gitlab-for-cicd-agile-gitops-cloudnative/"
+merch_banner: merch_three
+---
+
+By moving to the cloud engineering teams can accelerate innovation and scale resources across an organization. The ease of access and reduced infrastructure costs that comes with moving to the cloud is a direct result of using a platform that easily integrates your data and keeps it secure yet accessible. Gitlab.com, the cloud (SAAS) platform for GitLab, modernizes data platforms to leverage new applications and advances end-to-end software delivery. GitLab partners with other best-in-class cloud companies so your teams can use tools that best align with your team's DevOps ecosystem. Application development requires speed and iteration, making seamless collaboration a necessity to deliver real business value. GitLab embraces connecting all phases of the software development lifecycle (SDLC) in a DevOps ecosystem that fuels visibility, collaboration, and velocity.
+
+## How to use GitLab with Atlassian's Jira
+
+We know that many companies have been using Jira for project management, and have existing data and business processes built into their instance. For some of these customers, this means it can be difficult and cost-prohibitive to move off of Jira. We believe that people (and tools) work better when they're all in one place, so to serve these customers, we built a seamless integration between GitLab and Jira. By using the [GitLab for Jira app in the Atlassian Marketplace](https://marketplace.atlassian.com/apps/1221011/gitlab-com-for-jira-cloud), you can integrate GitLab.com and Jira Cloud harmoniously.
+
+Here's a short list of what you can do when integrating GitLab with Jira:
+
+* One GitLab project integrates with all the Jira projects in a single Jira instance.
+* Quickly navigate to Jira issues from GitLab.
+* Detect and link to Jira issues from GitLab commits and merge requests.
+* Log GitLab events in the associated Jira issue.
+* Automatically close (also called "transition") Jira issues with GitLab commits and merge requests.
+
+## How to configure the integration
+
+There are two methods for configuring the integration. The [Jira DVCS connector](https://docs.gitlab.com/ee/integration/jira/dvcs.html), and the method we describe in this blog post. The DVCS connector updates data only once per hour, while our method syncs data in real time. We recommend using our method for this reason, but if you are not using both of these environments then use the Jira DVCS connector instead.
+
+- First, go to Jira Settings > Apps > Find new apps, then search for GitLab.
+- Next, click GitLab for Jira, then click "Get it now". Or, go the [App in the marketplace](https://marketplace.atlassian.com/apps/1221011/gitlab-for-jira), directly.
+
+![Arrow pointing to "get it now button" on GitLab on Atlassian Marketplace App](/images/blogimages/atlassianjira/gitlabonatlassianmarketplace.png){: .shadow.medium.center}
+Click the yellow button to download the app.
+{: .note.text-center}
+
+- Third, after installing, click "Get started to go to the configurations" page. This page is always available under Jira Settings > Apps > Manage apps.
+
+![GitLab on Atlassian Marketplace App](/images/blogimages/atlassianjira/manageappsjira.png){: .shadow.medium.center}
+Click the "Get started button".
+{: .note.text-center}
+
+- Fourth, in Namespace, enter the group or personal namespace, and then click "Link namespace to Jira". The user that is setting up GitLab for Jira must have Maintainer access to the GitLab namespace. Note: The GitLab user only needs access when adding a new namespace. For syncing with Jira, we do not depend on the user’s token.
+
+![GitLab for Jira Configuration](/images/blogimages/atlassianjira/gitlabforjiraintegration.png){: .shadow.medium.center}
+Add a namespace.
+{: .note.text-center}
+
+After a namespace is added, all of the future commits, branches, and merge requests within all projects under that namespace will be synced to Jira. At the moment, past data cannot be synced.
+
+For more information, see [the documentation](https://docs.gitlab.com/ee/integration/jira/index.html#usage).
+
+### How to troubleshoot GitLab for Jira
+
+The GitLab for Jira App uses an iframe to add namespaces on the settings page. Some browsers block cross-site cookies which can lead to a message saying that the user needs to log on to GitLab.com even though the user is already logged in: "You need to sign in or sign up before continuing."
+
+In this situation, we recommend using [Firefox](https://www.mozilla.org/en-US/firefox/), [Google Chrome](https://www.google.com/chrome/index.html) or enabling cross-site cookies in your browser.
+
+### What are the limitations of GitLab for Jira?
+
+This integration is currently not supported on GitLab instances under a [relative URL](https://docs.gitlab.com/omnibus/settings/configuration.html#configuring-a-relative-url-for-gitlab) (for example, http://yourcompanyname.com/gitlab).
+
+## How to use GitLab for Jira
+
+After the integrating GitLab and Jira, you can:
+
+- Refer to any Jira issue by its ID in GitLab branch names, commit messages, and merge request titles.
+
+- Using commit messages in GitLab, you can move Jira issues along that Jira projects defined transitions.
+
+![GitLab for Jira Setup](/images/blogimages/atlassianjira/jiraissuescreenshot.png){: .shadow.medium.center}
+In this image, you can see that this Jira issue has four stages: Backlog, selected for development, in progress, and done.
+{: .note.text-center}
+
+- As referenced in the base GitLab-Jira integration, when you reference an issue in a comment on a merge request and commit, e.g., PROJECT-7, the basic integration adds a comment in Jira issue. Also, by commenting in a Jira transition (putting a # first), this will move a Jira issue to the desired transition. Below is an example using the built-in GitLab Web IDE (this can be done in your Web IDE of choice as well).
+
+![View of Jira Transitions](/images/blogimages/atlassianjira/jiraissuescreenshot2.png){: .shadow.medium.center}
+There are multiple Jira transition options.
+{: .note.text-center}
+
+- Now, the user can see linked branches, commits, and merge requests in Jira issues (merge requests are called "pull requests" in Jira issues).
+Jira issue IDs must be formatted in UPPERCASE for the integration to work.
+
+![View branches, commits and merge requests in your jira issue](/images/blogimages/atlassianjira/jiraissuescreenshot4.png){: .shadow.medium.center}
+View branches, commits, and merge requests in your Jira issue.
+{: .note.text-center}
+
+- Click the links to see your GitLab repository data.
+
+![Deep Dive into your GitLab commits](/images/blogimages/atlassianjira/jiraissuescreenshot5.png){: .shadow.medium.center}
+How to take a look at your GitLab commits.
+{: .note.text-center}
+
+![Deep Dive into your GitLab branches](/images/blogimages/atlassianjira/jiraissuescreenshot6.png){: .shadow.medium.center}
+Take a deep Dive into your GitLab merge requests.
+{: .note.text-center}
+
+For more information on using Jira Smart Commits to track time against an issue, specify an issue transition, or add a custom comment, see the Atlassian page using [Smart Commits](https://support.atlassian.com/jira-cloud-administration/docs/enable-smart-commits/).
+
+## Watch and learn
+
+More of a video person? For a walkthrough of the integration with GitLab for Jira, watch and learn how to configure GitLab Jira Integration using Marketplace App.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/SwR-g1s1zTo" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+GitLab helps teams ship software faster with technology integration options, such as the integration with Jira, that automate tasks, provide visibility into development progress and the greater end-to-end software lifecycle. We recognize that many companies use Jira for Agile project management and our seamless integration brings Jira together with GitLab.
+
+Cover image by [Mikołaj Idziak](https://unsplash.com/@mikidz) on [Unsplash](https://unsplash.com/photos/nwjRmbXbLgw).
+{: .note.text-left}

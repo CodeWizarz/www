@@ -1,0 +1,11 @@
+deprecations:
+  - feature_name: "Deprecate Container Registry maxidle and maxactive Redis pool settings"
+    due: January 22nd, 2021
+    reporter: trizzi
+    description: |
+      Some of the configuration settings that we currently expose for the Redis connection pool are tied to the underlying Redis client and do not have an equivalent in alternative libraries. As we start working on improving the Redis integration, such as adding [support for Sentinel](https://gitlab.com/gitlab-org/container-registry/-/merge_requests/299), we decided to start working towards replacing the current Redis client dependency with a more feature-rich alternative that can be better supported. To do this, we need to replace the current Redis pool [configuration settings](https://gitlab.com/gitlab-org/container-registry/-/blob/2015e825eb05a1bab78c7fad01714224604b3d2b/docs/configuration.md#pool-1) that are tied to the current client library.
+
+      We intend to:
+
+      - Remove the `redis.pool.maxidle` and `redis.pool.maxactive` settings.
+      - Add `redis.pool.size` (maximum number of connections), `redis.pool.minidle` (minimum number of idle connections), and `redis.pool.maxlifetime` (maximum amount of time a connection may be reused) settings.

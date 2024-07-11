@@ -1,0 +1,285 @@
+---
+title: Empower ModelOps and HPC workloads with GPU-enabled runners integrated with CI/CD
+author: Gabriel Engel
+author_gitlab: gabrielengel_gl
+author_twitter: digital_saas
+categories: ai-ml
+posttype: product
+tags: DevSecOps, AI/ML, CI/CD, product, features
+description: "Learn how to leverage our GitLab-hosted GPU-enabled runners for ModelOps and high-performance computing workloads."
+image_title: /images/blogimages/gitlab-data-science-icon.png
+featured: yes
+twitter_text: Unleash the potential of your AI teams by accelerating ModelOps and HPC workloads with GPU-enabled SaaS runners fully integrated with GitLab CI/CD.
+---
+
+<i>This blog post is the latest in an ongoing series about GitLab's journey to [build and integrate AI/ML into our DevSecOps platform](/blog/2023/04/24/ai-ml-in-devsecops-series/). Start with the first blog post: [What the ML is up with DevSecOps and AI?](/blog/2023/03/16/what-the-ml-ai/). Throughout the series, we'll feature blogs from our product, engineering, and UX teams to showcase how we're infusing AI/ML into GitLab.</i>
+
+In today's fast-paced world, organizations are constantly looking to improve their [ModelOps](/direction/modelops/) and high-performance computing (HPC) capabilities. Leveraging powerful graphical processing units ([GPUs](https://www.techtarget.com/searchvirtualdesktop/definition/GPU-graphics-processing-unit)) has become a game-changer for accelerating machine learning workflows and compute-intensive tasks. To help meet these evolving needs, we recently released our first GPU-enabled runners on GitLab.com.
+
+Securely hosting a GitLab Runner environment for ModelOps and HPC is non-trivial and requires a lot of knowledge and time to set up and maintain. In this blog post, we'll look at some real-world examples of how you can harness the potential of GPU computing for ModelOps or HPC workloads while taking full advantage of a SaaS solution.
+
+## What are GPU-enabled runners?
+GPU-enabled runners are dedicated computing resources for the AI-powered DevSecOps platform. They provide accelerated processing power for ModelOps and HPC such as the training or deployment of large language models ([LLMs](https://www.techtarget.com/whatis/definition/large-language-model-LLM)) as part of ModelOps workloads. In the first iteration of releasing GPU-enabled runners, [GitLab.com SaaS offers](https://docs.gitlab.com/ee/ci/runners/saas/gpu_saas_runner.html) the GCP `n1-standard-4` machine type (4 vCPU, 15 GB memory) with 1 NVIDIA T4 (16 GB memory) attached. The runner behaves like a GitLab Runner on Linux, using the docker+machine [executor](https://docs.gitlab.com/runner/executors/). 
+
+## Using GPU-enabled runners
+To take advantage of GitLab GPU-enabled runners, follow these steps:
+
+### 1. Have a project on GitLab.com
+All projects on GitLab.com SaaS with a `Premium` or `Ultimate` [subscription](https://about.gitlab.com/pricing/) have the GPU-enabled runners enabled by default - no additional configuration is required.
+
+### 2. Create a job running on GPU-enabled runners
+Create a job in your `.gitlab-ci.yml` configuration file, and set the [runner `tag`](https://docs.gitlab.com/ee/ci/runners/configure_runners.html#use-tags-to-control-which-jobs-a-runner-can-run) to the `saas-linux-medium-amd64-gpu-standard` value. 
+
+```yaml
+gpu-job:
+  stage: build
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+```
+
+### 3. Select a Docker image with the Nvidia CUDA driver
+
+The CI/CD job runs in an isolated virtual machine (VM) with a bring-your-own-image policy as with [GitLab SaaS runners on Linux](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html). GitLab mounts the GPU from the host VM into your isolated environment. You must use a Docker image with the GPU driver installed to use the GPU. For Nvidia GPUs, you can use the [CUDA Toolkit](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/cuda) directly, or third-party images with Nvidia drivers installed, such as the [TensorFlow GPU image](https://hub.docker.com/r/tensorflow/tensorflow/).
+
+The CI/CD job configuration for the Nvidia CUDA base Ubuntu image looks like this:
+
+```yaml
+  image: nvcr.io/nvidia/cuda:12.1.1-base-ubuntu22.04
+```
+
+### 4. Verify that the GPU is working
+To verify that the GPU drivers are working correctly, you can execute the `nvidia-smi` command in the CI/CD job `script` section. 
+
+```yaml
+  script:
+    - nvidia-smi
+```
+
+## Basic usage examples
+Let's explore some basic scenarios where GPU-enabled runners can supercharge your ModelOps and HPC workloads:
+
+### Example 1: ModelOps with Python
+In this example, we train a model on our GPU-enabled runner defined in the `train.py` file using the Nvidia CUDA base Ubuntu image mentioned earlier.
+
+`.gitlab-ci.yml` file:
+```yaml
+model-training:
+  stage: build
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  image: nvcr.io/nvidia/cuda:12.1.1-base-ubuntu22.04
+  script:
+    - apt update
+    - apt install -y --no-install-recommends python3 python3-pip 
+    - pip3 install -r requirements.txt
+    - python3 --version
+    - python3 train.py
+```
+
+### Example 2: Scientific simulations and HPC
+Complex scientific simulations require significant computing resources. GPU-enabled runners can accelerate these simulations, allowing you to get results in less time.
+
+`.gitlab-ci.yml` file:
+```yaml
+simulation-run:
+  stage: build
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  image: nvcr.io/nvidia/cuda:12.1.1-base-ubuntu22.04
+  script:
+    - ./run_simulation --input input_file.txt
+```
+
+## Advanced usage examples
+Let's go through some real-world scenarios of how we use GPU-enabled runners at GitLab.
+
+### Example 3: Python model training with a custom Docker image
+For our third example, we will use this [handwritten digit recognition model](https://gitlab.com/gitlab-org/modelops/demos/handwritten-digit-recognition). We are using this project as a demo to showcase or try out new ModelOps features.
+
+[Open the project](https://gitlab.com/gitlab-org/modelops/demos/handwritten-digit-recognition) and fork it into your preferred namespace. You can follow the next steps using the [Web IDE](https://docs.gitlab.com/ee/user/project/web_ide/) in the browser, or clone the project locally to create and edit the files. Some of the next steps require you to override existing configuration in the `Dockerfile` and `.gitlab-ci.yml`. 
+
+As we need more pre-installed components and want to save installation time when training the model, we decided to create a custom Docker image with all dependencies pre-installed. This also gives us full control over the build environment we use and allows us to reuse it locally without relying on the `.gitlab-ci.yml' implementation.
+
+In addition, we are using a more complete pipeline configuration with the following stages:
+
+```yaml
+stages:
+  - build
+  - test
+  - train
+  - publish
+```
+
+![GPU pipeline overview](/images/blogimages/2023-07-06-gpu-enabled-runners-for-modelops/pipeline-overview.png)
+
+#### Building a custom Docker image
+The first step is to define a `Dockerfile`. In this example, we start with the Nvidia CUDA base Ubuntu image and then install `Python3.10`. Using `pip install`, we then add all the required libraries specified in a `requirements.txt` file.
+
+```docker
+FROM nvcr.io/nvidia/cuda:12.1.1-base-ubuntu22.04
+
+1. Update and install required packages
+RUN apt-get update && apt-get install -y \
+    python3.10 \
+    python3.10-dev \
+    python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+2. Set Python 3.10 as the default Python version
+RUN ln -s /usr/bin/python3.10 /usr/bin/python
+
+3. Copy the requirements.txt file
+COPY requirements.txt /tmp/requirements.txt
+
+4. Install Python dependencies
+RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
+```
+
+In the `.gitlab-ci.yml` file we use [Kaniko](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html) to build the Docker image and push it into the [GitLab Container Registry](https://docs.gitlab.com/ee/user/packages/container_registry/).
+
+```yaml
+variables:
+  IMAGE_PATH: "${CI_REGISTRY_IMAGE}:latest"
+  GIT_STRATEGY: fetch
+
+docker-build:
+  stage: build
+  tags:
+    - saas-linux-medium-amd64
+  image:
+    name: gcr.io/kaniko-project/executor:v1.9.0-debug
+    entrypoint: [""]
+  script:
+    - /kaniko/executor
+      --context "${CI_PROJECT_DIR}"
+      --dockerfile "${CI_PROJECT_DIR}/Dockerfile"
+      --destination "${IMAGE_PATH}"
+      --destination "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG
+```
+
+In [rules](https://docs.gitlab.com/ee/ci/yaml/#rules) we define to only trigger the Docker image build for a new git tag. The reason is simple - we don't want to run the image build process for every time we train the model.
+
+To start the image build job [create a new Git tag](https://docs.gitlab.com/ee/user/project/repository/tags/#create-a-tag). You can either do this by using `git tag -a v0.0.1` command or via UI. Navigate into `Code > Tags` and click on `New Tag`. As Tag name type `v0.0.1` to create a new Git tag and trigger the job.
+
+Navigate to `Build > Pipelines` to verify the `docker-build` job status, and then locate the tagged image following [`Deploy > Container Registry`](https://docs.gitlab.com/ee/user/packages/container_registry/).
+
+![Docker image](/images/blogimages/2023-07-06-gpu-enabled-runners-for-modelops/gpu-docker-image.png)
+
+#### Testing the Docker image
+To test the image, we will use the following `test-image` job and run `nvidia-smi` and check that the GPU drivers are working correctly.
+
+The job configuration in `.gitlab-ci.yml` file looks as follows:
+
+```yaml
+test-image:
+  stage: test
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  image: $IMAGE_PATH
+  script:
+    - nvidia-smi
+  rules:
+    - if: $CI_COMMIT_TAG
+```
+
+We also include container scanning and more [security scanning](https://docs.gitlab.com/ee/user/application_security/) templates in the `.gitlab-ci.yml` file.
+
+```yaml
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/Container-Scanning.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+```
+
+#### Training the model with our custom Docker image
+Now that we have built our Custom docker image, we can train the model without installing any more dependencies in the job.
+
+The train job in our `.gitlab-ci.yml` looks like this:
+
+```yaml
+train:
+  stage: train
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  image: $IMAGE_PATH
+  script:
+    - python train_digit_recognizer.py
+  artifacts:
+    paths:
+      - mnist.h5
+    expose_as: 'trained model'
+```
+
+Navigate to `Build > Pipelines` to see the job logs.
+
+![Train job logs](/images/blogimages/2023-07-06-gpu-enabled-runners-for-modelops/train-job-log.png)
+
+From here, you can also inspect the `train` job artifacts.
+
+#### Publishing the model
+In the last step of our `.gitlab-ci.yml` file, we are going to publish the trained model.
+
+```yaml
+publish:
+  stage: publish
+  when: manual
+  dependencies:
+    - train
+  image: curlimages/curl:latest
+  script:
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file mnist.h5 "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/MNIST-Model/${CI_COMMIT_TAG}/mnist.h5"'
+```
+
+Navigate to `Build > Pipelines` and trigger the `publish` job manually. After that, navigate into `Deploy > Package Registry` to verify the uploaded trained model.
+
+![Package Registry](/images/blogimages/2023-07-06-gpu-enabled-runners-for-modelops/package-registry.png)
+
+### Example 4: Jupyter notebook model training for ML-powered GitLab Issue triage
+
+In the last example, we are using our GPU-enabled runner to train the internal [GitLab model to triage issues](https://gitlab.com/gitlab-org/ml-ops/tanuki-stan/-/tree/using-gpu-enabled-runner). We use this model at GitLab to determine and assign issues to the right team from the context of the issue description.
+
+Different from the previous examples, we now use the [`tensorflow-gpu` container image](https://hub.docker.com/r/tensorflow/tensorflow) and install the [requirements](https://gitlab.com/gitlab-org/ml-ops/tanuki-stan/-/blob/using-gpu-enabled-runner/notebooks/requirements.tensorflow-gpu.txt) in the job itself.
+
+`.gitlab-ci.yml` configuration:
+
+```yaml
+train:
+  tags:
+    - saas-linux-medium-amd64-gpu-standard
+  image: tensorflow/tensorflow:2.4.1-gpu
+  script:
+    - nvidia-smi
+    - cd notebooks
+    - pip install -r requirements.tensorflow-gpu.txt
+    - jupyter nbconvert --to script classify_groups.ipynb
+    - apt-get install -y p7zip-full
+    - cd ../data
+    - 7z x -p${DATA_PASSWORD} gitlab-issues.7z
+    - cd ../notebooks
+    - python3 classify_groups.py
+  artifacts:
+    paths:
+      - models/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH  
+      when: manual
+      allow_failure: true
+```
+
+![TensorFlow train](/images/blogimages/2023-07-06-gpu-enabled-runners-for-modelops/tensorflow-train.png)
+
+If you are interested in another Jupyter notebook example, check out our recently published video on [Training ML Models using GPU-enabled runner](https://youtu.be/tElegG4NCZ0).
+
+<iframe width="768" height="432" src="https://www.youtube.com/embed/tElegG4NCZ0" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+## Results
+The integration of GPU-enabled runners on GitLab.com SaaS opens up a new realm of possibilities for ModelOps and HPC workloads.
+By harnessing the power of GPU-enabled runners, you can accelerate your machine learning workflows, enable faster data processing, and improve scientific simulations, all while taking full advantage of a SaaS solution and avoiding the hurdles of hosting and maintaining your own build hardware.
+
+When you try the GPU-enabled runners, please share your experience in our [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/403008).
+
+Compute-heavy workloads can take a long time. A known problem is timeouts after three hours because of the current [configuration of GitLab SaaS runners](https://docs.gitlab.com/ee/ci/runners/#how-saas-runners-work).
+We plan to release more powerful compute for future iterations to handle heavier workloads faster. You can follow updates about GPU-enabled runners in the [GPU-enabled runners epic](https://gitlab.com/groups/gitlab-org/-/epics/8648) and learn more in the [GPU-enabled runners documentation](https://docs.gitlab.com/ee/ci/runners/saas/gpu_saas_runner.html). 

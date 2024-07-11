@@ -1,0 +1,248 @@
+---
+title: "How to secure memory-safe vs. manually managed languages"
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: security
+image_title: '/images/blogimages/securityscreen.jpg'
+description: Learn how GitLab reduces source code risk using scanning, vulnerability management, and other key features.
+tags: security, devsecops, tutorial
+twitter_text: 'Learn how @gitlab reduces source code risk for memory-safe and manually managed languages'
+postType: content marketing.'
+---
+
+The National Security Agency (NSA) has published an executive summary showcasing the 
+risk of using [manually managed languages](https://en.wikipedia.org/wiki/Manual_memory_management) over [memory-safe languages](https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)) in application
+development. Manual memory management may introduce major bugs and security risks into your application if
+the memory is managed incorrectly.
+
+Security bugs introduced by manually managed languages can be catastrophic to the function of the
+application, as well as the information contained in the application. These bugs may cause
+performance slowdowns, application crashes, remote code execution, information leakage, and
+system failures.
+
+Bugs that may be introduced include the following:
+
+* [Memory leak](https://en.wikipedia.org/wiki/Memory_leak): Memory no longer being used is not released, which reduces the amount of available memory.
+* [Buffer overflow](https://en.wikipedia.org/wiki/Buffer_overflow): Overwriting of memory locations adjacent to a buffers boundary.
+* [Segmentation fault](https://en.wikipedia.org/wiki/Segmentation_fault): An application tries to access a restricted piece of memory.
+* [Wild pointers](https://en.wikipedia.org/wiki/Dangling_pointer): Pointer points to the memory which has been deallocated.
+* [Undefined behavior](https://en.wikipedia.org/wiki/Undefined_behavior): An application with unpredictable behavior.
+
+To provide some insight on the prevalance of risk introduced by manually managed languages, Microsoft
+revealed that within the span of 12 years, [70% of their vulnerabilities](https://github.com/Microsoft/MSRC-Security-Research/blob/master/presentations/2019_02_BlueHatIL/2019_01%20-%20BlueHatIL%20-%20Trends%2C%20challenge%2C%20and%20shifts%20in%20software%20vulnerability%20mitigation.pdf) were due to mismanagement of memory.
+Google reported that there was a [similar percentage of vulnerabilities](https://security.googleblog.com/2021/09/an-update-on-memory-safety-in-chrome.html) introduced by memory safety
+violations within the Chrome browser.
+
+All these vulnerabilities can be exploited by malicious actors who may compromise a device, potentially leading to a compromise of a larger network infrastructure. With this large risk presented by mismanaged memory,
+the NSA advises organizations to consider using memory-safe languages wherever possible and providing
+mechanisms to harden applications built with manually managed languages.
+
+## Memory-safe languages vs. manually managed languages
+
+A memory-safe language is a language where memory allocation and garbage collection are abstracted away from
+the developer and handled by the programming language itself. These languages include **Python**, **Java**, and **Go**,
+to name a few.
+
+In contrast, manually managed languages provide a developer with full control over the system memory (with some exceptions).
+The most popular manually managed languages are **C** and **C++**.
+
+Each language type has a purpose and use case. There are times when a memory-safe language is recommended, but there are also
+times when it may not suit the application requirements.
+
+Below is a list of some pros and cons of each language type:
+
+| Language type | Pros | Cons |
+| ------------- | ---- | ---- |
+| Memory safe | Memory mangement abstracted from developer, reduced risk of memory errors | Reduced efficency/performance, unpredictable garbage collection |
+| Manually managed | Enhanced efficency/performance, no garbage collection overhead | Prone to memory-related failures |
+
+Manually managed languages provide the developer with more power, but also introduce a greater amount
+of risk, so they should only be used where required.
+
+## Memory 'unsafe' language security scanning
+
+Although many organizations are promoting the use of memory-safe languages vs. manually managed ones, it is unrealistic
+to remove manually managed languages from a developer's toolbox. Therefore, developers must get ahead of all the
+bugs/vulnerabilities that may be introduced. This can be done by scanning application source code.
+
+GitLab supports various scanners for memory-unsafe languages. Below you can see the scanners
+used for C and C++:
+
+| Language | Scanners |
+| -------- | -------- |
+| C | [Semgrep with GitLab-managed rules](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep) |
+| C++ | [Flawfinder](https://gitlab.com/gitlab-org/security-products/analyzers/flawfinder) |
+
+Now let's take a look at how [GitLab's static application security testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/) allows us to find and resolve vulnerabilities.
+Below is an application which doesn't crash, but may generate unexpected behavior:
+
+```C
+#include <stdio.h>
+
+int main()
+{  
+  char msg[5] = "Hello";
+
+  /* Add exclamation, to a position that doesn't exist*/
+  msg[8] = '!';
+
+  /* print each letter 1 by 1 */
+  /* Notice we are going further than the length of the array */
+  int i;
+  for (i = 0; i < 10; ++i)
+  {
+    printf("%i: %c \n", i, msg[i]);
+  }
+
+  return 0;
+}
+```
+
+When running the GitLab SAST scanner, the vulnerability is detected and a solution is provided:
+
+![GitLab SAST scanner results](/images/blogimages/memory-safe-vs-manually-managed/CWE_120.png)
+
+It shows you need to **perform bounds checking, use functions that limit length**, or
+**ensure that the size is larger than the maximum possible length.** You can also see the
+[CWE](https://cwe.mitre.org/data/definitions/120.html) for more information on how the system may be impacted.
+Note that vulnerabilities are actionable. These actions include the ability to dismiss a vulnerability and add
+additional information for the security team to review, or a confidential issue can be created for review.
+
+These scanners allow [DevSecOps](/topics/devsecops/) teams to resolve security issues before code makes it into production and safeguard their application
+from memory issues. Note that not all memory issues are easily detected due to the nature of manual memory management.
+Therefore, it is also important to add unit tests, fuzzing, and run checks using the GitLab CI to further ensure the reliability
+and security of your application.
+
+The following applications contain examples of creating a GitLab pipeline for C applications:
+- [General Build, SAST, and Run](https://gitlab.com/tech-marketing/devsecops/initech/other/cul8r)
+- [Coverage-based fuzzing](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/c-cpp-fuzzing-example)
+
+## Memory-safe language security scanning
+
+As more developers move to memory-safe languages, it is important that the tools
+used to prevent vulnerabilities support these languages as well. GitLab provides a rich feature set for
+securing application source code, especially for memory-safe languages.
+
+Below is a table of some the popular languages GitLab supports. To see the full list, visit the
+[GitLab SAST Language/Framework Support](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks) page.
+
+| Language | Scanners |
+| -------- | -------- |
+| Python | [Semgrep with GitLab-managed rules](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep), [Bandit](https://gitlab.com/gitlab-org/security-products/analyzers/bandit) |
+| Go | [Semgrep with GitLab-managed rules](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep), [GoSec](https://gitlab.com/gitlab-org/security-products/analyzers/gosec) |
+| Java | [Semgrep with GitLab-managed rules](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep), [SpotBugs with the find-sec-bugs plugin](https://gitlab.com/gitlab-org/security-products/analyzers/spotbugs), [MobSF (beta)](https://gitlab.com/gitlab-org/security-products/analyzers/mobsf) |
+| JavaScript | [Semgrep with GitLab-managed rules](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep), [ESLint security plugin](https://gitlab.com/gitlab-org/security-products/analyzers/eslint) |
+| Ruby | [brakeman](https://gitlab.com/gitlab-org/security-products/analyzers/brakeman) |
+
+GitLab uses a mix of open source tools developed in-house as well as commonly used tools within the open source community.
+It is important to note that GitLab's security research team creates custom rules to better reduce false positives as well
+as enhance the number of vulnerabilities found.
+
+Here are some Python functions, which can be exploited and then data can be obtained via [SQL injection](https://owasp.org/www-community/attacks/SQL_Injection):
+
+```python
+def select_note_by_id(conn, id=None, admin=False):
+   query = "SELECT id, data FROM notes WHERE secret IS FALSE"
+   cur = conn.cursor()
+
+   # Admin doesn't have search by id function, since only used in the UI
+   if admin:
+       query = "SELECT id, data, ipaddress, hostname, secret FROM notes"
+
+   if id:
+       if admin:
+           query = query + " WHERE id = %s" % id
+       else:
+           # NOTE: Vulnerable to SQL injection, can get secret notes
+           # by adding 'OR 1=1', since not parameterized
+           query = query + " AND id = %s" % id
+
+   try:
+       cur.execute(query)
+   except Exception as e:
+       note.logger.error("Error: cannot select note by id - %s" % e)
+
+   allItems = cur.fetchall()
+   conn.close()
+
+   if len(allItems) == 0:
+       return []
+
+   return allItems
+```
+
+When running the GitLab SAST scanner, you can see the SQL injection vulnerability is detected. A solution
+is provided with the line of code affected as well as identifiers that provide more information on how the
+[CWE](https://cwe.mitre.org/data/definitions/89.html) can affect your system.
+
+![SQL Injection and solution](/images/blogimages/memory-safe-vs-manually-managed/CWE_89.png)
+
+Notice that there is also training to enable developers to understand the vulnerability and how
+it can be exploited, and to make them more security-aware.
+
+## Other application attack vectors
+
+Using a memory-safe language along with a SAST scanner reduces vulnerability risk, but there are more attack vectors to consider, including configurations, infrastructure, and dependencies. This is why it is important to scan all aspects of your application.
+
+GitLab offers the following scanners to help you achieve full coverage:
+
+| Scanner type | Description |
+| ------------ | ----------- |
+| [Dynamic application security testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/) | Examines applications for vulnerabilities like these in deployed environments. |
+| [Infrastructure as code (IaC) scanning](https://docs.gitlab.com/ee/user/application_security/iac_scanning/) | Scans your IaC (Terraform, Ansible, AWS CloudFormation, Kubernetes, etc.) configuration files for known vulnerabilities. |
+| [Dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) | Finds security vulnerabilities in your software dependencies. |
+| [Container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/) | Scans your applications container images for known vulnerabilities. |
+| [License scanning - CycloneDX](https://docs.gitlab.com/ee/user/compliance/license_scanning_of_cyclonedx_files/index.html) | Capable of parsing and identifying over 500 different types of licenses and can extract license information from packages that are dual-licensed or have multiple different licenses that apply. |
+| [Secret detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) | Scans your repository for secrets. |
+| [Coverage-guided fuzzing](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/) | Sends random inputs to an instrumented version of your application in an effort to cause unexpected behavior. |
+| [Web API fuzzing](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/) | Sets operation parameters to unexpected values in an effort to cause unexpected behavior and errors in the API backend. |
+
+Aside from full scanner coverage, it important to add guardrails to prevent vulnerable code from compromising a production environment.
+This can be done by requiring approval from the security team for merging any code with vulnerabilities using [GitLab policies](https://docs.gitlab.com/ee/user/application_security/policies/).
+
+To get started using these tools and more, check out the [GitLab Application Security](https://docs.gitlab.com/ee/user/application_security/) page.
+It's as simple as signing up for GitLab Ultimate and adding some templates to your .gitlab-ci.yml.
+
+## Managing vulnerabilities of all types
+
+Although we can find and address vulnerabilities before they make it into production, it is not possible to
+eliminate all risk. This is why it is important to be able to assess the security posture of your project or
+group of projects.
+
+For this, GitLab provides [Vulnerability Reports](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/), which allow you to manage and triage vulnerabilities
+within the main branch of the application. You can sort through all the vulnerabilities for a project or
+group of projects using a variety of different criteria.
+
+![Vulnerability report screenshot](/images/blogimages/memory-safe-vs-manually-managed/vulnerability_report.png)
+   
+Clicking on a vulnerability sends you to its [Vulnerability Page](https://docs.gitlab.com/ee/user/application_security/vulnerabilities/).
+There you can review details on the vulnerability, manage its status, collaborate with other members of
+the security team, as well as create confidential issues to assign to developers.
+
+![Vulnerability Page](/images/blogimages/memory-safe-vs-manually-managed/vulnerability_page.png)
+
+---
+  
+Thanks for reading! To learn more about available Security features, check out GitLab's [application security documentation](https://docs.gitlab.com/ee/user/application_security/)
+and get started securing your application today. You can also sign up for a [30-day free GitLab Ultimate trial](https://about.gitlab.com/free-trial/)
+and test the [Simple Notes Application](https://gitlab.com/tech-marketing/devsecops/initech/simple-notes), which contains a [full tutorial](https://tech-marketing.gitlab.io/devsecops/initech/simple-notes/) on getting started
+with implementing and using many of GitLab's security features.
+
+## References
+
+Below are some references used in this blog:
+
+* [The Federal Government is Moving on Memory Safety for Cybersecurity](https://www.nextgov.com/cybersecurity/2022/12/federal-government-moving-memory-safety-cybersecurity/381275/)
+* [Future of Memory Safety - Challenges and Recommendations](https://advocacy.consumerreports.org/wp-content/uploads/2023/01/Memory-Safety-Convening-Report-1-1.pdf)
+* [NSA Software Memory Safety Report](https://media.defense.gov/2022/Nov/10/2003112742/-1/-1/0/CSI_SOFTWARE_MEMORY_SAFETY.PDF)
+* [Memory Safety Wiki](https://en.wikipedia.org/wiki/Memory_safety)
+* [Manual Memory Management Wiki](https://en.wikipedia.org/wiki/Manual_memory_management)
+* [Unsafe Languages - University of Washington CS Lecture Notes](https://courses.cs.washington.edu/courses/cse341/04wi/lectures/26-unsafe-languages.html)
+* [GitLab SAST](https://docs.gitlab.com/ee/user/application_security/sast/)
+* [GitLab Application Security](https://docs.gitlab.com/ee/user/application_security/)
+* [GitLab Vulnerability Reports](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/)
+
+
+_Cover image by [Mohammad Rahmani](https://unsplash.com/@afgprogrammer?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/C-programming?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)_
+  

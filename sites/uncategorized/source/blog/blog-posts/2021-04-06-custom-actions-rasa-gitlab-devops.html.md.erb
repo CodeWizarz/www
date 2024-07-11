@@ -1,0 +1,160 @@
+---
+title: "Create and Deploy Custom Actions Containers to Rasa X using Gitlab DevOps Platform"
+author: William Arias # if name includes special characters use double quotes "First Last"
+author_gitlab: warias # ex: johndoe
+author_twitter: WilliamAriasZ # ex: johndoe
+categories: devops platform
+image_title: '/images/blogimages/vablog.jpg'
+description: "Using the GitLab DevOps Platform together with Rasa X can make it easier for stakeholders to deliver a virtual assistant by automating potentially time-consuming, error-prone steps. In this case, we’ve shown how you can build Rasa custom action servers and deploy them to Kubernetes."
+tags: CI, cloud native, DevOps # Please add some relevant tags from the blog handbook: https://about.gitlab.com/handbook/marketing/blog/#tags. Please only use tags from this list (do not create new ones).
+---
+
+{::options parse_block_html="true" /}
+
+
+
+**This blog post was a collaboration between William Arias, from Gitlab, and Vincent D. Warmerdam, from Rasa. You can find the same blog post on [Rasa's blog](https://blog.rasa.com/create-and-deploy-custom-actions-containers-to-rasa-x-using-gitlab-devops-platform/)**.  
+
+## Create and Deploy Custom Actions Containers to Rasa X using Gitlab DevOps Platform
+Virtual assistants do more than just carry on conversations. They can send emails, make updates to a calendar, or call an API endpoint. Essentially, they can do actions that add significant value and convenience to the user experience.
+In assistants built with Rasa*, this type of functionality is executed by custom code called custom actions. As with any code you run in production, you’ll need to think about how you want to deploy updates to custom actions. In this blog post, we’ll show you how to set up GitLab to deploy custom action Docker containers to your Kubernetes cluster. If we follow [good DevOps practices](/stages-devops-lifecycle/) we can greatly speed up the development and quality of our  virtual assistants.
+* Rasa Open Source is a machine learning framework for building text and voice-based virtual assistants. It provides infrastructure for understanding messages, holding conversations, and connecting to many messaging channels and APIs. Rasa X is a toolset that runs on top of Rasa Open Source, extending its capabilities. Rasa X includes key features for sharing the assistant with test users, reviewing and annotating conversation data, and deploying the assistant. [Learn more about Rasa.](https://rasa.com/docs/)
+
+## Deployment high-level overview
+The typical workflow for deploying a new version of custom actions is outlined below.  
+![actions-process](/images/blogimages/actions-process.png){: .shadow}
+
+Every change to your custom actions code will require a new container image to be built and pulled by Rasa X. Gitlab CI/CD can save you from doing a lot of manual work and automate steps like the ones described in the workflow above. Let's see how to do it.  
+
+## Using Rasa with Gitlab DevOps Platform
+Let's create a pipeline that will automate manual steps.
+
+---
+**NOTE**
+This article assumes you have your [Gitlab Project](https://gitlab.com/warias/gl-commit-2020) with your customs Actions Code created along with a [Google Kubernetes Cluster](https://cloud.google.com/kubernetes-engine/docs/quickstart).
+
+---
+
+If you are a Gitlab user you are probably familiar with .gitlab-ci.yml file and its CI/CD capabilities. Every time you commit a change to your customs actions code you want Gitlab to run a script that will build and update your docker containers. 
+![actions-process-2](/images/blogimages/process2.png){: .shadow}
+
+Let's breakdown the CI/CD pipeline by describing the gitlab-ci.yml file so you can use it and customize it to your needs
+## Variables
+We make use of environment variables created in Gitlab at the moment of running the Jobs to define our actions Docker image  
+
+```
+variables:
+    ACTIONS_CONTAINER_IMAGE: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG
+    TAG: $CI_COMMIT_SHA
+    K8S_SECRET: secret-gitlab-registry
+
+```
+
+The snippet above does the following:
+- It defines the name of the Docker Image for custom actions using environment variables ```$CI_REGISTRY_IMAGE/$CI_COMMIT_REF_SLUG.``` This will make the name of the Docker image different for every commit
+- It creates a secret used to pull the Rasa Action Image from the Gitlab Private Registry to the Google Kubernetes Cluster. 
+
+## Stages
+We have two main stages in our pipeline, build and deploy:
+```
+stages:
+  - build
+  - deploy 
+```
+Every time there is a new commit with changes to our custom actions code, or when we decide to run the CI/CD Pipeline it will:
+- Build: Here, we automate the building of the Docker image using the variables defined above, and the Dockerfile. We also tag the image and push it to the GitLab container registry.
+- Deploy: Here we log-in to Kubernetes Engine on Google Cloud and deploy the newly created Actions image to Rasa X.
+Let's see it in more detail:  
+
+**Build**:
+```
+build-actions-image:
+ image: docker:19.03.1
+ services:
+   - docker:dind
+ stage: build
+ script:
+   - docker login -u ```$CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY```
+   - docker build -t $ACTIONS_CONTAINER_IMAGE:$TAG -f Dockerfile .
+   - docker push $ACTIONS_CONTAINER_IMAGE:$TAG
+```
+The job build-actions-image executed on the build stage takes advantage of the CI/CD variables that are part of the environment where the pipelines run. It automates the usage of Docker commands to build the Actions image by reading its corresponding Dockerfile. The output of this stage is a new Custom Actions image per every commit with code changes.  
+
+**Deploy**:
+```
+deploy-custom-action-x:
+  stage: deploy
+  image: crileroro/gcloud-kubectl-helm
+  variables:
+    GCP_PROJECT: gke-project-302411
+    GCP_REGION: europe-west1
+    CLUSTER_NAME: gke-python-demo
+    NAMESPACE_RASA: rasa-environment 
+  before_script:
+    - gcloud auth activate-service-account --key-file $SERVICE_ACCOUNT_GCP
+    - gcloud config set project $GCP_PROJECT
+    - gcloud config set compute/region $GCP_REGION
+    - gcloud container clusters get-credentials $CLUSTER_NAME
+  script:
+    - kubectl create ns $NAMESPACE_RASA --dry-run=client -o yaml | kubectl apply -f -
+    - kubectl create secret docker-registry $K8S_SECRET
+              --docker-server=$CI_REGISTRY
+              --docker-username=$CI_DEPLOY_USER
+              --docker-password=$CI_DEPLOY_PASSWORD
+              --namespace $NAMESPACE_RASA
+              -o yaml --dry-run=client | kubectl apply -f -
+    - helm repo add rasa-x https://rasahq.github.io/rasa-x-helm
+    - helm upgrade -i --reuse-values 
+                      --namespace $NAMESPACE_RASA
+                      --set app.name=$ACTIONS_CONTAINER_IMAGE
+                      --set app.tag=$TAG 
+                      --set images.imagePullSecrets[0].name=$K8S_SECRET rasa-x rasa-x/rasa-x
+```
+
+Notice the variables in ```before_script```, these ones are needed to authenticate to GCP where we have our Kubernetes cluster. This step is optional and could be skipped in cases where you have [Gitlab pre-integrated](https://docs.gitlab.com/ee/user/project/clusters/add_remove_clusters.html) with your Kubernetes cluster running on Google Cloud.  
+
+The main and most interesting part of the script is:  
+```
+script:
+    - kubectl create ns $NAMESPACE_RASA --dry-run=client -o yaml | kubectl apply -f -
+    - kubectl create secret docker-registry $K8S_SECRET
+              --docker-server=$CI_REGISTRY
+              --docker-username=$CI_DEPLOY_USER
+              --docker-password=$CI_DEPLOY_PASSWORD
+              --namespace $NAMESPACE_RASA
+              -o yaml --dry-run=client | kubectl apply -f -
+    - helm repo add rasa-x https://rasahq.github.io/rasa-x-helm
+    - helm upgrade -i --reuse-values 
+                      --namespace $NAMESPACE_RASA
+                      --set app.name=$ACTIONS_CONTAINER_IMAGE
+                      --set app.tag=$TAG 
+                      --set images.imagePullSecrets[0].name=$K8S_SECRET rasa-x rasa-x/rasa-x
+
+```
+
+We start by creating the *namespace* for our custom actions code, and if it already exists, then we proceed to apply Kubernetes commands using kubectl and helm.  
+```
+helm repo add rasa-x https://rasahq.github.io/rasa-x-helm
+    - helm upgrade -i --reuse-values 
+                      --namespace $NAMESPACE_RASA
+                      --set app.name=$ACTIONS_CONTAINER_IMAGE
+                      --set app.tag=$TAG 
+                      --set images.imagePullSecrets[0].name=$K8S_SECRET rasa-x rasa-x/rasa-x
+```
+The snippet above adds a rasa-x Helm chart and upgrades or changes the values corresponding to the new **Custom Action Image** by assigning to it the ```$ACTIONS_CONTAINER_IMAGE``` created in the build stage.
+Note that the pipeline described above focuses only on creating and deploying the ACTIONS_CONTAINER_IMAGE. It could be extended by adding more stages, for example, code quality, security testing, and unit testing among others.  
+
+## Summary
+Using the GitLab DevOps Platform together with Rasa X can make it easier for stakeholders to deliver a virtual assistant by automating potentially time-consuming, error-prone steps. In this case, we’ve shown how you can build Rasa custom action servers and deploy them to Kubernetes.
+Pushing new custom action containers to Kubernetes only scratches the surface of what you can automate with GitLab. You could also add steps for code quality, security audits and unit tests. The main goal is to automate the manual parts of deployment so that you can focus on what is important. In the case of Rasa X, that means that more time can be spent learning from your users and making a better assistant in the process.
+
+Do you want to learn more? Watch this video of Gitlab DevOps Platform and Rasa [Deploy your Rasa Chatbots like a boss with DevOps](https://youtu.be/ko9-zPDuhQo)
+
+Happy hacking!
+
+Cover image by [Eric Krull](https://unsplash.com/@ekrull?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com)
+{: .note}
+
+
+
+

@@ -1,0 +1,58 @@
+---
+title: "Why we implemented our own SSHD solution"
+author: "Igor Drozdov"
+author_gitlab: "igor.drozdov"
+categories: engineering
+tags: production, security
+featured: no
+twitter_text: "@gitlab implemented our own SSHD solution. Here's why we did it and what we learned"
+image_title: '/images/blogimages/library/engineering.png'
+description: "Until recently we used OpenSSH Server to handle SSH connections to provide SSH-related features, but we ultimately decided to implement our own SSHD solution. Learn more!"
+---
+
+The story of why we moved to our own SSHD is an interesting one. GitLab provides [a number of features](https://gitlab.com/gitlab-org/gitlab-shell/-/blob/main/doc/features.md) that execute via an SSH connection. The most popular one is Git-over-SSH, which enables communicating with a Git server via SSH. Historically, we implemented the features through a combination of OpenSSH Server and a separate component, a binary called GitLab Shell. GitLab Shell processes every connection established by OpenSSH Server to communicate data back and forth between the SSH client and the Git server. The solution was battle-tested, and relied on a trusted component such as OpenSSH. Here's why we decided to implement our own SSHD.
+
+## Community contribution
+
+[Everyone can contribute at GitLab](/company/mission/#mission)! A [community contribution](https://gitlab.com/gitlab-org/gitlab-shell/-/merge_requests/394) from [@lorenz](https://gitlab.com/lorenz), `gitlab-sshd`, was suggested as a lightweight alternative to our existing setup. A self-contained binary with minimal external dependencies would be beneficial for containerized deployments. A GitLab-supported replacement also opened up new opportunities:
+
+- PROXY protocol support to enable [Group IP address restriction via SSH](https://gitlab.com/gitlab-org/gitlab/-/issues/271673): Group IP address restriction didn’t work for the Gitlab Shell + OpenSSH solution, because OpenSSH didn't provide PROXY protocol support. As a result, Gitlab Shell couldn't see the real users’ IP addresses. We had to either use a patched version of OpenSSH, or implement our own solution to support the PROXY protocol. Then, with our own solution, we could enable PROXY protocol, receive the real IP addresses of users, and provide Group IP address restriction functionality.
+- Kubernetes compatibility with graceful shutdown, liveness, and readiness probes: With OpenSSH, we had no control over established connections. When Kubernetes pods were rotated, all the ongoing connections were immediately dropped, and thus could interrupt long-running `git clone` operations. With a dedicated server, the connections now become manageable and can be shut down gracefully: the server listens for an interrupting signal and, when the signal is received, stops accepting new connections and waits for a grace period before shutting down completely. This grace period gives ongoing connections an opportunity to finish.
+- Prometheus metrics and profiling became possible: In our previous approach, Gitlab Shell was just a binary that created a process that lived as long as the SSH connection lived. This approach didn’t provide a straightforward way to run a metrics server. With a dedicated server, we can now collect metrics and implement detailed logging for monitoring and debugging purposes.
+- Performance and resource usage is significantly lower in some scenarios: Lightweight goroutines are cheaper than spawning a separate process for every SSH connection. Spawning separate processes performed better in basic cases, but our real-world scenarios didn't demonstrate a drastic performance improvement. However, with `gitlab-sshd` it became possible to introduce a Go profiler to surface performance problems, which was a significant improvement from an operating perspective.
+- Reduced attack surface by using only a restricted set of SSH implementation features: With the previous approach, we allowed establishing an SSH connection to the OpenSSH server, but restricted it to a specific feature set. With `gitlab-sshd`, any unpredictable call to an OpenSSH feature that we don’t support is no longer possible, dramatically reducing the attack surface.
+- Simplified architecture is now easier to understand:
+
+### The previous architecture
+
+![Old architecture](/images/blogimages/create-source-code/gitlab-sshd/old-architecture.png)
+
+### Our current architecture
+
+![New architecture](/images/blogimages/create-source-code/gitlab-sshd/new-architecture.png)
+
+## Risks and challenges
+
+However, changing a critical component that is broadly used, and is responsible for security, carries tremendous risks. We experienced both challenges and risks:
+
+- **Security perspective**: An SSH server is a critical component; it establishes a secure connection between a user and a server, and allows them to communicate privately. Any failures could open security holes, permitting anything from authentication bypass to remote code execution. To mitigate the risks, we performed multiple rounds of security reviews – before the development (by examining the used components), during the development, and after the working versions of the code were deployed to staging environments.
+- **Operational perspective**: The component is broadly used. Any failures would affect a vast number of users. To mitigate the risks, we rolled the changes out gradually to 1%, 5%, etc. of the traffic, and rolled back if a problem was encountered. After 8 attempts, we had the server successfully running for 100% of traffic!
+
+## Problems we encountered
+
+A component with a scope this broad could have a wide range of problems. We encountered, and resolved, the following problems:
+
+- **Incompatibility with other in-progress features:** Our first `gitlab-sshd` deployment consumed huge amounts of memory. It interacted negatively with another feature under development at the same time. We must always keep the interaction with other components in mind when introducing a general component.
+- **Limited feature set in the `golang.org/x/crypto` library:** This library establishes SSH connection, and has limited support for algorithms and features available in OpenSSH. We created [our own fork](https://gitlab.com/gitlab-org/golang-crypto) to provide the missing features:
+  - The OpenSSH client has deprecated SHA-1 based signatures in host certificates in version 8.2 because of safety reasons; however, backward compatibility is provided by the `server-sig-algs` extension, but [`golang.org/x/crypto`](https://pkg.go.dev/golang.org/x/crypto) didn't support it. We [started supporting](https://gitlab.com/gitlab-org/golang-crypto/-/merge_requests/1) this extension.
+  - Some MACs and key exchange algorithms are unsupported: `hmac-sha2-512` and `hmac-sha2-256` are the most noticeable. We [started supporting](https://gitlab.com/gitlab-org/golang-crypto/-/merge_requests/4) these algorithms.
+  - Buggy SSH clients, such as `gpg-agent v2.2.4` and `OpenSSH v7.6` shipped in `Ubuntu 18.04`, might send `ssh-rsa-512` as the public key algorithm but actually include a `rsa-sha` signature. We had to [relax the RSA signature check](https://gitlab.com/gitlab-org/golang-crypto/-/merge_requests/9) to resolve this issue.
+- **Re-implementing options available in OpenSSH:** Familiar OpenSSH options like `LoginGraceTime` and `ClientAliveInterval` were unavailable, so we implemented multiple alternatives to preserve the features we needed.
+
+## Lessons learned
+
+Unfortunately, issues became visible on production environment, thanks both to the load and the variety of possible OpenSSH configurations. Even though we caught some bugs on our staging environments, predicting all types of problems was almost impossible. However, these actions helped us resolve the issues:
+
+- **Incremental rollouts:** The rollout plan proved to be extremely effective. It enabled us to iterate without disrupting service to most users.
+- **Seeking multiple perspectives:** We sought a diverse set of opinions from a variety of groups, such as Security, Infrastructure, Quality and Scalability. It helped us to evaluate the project from multiple perspectives, mitigate the risks, and prevent the majority of issues from happening.
+

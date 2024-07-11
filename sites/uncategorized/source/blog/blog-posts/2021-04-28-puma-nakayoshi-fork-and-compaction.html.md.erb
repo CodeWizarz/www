@@ -1,0 +1,199 @@
+---
+title: "Ruby 2.7: Understand and debug problems with heap compaction"
+author: "Matthias Käppler"
+author_gitlab: mkaeppler
+categories: engineering
+image_title: '/images/blogimages/library/engineering.png'
+description: "An overview of Ruby 2.7 heap compaction and the risks it adds to production Rails applications."
+tags: production, performance, inside GitLab
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/02/03/how-we-automatically-fixed-hundreds-of-ruby-2-7-deprecation-warnings/"
+  - "/blog/2018/10/29/why-we-use-rails-to-build-gitlab/"
+  - "/blog/2019/09/13/why-we-created-the-gitlab-memory-team/"
+merch_banner: merch_seven
+---
+
+The GitLab Rails application runs on [Puma](https://puma.io/), a multi-threaded Rack application server written in the new Ruby.
+We recently updated Puma to major version 5, which introduced [a number of important
+changes](https://github.com/puma/puma/blob/master/History.md#500--2020-09-17),
+including support for _compaction_, a technique to reduce memory fragmentation in the
+Ruby heap.
+
+In this post we will describe what Puma's "nakayoshi fork" does, what compaction is,
+and some of the challenges we faced when first deploying it.
+
+## Nakayoshi: A friendlier `fork`
+
+Puma 5 added a new configuration switch: `nakayoshi_fork`. This switch affects Puma's behavior when
+forking new workers from the primary process. It is largely based on a [Ruby gem of the same name](https://github.com/ko1/nakayoshi_fork)
+but adds new functionality. More specifically, enabling `nakayoshi_fork` in Puma will result in two additional
+steps prior to forking into new workers:
+
+1. **Tenuring objects.** By running several minor garbage collection cycles ahead of a `fork`, Ruby can promote survivors
+   from the young to the old generation (referred to as "tenuring"). These objects are often classes, modules, or long-lived
+   constants that are unlikely to change.
+   This process makes forking copy-on-write friendly because tagging an object as "old" implies a write
+   to the underlying heap page. Doing this prior to forking means the OS won't have
+   to copy this page from the parent to the worker process later. We won't be discussing copy-on-write in detail but
+   [this blog post offers a good introduction to the topic and how it relates to Ruby and pre-fork servers](https://brandur.org/ruby-memory).
+
+1. **Heap compaction.** Ruby 2.7 added a new method `GC.compact`, which
+   will reorganize the Ruby heap to pack objects closer together when invoked. `GC.compact` reduces Ruby heap fragmentation and
+   potentially frees up Ruby heap pages so that the physical memory consumed can be reclaimed by the OS.
+   This step only happens when `GC.compact` is available in the version of Ruby that is in use (for MRI, 2.7 or newer).
+
+In the remainder of this post, we will look at:
+
+* How `GC.compact` works and its potential benefits.
+* Why using C-extensions can be problematic when using compaction.
+* How we resolved a production incident that crashed GitLab.
+* What to look out for before enabling compaction in your app, via `nakayoshi_fork` or otherwise.
+
+## How compacting garbage collection works
+
+The primary goal of a compacting garbage collector (GC) is to use allocated memory more
+effectively, which increases the likelihood of the application using less memory over time.
+Compaction is especially important when processes can share memory, as is the case with Ruby pre-fork
+servers such as Puma or Unicorn. But how does Ruby accomplish this?
+
+Ruby manages its own object heap by allocating chunks of memory from the operating system called pages
+(a confusing term since Ruby heap pages are distinct from the smaller memory pages managed by the OS itself).
+When an application asks to create a new object, Ruby will try to find a free object slot in one of these
+pages and fill it. As objects are allocated and deallocated over the lifetime of the application,
+this can lead to fragmentation, with pages being neither entirely full nor entirely empty. This is the
+primary cause for Ruby's infamous runaway memory problem: Since the available space isn't optimally used,
+pages will rarely be entirely empty and become "tomb pages" which means it is necessary for the pages to be empty for them to be deallocated.
+
+Ruby 2.7 added a new method, `GC.compact`, which aims to address this problem by walking the entire
+Ruby heap space and moving objects around to obtain tightly packed pages. This process will ideally make
+some pages unused, and unused memory can be reclaimed by the OS. [Watch this video from RubyConf 2019](https://www.youtube.com/watch?v=H8iWLoarTZc) where Aaron Patterson, the author of this feature, gave a good introduction to compacting GC.
+
+Compaction is a fairly expensive task since Ruby needs to stop-the-world for a complete heap reorganization so
+its best to perform this task before forking a new worker process, which is why Puma 5 included this step when performing `nakayoshi_fork`. Moreover, running compaction before forking
+into worker processes increases the chance of workers being able to share memory.
+
+We were eager to enable this feature on GitLab to see if it would reduce memory consumption, but things didn't entirely go as planned.
+
+## Inside the incident
+
+After extensive testing via our automated performance test suite and in preproduction
+environments, we felt ready to explore compaction on production nodes. We kept a
+[detailed, public record of what happened
+during this production incident](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/3370), but the key details are summarized below:
+
+* The deployment passed the canary stage, meaning workers who had their heaps compacted were serving traffic
+  successfully at this point.
+* Sometime during the full fleet rollout, problems emerged: Error rates started spiking but not
+  across the entire fleet. This phenomenon is odd because errors tend to spread across all workers due to load balancing.
+* The error messages surfacing in Sentry were mysterious at best:
+  `ActionView::Template::Error
+uninitialized constant #<Class:#GrapePathHelpers::DecoratedRoute:0x00007f95f10ea5b8>::UNDERSCORE`. Remember this error message for later.
+* We discovered the affected workers were segfaulting in [`hamlit`](https://github.com/k0kubun/hamlit),
+  a high-performance HAML compiler. Hamlit uses a C-extension to achieve better performance. The segfaulting and the fact
+  that we were rolling out an optimization that touches GC-internal structures was a tell-tale sign that
+  compaction was likely to be the cause.
+* We rolled back the change to quickly recover from the outage.
+
+## How we diagnosed the problem
+
+We were disappointed by this setback and wanted to understand why the outage occurred. Fortunately,
+Ruby provides detailed stack traces when crashing in C-extensions. The most effective way
+to quickly analyze these is to look for transitions where a C-extension calls into the Ruby VM
+or vice versa. These lines therefore caught our attention:
+
+```shell
+...
+/opt/gitlab/embedded/lib/libruby.so.2.7(sigsegv+0x52) [0x7f9601adb932] signal.c:946
+/lib/x86_64-linux-gnu/libc.so.6(0x7f960154c4c0) [0x7f960154c4c0]
+/opt/gitlab/embedded/lib/libruby.so.2.7(rb_id_table_lookup+0x1) [0x7f9601b15e11] id_table.c:227
+/opt/gitlab/embedded/lib/libruby.so.2.7(rb_const_lookup+0x1e) [0x7f9601b4861e] variable.c:3357
+/opt/gitlab/embedded/lib/libruby.so.2.7(rb_const_get+0x39) [0x7f9601b4a049] variable.c:2339
+# ^--- Ruby VM functions
+/opt/gitlab/embedded/lib/ruby/gems/2.7.0/gems/hamlit-2.11.0/lib/hamlit/hamlit.so(str_underscore+0x16) [0x7f95ee3518f8] hamlit.c:17
+/opt/gitlab/embedded/lib/ruby/gems/2.7.0/gems/hamlit-2.11.0/lib/hamlit/hamlit.so(rb_hamlit_build_id) hamlit.c:100
+# ^-- hamlit C-extension
+...
+```
+
+The topmost stack frame reveals the preceeding calls led to a segmentation fault (`SIGSEGV`).
+We highlighted the lines where Hamlit calls back into Ruby: In a function called `str_underscore` which
+was called by `rb_hamlit_build_id`. The `rb_*` prefix tells us that this is a C-function we can call from Ruby,
+and indeed it is used by [`Hamlit::AttributeBuilder`](https://github.com/k0kubun/hamlit/blob/master/lib/hamlit/attribute_builder.rb) to construct DOM `id`s.
+
+But we still don't know why it is crashing. Next, we need to inspect what happens in `str_underscore`.
+We can see that this function performs a constant lookup on `mAttributeBuilder` – searching
+for a constant called `UNDERSCORE`. When following the breadcrumbs it turns out to simply be the string `"_"`.
+It is this lookup that failed.
+
+Wait -- `UNDERSCORE`? That sounds familiar. Recall the top-level error messages:
+
+```
+ActionView::Template::Error
+uninitialized constant #<Class:#GrapePathHelpers::DecoratedRoute:0x00007f95f10ea5b8>::UNDERSCORE
+```
+
+But `GrapePathHelpers` is clearly not a Hamlit class. Hamlit is trying to look up its own `UNDERSCORE`
+constant on a class in the [`grape`](https://github.com/ruby-grape/grape) gem, an entirely different library
+that is not involved in HTML rendering at all and there is no such constant defined on Grape's
+`DecoratedRoute` class either.
+
+Now the penny dropped – remember how compaction moves around objects in Ruby's heap space? Classes in
+Ruby are objects too, so `GC.compact` must have moved a Grape class into an object slot that was previously
+occupied by a Hamlit class object, but Hamlit's C-extension never saw it coming!
+
+## How we solved the problem
+
+To be clear, what happened above should _not_ happen with a well-behaved C-extension. Compaction
+was developed carefully with support for C-extensions that predate Ruby 2.7, so all
+existing Ruby gems would continue to operate normally.
+
+So what went wrong? When a C-extension allocates Ruby objects, it must _mark_ them for as long as
+they are alive. A marked object will not be garbage collected and because the Ruby GC cannot reason about objects
+outside of its own purview (i.e., objects created from Ruby code), it needs to rely on C-extensions
+to correctly mark and unmark objects themselves.
+
+Now comes the twist: Marked objects can be moved during compaction and existing C-extensions
+can't cope with an object they hold pointers to suddenly move into a different slot.
+Therefore, Ruby 2.7 does something clever: It "pins" objects allocated with the mark function that existed prior
+to Ruby 2.7, meaning the pinned objects are not allowed to move during compaction. For new code, it introduces
+a special mark-but-don't-pin function that will also allow an object to move, giving gem authors the
+opportunity to make their libraries compaction-aware.
+
+Hamlit does not implement compaction support, so this could only mean one thing:
+Hamlit wasn't even properly marking those objects, otherwise Ruby 2.7
+would have automatically pinned them so they wouldn't move during compaction.
+After [discussing an attempted fix we submitted](https://github.com/k0kubun/hamlit/pull/171) but without
+a reliable way to reproduce the issue for everyone, the Hamlit author decided to sidestep the
+problem by [resolving those constants statically instead](https://github.com/k0kubun/hamlit/pull/172)
+and marking each via `rb_gc_register_mark_object`.
+This change landed in [Hamlit 2.14.2](https://github.com/k0kubun/hamlit/blob/master/CHANGELOG.md#2142---2021-01-21)
+which we confirmed resolves the issue.
+
+## The next steps
+
+It is exciting to see that the Ruby community is making progress on making Ruby a more memory-efficient
+language but we learned that we need to step carefully when introducing such wide-reaching changes to a large
+application like GitLab. It is difficult to investigate and fix problems that crash the Ruby VM, which is more likely for
+any library that uses C-extensions.
+
+Two particular action items we took away from this were:
+
+1. **More reliable detection of compaction-related issues in CI.** We're not going to sugar-coat this:
+   We detected the problem late. Our comprehensive test suite was passing, our QA and performance tests
+   on staging environments passed, and the problem didn't even show up in canary deployments. Ideally, we
+   would have caught this issue with our automated test suite. One way to test whether compaction causes problems
+   is by using `GC.verify_compaction_references` – this is a rather crude tool because it requires
+   keeping two copies of the Ruby heap, which can be prohibitively expensive in terms of memory use. We
+   have therefore not yet decided how to approach this.
+1. **Improve our ability to roll out system configuration gradually.** Puma is part of our core infrastructure,
+   since it sits in the path of every web request, which makes it especially risky to experiment with Puma
+   configuration. GitLab already supports [feature flags](https://docs.gitlab.com/ee/development/feature_flags/index.html)
+   to allow developers to roll out product changes gradually, but it presents us with a catch-22 when
+   making changes at the infrastructure level, because to query the state of a feature flag, the infrastructure
+   needs to already be up and running. It would be ideal to have a similar mechanism for system configuration, [which we are currently exploring](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/154).
+
+While performance is a major focus for us at the moment it must not compromise availability.
+We will continue to monitor developments in the Ruby community around compaction support, but decided to
+not use it in production at this point in time since the gains don't appear to outweigh the risks.

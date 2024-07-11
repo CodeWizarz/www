@@ -1,0 +1,198 @@
+---
+title: How to provision dynamic review environments using merge requests and Argo CD
+author: Madou Coulibaly and Joe Randazzo
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/library/kubernetes.png'
+description: "Here's how to use the Argo CD ApplicationSet to provision a ‘ReviewOps’ environment based on merge request changes."
+tags: code review, gitops, DevOps  
+twitter_text: "Create a review environment based on an MR change with ArgoCD + @gitlab"
+featured: no 
+postType: product
+---
+
+We recently learned of a new contribution to the ApplicationSet in the Argo CD project, specifically the [Pull Request generator for GitLab](https://github.com/argoproj/argo-cd/blob/master/docs/operator-manual/applicationset/Generators-Pull-Request.md#gitlab){:target="_blank"} and decided to take it for a spin. What makes this interesting is now dynamic [review environments](https://docs.gitlab.com/ee/ci/review_apps/index.html){:target="_blank"} can be provisioned intuitively from the merge request (MR) using a [GitOps](/topics/gitops/) workflow. The benefit is code reviewers or designers can quickly review any app changes to your Kubernetes cluster all from within the merge request.
+
+In traditional testing workflows, you may have pushed your changes into a development environment, waiting for the QA and UX team to pull those changes into their environment for further review, and then received feedback based on your small change. At this point, time was wasted between various teams with environment coordination or adding bugs to the backlog of the new changes. 
+
+With the combination of a merge request and review environments, you can quickly spin up a test environment based on the changes of your feature branch. This means the QA or UX team can suggest improvements or changes during the code review process without wasting cycles.
+
+The introduction of the ApplicationSet has given greater flexibility to Argo CD workflows such as:
+
+- Allowing unprivileged cluster users to deploy applications (without namespace access)
+- Deploying applications to multiple clusters at once
+- Deploying many applications from a single monorepo
+- **And triggering review environments based on a pull request**
+
+### Let's review the ApplicationSet and the GitLab Pull Request Generator
+
+The [Pull Request Generator](https://argo-cd.readthedocs.io/en/latest/operator-manual/applicationset/Generators-Pull-Request) will use the GitLab API to automatically discover new merge requests within a repository. Depending on the filter match of the MR, a review environment will then be generated.
+
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: review-the-application
+  namespace: argocd
+spec:
+  generators:
+  - pullRequest:
+      gitlab:
+        project: <project-id>
+        api: https://gitlab.com/
+        tokenRef:
+          secretName: <gitlab-token>
+          key: token
+        pullRequestState: opened
+      requeueAfterSeconds: 60
+  template:
+    metadata:
+      name: 'review-the-application-{{number}}'
+    spec:
+      source:
+        repoURL: <repository-with-manifest-files>
+        path: chart/
+        targetRevision: 'HEAD'
+        helm:
+          parameters:
+          - name: "image.repository"
+            value: "registry.gitlab.com/<group-and-project-path>/{{branch}}"
+          - name: "image.tag"
+            value: "{{head_sha}}"
+          - name: "service.url"
+            value: "the-application-{{number}}.<ip>.nip.io"
+      project: default
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: dynamic-environments-with-argo-cd
+```
+#### Fields
+
+* `project`: The GitLab Project ID
+* `api`: URL of GitLab instance
+* `tokenRef`: The secret to monitor merge request changes
+* `labels`: Provision review environments based on a GitLab label
+* `pullRequestState`: Provision review environments based on [MR states](https://docs.gitlab.com/ee/api/merge_requests.html)
+
+Filter options include GitLab labels, merge request state (open, closed, merged), and branch match. Templating options include merge request ID, branch name, branch slug, head sha, and head short sha.
+
+See the latest [ApplicationSet documentation](https://argo-cd.readthedocs.io/en/latest/operator-manual/applicationset/Generators-Pull-Request/#gitlab) for additional details.
+
+For this blog post, we explore using the Argo CD ApplicationSet to provision a “ReviewOps” environment based on merge request changes.
+
+### Prerequisites
+
+The following tools are required for running this tutorial. Please install and/or configure them before getting started.
+
+- **Tools**
+  - GitLab v15.0+ 
+  - Kubernetes cluster v1.21+
+  - Argo CD 2.5.0+
+- **CLI**
+  - kubectl v1.21+
+
+### Explore the Source Code
+
+First, let’s explore the [source code](https://gitlab.com/madou-stories/dynamic-environments-with-argo-cd) for the tutorial.
+
+This GitLab group is composed of the 2 following projects:
+
+- `The Application`: contains the source code of a containerized application and its CI/CD pipeline
+- `The Application Configuration`: contains the application configuration (Kubernetes Manifests) managed by Helm
+
+![git-repository](/images/blogimages/2022-08-01-how-to-provision-reviewops/git-repository.png){: .shadow.medium.left}
+
+### Setting up GitLab
+
+1. Create your GitLab Group and fork the [The Application](https://gitlab.com/madou-stories/dynamic-environments-with-argo-cd/the-application){:target="_blank"} and [The Application Configuration](https://gitlab.com/madou-stories/dynamic-environments-with-argo-cd/the-application-configuration){:target="_blank"} projects into it.
+
+2. In `The Application Configuration` project, edit the `**manifests/applicationset.yml**` as follows:
+
+  * `.spec.generators.pullRequest.gitlab.project`: The Project ID of `The Application`
+  * `.spec.template.spec.source.repoURL`: Git URL of `The Application Configuration`
+  * `.spec.template.spec.source.helm.parameters."image.repository"`: Point to image repository, for example `registry.gitlab.com/<Your_GitLab_Group>/the-application/{{branch}}`
+
+  Note: keep the {{branch}} string as is and replace <Your_GitLab_Group> with the name of the group you created in step 1.
+
+  * `.spec.template.spec.source.helm.parameters."service.url"`: Templated with `the-application-{{number}}.<Your_Kube_Ingress_Base_Domain>`
+
+  Note: keep the {{number}} string as is and replace <Your_Kube_Ingress_Base_Domain> with the base domain of your Kubernetes Cluster.
+
+3. Define the following CI/CD variables at the group level:
+
+   - `ARGOCD_SERVER_URL`, the Argo CD server address
+   - `ARGOCD_USERNAME`, the username of your Argo CD account
+   - `ARGOCD_PASSWORD`, the password of your Argo CD account
+   - `KUBE_INGRESS_BASE_DOMAIN`, the base domain of your Kubernetes Cluster
+
+   ![cicd-variables](/images/blogimages/2022-08-01-how-to-provision-reviewops/cicd-variables.png){: .shadow.medium.left}
+
+4. Generate a Group access token to grant `read_api` and `read_registry` access to this group and its sub-projects.
+   
+   ![group-access-token](/images/blogimages/2022-08-01-how-to-provision-reviewops/group-access-token.png){: .shadow.medium.left}
+
+   Save the group access token somewhere safe. We will use it later.
+   {: .alert .alert-warning}
+
+### Setting up Kubernetes
+
+1. Create a namespace called `dynamic-environments-with-argo-cd`.
+   ```shell
+   kubectl create namespace dynamic-environments-with-argo-cd
+   ```
+2. Create a Kubernetes secret called `gitlab-token-dewac` to allow Argo CD to use the GitLab API.
+   ```shell
+   kubectl create secret generic gitlab-token-dewac -n argocd --from-literal=token=<Your_Access_Token>
+   ```
+3. Create another Kubernetes secret called `gitlab-token-dewac` to allow Kubernetes to pull images from the GitLab Container Registry.
+   ```shell
+   kubectl create secret generic gitlab-token-dewac -n dynamic-environments-with-argo-cd --from-literal=token=<Your_Access_Token>
+   ```
+
+### Setting up Argo CD
+
+1. Create the Argo CD ApplicationSet to generate an Argo CD Application associated with a merge request.
+   ```shell
+   kubectl apply -f https://gitlab.com/<Your_GitLab_Group>/the-application-configuration/-/raw/main/manifests/applicationset.yaml
+   ```
+
+### Update the source code
+
+1. In `The Application` project, create a GitLab issue, then an associated branch and merge request. 
+2. In Argo CD, a new application is provisioned called `review-the-application` based on the new merge request event.
+   
+   ![review-the-application-argocd](/images/blogimages/2022-08-01-how-to-provision-reviewops/review-the-application-argocd.png){: .shadow.medium.left}
+
+3. In `The Application` project, edit the `index.pug` and replace `p Welcome to #{title}`  with `p Bienvenue à #{title}`.
+4. Commit into your recent branch which is going to trigger a pipeline run.
+5. In the CI/CD > Pipelines, you will find the following pipeline running on your merge request:
+   
+   ![feature-branch-pipeline](/images/blogimages/2022-08-01-how-to-provision-reviewops/feature-branch-pipeline.png){: .shadow.medium.left}
+
+   where,
+
+   - `docker-build`: builds the container image
+   - `reviewops`: configures and deploys the container into the review environment using Argo CD
+   - `stop-reviewops`: deletes the review environment
+
+6. Once completed, the `review-the-application` application in Argo CD is now synced.
+      
+   ![review-the-application-synced](/images/blogimages/2022-08-01-how-to-provision-reviewops/review-the-application-synced.png){: .shadow.medium.left}
+
+7. From the merge request, click on the `View app` button to access to your application.
+   
+   ![view-app-button](/images/blogimages/2022-08-01-how-to-provision-reviewops/view-app-button.png){: .shadow.medium.left}
+
+   The outcome should be as follows:
+
+   ![express-app](/images/blogimages/2022-08-01-how-to-provision-reviewops/express-app.png){: .shadow.medium.left}
+
+8. You have succesfully provisioned a dynamic review environment based on your merge request! Once the merge request is closed, the environment will be automatically cleaned up.
+
+## To sum up
+
+Hopefully this tutorial has been helpful and has inspired your GitLab + Argo CD workflows with review environments.
+
+We'd love to hear in the comments on how this is working for you, as well as your ideas on how we can make GitLab a better place for GitOps workflows.
+

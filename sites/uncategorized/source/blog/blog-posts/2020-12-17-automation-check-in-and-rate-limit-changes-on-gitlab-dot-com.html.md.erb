@@ -1,0 +1,75 @@
+---
+title: "Automation check-in and rate limit changes on GitLab.com"
+author: Sean McGivern
+author_gitlab: smcgivern
+categories: news
+description: "GitLab is making some changes to our rate limits on GitLab.com starting in January 2021."
+tags: production
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the "Install GitLab" banner
+twitter_text: "About the rate limit changes to GitLab.com" 
+featured: no
+postType: corporate
+related_posts:
+  - "/blog/2020/12/01/continuous-machine-learning-development-with-gitlab-ci/"
+  - "/blog/2020/11/19/integration-management/"
+  - "/blog/2020/11/09/ensure-auto-devops-work-after-helm-stable-repo/" # please see related posts section below for details
+merch_banner: merch_seven
+---
+
+As the end of the year approaches, now is a good time to check in on your
+custom automations with GitLab.com ahead of a few changes we're
+planning to make to rate limits in the New Year. On January 18, 2021, we will be adding
+additional rate limits on GitLab.com activity:
+
+1. Unauthenticated traffic will be limited to **500** requests per
+   minute from a given IP address.
+2. Authenticated traffic depends on whether it is to our API or not:
+   1. API traffic will be limited to **2,000** requests per minute
+      for a given user.
+   2. All other HTTP traffic will be limited to **1,000** requests per
+      minute for a given user.
+3. All traffic will be limited to **2,000** requests per minute from
+   a given IP address when not covered by one of the limits above.
+
+We have this information recorded in our documentation under [GitLab.com-specific rate
+limits](https://docs.gitlab.com/ee/user/gitlab_com/#gitlabcom-specific-rate-limits). These limits apply to all HTTP requests made to
+GitLab.com, which could be from:
+
+1. Web browsers, while using the site
+2. Editor extensions that integrate with the GitLab API
+3. Git clients (if using Git over HTTP)
+4. Custom automation
+
+## What do users need to do?
+
+We expect the limits will only apply to automated traffic, rather than
+individual people using the site through a browser. This means that
+automation customers should handle rate-limit responses by
+using the headers we mention in the [documentation](https://docs.gitlab.com/ee/user/gitlab_com/#gitlabcom-specific-rate-limits).
+
+When a request is blocked due to rate limiting, GitLab will return a status
+code of 429, along with a `Retry-After` header indicating the number of
+seconds remaining until the current limit expires.
+
+If you have automation that does not currently process a 429 response,
+and you use GitLab.com heavily, we recommend updating it for this
+case.
+
+Beyond this situation, the majority of users will not need to do anything. If
+we notice that your traffic exceeds these limits, we may try to contact
+you directly. If the traffic is unauthenticated, we may not be able to
+do so.
+
+## Why is GitLab doing this?
+
+We are always looking to improve the stability and availability of
+GitLab.com.
+
+## What will happen in future?
+
+In the future we aim to refine these limits as the usage of GitLab.com
+changes, which may involve introducing more specific limits, or
+reducing the existing limits. If API clients ensure that they process the
+retry headers correctly, as above, then they can handle any changes in
+these limits gracefully.

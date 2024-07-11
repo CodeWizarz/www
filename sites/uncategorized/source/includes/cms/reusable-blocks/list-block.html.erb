@@ -1,0 +1,95 @@
+<section
+  class="slpEventList slp-commit-grid slp-relative slp-mb-64"
+>
+  <div class="slp-col-span-full md:slp-col-span-6"> 
+    <div class="slp-col-span-full slp-relative">
+      <h2 class="slp-font-normal slp-text-grayscale-333 slp-text-3xl md:slp-text-4xl slp-leading-tight slp-mb-16 slp-col-span-full">
+        <%= block_list.heading %>
+      </h2>
+    </div>
+    <p
+      class="slp-font-normal slp-text-grayscale-333 slp-text-xl slp-mb-8 slp-leading-tight slp-max-w-3xl"
+    >
+      <%= block_list.subheading %>
+    </p>
+    <p
+      class="slp-font-normal slp-text-grayscale-333 slp-text-base slp-leading-normal slp-max-w-3xl slp-mb-32"
+    >
+      <%= block_list.body %>
+    </p>
+    <% if block_list.ctaText %>
+      <a href="<%= block_list.ctaLink %>" class="sm:slp-min-w-min slp-btn slp-btn--secondary">
+        <%= block_list.ctaText %>
+      </a>
+    <% end %>
+  </div>
+  
+
+
+  <div class="faq-holder slp-col-span-full md:slp-col-span-6"> 
+    <hr class="slp-border-t slp-border-grayscale-c3 slp-col-span-full slp-mb-24">
+    <!-- For each item in list, we're going to define what type of display -->
+    <% block_list.items.each do | item | %>
+      <div class="">
+        <!-- icons pulled from data file, defaults to checkmark if undefined -->
+        <span class="slp-text-brand-purple">
+          <% if item.icon %>
+            <img
+              src="<%= item.icon %>"
+              class="slp-inline slp-align-baseline slp-mr-12 slp-w-40"
+            />
+          <% elsif item.dropdown %>
+          <!-- show no icon if it's a dropdown -->
+          <% elsif %>
+            <img
+              src="/images/icons/slp-checkmark.svg"
+              class="slp-inline slp-align-baseline slp-mr-12"
+            />
+          <% end %> 
+        </span> 
+        <!-- If it's an item that links out, do this -->
+        <% if item.href %>
+          <a href="<%= item.href %>" class="slp-font-normal slp-text-grayscale-333 slp-text-md slp-font-bold slp-text-sm slp-leading-6 hover:slp-underline group-hover:slp-text-ui-secondary slp-text-ui-secondary-dark">
+            <%= item.text %>
+            <svg width="9" height="6" xmlns="http://www.w3.org/2000/svg" class="slp-inline-block"><path d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z" fill="none" class="slp-fill-current group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"></path></svg>
+          </a>
+        <!-- If it a drop down, place faq classes to trigger javascript -->
+        <% elsif item.dropdown %>
+          <div class="faq-item">
+
+            <span class="faq-inner-item slp-font-normal slp-text-grayscale-333 slp-text-md slp-text-ui-secondary-light">
+              <a class="faq-question js-faq-question" href="<%= item.href %>">
+                <%= item.text %> 
+                <i class="fa fa-angle-down pull-right"></i>
+              </a>  
+              <div class="faq-answer slp-prose slp-max-w-none slp-text-grayscale-333 slp-text-base slp-leading-normal slp-mb-32">
+                <%= kramdown(item.body) %>
+              </div>
+            </span>
+          </div>
+        <!-- or just show the text -->  
+        <% elsif %>
+          <span class="slp-font-normal slp-text-grayscale-333 slp-text-md slp-text-ui-secondary-light">
+            <%= item.text %>   
+          </span>
+        <% end %> 
+        <hr class="slp-border-t slp-border-grayscale-c3 slp-col-span-full slp-mt-24 slp-mb-24">
+      </div>
+    <% end %>
+  </div>
+
+  <!-- Because decoration is neat --> 
+  <div class="slp-flex slp-justify-center slp-p-8 slp-absolute slp--left-40 slp--top-40 slp-transform"><svg width="81" height="88" viewBox="0 0 81 88" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M23.4859 16.3446C22.7706 16.5606 22.0787 15.9439 22.2112 15.2086L24.5122 2.43671C24.6507 1.66757 25.5791 1.34909 26.1624 1.87056L36.2615 10.8987C36.8438 11.4193 36.6329 12.3754 35.886 12.6009L23.4859 16.3446Z" fill="#7759c2"></path> <rect width="10.9484" height="10.9592" rx="1" transform="matrix(0.562307 0.826928 -0.828316 0.560261 32.0776 38.0001)" fill="#27AE60"></rect> <circle cx="78" cy="20.0001" r="3" fill="#FCA326"></circle> <circle cx="3" cy="85.0001" r="3" fill="#FC6D26"></circle></svg></div>
+
+</section>
+
+<!-- These classes arn't shipped with Slippers, although they should be. So just manually setting them here --> 
+<style>
+  .slp--left-40 {
+    left: -4rem !important;
+  }
+
+  .slp--top-40 {
+      top: -4rem !important;
+  }
+</style>

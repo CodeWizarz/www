@@ -1,0 +1,17 @@
+---
+features:
+  primary:
+  - name: "Override Gitaly Cluster replication factor for specific repositories"
+    available_in: [premium, ultimate]
+    gitlab_com: false
+    image_url: '/images/13_9/default_replication.png'
+    documentation_link: 'https://docs.gitlab.com/ee/administration/gitaly/praefect.html#replication-factor'
+    reporter: mjwood
+    stage: create
+    categories:
+    - Gitaly
+    issue_url: 'https://gitlab.com/gitlab-org/gitaly/-/issues/2971'
+    description: |
+      Previously, the replication factor of a Gitaly Cluster was the number of nodes in the cluster. This made it impossible to enable Gitaly Cluster for GitLab instances with very large storage requirements. For example, a 500 TB cluster with 50 nodes would require 25 PB of storage space to be provisioned. To enable Gitaly Cluster to be used for instances with large storage requirements, a way was needed to specify a replication factor less than the total number of nodes in the cluster.
+
+      In GitLab 13.9, the replication factor for each repository can be set individually to any number less than the number of nodes in the cluster. This allows for replication of only the most important or active repositories, leaving other less critical repositories on a smaller number of nodes. This will allow organizations to tune their clusters to their own storage and budget constraints. We have also enabled a method to configure a default replication factor for all newly created repositories. This should provide users the necessary means to horizontally scale their Gitaly Cluster.

@@ -1,0 +1,87 @@
+---
+title: How to protect GitLab-connected SSH key with Yubikey
+author: Brendan O'Leary
+author_gitlab: brendan
+author_twitter: olearycrew
+categories: engineering
+tags: DevOps, security, tutorial
+description: Add a layer of security to SSH keys by restricting physical access to YubiKey.
+image_title: /images/blogimages/gitlabultimatesecurity.jpg
+twitter_text: "@Olearycrew shows you how to add a layer of security to SSH keys
+  by restricting physical access to YubiKey"
+---
+[Two-factor authentication](https://docs.gitlab.com/ee/security/two_factor_authentication.html) is one of the best defenses we have as individuals for protecting our accounts and credentials. But not all 2FA methods are created equal. For example, SMS is vulnerable to [SIM-swapping](https://www.ic3.gov/Media/Y2022/PSA220208) attacks and thus doesn't always provide the extra security we would like.
+
+Ideally, everything I  want to connect to would use 2FA with dedicated 2FA hardware. With GitLab 14.8, you can now use 2FA hardware to protect your SSH keys, as I explain below.  
+
+## 2FA and SSH keys
+
+State-of-the-art 2FA uses a physical hardware device – often FIDO/U2F hardware – to verify your presence at the time of authentication. This provides two distinct factors as a means of authentication: something you know (your username and password, for instance) with something you have (the physical device). I have two [YubiKey](https://www.yubico.com/works-with-yubikey/catalog/gitlab/) devices that I use for this purpose – one that is always in a safe in my house and one that I generally keep with me and the computer I'm using to do work. And I have everything I can secure using this method, including my GitLab account.
+
+And that does a great job of securing my access to GitLab, the application front end, and the ability to create and modify API keys. But there is another way to authenticate to a git server: SSH keys. In this case, there's only one factor of authorization because the SSH key is on my computer. So you can imagine how excited I was to hear that GitLab added support for `ecdsa-sk` and `ed25519-sk` key types in [GitLab 14.8](/releases/2022/02/22/gitlab-14-8-released/#support-for-ecdsa-sk-and-ed25519-sk-ssh-keys).
+
+### What are `ecdsa-sk` and `ed25519-sk`?
+
+These two new keys are close to the existing `ecdsa` (Elliptic Curve Digital Signature Algorithm) and `ed25519` (Edwards Curve Digital Signature Algorithm) keys already supported. But that `-sk` at the end adds the ability to verify the key with a FIDO/U2F device. "SK" here stands for "security key". [OpenSSH 8.2](https://www.openssh.com/txt/release-8.2) added this key type to the supported keys it can generate, interacting with the hardware device to authenticate user presence before allowing the key to be used.
+
+However, I still had a few things to do to be ready to use the new keys.
+
+## Updating OpenSSH 
+My daily driver computer is a 2021 iMac running macOS Big Sur version 11.6. When I ran to it to generate this new key, I encountered a problem. Supposedly my version of SSH didn't support `-sk` keys!
+
+Now, your mileage may vary here, but I was able to update the version of SSH my Mac uses by default by first running `brew install openssh`, which successfully installed OpenSSH 8.8. But when I ran `ssh -V` it still showed version 8.1. So how could I get the system to use the newly installed OpenSSH instead?
+
+The easiest way I could think of to do that was to put the Homebrew version first in the $PATH variable. But where is that path? Luckily, I was able to find that (`/opt/homebrew/opt/openssh`) by running this command:
+
+`brew --prefix openssh`
+
+Once I updated my $PATH variable to have that at the front, I got the desired outcome:
+
+```bash
+$  which ssh
+/opt/homebrew/opt/openssh/bin/ssh
+
+$ ssh -V
+OpenSSH_8.8p1, OpenSSL 1.1.1m  14 Dec 2021
+```
+
+## Generating the key
+Now that I was using the correct version of SSH, I was able to create my `ecdsa-sk` key by running: 
+
+```bash
+ssh-keygen -t ecdsa-sk -f ~/.ssh/id_ecdsa_sk
+```
+
+Now, the specific device I have only supports ECDSA and not EdDSA, which is why I went with `ecdsa-sk`. There also is an option to have the key reside ON the device itself (if supported by your hardware) with the `-O resident` flag like this:
+
+```bash
+$ ssh-keygen -t ecdsa-sk -O resident -f ~/.ssh/id_ecdsa_sk
+
+Enter PIN for authenticator:
+You may need to touch your authenticator (again) to authorize key generation.
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /Users/brendan/.ssh/id_ecdsa_sk
+Your public key has been saved in /Users/brendan/.ssh/id_ecdsa_sk.pub
+```
+
+Generating a resident key will make sharing this key with a new computer if and when that happens much easier. If you have a YubiKey like me, you can set the FIDO2 PIN using the [YubiKey Manager](https://www.yubico.com/support/download/yubikey-manager/) software.
+
+## Adding the key to GitLab
+Now that I had the complex parts covered, all that was left was to add the key to GitLab. I went to my [SSH settings](https://gitlab.com/-/profile/keys) on GitLab.com and (bravely) deleted my old SSH key and added the `.pub` public part of my key to my profile.
+
+And it was that simple! Now every time I go to interact with GitLab.com, I'm prompted to confirm my presence by touching the YubiKey device attached to my computer:
+
+```bash
+git clone git@gitlab.com:brendan/website.git
+Cloning into 'website'...
+Confirm user presence for key ECDSA-SK SHA256:OZSZGwbnnbc...
+
+git add .
+git commit -m "A new commit"
+git push
+Confirm user presence for key ECDSA-SK SHA256:OZSZGwbnnbc...
+```
+
+That small but essential change gives me peace of mind that even if someone could somehow get my private SSH key, I would still be protected by having physical access restricted to my YubiKey.
+

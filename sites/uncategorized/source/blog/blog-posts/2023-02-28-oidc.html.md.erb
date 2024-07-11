@@ -1,0 +1,134 @@
+---
+title: "Secure GitLab CI/CD workflows using OIDC JWT on a DevSecOps platform"
+author: Dov Hershkovitch
+author_gitlab: dhershkovitch
+author_twitter: dov0211
+categories: devsecops-platform
+image_title: '/images/blogimages/container-security.jpg'
+description: "Learn a new method to authenticate using JWT to increase the security of CI/CD workflows."
+tags: tutorial, devsecops, CI, CD
+twitter_text: "Your CI/CD workflows in @gitlab are now more secure using #OIDC"
+featured: yes
+---
+
+Securing [CI/CD](https://about.gitlab.com/topics/ci-cd/) workflows can be challenging. This blog post walks you through the problem validation, explores the JWT token technology and how it can be used with OIDC authentication, and discusses implementation challenges with authorization realms. You will learn about the current possibilities and future plans with GitLab 16.0. 
+
+### Variables vs. secrets
+Variables are an efficient way to control and inject parameters into your jobs and pipelines, making managing and configuring the CI/CD workflows easier. You can read more about [how to use CI/CD variables](https://about.gitlab.com/blog/2021/04/09/demystifying-ci-cd-variables/). An extra layer of security on top of variables to mask and protect, for now, is our “best-effort” to prevent sensitive variables from being accidentally revealed. However, variables are not a drop-in replacement for secrets. [Securing secrets natively](https://gitlab.com/gitlab-org/gitlab/-/issues/217355) is a solution that GitLab aspires to provide. Meanwhile, we recommend storing sensitive information in a dedicated secrets management solution. As a company, we will provide you abilities to integrate and retrieve secrets as part of your CI/CD workflows. 
+
+## Security shifting left
+Sensitive information like passwords, secret tokens, or shared IDs required to access tools and platforms need to be securely stored. They must also be highly available to their owners and the teams who use them. There are various secrets management solutions and frameworks available. They have addressed one problem but created new problems. For example: "Which tool is right for our needs?" More importantly, in software development: "What's the best way to integrate this into our DevOps processes so that we're secure but still operating as efficiently as possible?" Ignoring the security protocols in your organization is not an option. However, sensitive information should be stored as securely as possible. Something as simple as an access token stored in plain text can lead to security leaks and business incidents in the worst-case scenarios.
+
+## Initial support for JWT
+The [JSON Web Token (JWT)](https://en.wikipedia.org/wiki/JSON_Web_Token) aims to build the integration bridge as an open standard for security claims exchange. It is a signed, short-lived, contextualized token that allows everyone to implement authentication between different products securely. The JWT consists of three parts: a header, a payload, and a signature.
+
+- The header represents the type of the token and the encryption algorithm.
+- The signature ensures that the token hasn't been altered.
+- The payload comprises a series of claims representing the information exchanged between two parties, which includes information about a GitLab user (ID, email, login) and the pipeline information (pipeline ID, job ID, environment, and more).
+
+_Example of GitLab JWT payload_
+
+```
+{
+  "jti": "c82eeb0c-5c6f-4a33-abf5-4c474b92b558",
+  "iss": "gitlab.example.com",
+  "iat": 1585710286,
+  "nbf": 1585798372,
+  "exp": 1585713886,
+  "sub": "job_1212",
+  "namespace_id": "1",
+  "namespace_path": "mygroup",
+  "project_id": "22",
+  "project_path": "mygroup/myproject",
+  "user_id": "42",
+  "user_login": "myuser",
+  "user_email": "myuser@example.com",
+  "pipeline_id": "1212",
+  "pipeline_source": "web",
+  "job_id": "1212",
+  "ref": "auto-deploy-2020-04-01",
+  "ref_type": "branch",
+  "ref_protected": "true",
+  "environment": "production",
+  "environment_protected": "true"
+}
+```
+Using this information (called "claims"), you can implement an authentication condition where the token will get rejected if one of those claims does not match. You can use this to restrict access to only the authorized users and jobs in your pipelines.
+
+GitLab 12.10 added [initial support for JWT token-based connections](https://about.gitlab.com/releases/2020/04/22/gitlab-12-10-released/#retrieve-cicd-secrets-from-hashicorp-vault), which was later [enhanced](https://about.gitlab.com/releases/2020/09/22/gitlab-13-4-released/#use-hashicorp-vault-secrets-in-ci-jobs) with the `secrets:` keyword, as well as the `CI_JOB_JWT` predefined CI/CD variable, which is automatically injected into every job in a pipeline. This implementation was restricted to Hashicorp Vault, and users can use it to read secrets directly from the vault as part of their CI/CD workflow.
+ 
+### OIDC (JWT Version 2)
+The logic we used to build the initial support for JWT opened up the possibility of connecting to other providers as well, but the first iteration was still restricted to Hashicorp Vault users.
+
+This problem was addressed in GitLab 14.7 when we [released](https://about.gitlab.com/releases/2022/01/22/gitlab-14-7-released/#openid-connect-support-for-gitlab-cicd) the first "Alpha" version of JWT V2, which provided [Open ID Connect (OIDC)](https://openid.net/connect/) support for CI/CD.
+
+OIDC is an identity layer implemented on top of the JSON web token. You can securely authenticate against many products and services that implement OIDC, including AWS, GCP, and many more, making better use of the token's potential. Similar to our first JWT iteration, we added another [predefined CI/CD variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html) `CI_JOB_JWT_V2` which is also automatically injected into every job in a CI/CD pipeline.
+
+### Securely store your secrets 
+Your software supply chain should include everything needed to deliver and run your software. Securing your supply chain means you need to secure your software and the surrounding (cloud-native) infrastructure. In [GitLab 15.9](https://about.gitlab.com/releases/2023/02/22/gitlab-15-9-released/), we've added additional layers of protection to move our OIDC token from an Experiment to General Availability, increasing the security of your CI/CD workflows. 
+
+
+#### Opt-in JWT token
+JSON web tokens (V1 and V2) are stored in CI/CD variables, which are injected automatically into all jobs in a CI/CD pipeline. However, it is likely most jobs in your pipeline do not need the token. In addition to the inefficiency of injecting unused tokens into all jobs in a pipeline, there is a potential security vulnerability. All it takes is one compromised job for this token to be leaked and used by an attacker to retrieve sensitive information from your organization. To minimize this risk, we've added the ability to restrict the token variable from all jobs in your pipeline and expose it only to the specific jobs that need it.
+
+To declare the JSON web token in a job that needs it, configure the job in the `.gitlab-ci.yml` configuration file following this example:
+
+```yaml
+job_name:
+  id_token:
+    MY_JOB_JWT: # or any other variable name
+  ...
+```
+
+You can minimize the token exposure across your pipeline, but ensure it is available to the jobs that require it.
+
+#### Audience claim (`aud:`)
+Claims constitute the payload part of a JSON web token and represent a set of information exchanged between two parties. The JWT standard distinguishes between reserved, public, and private claims.
+
+The audience (`aud:`) claim is a reserved claim, which identifies the audience that the JWT is intended for (the target of the token). In other words, which services, APIs, or products should accept this token. If the audience claim does not match, the token is rejected, so the audience claim is an essential part of software supply chain security.
+
+The option to configure the audience claim is done in the CI/CD configuration when [declaring the usage of the JWT token](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html#id-tokens), if we'll continue from the previous example:
+
+```yaml
+job_name:
+  id_token:
+    MY_JOB_JWT: # or any other variable name
+        aud: "..." # mandatory field
+  script:
+    - my-authentication-script.sh MY_JOB_JWT….. # use the declared variables in a script
+  ```
+
+Configuring the audience claim is mandatory for Vault users that leverage the [GitLab/Vault native integration](https://docs.gitlab.com/ee/ci/secrets/#use-vault-secrets-in-a-ci-job) (using the 'secrets:' keyword).
+
+```yaml
+job_name:
+  secrets:
+    VAULT_JWT_1: # or any other variable name
+      id_token:
+        aud: 'devs' # audience claim configuration
+    STAGING_DATABASE_PASSWORD: # VAULT_JWT_1 is the token to be used
+      vault: staging/db/password@ops
+```
+
+### Breaking changes and backward compatibility 
+We understand the increasing demand to secure your software supply chain. We recognize that many of our current users already use the JWT in what will soon be the "old JWT method" (V1). To mitigate this conflict, we've decided that moving to the new (OIDC) JWT method is optional until the next major release (GitLab 16.0). To use the new (OIDC) token, users must opt-in to this change from the UI settings and update the pipeline configuration, as explained in the previous sections. Users can continue using the Experiment or the "old method" until GitLab 16.0. (At that point, only the "new" (OIDC) JWT token and method will be available.)
+
+Several breaking changes were announced for both [Vault users](https://docs.gitlab.com/ee/update/deprecations.html#hashicorp-vault-integration-will-no-longer-use-ci_job_jwt-by-default) and [users of the JWT "old" methods](https://docs.gitlab.com/ee/update/deprecations.html#old-versions-of-json-web-tokens-are-deprecated). Those changes are scheduled for GitLab 16.0.
+
+## Three ways to use the JWT token
+There are three ways to use a JWT to authenticate against different products in your CI/CD pipeline:
+- The "old" method, using the `secrets:` keyword and the `CI_JOB_JWT` variable, which is mainly used to integrate with Hashicorp Vault.
+- An "Alpha" version that uses the `CI_JOB_JWT_V2` OIDC token to integrate with different cloud providers.
+- A production-ready OIDC token, which is a secured version of the `CI_JOB_JWT_V2` token, used to authenticate with a variety of different products, like Vault, GCP, AWS, and so on.
+
+All three methods are available until the next major version (GitLab 16.0). At that point, only the secured OIDC token will be available.
+
+To prepare for this change, you should:
+
+1. Configure your pipelines to use the fully configurable and more secure [id_token](https://docs.gitlab.com/ee/ci/yaml/index.html#id_tokens) keyword.
+2. Enable the [Limit JSON Web Token (JWT) access setting](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html#enable-automatic-id-token-authentication), which prevents the old tokens from being exposed to any jobs. (This setting will be permanently enabled for all projects in GitLab 16.0).
+3. If you use GitLab/Hashicorp native integration (using the [secrets:vault](https://docs.gitlab.com/ee/ci/yaml/#secretsvault) keyword), ensure the bound audience is prefixed with `https://`.
+
+This should ensure a smooth transition to [GitLab 16.0](/upcoming-releases/) without breaking your existing workflows.
+
+

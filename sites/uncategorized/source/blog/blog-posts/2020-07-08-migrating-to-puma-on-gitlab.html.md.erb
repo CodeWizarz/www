@@ -1,0 +1,93 @@
+---
+title: How we migrated application servers from Unicorn to Puma 
+author: Craig Gomes
+author_gitlab: craig-gomes
+author_twitter: craiggomes
+categories: engineering
+image_title: '/images/blogimages/appserverpuma.jpg'
+description: It's been a long journey but with the release of GitLab 13.0 Puma is our default application server. Here's what we did and learned along the way.
+tags: inside GitLab, features, performance
+twitter_text: "How @gitlab migrated application servers from Unicorn to Puma"
+featured: yes 
+postType: content marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+It’s been years in the making, but our journey to migrate our application servers from Unicorn to Puma is complete. With the Gitlab 12.9 release Puma was running on GitLab.com and now with 13.0 it is the default application server for everyone. This is the story about how we migrated from Unicorn to Puma and the results we’ve seen.
+
+## A starting point
+
+Both [Unicorn](https://yhbt.net/unicorn/) and [Puma](https://puma.io) are web servers for Ruby on Rails. The big difference is that Unicorn is a single-threaded process model and Puma uses a multithreaded model. 
+
+Unicorn has a multi-process, single-threaded architecture to make better use of available CPU cores (processes can run on different cores) and to have stronger fault tolerance (most failures stay isolated in only one process and cannot take down GitLab entirely). On startup, the Unicorn ‘main’ process loads a clean Ruby environment with the GitLab application code, and then spawns ‘workers’ which inherit this clean initial environment. The ‘main’ never handles any requests; that is left to the workers. The operating system network stack queues incoming requests and distributes them among the workers.
+
+Unlike Unicorn, Puma can run multiple threads for each worker. Puma can be tuned to run multiple threads and workers to make optimal use of your server and workload. For example, in Puma defining "N workers" with 1 thread is essentially equivalent to "N Unicorn workers." In multi-threaded processes thread safety is critical to ensure proper functionality. We encountered one thread safety issue while migrating to Puma and we'll get to that shortly.
+
+### Technical Descriptions
+
+Unicorn is an HTTP server for Rack applications designed to only serve fast clients on low-latency, high-bandwidth connections and take advantage of features in Unix/Unix-like kernels. Slow clients should only be served by placing a reverse proxy capable of fully buffering both the the request and response in between unicorn and slow clients.
+
+Puma is a multi-threaded web server and our replacement for Unicorn. Unlike other Ruby Webservers, Puma was built for speed and parallelism. Puma is a small library that provides a very fast and concurrent HTTP 1.1 server for Ruby web applications. It is designed for running Rack apps only.
+
+What makes Puma so fast is the careful use of a Ragel extension to provide fast, accurate HTTP 1.1 protocol parsing. This makes the server scream without too many portability issues.
+
+## Why Puma?
+
+We began early investigations into Puma believing it would help resolve some of our [memory growth issues](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/3700) and also to help with scalability. By switching from Unicorn's single threaded process we could cut down on the number of processes running and the memory overhead of each of these processes. Ruby processes take up a significant amount of memory.  Threads, on the other hand, consume a much smaller amount of memory than workers because they are able to share a significantly larger portion of application memory.  When I/O causes a thread to pause, another thread can continue with its application request. In this way, multi-thread makes the best use of the available memory and CPU, reducing memory consumption by [approximately 40%](/releases/2020/05/22/gitlab-13-0-released/#reduced-memory-consumption-of-gitlab-with-puma).
+
+## The early appearance of Puma
+
+The first appearance of Puma in a GitLab issue was in a discussion about using [multithreaded application servers](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/3592), dating back to November 20, 2015. In our spirit of iteration, the first attempt at adding experimental support for Puma followed shortly after with a [merge request](https://gitlab.com/gitlab-org/gitlab-foss/-/merge_requests/1899) on November 25, 2015. The initial [results](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/3592#note_2805965) indicated a lack of stability and thus did not merit us moving forward with Puma at the time. While the push [to improve our memory footprint](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/25421) continued, the efforts to move forward with Puma stalled for a while.
+
+## Experimental development use
+
+In May, 2018 Puma was configured for [experimental development use](https://gitlab.com/gitlab-org/gitlab-development-kit/-/merge_requests/532) in GitLab Rails and [Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab/-/merge_requests/2801). Later that year, we added [Puma metrics to Prometheus](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/52769) to track our internal experimental usage of Puma. By early spring of 2019 GitLab moved forward with the creation of the [Memory Team](/blog/2019/09/13/why-we-created-the-gitlab-memory-team/) whose early set of identified tasks was to deploy Puma to GitLab.com.
+
+
+## Implementation steps
+
+The efforts to implement Puma on GitLab.com and for our self-managed customers started in earnest in early 2019 with the [Enable Puma Web Server for GitLab](https://gitlab.com/groups/gitlab-org/-/epics/954) epic and the creation of the Memory Team. One of the early steps we took was to [enable Puma by default in the GDK ](https://gitlab.com/gitlab-org/gitlab-development-kit/-/issues/490) to get metrics and feedback from the community and our customers while we worked to deploy on GitLab.com.
+
+The ability to measure the improvements achieved by the Puma deployment was critical to determining whether we had achieved our goals of overall memory reduction. To capture these metrics we set up [two identical environments](https://gitlab.com/gitlab-org/gitlab-foss/-/issues/62877) to test changes on a daily basis. This would allow us to quickly make changes to the worker/thread ratio within Puma and quickly review the impact of the changes.
+
+### A roll out plan
+
+We have multiple pre-production environments and we follow a progression of deploying Puma to each of these stages (dev->ops->staging->canary->production). Within each of these stages we would deploy the changes to enable Puma and test the changes. Once we confirmed a successful deployment we would measure and make configuration changes for optimal performance and memory reduction.
+
+### Issues and Tuning
+
+Early on we determined that our usage of [ChronicDuration](https://gitlab.com/gitlab-org/gitlab/-/issues/31285) was not thread-safe. We ended up [forking the code](https://gitlab.com/gitlab-org/gitlab/-/issues/31285#note_215961555) and distributing our own [gitlab-chronic-duration](https://gitlab.com/gitlab-org/gitlab-chronic-duration) to solve our thread-safety issues.
+
+We encountered only minor issues in the previous environments but once we deployed to Canary our infrastructure team reported some [unacceptable latency issues](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/7455#note_239070865). We spent a significant amount of time tuning [Puma](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/8334) for the optimal configuration of workers to threads. We also discovered some changes required to our [health-check endpoint](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/4835) to ensure minimal to no downtime during upgrades.
+
+### Puma Upstream Patch
+
+As we zeroed in on tuning GitLab.com with Puma we discovered that the capacity was not being evenly distributed. Puma capacity is calculated by `workers * threads`, so if you have 2 workers and 2 threads you have a capacity of 4. Since Puma uses round-robin to schedule requests, and no other criteria, we saw evidence of some workers being saturated while others sat idle. The simple [fix](https://github.com/puma/puma/pull/2079/files) proposed by [Kamil Trzcinski](https://gitlab.com/ayufan) was to make Puma inject a minimal amount of latency between requests if the worker is already processing requests. This would allow other workers (that are idle) to accept socket much faster than our worker that is already processing other traffic.
+
+You can read more details about the discovery and research [here](https://gitlab.com/gitlab-com/gl-infra/infrastructure/issues/8334#note_247859173).
+
+## Our results
+
+Once we deployed Puma to our entire web fleet we observed a drop in memory usage from 1.28T to approximately 800GB (approximately a 37% drop) while our request queuing, request duration and CPU usage all remained roughly the same.
+
+More details and graphs can be found [here](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/1684#note_291225063). 
+
+Puma is now on by default for all GitLab customers in the [GitLab 13.0 release](/releases/2020/05/22/gitlab-13-0-released/).
+
+## What's next
+
+We want to review our infrastructure needs! The efficiency gains brought about by deploying Puma will allow us to re-examine the memory needs of Rails nodes in production. 
+
+Also, Puma has enabled us to continue to pursue our efforts to enable [real time editing](https://gitlab.com/groups/gitlab-org/-/epics/52). 
+
+**More about GitLab's infrastructure:**
+
+[How we scaled Sidekiq](/blog/2020/06/24/scaling-our-use-of-sidekiq/)
+
+[Make your pipelines more flexible](/blog/2020/05/12/directed-acyclic-graph/)
+
+[The inside scoop on the building of our Status Page](/blog/2020/04/29/how-we-built-status-page-mvc/)
+
+Cover image by [John Moeses Bauan](https://unsplash.com/@johnmoeses) on [Unsplash](https://www.unsplash.com)
+{: .note}

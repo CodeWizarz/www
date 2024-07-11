@@ -1,0 +1,252 @@
+---
+title: "Git 2.42 release: Here are four of our contributions in detail"
+author: Christian Couder
+author_gitlab: chriscool
+categories: git
+tags: git, news, open source, community
+description: "Find out how GitLab's Git team helped improve Git 2.42."
+image_title: /images/blogimages/git-241.jpg
+featured: yes
+twitter_text: "Dive deep into four ways that the GitLab team contributed to Git 2.42."
+---
+
+[Git 2.42](https://gitlab.com/gitlab-org/git/-/raw/master/Documentation/RelNotes/2.42.0.txt)
+was officially released on August 21, 2023, and included some
+improvements from GitLab's Git team. Git is the foundation of
+repository data at GitLab. GitLab's Git team works on new features, performance improvements, documentation improvements,
+and growing the Git community. Often our contributions to Git have a
+lot to do with the way we integrate Git into our services at
+GitLab.
+
+We previously shared [some of our improvements that were included in the Git 2.41 release](https://about.gitlab.com/blog/2023/06/20/contributions-to-latest-git-release/). Here are some highlights from the Git 2.42 release, and a
+window into how we use Git on the server side at GitLab.
+
+## 1. Prevent certain refs from being packed
+
+### Write-ahead logging
+In [Gitaly](https://docs.gitlab.com/ee/administration/gitaly/), we
+want to use a [write-ahead log](https://gitlab.com/groups/gitlab-org/-/epics/8911)
+to replicate Git operations on different machines.
+
+This means that the Git objects and references that should be changed
+by a Git operation are first kept in a log entry. Then, when all the
+machines have agreed that the operation should proceed, the log entry
+is applied so the corresponding Git objects and references are
+actually added to the repositories on all the machines.
+
+### Need for temporary references
+Between the time when a specific log entry is first written and when
+it is applied, other log entries could be applied which could remove
+some objects and references. It could happen that these objects and
+references are needed to apply the specific log entry though.
+
+So when we log an entry, we have to make sure that all the objects and
+references that it needs to be properly applied will not be removed
+until that entry is either actually applied or discarded.
+
+The best way to make sure things are kept in Git is to create new Git
+references pointing to these things. So we decided to use temporary
+references for that purpose. They would be created when a log entry is
+written, and then deleted when that entry is either applied or
+discarded.
+
+### Packed-refs performance
+Git can store references in "loose" files, with one reference per
+file, or in the `packed-refs` file, which contains many of them. The
+`git pack-refs` command is used to pack some references from "loose"
+files into the `packed-refs` file.
+
+For reading a lot of references, the `packed-refs` file is very
+efficient, but for writing or deleting a single reference, it is not
+so efficient as rewriting the whole `packed-refs` file is required.
+
+As temporary references are to be created and then deleted soon after,
+storing them in the `packed-refs` file would not be efficient. It
+would be better to store them in "loose" files.
+
+The `git pack-refs` command had no way to be told precisely which refs
+should be packed or not though. By default it would repack all the
+tags (which are refs in `refs/tags/`) and all the refs that are
+already packed. With the `--all` option one could tell it to repack
+all the refs except the hidden refs, broken refs, and symbolic refs,
+but that was the only thing that could be controlled.
+
+### Improving `git pack-refs`
+We decided to improve `git pack-refs` by adding two new options to it:
+  - `--include <pattern>` which can be used to specify which refs should be packed
+  - `--exclude <pattern>` which can be used to specify which refs should not be packed
+
+[John Cai](https://gitlab.com/jcaigitlab), Gitaly:Git team engineering manager, implemented these options.
+
+For example, if the refs managed by the write-ahead log are in
+`refs/wal/`, it's now possible the exclude them from being moved into
+the `packed-refs` file by using:
+
+```
+$ git pack-refs --exclude "refs/wal/*"
+```
+
+Details of the patch series, including discussions, can be found
+[here](https://lore.kernel.org/git/pull.1501.git.git.1683215331910.gitgitgadget@gmail.com/).
+
+## 2. Get machine-readable output from `git cat-file --batch`
+
+### Efficiently retrieving Git object information
+In GitLab, we often retrieve Git object information. For example, when a
+user navigates into the files and directories in a repository, we need
+to get the content of the corresponding Git blobs and trees so that
+we can show it.
+
+In Gitaly, we use `git cat-file` to retrieve Git object information
+from a Git repository. As it's a frequent operation, it needs to be
+performed efficiently, so we use the batch modes of `git cat-file`
+available through the `--batch`, `--batch-check` and `--batch-command`
+options.
+
+In these modes, a pointer to a Git object can be repeatedly sent to
+the standard input, called 'stdin', of a `git cat-file` command, while
+the corresponding object information is read from the standard ouput,
+called 'stdout' of the command. This way we don't need to launch a
+new `git cat-file` command for each object.
+
+GitLab can keep, for example, a `git cat-file --batch-command` process
+running in the background while feeding it commands like
+`info <object>` or `contents <object>` through its stdin to
+get either information about an object or its content.
+
+### Newlines in stdin, stdout, and filenames
+The commands or pointers to Git objects that are sent through stdin
+should be delimited using newline characters, and in the same way `git
+cat-file` will use newline characters to delimit the information from
+different Git objects in its output. This is a common shell practice
+to make it easy to chain commands together. For example, one can
+easily get the size (in bytes) of the last three commits on the current
+branch using the following:
+
+```
+$ git log -3 --format='%H' | git cat-file --batch-check='%(objectsize)'
+285
+646
+428
+```
+
+Sometimes, though, the pointer to a Git object can contain a filename
+or a directory name, as such a pointer is allowed to be in the form
+`<branch>:<path>`. For example `HEAD:Documentation` is a valid
+pointer to the blob or the tree corresponding to the `Documentation`
+path on the current branch.
+
+This used to be an issue because on some systems newline characters
+are allowed in file or directory names. So the `-z` option was
+introduced last year in Git 2.38 to allow users to change the input
+delimiter in batch modes to the NUL character.
+
+### Error output
+When the `-z` option was introduced, it wasn't considered useful to
+change the output delimiter to be also the NUL character. This is
+because only tree objects can contain paths and the internal format
+of tree objects already uses NUL characters to delimit paths.
+
+Unfortunately, it was overlooked that in case of an error the pointer
+to the object is displayed in the error message:
+
+```
+$ echo 'HEAD:does-not-exist' | git cat-file --batch
+HEAD:does-not-exist missing
+```
+
+As the error messages are printed along with the regular ouput of the
+command on stdout, passing in an invalid pointer with a number of
+newline characters in it could make it very difficult to parse the
+output.
+
+### -Z comes to the rescue
+[Toon Claes](https://gitlab.com/toon), Gitaly senior engineer, initially worked on a
+patch to just quote the pointer in the error message, but it was
+decided in the Git mailing list discussions related to the patch that
+it would be better to just create a new `-Z` option. This option would
+change both the input and the output delimiter to the NUL character,
+while the old `-z` option would be deprecated over time.
+
+So [Patrick Steinhardt](https://gitlab.com/pks-gitlab), Gitaly staff engineer, implemented that new `-Z` option.
+
+Details of the patch series, including discussions, can be found
+[here](https://lore.kernel.org/git/20221209150048.2400648-1-toon@iotcl.com/)
+and [here](https://lore.kernel.org/git/cover.1685710884.git.ps@pks.im/).
+
+## 3. Pass pseudo-options to `git rev-list --stdin`
+
+### Computing sizes
+In GitLab, we need to have different ways to compute the size of Git
+related content. For example, we need to know:
+  - how much disk space a repository is using
+  - how big a specific Git object is
+  - how much additional space on a repository is required by a
+    specific set of revisions (and the objects they reference)
+
+Knowing "how much disk space a repository is using" is useful to
+enforce repository-related quotas and is easy to get using regular
+shell and OS features.
+
+Size information about a specific Git object is useful to enforce
+quotas related to maximum file size. It can be obtained using, for
+example, `git cat-file -s <object>` or
+`echo <object> | git cat-file --batch-check='%(objectsize)'`
+as already seen above.
+
+Computing the space required by a set of revisions is useful, too, as
+forks can share Git content in what we call
+"[pool repositories](https://docs.gitlab.com/ee/development/git_object_deduplication.html),"
+and we want to discriminate how much content belongs to each forked
+repository. Fortunately, `git rev-list` has a `--disk-usage` option
+for this purpose.
+
+### Passing arguments to `git rev-list`
+`git rev-list` can take a number of different arguments and has a lot
+of different options. It's a fundamental command to traverse commit
+graphs, and it should be flexible enough to fulfill a lot of different
+user needs.
+
+When repositories grow, they often store a lot of references and a lot
+of files and directories, so there is often the need to pass a big
+number of references or paths as arguments to the
+command. References and paths can be quite long though.
+
+To avoid hitting platform limits related to command line length, long
+ago, a `--stdin` mode was added that allowed users to pass revisions
+and paths through stdin, instead of as command line
+arguments. However, when that was implemented, it was not considered
+necessary to allow options or pseudo-options, like `--not`,
+`--glob=...`, or `--all` to be passed through stdin.
+
+This appeared to be a problem for GitLab, as for computing sizes for
+forked repositories we needed some of the pseudo-options, and it would
+have been intricate and possibly buggy to pass some of them and their
+arguments as arguments on the command line while others were passed
+through stdin.
+
+### Allowing pseudo-options
+To fix this issue, Patrick Steinhardt implemented a small patch series to
+allow pseudo-options through stdin.
+
+With it, in Git 2.42, one can now pass pseudo-options, like `--not`,
+`--glob=...`, or `--all` through stdin when the `--stdin` mode is used.
+
+Details of the patch series, including discussions, can be found
+[here](https://lore.kernel.org/git/cover.1686744685.git.ps@pks.im/).
+
+## 4. Code and test improvements
+While looking at some Git code, we are often tempted to modify nearby
+code, either to change only its style when the code is ancient and it
+would look better using Git's current code style, or to refactor it to
+make it cleaner. This is why we sometimes send small patch series that
+don't have a real GitLab related purpose.
+
+In Git 2.42, examples of style code improvements we made are the
+[part1](https://lore.kernel.org/git/pull.1513.git.git.1684440205.gitgitgadget@gmail.com/)
+and
+[part2](https://lore.kernel.org/git/pull.1514.git.git.1684599239.gitgitgadget@gmail.com/)
+test code modernization patches from John Cai.
+
+And [here](https://lore.kernel.org/git/cover.1684324059.git.ps@pks.im/) is
+an example of a refactoring to cleanup some code by Patrick Steinhardt.

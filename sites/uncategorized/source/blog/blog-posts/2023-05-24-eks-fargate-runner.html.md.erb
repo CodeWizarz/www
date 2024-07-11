@@ -1,0 +1,309 @@
+---
+title: "Get started with GitLab EKS Fargate Runners in 1 hour and zero code, Iteration 1"
+author: Darwin Sanoy
+author_gitlab: DarwinJS
+postType: content marketing
+categories: engineering
+featured: yes
+image_title: '/images/blogimages/eks-fargate-runner/jeremy-lapak-CVvFVQ_-oUg-700unsplash.jpg'
+description: "This detailed tutorial answers the question of how to leverage Amazon's AWS Fargate container technology for GitLab Runners."
+tags: DevOps, solutions architecture, AWS
+twitter_text: "Follow our detailed tutorial, which answers the question of how to leverage Amazon's AWS Fargate container technology for GitLab Runners."
+---
+
+Leveraging Amazon's AWS Fargate container technology for [GitLab Runners](https://docs.gitlab.com/runner/) has been a longstanding ask from our customers. This tutorial gets you up and running with the GitLab EKS Fargate Runner combo in less than an hour.
+
+GitLab has a pattern for this task for [Fargate](https://docs.aws.amazon.com/AmazonECS/latest/userguide/what-is-fargate.html) runners under AWS Elastic Container Service (ECS). The primary challenge with this solution is that AWS ECS itself does not allow for the overriding of what image is used when calling an ECS task. Therefore, each GitLab Runner manager ignores the gitlab-ci.yml `image:` tag and runs on the image preconfigured in the task during deployment of the runner manager. As a result, you'll end up creating runner container images that contain every dependency for all the software built by the runner, or you'll create a lot of runner managers per image — or both.
+
+I have long wondered if Fargate-backed Elastic Kubernetes Service (EKS) could get around this limitation since, by nature, Kubernetes must be able to run any image given to it.
+
+## The approach
+
+Nothing takes the joy out of learning faster than a lot of complex setup before being able to get to the point of the exercise. To address this, this tutorial uses four things to dramatically reduce the time and steps required to get from zero to hero.
+
+1. AWS CloudShell to minimize the EKS Admin Tooling setup. This also leaves your local machine environment untouched so that other tooling configurations don't get modified.
+2. A project called **AWS CloudShell ”Run From Web” Configuration Scripts** to rapidly add additional tooling to CloudShell. This includes some hacks to get large Terraform templates to work on AWS CloudShell.
+3. EKS Blueprints — specifically, a Terraform example that implements both the [Karpenter autoscaler](https://aws.amazon.com/blogs/aws/introducing-karpenter-an-open-source-high-performance-kubernetes-cluster-autoscaler/) and Fargate, including for the kube-system namespace.
+4. A simple Helm install for GitLab Runner.
+
+Although you will be running CLI commands and editing config files, no coding is required in the sense that you won't have to build something complex from scratch and then maintain it yourself.
+
+## The results
+
+It works! It can run 2 x 200 (max allowed per job) parallel “Hello, World” jobs on AWS Fargate-backed EKS in about 4 minutes, which demonstrates the unlimited scalability. It can also run a simple Auto DevOps pipeline, which proves out the ability to run a bunch of different containers.
+
+The fact that the entire cluster - including kube-system - is Fargate backed reduces the Kubernetes specific long term SRE work to a much lower value approaching that of ECS Fargate clusters. Later on we discuss that this trade-off has a cost and how it can be reconfigured.
+
+## What makes it possible: Product-managed IaC that is an extensible framework
+
+Toolkitting made up of Infrastructure as Code (IaC) is frequently referred to as “templates,” and these templates have a reputation of not aging well because there is no active stewardship of the codebase — they are thought of as a one-and-done effort. However, this term does not reflect reality well when the underlying IaC code is actually being product-managed. You can tell if something is being product-managed by using these markers:
+
+- It has a scope-bounded vision of what it wants to do for the community being served (customer).
+- It has active stewardship that keeps the codebase moving along, even if it is open source.
+- It seeks to incorporate strategic enhancements, a.k.a. new features.
+- Things that are broken are considered bugs and are actively eliminated.
+- There is a cadence of taking underlying version updates and for supporting new versions of the primary things they deploy.
+
+As an extensible framework, EKS Blueprints:
+
+- Are purposefully architected to be extended by anyone.
+- Already have many extensions built.
+
+When implementing using EKS Blueprints and you come upon a new need, it is important to check if EKS Blueprints already handles that consideration - similarly to how you would look for Ruby Gems, NPM Modules or Python PyPI packages before building functionality from scratch.
+
+All of the above are aspects of how the AWS EKS team is product-managing EKS Blueprints. They deserve a big round of applause because product-managing anything to prevent it from becoming yet another community-maintained shelfware project is a strong commitment that requires tenacity!
+
+## Reproducing the experiment
+
+### 1. Set up AWS CloudShell
+
+> **Note:** If you already have a fully persistent environment setup (like your laptop) with: AWS CLI, kubectl, Terraform, then you can avoid environment rebuilds when AWS CloudShell times out by using that instead.
+
+AWS CloudShell comes with kubectl, Git, and AWS CLI, which are all needed. However, we also need a few other scripts. More information about these scripts can be read in [my blog post on AWS CloudShell “Run For Web” Configuration Scripts](https://missionimpossiblecode.io/aws-cloudshell-run-from-web-configuration-scripts).
+
+> **Note:** The steps in this section up through the `git clone` from GitLab step (second clone operation) in the next section can be accomplished by running this: `s=prep-eksblueprint-karpenter.sh ; curl -sSL https://gitlab.com/guided-explorations/aws/aws-cloudshell-configs/-/raw/main/${s} -o /tmp/${s}; chmod +x /tmp/${s}; bash /tmp/${s}*` .
+
+1. Use the web console to login to an AWS account where you have admin permissions.
+2. Switch to the region of your choosing.
+3. In the bottom left of the console click the “CloudShell” icon.
+4. Copy and paste the following one-liner into the console to install Helm, Terraform, and the Nano text editor:
+   `curl -sSL https://gitlab.com/guided-explorations/aws/aws-cloudshell-configs/-/raw/main/add-all.sh -o $HOME/add-all.sh; chmod +x $HOME/add-all.sh; bash $HOME/add-all.sh`
+5. Since our Terraform template will grow larger than the 1GB limit of space in the $HOME directory, we need a workaround to use the template in one directory, but store the Terraform state in $HOME where it will be kept as long as 120 days. The following one-liner triggers a script that performs that setup for us, after which we can use the /terraform directory for our template:
+   `curl -sSL https://gitlab.com/guided-explorations/aws/aws-cloudshell-configs/-/raw/main/prep-for-terraform.sh -o $HOME/prep-for-terraform.sh; chmod +x $HOME/prep-for-terraform.sh; bash $HOME/prep-for-terraform.sh`
+
+### 2. Run Terraform EKS Blueprint
+
+> **Note:** If at any time you leave your AWS CloudShell long enough for your session to end, the /terraform directory will be tossed. Simply run the last script above and the first four steps below to make it operable again. This will most likely be necessary when it comes time to teardown the Terraform created AWS resources.
+>
+> Sometimes your AWS CloudShell credentials may expire with a message like: `Error: Kubernetes cluster unreachable: Get ">CLUSTER URL>": getting credentials: exec: executable aws failed with exit code 255`. Simply refresh the entire browser tab where AWS CloudShell is running and you’ll generally have new credentials.
+
+#### Version safety
+
+This tutorial uses a specific release of the EKS Blueprint project so that you have the known state at the time of publishing. The project version also cascades into the versions of all the many dependent modules. While it may also work with the latest version, the version at the time of writing was Version 4.29.0.
+
+This tutorial also uses Terraform binary Version 1.4.5.
+
+#### Procedures
+
+If, while using AWS CloudShell, you experience this error: `Error: configuring Terraform AWS Provider: no valid credential sources for Terraform AWS Provider found`, you will need to refresh your browser to update the cached credentials in the terminal session.
+
+Perform the following commands on the AWS CloudShell session:
+
+1. `git clone https://github.com/aws-ia/terraform-aws-eks-blueprints.git --no-checkout /terraform/terraform-aws-eks-blueprints` 
+2. `cd /terraform/terraform-aws-eks-blueprints/`
+3. `git reset --hard tags/v4.29.0` #Version pegging to the code that this article was authored with.
+4. `git clone https://gitlab.com/guided-explorations/aws/eks-runner-configs/gitlab-runner-eks-fargate.git /terraform/terraform-aws-eks-blueprints/examples/glrunner`
+
+   **Note:** Like other EKS Blueprints examples, the GitLab EKS Fargate Runner example references EKS Blueprint modules with a relative directory reference. This is why we are cloning it into a subdirectory of the EKS Blueprints project.
+5. `cd /terraform/terraform-aws-eks-blueprints/examples/glrunner`
+6. `terraform init`
+
+   **Important**: If you are using AWS CloudShell and your session times out, the /terraform folder and the installed utilities will be gone. You would have to reproduce the above steps to get the Terraform template in a usable state again. This is most likely to happen when you go to use Terraform to delete the stack after playing with it for some days.
+
+   The next few instructions are from: **https://github.com/aws-ia/terraform-aws-eks-blueprints/blob/main/examples/karpenter/README.md#user-content-deploy**. Note the `-state` switch ensures our state is in persistent storage.
+7. `terraform apply -target module.vpc -state=$HOME/tfstate/runner.tfstate`
+8. `terraform apply -target module.eks -state=$HOME/tfstate/runner.tfstate`
+9. **Note:** If you receive “Error: The configmap ”aws-auth” does not exist”, re-run the same command - it will usually update successfully.
+10. `terraform apply -state=$HOME/tfstate/runner.tfstate`
+
+The previous command will output a kubeconfig command that needs to be run to ensure subsequent kubectl commands work. Run that command. If you are in AWS CloudShell and did not copy the command, this command should work and map to the correct region:
+    `aws eks update-kubeconfig --region $AWS_DEFAULT_REGION --name "glrunner"`
+
+If everything was done correctly, you will have an EKS cluster named `karpenter` in the CloudShell region web console like this:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/eksclusterinconsole.png)  
+
+And the output of this console command `kubectl get pods -A` will look like this:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/cliplaincluster.png)
+
+The output of this console command `kubectl get nodes -A` will show the Fargate prefix:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/clinodesarefargate.png)
+
+> **Note:** Notice that all the EKS extras (coredns, ebs-cni, and karpenter itself) are also running on Fargate. If you are willing to tolerate some regular Kubernetes nodes, you may be able to save cost by running always-on pods on regular Kubernetes hosts. Since this cluster runs Karpenter, you will not need to manually scale those hosts and EKS makes control plane and node updates easier.
+
+### 3. Install GitLab Runner
+
+These and other commands are available in the GitLab documentation for [GitLab Runner Helm Chart](https://docs.gitlab.com/runner/install/kubernetes.html#additional-configuration).
+
+1. Create an empty GitLab project.
+2. Retrieve a GitLab Runner Token from the project. Keep in mind that using a project token is the easiest way to ensure your experiment runs only on the EKS Fargate Runner. Using a group token may cause your job to run on other runners already setup at your company. You can follow [“Obtain a token”](https://docs.gitlab.com/runner/register/#requirements) from the documentation if you need to.
+3. Perform the following commands back in the AWS CloudShell session.
+4. `nano runnerregistration.yaml`
+5. Paste the following:
+
+   ```yaml
+   gitlabUrl: https://_YOUR_GITLAB_URL_HERE_.com
+   runnerRegistrationToken: _YOUR_GITLAB_RUNNER_TOKEN_HERE_
+   concurrent: 200
+   rbac:
+     create: true
+   runners:
+     tags: eks-fargate
+     runUntagged: true
+     imagePullPolicy: if-not-present
+   envVars:
+     - name: KUBERNETES_POLL_TIMEOUT
+       value: 90  
+   ```
+
+   **Note:** Many more settings are discussed in the documentation for the [Kubernetes Executor](https://docs.gitlab.com/runner/executors/kubernetes.html). 
+
+**Hard Lesson:** Using a setting for `concurrent` that is lower than our `parallel` setting in the GitLab job below results in all kinds of failures due to some job pods having to wait for an execution slot. Since it’s Fargate, there is no savings to keeping it lower and no negative impact to making it the complete parallel amount.
+
+6. Replace \_YOUR_GITLAB_URL_HERE_ with your actual GitLab URL.
+7. Replace \_YOUR_GITLAB_RUNNER_TOKEN_HERE_ with your actual runner token.
+8. Press CTRL-X to exit and press Y to the save prompt.
+9. `helm repo add gitlab https://charts.gitlab.io`
+10. `helm repo update gitlab`
+11. `helm install --namespace gitlab-runner --create-namespace runner1 -f runnerregistration.yaml gitlab/gitlab-runner`
+12. Wait for a few minutes and check the project’s list of runners for a new one with the tag `eks-fargate`
+
+In AWS CloudShell the command `kubectl get pods -n gitlab-runner` should produce output similar to this:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/runnerlist.png)
+
+And in the GitLab Runner list, it will look similar to this:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/glrunnerlist.png)
+
+### 4. Run a test job
+
+The simplest way to test GitLab Runner scaling is using the `parallel:` keyword to schedule multiple copies of a job. It can also be used to create a job matrix where not all jobs do the same thing.
+
+One or more GitLab Runner Helm deployments can live in any namespace, so you have many to many mapping flexibility for how you think of runners and their Kubernetes context.
+
+In the GitLab project where you created the runner, use the web IDE to create .gitlab-ci.yml and populate it with the following content:
+   ```yaml
+   parallel-fargate-hello-world:
+     image: public.ecr.aws/docker/library/bash
+     stage: build
+     parallel: 200
+     script:
+       - echo "Hello Fargate World"
+   ```
+
+**Hard Lesson:** After hitting the Docker hub image pull rate limit, I shifted to the same container in the AWS Public Elastic Container Registry (ECR), which has an [image pull rate limit](https://docs.aws.amazon.com/AmazonECR/latest/public/public-service-quotas.html) of 10 per second for this scenario.
+
+If the job does not automatically start, use the pipeline page to force it to run.
+
+If everything is configured correctly, your final pipeline status panel should look something like this:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/completedjobs.png)
+
+### 5. Runner scaling experimentation
+
+These and other commands are available in the GitLab documentation for [GitLab Runner Helm Chart](https://docs.gitlab.com/runner/install/kubernetes.html#additional-configuration).
+
+Additional runners can be added by re-running the install command with a different name for the runner (if using the same token you’ll have two runners in the same group or project):
+
+`helm install --namespace gitlab-runner runner2 -f runnerregistration.yaml gitlab/gitlab-runner`
+
+200 jobs takes just under 2 minutes.
+
+#### 400 parallel jobs
+
+By setting up a second identical job (with a unique job name), I was able to process 400 total jobs as seen here:
+
+![codecountingcilog](/images/blogimages/eks-fargate-runner/400ijobs.png)
+
+**Hard Lesson:** The runner likes to schedule all jobs in a parallel job on the same runner instance. It does not seem to want to split a large job across multiple runners registered in the same project. So in order to get more than 200 jobs to process, I had to have two registered runners set to `concurrent:200` and two seperate jobs set to `parallel: 200`
+
+400 jobs takes just over 3 minutes.
+
+#### More than 400 parallel jobs
+
+As I tried to scale higher, jobs started to hang. I tried specifically routing jobs to five runners each capable of 300 parallel jobs. I also tried multiple stages and used a hack of `needs []` to get simultaneous execution of jobs in multiple stages.
+
+I was not successful and there could be a wide variety of reasons why — a riddle for a future iteration.
+
+This command can be used to update a runner's settings after editing the Helm values file (including the token to move the runner to another context): 
+
+`helm upgrade --namespace gitlab-runner -f runnerregistration.yaml runner2 gitlab/gitlab-runner`
+
+I found that when I pushed the limits, I would sometimes end up with hung pods until I understood what needed adjusting. Leaving hung Fargate pods will add up to a lot of cash because the pricing assumes very short execution times. This command helps you terminate job pods without accidentally terminating the runner manager pods:
+
+`kubectl get pods --all-namespaces --no-headers |  awk '{if ($2 ~ "_YOUR_JOB_POD_PREFACE_*") print $2}' | xargs kubectl -n _YOUR_RUNNER_NAMESPACE_ delete pod`
+
+Don't forget to replace \_YOUR_RUNNER_NAMESPACE_ and \_YOUR_JOB_POD_PREFACE_ “_YOUR_JOB_POD_PREFACE\_” is the unique preface of ONLY the jobs from a given runner followed by the wildcard star character => \*
+
+To uninstall a runner, use:
+
+`helm delete --namespace gitlab-runner runner1`
+
+#### Testing Auto DevOps to prove `image:` tag is honored
+
+Technically testing Auto DevOps to prove the `image:` tag is honored this isn’t entirely necessary since the above job loads the bash container without the container being specified in any of the runner or infrastructure setup. However, I performed this as a litmus test anyway.
+
+Follow these steps:
+
+1. Create a new project by clicking the “+” sign in the top bar of GitLab.
+2. On the next page, select “New Project/Repository”.
+3. Then “Create from template”.
+4. Select “Ruby on Rails” (first choice).
+5. Once the project creation is complete, register an EKS runner to it (or re-register the existing runner to the new project).
+6. In the project, select “Settings (Gear Icon)” => “CI/CD” => Auto DevOps => Default to Auto DevOps pipeline.
+7. Click “Save changes”.
+
+The Auto DevOps pipeline should run. If you don’t have a cluster wired up, it will mainly do security scanning, which is sufficient to prove that arbitrary containers can be used by the Fargate-backed GitLab Runner.
+
+### 6. Solution tuning via extensible platform
+
+EKS Blueprints is not only product-managed, it is also an extensible platform or framework. In the spirit of fully leveraging the extensible product managed EKS Blueprints project, you will always want to check if Blueprints is already instrumented for your scenario before writing code. Additionally, if you must write code, you can consider contributing it as an EKS Blueprint extension so the community can take on some responsibility for maintaining it.
+
+1. The EKS Blueprints Managed IaC has a dizzing number of tuning parameters and optional extensions. For instance, if you want the full GitLab Runner logs collected to AWS CloudWatch, it is a simple configuration to add fluentd log agent to push custom logs to CloudWatch.
+2. Using Fargate for always-on containers is a trade-off of compute costs to get rid of Kubernetes node management overhead. This trade-off can be easily reversed in this example by removing the "kube-system" from "fargate_profiles" - since Karpenter is also installed and configured, the hosts will autoscale for load.
+
+### 7. Teardown
+
+The next few instructions are from https://github.com/aws-ia/terraform-aws-eks-blueprints/blob/main/examples/karpenter/README.md#user-content-destroy.
+
+If you are using AWS CloudShell and the /terraform directory no longer exists, perform these steps to re-prepare AWS CloudShell to perform teardown.
+
+If you are not using AWS CloudShell, skip forward to “Teardown steps”.
+
+1. `curl -sSL https://gitlab.com/guided-explorations/aws/aws-cloudshell-configs/-/raw/main/add-all.sh -o $HOME/add-all.sh; chmod +x $HOME/add-all.sh; bash $HOME/add-all.sh`
+2. `curl -sSL https://gitlab.com/guided-explorations/aws/aws-cloudshell-configs/-/raw/main/prep-for-terraform.sh -o $HOME/prep-for-terraform.sh; chmod +x $HOME/prep-for-terraform.sh; bash $HOME/prep-for-terraform.sh`
+3. `git clone https://github.com/aws-ia/terraform-aws-eks-blueprints.git --no-checkout /terraform/terraform-aws-eks-blueprints` 
+4. `cd /terraform/terraform-aws-eks-blueprints/`
+5. `git reset --hard tags/v4.29.0`
+6. `git clone https://gitlab.com/guided-explorations/aws/eks-runner-configs/gitlab-runner-eks-fargate.git /terraform/terraform-aws-eks-blueprints/examples/glrunner`
+
+   > **Note:** The above steps can be accomplished by running this: `s=prep-eksblueprint-karpenter.sh ; curl -sSL https://gitlab.com/guided-explorations/aws/aws-cloudshell-configs/-/raw/main/${s} -o /tmp/${s}; chmod +x /tmp/${s}; bash /tmp/${s}` .
+
+7. `cd /terraform/terraform-aws-eks-blueprints/examples/glrunner`
+8. `terraform init`
+
+Follow these teardown steps:
+
+1. `helm delete --namespace gitlab-runner runner1`
+2. `helm delete --namespace gitlab-runner runner2`
+3. `terraform destroy -target="module.eks_blueprints_kubernetes_addons" -auto-approve -state=$HOME/tfstate/runner.tfstate`
+4. `terraform destroy -target="module.eks" -auto-approve -state=$HOME/tfstate/runner.tfstate`
+5. **Note:** If you receive an error about refreshing cached credentials, simply re-run the command again and it will usually update successfully.
+6. `terraform destroy -auto-approve -state=$HOME/tfstate/runner.tfstate`
+
+### Iteration _n_ : We would love your input
+
+This blog is "Iteration 1" precisely because it has not been production load-tested nor specifically cost-engineered. And obviously a “Hello, World” script is not testing much in the way of real work. I really set out to understand if we could run arbitrary containers in a GitLab Fargate setup (and we can) and then got curious about what parallel job scaling might look like with Fargate (and it looks good). The Kubernetes Runner executor has many, many available customizations and it is likely that scaling a production loaded implementation on EKS will reveal the need to tune more of these parameters. 
+
+#### **Collaborative contribution challenges**
+
+Here are some ideas for further collaborative work on this project:
+
+- To push the limits, create a configuration that can scale to 1000 simultaneous jobs.
+- An aws-logging config map that uploads runner pod logs to AWS CloudWatch.
+- A cluster configuration where runner managers and everything that is not a runner job run on non-Fargate nodes – if and only if it will be cheaper than Fargate running 24 x 7.
+- A Fargate Spot configuration. It’s important that compute type be noted as a runner tag and it’s important that the same cluster has non-spot instances because some jobs should not run on spot compute and the decision whether to do so should be available to the GitLab CI Developer who is creating an pipeline.
+
+#### Other runner scaling initiatives
+
+While GitLab is building the Next Runner Auto-scaling Architecture, [Kubernetes refinements are not a part of this architectural initiative](https://docs.gitlab.com/ee/architecture/blueprints/runner_scaling/#proposal).
+
+#### Everyone can contribute
+
+This tutorial, as well as code for additional examples, will be maintained as open source as a GitLab Alliances Solution and we’d love to have your contributions as you iterate and discover the configurations necessary for your real-world scenarios. This tutorial is in a group wiki and the code will be in the projects under that group here: [AWS Guided Explorations for EKS Runner Configurations](https://gitlab.com/guided-explorations/aws/eks-runner-configs/gitlab-runner-eks-fargate/-/blob/main/README.md). 
+
+Photo by [Jeremy Lapak](https://unsplash.com/@jeremy_justin?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/runner?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

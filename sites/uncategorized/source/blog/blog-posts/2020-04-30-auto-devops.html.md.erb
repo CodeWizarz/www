@@ -1,0 +1,72 @@
+---
+title: "What's coming for Auto DevOps"
+window_title: "What's Coming for GitLab's Auto DevOps Pipeline | GItLab"
+author: Chris Ward 
+author_gitlab: chrischinchilla 
+author_twitter: chrischinch 
+categories: news
+image_title: "/images/blogimages/auto-devops-pipeline-stages.png"
+description: "We're working on a number of improvements to GitLab Auto DevOps – here's where it's at and where it's headed."
+tags: CI/CD, features, inside GitLab
+twitter_text: "What's coming for @gitlab Auto DevOps"
+postType: product
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+[Auto DevOps](/stages-devops-lifecycle/auto-devops/) is designed to make CI/CD adoption easier, with baked-in best practices and automation to take care of moving your code seamlessly through the software development lifecycle. If you or your team are new to DevOps, this is a great place to start. We're excited to share some new and [upcoming improvements to Auto DevOps](#coming-soon), but first: 
+
+There is a prerequisite for Auto DevOps, and that's a Kubernetes cluster. This may or may not be an easy step for you to complete, but your team likely has a cluster set up already. If not, [read our getting started guide](https://docs.gitlab.com/ee/topics/autodevops/quick_start_guide.html).
+
+Auto DevOps should be enabled by default, but if it isn't, go to _Settings > CI/CD > Auto DevOps_ and check _Default to Auto DevOps pipeline_. There are a lot of automated stages available, depending on what version and tier of GitLab you use, and which components you add to your Kubernetes cluster.
+
+1.  **Auto Build**: Builds your code using a _Dockerfile_ if your project has one, or a [Heroku buildpack](https://elements.heroku.com/buildpacks) selected based on the programming language you use, but you can manually set it.
+2.  **Auto Test**: Runs any tests included in your codebase, again using a Heroku buildpack.
+3.  **Auto Code Quality**: Runs static analysis and other checks over your code using the [code quality image](https://gitlab.com/gitlab-org/ci-cd/codequality).
+4.  **Auto SAST (Static Application Security Testing)**: Runs static analysis checks focussed on security issues using the [SAST image](https://gitlab.com/gitlab-org/security-products/sast).
+5.  **Auto Dependency Scanning**: Checks for potential security issues on project dependencies using the [dependency scanning image](https://gitlab.com/gitlab-org/security-products/dependency-scanning). 
+6.  **Auto License Compliance**: Searches project dependencies for what licenses they use, using the [license compliance image](https://gitlab.com/gitlab-org/security-products/license-management).
+7.  **Auto Container Scanning**: Uses [Clair](https://github.com/quay/clair) to run static analysis and security issue checks on any Docker images used. 
+8.  **Auto Review Apps**: Creates a version of an application in a temporary environment for team members to try and review.
+9.  **Auto DAST (Dynamic Application Security Testing)**: Runs further security checks using the [OWASP ZAProxy](https://github.com/zaproxy/zaproxy) tool.
+10. **Auto Deploy**: Deploys an application to a production environment as defined in the Kubernetes environment settings.
+11. **Auto Browser Performance Testing**: Tests the performance of application web pages using the [Sitespeed.io image](https://hub.docker.com/r/sitespeedio/sitespeed.io/).
+12. **Auto Monitoring**: Uses Prometheus to monitor system metrics for a deployed application.
+
+### Recent improvement: Readiness for Kubernetes 1.16 ([#32720](https://gitlab.com/gitlab-org/gitlab/issues/32720))
+
+We recently reworked Auto DevOps features to [match changes in the Kubernetes 1.16 API](/releases/2020/03/22/gitlab-12-9-released/#auto-devops'-default-postgresql-due-to-change). Nothing you use will change, but behind the scenes, access different API endpoints, and in different ways.
+
+## Coming soon
+
+Several improvements are coming to Auto DevOps in our next few releases to ensure that we help your projects conform to the latest DevOps best practices, and integrate with as many of our platform features and external tools as possible.
+
+### Cloud-native buildpacks for Auto DevOps ([#25954](https://gitlab.com/gitlab-org/gitlab/issues/25954))
+
+Since Heroku created the buildback concept in 2011 when using virtual machines was typical, others have adopted the concept, and created their own that suited containers better. This change in need resulted in the Cloud Native Computing Foundation (CNCF) accepting the [Cloud Native Buildpacks project](https://buildpacks.io/) in 2018 to maintain a standard for buildpacks that suits their modern use cases. Also, in 12.10 we've added support to Cloud Native Buildpacks, and will be switching our "traditional" Heroku buildpacks to these newer ones in the coming months.
+
+### Running Auto DevOps on air-gapped networks ([#25642](https://gitlab.com/gitlab-org/gitlab/issues/25642))
+
+While many of our users have their clusters connected to the internet, we know not all do, and want to offer these customers as many features as possible. As part of GitLab 13.0, we are researching how to give you the ability to configure the locations of dependencies for Auto DevOps stages.
+
+### Upgrade to Helm 3 ([#29038](https://gitlab.com/gitlab-org/gitlab/issues/29038))
+
+We use [Helm](https://helm.sh/) to deploy packages needed for various stages of the Auto DevOps process. In 13.1 we will upgrade Helm to version 3, which brought a series of significant changes, including removing Tiller as the "server" side of Helm.
+
+### NGINX alerts to auto-monitoring in Auto DevOps ([#118788](https://gitlab.com/gitlab-org/gitlab/issues/118788))
+
+Nginx is a popular HTTP and reverse proxy server. In 13.0 we will add support for the metrics it exposes to Prometheus for providing alerts to our auto-monitoring feature.
+
+### Add Merge Train support to Auto DevOps ([#121933](https://gitlab.com/gitlab-org/gitlab/issues/121933))
+
+[Merge Trains](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/) are a GitLab feature that let you queue lists of merge requests waiting for merging into a target branch. Auto DevOps doesn't currently support merge trains, but in version 13.1, we will start adding support and helping users get the configuration they need to add their Merge Trains to Auto DevOps workflows.
+
+You can [read more about merge trains here](/blog/2020/01/30/all-aboard-merge-trains/).
+
+## Looking further ahead
+
+These planned features aside, one other area we are looking to improve is adopting more of a Directed Acyclic Graph (DAG) approach to Auto DevOps pipelines. You will no longer have to wait for one stage to complete before another begins, and you can focus on the results of the stages important to you. Feel free to view and comment on [the open issue](https://gitlab.com/gitlab-org/gitlab/issues/33200).
+
+We are broadly working to make Auto DevOps work seamlessly with as many other GitLab features as possible, and hope you enjoy the time and insights it gives you.
+
+You can [read more about Auto DevOps here](/blog/2019/10/07/auto-devops-explained/).

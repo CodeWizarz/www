@@ -1,0 +1,18 @@
+features:
+  secondary:
+    - name: "GitLab chart improvements"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/charts'
+      reporter: ljlane
+      stage: systems
+      categories:
+        - "Cloud Native Installation"
+      description: |
+        - A RedHat Universal Base Image (UBI) version of the alpine-certificates image is now available. Previously, deployments using UBI-based images needed to use a non-UBI image for the certificate container. To deploy GitLab with this new image, specify `global.certificates.image.tag=master-ubi8` in your `values.yaml` file. For more information on deploying GitLab using UBI images, see [GitLab with UBI-based images](https://docs.gitlab.com/charts/advanced/ubi/).
+        - Helm installs now support smartcard authentication. See [the smartcard announcement](#smartcard-access-for-gitLab-installations-deployed-using-helm) for more details.
+        - A sub chart has been added for [deploying and configuring the Praefect service](https://docs.gitlab.com/charts/charts/gitlab/praefect/index.html). Praefect allows you to manage storage of Git repositories across a cluster of Gitaly nodes for a fault tolerant configuration. To learn more about Gitaly clusters, see the [Gitaly documentation](https://docs.gitlab.com/ee/administration/gitaly/praefect.html).
+        - Caches of archive files downloaded to Workhorse have been disabled for Helm chart installations. Storing archive caches on local disk was carried over from the Omnibus installation method. With Kubernetes deployments, the disk is not shared across pods. Archives build up over time because there is no way to clean up the archive files. This can cause excessive disk usage issues on nodes.
+        - It is now possible to enable a Content Security Policy (CSP) in the chart to help prevent JavaScript cross-site scripting (XSS) attacks. For details, see [the Global Settings documentation](https://docs.gitlab.com/charts/charts/globals.html#content-security-policy).
+        - A [bug has been resolved](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/2288) that prevented Helm-based installs on VMWare clusters when a job name contained a dot.
+        - [Instructions for migrating from Helm 2 to Helm 3](https://docs.gitlab.com/charts/installation/migration/helm.html) are now available.

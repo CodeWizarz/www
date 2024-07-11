@@ -1,0 +1,104 @@
+---
+title: "My week shadowing a GitLab Site Reliability Engineer"
+author: Tristan Read
+author_gitlab: tristan.read
+author_twitter: tristanrread
+categories: unfiltered
+image_title: "/images/blogimages/sre-shadow-week.jpg"
+description: "On-call through the eyes of a software engineer. Read Tristan's week shadowing a GitLab Site Reliability Engineer"
+canonical_path: "/blog/2019/12/16/sre-shadow/"
+tags: DevOps, production
+ee_cta: false #
+install_cta: false #
+merch_banner: merch_three
+merch_sidebar: merch_three
+twitter_text: ""
+featured:
+---
+
+{::options parse_block_html="true" /}
+
+
+
+## Site Reliability Engineer (SRE) - Shadow
+
+First-off I'll introduce myself - I'm [@tristan.read](https://gitlab.com/tristan.read), a Frontend Engineer in GitLab's [Monitor::Health Group](https://about.gitlab.com/handbook/engineering/development/ops/monitor/respond/). Last week I had the privilege of shadowing one of GitLab's on-call SREs. The purpose was to observe day-to-day incident response activities and gain some real-life experience with the job. We'd like all of our engineers to better understand and develop empathy for users of Monitor::Health [features](https://about.gitlab.com/handbook/product/categories/#health-group).
+
+The idea for the week is to follow everything the SRE does. This means I attended handover meetings, watched the same alert channels, and joined incident response calls if and when they occurred.
+
+## Incidents
+
+Two incidents occurred during the week while I was shadowing.
+
+
+
+### 1. Crypto miner
+
+On Wednesday a jump in [GitLab Runner](https://docs.gitlab.com/runner/) usage was detected on GitLab.com - this was caused by a user attempting to use runner minutes to mine crypto coins. This was dealt with by using an in-house abuse mitigation tool, which stops the runner jobs and removes the associated project and account.
+
+Had this event not been spotted it would have been caught by an automated tool, but in this case the SRE spotted it first. An incident issue was raised for this, but it remains private.
+
+### 2. Performance degredation on Canary and Main applications
+
+This incident was triggered by slowdowns and increased error rates appearing on GitLab.com's canary and main web applications. Several Application Performance Index (Apdex) Service Level Objectives (SLO) were violated.
+
+Public incident issue: [https://gitlab.com/gitlab-com/gl-infra/production/issues/1442](https://gitlab.com/gitlab-com/gl-infra/production/issues/1442)
+
+## Key Takeaways
+
+These are some things that I learned during the week on-call.
+
+### 1. Alerting is most useful when it detects a change from the norm
+
+Alerts can be split into several types:
+1. Alerts based on a specific threshold value, such as "10 5xx errors occurred per second".
+2. Alerts where the threshold is a percentage value, such as "5xx error rate at 10% of total requests at this time".
+3. Alerts that are based on a historical average, such as "5xx error rate is in the 90th percentile".
+
+In general, types 2 and 3 are more useful for on-call SREs, as they reveal that something out of normal is occurring.
+
+### 2. Many alerts don't progress into an actual incident
+
+SREs deal with a constant stream of alerts. Many of these aren't super time-critical.
+
+Why don't they limit the alerts to only things that are critical? This approach might cause early symptoms to be missed until they snowball into a higher impact issue.
+
+It's the job of the on-call SRE to decide which alerts indicate something serious and when to escalate or investigate further. I suspect this may also be caused by inflexibility in alerts - it could be better to have more alert levels, or 'smarter' ways of setting up alerts as described above.
+
+Feature proposal: [https://gitlab.com/gitlab-org/gitlab/issues/42633](https://gitlab.com/gitlab-org/gitlab/issues/42633)
+
+### 3. Our on-call SREs use many tools
+
+Internal:
+- **GitLab infra project**: Runbooks live here. Handovers for the on-call shift/week. Incident Response issues.
+- **GitLab issues**: Investigation, post-mortems and maintenance work are also tracked with issues.
+- **GitLab labels**: Automation is triggered by certain labels using bots that monitor issue activity.
+
+External:
+- **PagerDuty**: Alerts
+- **Slack**: PagerDuty/AlertManager stream posted here. Integration with slash-commands to perform various tasks - e.g. resolve an alert or escalate an alert into an incident.
+- **Grafana**: Visualization of metrics with a focus on long-term trends.
+- **Kibana**: Provides visualization / log searching. Ability to drill into specific events.
+- **Zoom**: There is an always-running "Situation Room" Zoom call. This allows us SREs to quickly discuss events without wasting valuable time creating a meeting room and communicating the links out to everyone.
+
+And many many more.
+
+### 4. Monitoring GitLab.com with GitLab represents a single point of failure
+
+If GitLab.com has a major outage, we don't want that affecting our ability to resolve the problem. This could be mitigated by running a second GitLab instance for operating GitLab.com. In fact, we already have this with [https://ops.gitlab.net/](https://ops.gitlab.net/).
+
+### 5. Some features we should consider adding to GitLab
+
+- [Multi-user edit on issues](https://gitlab.com/gitlab-org/gitlab/issues/103531), similar to Google Docs. This would aid both Incident issues in the middle of an event, and post-mortem issues. Both are situations when multiple people might want to add things to an issue in real-time.
+- More webhooks for issues. Being able to trigger different steps of the workflow from within GitLab will help reduce the reliance on Slack integrations. For instance: being able to resolve an alert in PagerDuty via a slash-command in a GitLab issue.
+
+## Conclusion
+
+SREs have a tough job with many complexities. It would be great to see more GitLab products in use solving these problems. We're already working on some additions to the product that will help with the above workflows. See the [Ops Section Product Vision](https://about.gitlab.com/direction/ops/) for more details.
+
+In 2020 we'll be expanding the team so that we can build all of these exciting features. Please see [our vacancies](https://about.gitlab.com/jobs/) if you're interested, and feel free to get in touch with one of our team members if you have questions about the role.
+
+Cover image by [Chris Liverani](https://unsplash.com/@chrisliverani?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://www.unsplash.com)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

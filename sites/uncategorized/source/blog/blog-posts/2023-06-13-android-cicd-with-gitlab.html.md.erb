@@ -1,0 +1,169 @@
+---
+title: "Tutorial: Android CI/CD with GitLab"
+author: Darby Frey
+author_gitlab: darbyfrey
+author_twitter:
+categories: engineering
+tags: mobile, DevOps, CI/CD, tutorial
+description: "Learn how to create an automated Android CI/CD pipeline using GitLab and fastlane."
+image_title: "/images/blogimages/2023-06-13-android-cicd-with-gitlab/angela-compagnone-4Iyg6cNU7sI-unsplash.jpg"
+twitter_text: "Creating an automated Android CI/CD pipeline with GitLab is easier than you think! Follow along with this tutorial."
+---
+
+Mention the word keystore and all Android developers in a 5km radius will suddenly have a small feeling of panic. Attempting to automate a [CI/CD](https://docs.gitlab.com/ee/ci/) pipeline to deploy an app can be frustrating, and configuring Google Play access and code signing is at the heart of the problem.
+
+But fear not! GitLab Mobile DevOps is here to make this process easier and faster, and I am here to guide you.
+
+[GitLab Mobile DevOps](https://docs.gitlab.com/ee/ci/mobile_devops.html) is a collection of features built right into GitLab to solve the biggest challenges mobile teams face in establishing a [DevOps](https://about.gitlab.com/topics/devops/) practice.
+
+In this blog post, I’ll demonstrate how to set up an automated CI/CD pipeline using GitLab and [fastlane](https://fastlane.tools/).
+
+## Prerequisites 
+To get started, there are a few prerequisites you’ll need:
+
+* A Google Play developer account - [https://play.google.com/console](https://play.google.com/console)
+* Ruby and Android Studio installed on your local machine [https://docs.fastlane.tools/getting-started/android/setup/](https://docs.fastlane.tools/getting-started/android/setup/)
+
+> Try your hand at the [iOS CI/CD for GitLab tutorial](https://about.gitlab.com/blog/2023/06/07/ios-cicd-with-gitlab/)
+
+## Reference project
+For this tutorial, we’ll use the Android demo project for reference: [https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/android_demo](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/android_demo).
+
+## Install fastlane
+If you haven’t done so yet, the first step will be to install fastlane. Do this by creating a file in the root of your project called `Gemfile`. Give it the following contents:
+
+```ruby
+source "https://rubygems.org"
+
+gem "fastlane"
+```
+
+Then, from the terminal in your project, run:
+
+```
+bundle install.
+```
+
+This command will install fastlane, and all of its related dependencies.
+
+## Initialize fastlane
+Now that fastlane is installed, we can set it up for our project. Run the following command from the terminal in your project. You’ll be asked to enter your package name, so enter that. When prompted for the JSON secret file, you can skip that for now, and you can answer "no" to the questions about metadata management.
+
+```
+bundle exec fastlane init
+```
+
+![Initialize fastlane](/images/blogimages/2023-06-13-android-cicd-with-gitlab/fastlane-init.png)
+
+Running this command will create a new folder in your project called `fastlane`. This folder will contain two files `Appfile` and `Fastfile`.
+
+The Appfile contains the configuration information for the app, and the Fastfile has some sample code that we will replace later. See the fastlane docs for more information about the configuration details in the Appfile: [https://docs.fastlane.tools/advanced/Appfile/](https://docs.fastlane.tools/advanced/Appfile/).
+
+## Code signing
+Next are the steps for code signing.
+
+### Create a keystore
+The next step is to create a keystore and properties files for code signing. Run the following command to generate a keystore in the project root called `release-keystore.jks`:
+
+```
+keytool -genkey -v -keystore release-keystore.jks -storepass password -alias release -keypass password -keyalg RSA -keysize 2048 -validity 10000
+```
+
+![Create a keystore](/images/blogimages/2023-06-13-android-cicd-with-gitlab/keytool-genkey.png)
+
+More information is available in the [keytool docs](https://download.java.net/java/early_access/loom/docs/specs/man/keytool.html).
+
+The next step is to create a properties file to be used by [Gradle](https://gradle.org/_). Create a file in the project root called `release-keystore.properties`, with the following contents:
+
+```
+storeFile=../release-keystore.jks
+keyAlias=release
+keyPassword=password
+storePassword=password
+```
+
+Also, be sure to add both files to your `.gitignore` file so they aren't committed to [version control](https://about.gitlab.com/topics/version-control/).
+
+### Configure Gradle
+Next, configure Gradle to use the newly created keystore. In the `app/build.gradle` file, add the following:
+
+**1.** Right after the plugins section, add:
+
+```
+def keystoreProperties = new Properties()
+def keystorePropertiesFile = rootProject.file('release-keystore.properties')
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+```
+
+**2.** Before Build Types, add:
+
+```
+signingConfigs {
+    release {
+   	 keyAlias keystoreProperties['keyAlias']
+   	 keyPassword keystoreProperties['keyPassword']
+   	 storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
+   	 storePassword keystoreProperties['storePassword']
+    }
+}
+```
+
+**3.** Lastly, add the signingConfig to the release build type:
+
+```
+signingConfig signingConfigs.release
+```
+
+## Upload keystore to GitLab secure files
+Next, upload your keystore files to GitLab so they can be used in CI/CD jobs. 
+
+1. On the top bar, select **Menu > Projects** and find your project.
+1. On the left sidebar, select **Settings > CI/CD**.
+1. In the Secure Files section, select **Expand**.
+1. Select **Upload File**.
+1. Find the file to upload, select **Open**, and the file upload begins immediately. The file shows up in the list when the upload is complete.
+
+Do this for both the `release-keystore.jks` file and the `release-keystore.properties` file.
+
+![Upload Secure File](/images/blogimages/2023-06-13-android-cicd-with-gitlab/upload-secure-file.png)
+
+![List Secure Files](/images/blogimages/2023-06-13-android-cicd-with-gitlab/list-secure-files.png)
+
+## Create a CI/CD pipeline
+
+With the configuration in place, now copy the contents of the .gitlab-ci.yml and fastlane/Fastfile below to the project.
+
+This [.gitlab-ci.yml](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/android_demo/-/blob/main/.gitlab-ci.yml) has all the configuration needed to run the test, build, and beta jobs.
+The [fastlane/Fastfile](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/android_demo/-/blob/main/fastlane/Fastfile) is an example that can be customized to specific project settings.
+
+Note: This fastlane configuration uses plugins. See the [docs](https://docs.fastlane.tools/plugins/using-plugins/) for instructions on how to configure your project for fastlane plugins.
+
+## Create an app in the Google Play Console
+Next, generate a build of your app locally and upload it to seed a new app entry in the Google Play Console. Run the following command locally:
+
+```
+bundle exec fastlane build
+```
+
+This command will create a signed build of the app at
+
+```
+build/outputs/bundle/release/app-release.aab
+```
+
+With the signed build ready to go, log in to the [Google Play Console](https://play.google.com/console) and create a new app and seed it with the initial build.
+
+## Configure Google Play integration
+The last thing to set up is the Google Play integration in GitLab. To do so, first, create a Google service account.
+
+### Create a Google service account
+Follow the [instructions](https://docs.fastlane.tools/actions/supply/#setup) for setting up a service account in Google Cloud Platform and granting that account access to the project in Google Play.
+
+### Enable Google Play integration
+Follow the [instructions](https://docs.gitlab.com/ee/user/project/integrations/google_play.html) for configuring the Google Play integration by providing a package name and the JSON key file just generated for the service account.
+
+This is a simplified CI/CD configuration that created three CI/CD jobs to run each of the lanes in fastlane on the GitLab Runners. The test and build jobs will run for all CI/CD pipelines, and the beta job will only be run on CI/CD pipelines on the main branch. The beta job is manually triggered, so you can control when the beta release is pushed to Google Play. 
+
+With these configurations in place, commit all of these changes and push them up to your project. The CI/CD pipeline will kick off, and you can see these jobs in action.

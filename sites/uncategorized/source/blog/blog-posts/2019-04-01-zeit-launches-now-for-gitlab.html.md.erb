@@ -1,0 +1,100 @@
+---
+title: "ZEIT launches Now for GitLab"
+author: Arunoda Susiripala and Sarup Banskota
+author_twitter: zeithq
+categories: company
+image_title: "/images/blogimages/zeit-now/gitlab-zeit-cover.png"
+description: "This first-class integration can automatically deploy any GitLab project containing a static or dynamic website to ZEIT's global CDN."
+tags: CI/CD, integrations,
+guest: true
+twitter_text: ".@zeithq launches Now for @gitlab to further their mission to make cloud computing accessible to everyone"
+---
+
+**[ZEIT Now](https://zeit.co/now) is a [serverless](/topics/serverless/) deployment platform that takes the burden out of configuring the cloud**. Projects deploy to Now instantly, scale automatically, and require zero supervision.
+
+### Why we created Now
+
+We believe that deployments should be fast, simple, reliable, and cost-effective. We want to **enable developers to focus on their core applications**, and not on configuring DNS, scalability, or other infrastructure. That's why we created Now – to allow you to just push code, while we take care of the infrastructure.
+
+Git is popular among us developers – our code is often backed by a Git repository hosted on GitLab or GitHub. For most of us, our workflow involves developing features in distinct branches, which get merged into a stable master branch (or its equivalent). For most teams, the strategy around deployments follows the same style – we first stage our work on feature-specific URLs, and then finally merge them into a production URL.
+
+**We want Now to enhance the developer workflow**. By sticking close to the source code, and integrating with code collaboration tools we love, we are helping enhance the code review and release process.
+
+### Now for GitLab
+
+In this post, we showcase our most requested feature,  [Now for GitLab](https://zeit.co/gitlab). With this first-class GitLab integration, you can automatically deploy any GitLab project, and enjoy core Now features, including global CDN, Anycast DNS, HTTPS support, and DDOS Protection.
+
+### Benefits
+
+Once set up, **Now builds and deploys automatically, for every commit you push to GitLab**. Each such deployment gets a unique URL and we keep all your deployments alive. Thanks to our usage-based pricing model, you only pay for actual invocations and don't have to worry about unused deployments.
+
+![GitLab commit](/images/blogimages/zeit-now/gitlab-commit.png){: .medium.center}
+
+*<small>Being able to test a unique deployment for every commit allows you to merge changes to your project with confidence.</small>*
+
+**All deployments made within a merge request are listed chronologically on its page**. They can be tested at any time, allowing your team to try out changes as progress is made, and to iron out concerns before pushing a new feature to production.
+
+![track deployments on MR](/images/blogimages/zeit-now/deployments-mr.png){: .medium.center}
+
+*<small>You can track all the deployments made towards a specific feature on its merge request page.</small>*
+
+**Every merge request receives a unique URL** based on its branch name. The URL points to the latest deployment made on the merge request branch. You can share the URL with your team or even publicly, for beta testing your changes.
+
+![staging](/images/blogimages/zeit-now/gitlab-staging.png){: .medium.center}
+
+*<small>The unique URL for the merge request acts as a staging link that can be passed around to anybody in the team who is interested in tracking development updates on a specific feature.</small>*
+
+**Merged MRs are automatically deployed to production**. Once deployed, we automatically alias your deployment to the production domain name.
+
+![alias](/images/blogimages/zeit-now/gitlab-alias.png){: .medium.center}
+
+*<small>Once a merge request lands on the [default branch](https://docs.gitlab.com/ee/user/project/repository/branches/default.html), it is automatically built, deployed, and aliased to the chosen production domain names.</small>*
+
+## Getting started with Now for GitLab
+
+We offer a **powerful free tier** which allows you to deploy a small-scale production app without requiring a credit card. To get started, visit the [**ZEIT Sign up page**](https://zeit.co/signup) and click the `Continue with GitLab` button. When GitLab requests an authorization, click `Authorize`.
+
+![sign up for Now for GitLab](/images/blogimages/zeit-now/sign-up-zeit-gitlab.png){: .center}
+
+*<small>By signing up for ZEIT with GitLab, you automatically connect Now with your GitLab account, making it easier to link to your GitLab projects.</small>*
+
+Once you complete the authorization, you can [**link any existing GitLab project**](https://zeit.co/new) with your ZEIT account, or create a new one based on our [Quick Start templates](https://zeit.co/new).
+
+![quick start templates](/images/blogimages/zeit-now/templates.png){: .medium.center}
+
+*<small>The Quick Start templates save you time from setting up boilerplate code for several popular projects, such as Next.js, Vue, or Hugo.</small>*
+
+Please note that if you already have a ZEIT account, you can set up the connection to GitLab on your [ZEIT account page](https://zeit.co/account).
+
+## Prepare your project for Now
+
+To be able to successfully process a GitLab project, Now needs to be provided with build and deployment information. This information can be provided via a [`now.json` configuration file](https://zeit.co/docs/v2/deployments/configuration).
+
+For example, if you are interested in deploying Node.js serverless code, the `now.json` file could be framed as follows:
+
+    {
+      "name": "GitLab Project",
+      "alias": ["gitlab-project.now.sh"],
+      "builds": [{
+        "src": "index.js",
+        "use": "@now/node"
+       }]
+    }
+
+*<small>[now.json](https://zeit.co/docs/v2/deployments/configuration) allows us to provide information about building, deploying, and aliasing a GitLab project with Now.</small>*
+
+More information on configuring `now.json`, including all supported options, is available on its [docs page](https://zeit.co/docs/v2/deployments/configuration). We support building and deploying many popular technologies through our open-sourced official [Builders](https://zeit.co/docs/v2/deployments/builders/overview), including Python, Rust, PHP, and Go. We welcome your contributions toward new Builders to support your favorite technology. To help with that, we also have a [guide](https://zeit.co/docs/v2/deployments/builders/developer-guide/) in place that walks through the process of creating and publishing a Builder.
+
+### Custom domain names and Instant Rollbacks
+
+When a GitLab merge request is merged into the [default branch](https://docs.gitlab.com/ee/user/project/repository/branches/default.html), [Now for GitLab](https://zeit.co/gitlab) instantly triggers a new deployment. As soon as that deployment completes, it is **automatically aliased to the production domain names** that were specified through the `alias` property in `now.json`.
+
+When you deploy with Now, **we map all your code and configuration to a single, unique URL**. Now only performs a new build when the underlying code receives changes.
+
+If you trigger a revert within GitLab on the [default branch](https://docs.gitlab.com/ee/user/project/repository/branches/default.html), the code and configuration perfectly match a deployment URL Now previously had. This allows us to perform the alias with the previous URL within milliseconds, thus providing an **Instant Rollback**.
+
+### Final words
+
+Our mission at ZEIT is to make the cloud accessible to everyone. The [Now for GitLab](https://zeit.co/gitlab) integration was one of our most requested features, and we are thrilled to make it available to you.
+
+Please give [Now for GitLab](https://zeit.co/gitlab) a try, and let us know what you think. Our Twitter is [@zeithq](https://twitter.com/zeithq).

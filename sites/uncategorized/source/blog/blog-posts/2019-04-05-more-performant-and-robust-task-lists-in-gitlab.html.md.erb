@@ -1,0 +1,109 @@
+---
+title: "How we delivered more performant and robust task lists in GitLab"
+author: Brett Walker, Fatih Acet
+author_twitter: gitlab
+categories: engineering
+guest: true
+image_title: '/images/blogimages/more-robust-task-lists.jpg'
+description: "How simple checkboxes became a challenging engineering problem – and how we fixed it."
+tags: frontend, inside GitLab,
+ee_cta: false
+postType: content marketing
+---
+
+[GitLab task lists](https://docs.gitlab.com/ee/user/markdown#task-lists) are
+a list of checkboxes that you can include anywhere in GitLab where you can have
+[GitLab Flavored Markdown (GFM)](https://docs.gitlab.com/ee/user/markdown#gitlab-flavored-markdown-gfm).
+This includes issue descriptions and comments, as well as merge requests and epics.
+They can be used for a list of items to consider when building a feature, tracking
+tasks for new employees to complete when onboarding, or even managing that list
+of materials to purchase for your next home renovation. You can use them as todo
+lists, and so checking off an item should be quick and satisfying.
+
+## More checkboxes, more problems
+
+In the past, task lists with several items, even dozens, worked fairly well. Check
+an empty checkbox, and a database record gets updated. The checkbox is then displayed
+as checked. Done.
+
+However, as the number of items increases, and the consequent
+markdown becomes more complex and longer, problems begin to appear. For example,
+visually the checkbox appears checked, but because updating the backend takes a
+longer time, if you checked another checkbox, the screen would refresh several seconds
+later and the checkbox might then be unchecked. It soon became next to impossible
+to go down a list and check off items without waiting 10 seconds between each one.
+Yet another problem was that if other users were also checking items on the list,
+your change could be erased by them checking their item – they were overwriting
+your data.
+
+In [GitLab 11.8](/releases/2019/02/22/gitlab-11-8-released/#performance-improvements) (released on Feb. 22, 2019),
+we significantly increased the performance of task lists, as well as making them
+much more robust. Here's how we did it:
+
+### Essentially we wanted:
+
+- Checking a checkbox to be as fast as possible.
+- Many users to concurrently interact with checkboxes in the same task list,
+without overwriting each other.
+
+Both the performance and data integrity issues stemmed from the fact that we were
+updating the complete markdown. This meant that we changed the markdown source in
+the browser with the updated checkbox, sent it to the backend, where it was saved
+to the database, and then re-rendered so that we could cache the new  and send
+it back to the user.
+
+## A scalable solution
+
+But what if we could update a single checkbox, and send only that to the backend? That
+might allow multiple users to check off as many tasks as they wanted, without clobbering
+each other. And what if we didn't have to do any markdown rendering at all? We wouldn't
+have to do any markdown processing, or process embedded issue links, or query if
+labels have changed, or any of the other advanced things that go on when updating
+an issue. Performance would definitely increase in this case.
+
+### Frontend work
+
+On the frontend, with only a small modification to the
+[deckar01/task_list](https://github.com/deckar01/task_list/commit/d1c96451df5fb8fdadc2cd080f65ffe2d2076a3a)
+gem we use, we were able to pass the exact text and line number in the markdown source
+for the clicked task.
+[Wrap this piece of information](https://gitlab.com/gitlab-org/gitlab-ce/blob/b4165554113a7f9ce9fecd7d169f9a64686b5c44/app/assets/javascripts/task_list.js#L63-68)
+in a new `update_task` parameter for our update endpoint, and send it to the backend.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+### Backend work
+
+On the backend,
+[we needed to verify](https://gitlab.com/gitlab-org/gitlab-ce/blob/b4165554113a7f9ce9fecd7d169f9a64686b5c44/app/services/task_list_toggle_service.rb#L30-51)
+that the task we were interested in still existed in exactly the same format – the text had to match
+the exact line number in the source. This meant that even if someone changed text above or below
+the task item, as long as our line matched exactly, we could update that line in the latest source
+and save it without losing changes.
+
+In order to update our cached HTML so that we wouldn't have to re-render it, we turned on
+the `SOURCEPOS` flag of the CommonMark renderer, which adds a `data-sourcepos` attribute to the HTML.
+For example, a task item's might look like this:
+
+```
+<li data-sourcepos="1:1-1:12" class="task-list-item">
+  <input type="checkbox" class="task-list-item-checkbox" disabled> Task 1
+</li>
+```
+
+With a little [Nokogiri](https://nokogiri.org) magic we were able to find the correct line
+and toggle the checked attribute.
+
+Since we updated the cache directly, we completely bypassed any markdown rendering,
+processing of special attributes, etc. Performance dramatically increased. However,
+since we are not able to get it down to zero, we disabled the checkboxes while the
+request was in flight to ensure we weren't getting clicks on other tasks.
+
+The result: a much more satisfying task list.
+
+[Brett Walker](https://gitlab.com/digitalmoksha) worked on the backend changes and
+[Fatih Acet](https://gitlab.com/fatihacet) worked on the frontend changes in this
+improvement. See more details in [the GitLab issue](https://gitlab.com/gitlab-org/gitlab-ce/issues/19745).
+
+Photo by [Glenn Carstens-Peters](https://unsplash.com/photos/RLw-UC03Gwc?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/)
+{: .note}

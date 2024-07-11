@@ -1,0 +1,16 @@
+features:
+  secondary:
+# Chart improvements
+    - name: "GitLab Helm chart improvements"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/charts/'
+      reporter: ljlane
+      stage: systems
+      categories: 
+        - "Cloud Native Installation"
+      description: |
+              - The Helm chart now supports configuration of multiple Redis instances. This allows you to have different Redis instances for different storage types, for use with our [10,000 users Reference Architecture](https://docs.gitlab.com/ee/administration/reference_architectures/10k_users.html). For details on specific changes, refer to the [issue](https://gitlab.com/gitlab-org/charts/gitlab/-/issues/1644).
+              - Now that Puma is the [default web application server](#reduced-memory-consumption-of-gitlab-with-puma), with the option to still switch back to using Unicorn, the name of the Unicorn chart has changed from `unicorn` to `webservice`. For configuration details, see the [Charts documentation](https://docs.gitlab.com/charts/charts/gitlab/webservice/index.html).
+              - The ConfigMap entries for `puma.rb` and `unicorn.rb` files have been removed in favor of environment variables. Please note that if you have modified the `unicorn.rb` from the ConfigMap (via Helm + Kustomize) in the past, you will be impacted by this change. We are doing this to eliminate maintaining two copies of these files. Until now, the `puma.rb` and `unicorn.rb` files were static within the `gitlab-webservice` container and overwritten by ConfigMap items from the `gitlab/unicorn` chart. For details on the new environment variables, refer to [the associated merge request](https://gitlab.com/gitlab-org/build/CNG/-/merge_requests/430).
+              - The version of Ruby used by the GitLab Helm chart has been updated to 2.6.6.

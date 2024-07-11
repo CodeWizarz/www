@@ -1,0 +1,15 @@
+---
+features:
+  secondary:
+  - name: "Pin to Specific SAST Analyzer Versions"
+    available_in: [core, premium, ultimate]
+    gitlab_com: true
+    documentation_link: 'https://docs.gitlab.com/ee/user/application_security/sast/#pinning-to-minor-image-version'
+    reporter: tmccaslin
+    stage: secure
+    categories:
+    - SAST
+    epic_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/301216'
+    description: |
+      With the maturity of GitLab Secure scanning tools, we've needed to add more granularity to our release process. Previously, GitLab shared a major version number for [all our analyzers and tools](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks). This requires all tools to share a major version and prevent the use of [semantic version numbering](https://semver.org/). Beginning in 14.0 GitLab SAST removed the `SAST_ANALYZER_IMAGE_TAG` global variable in our [managed SAST.gitlab-ci.yml](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Jobs/SAST.gitlab-ci.yml) CI template in favor of the analyzer job variable setting the 'major.minor' tag in the SAST vendored template. Each analyzer job now has a scoped `SAST_ANALYZER_IMAGE_TAG` variable which will be actively managed by GitLab and set to the 'major' tag for the respective analyzer. To pin to a specific version you simply [change the variable value to the specific version tag](https://docs.gitlab.com/ee/user/application_security/sast/#pinning-to-minor-image-version). 
+      If you override or maintain custom versions of `SAST.gitlab-ci.yml` you will want to update your CI templates to stop referencing the global `SAST_ANALYZER_IMAGE_TAG` and move it to a scoped analyzer job tag. We strongly encourage [inheriting and overriding our managed CI templates](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) to future-proof your CI templates. This change will allow you to more granularly control future analyzer updates with a pinned `major.minor` version.

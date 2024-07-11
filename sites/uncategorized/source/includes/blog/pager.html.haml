@@ -1,0 +1,25 @@
+- if current_article
+  - prev_article = current_article.article_previous
+  - next_article = current_article.article_next
+
+  - if prev_article || next_article
+    %nav{ "aria-label" => "Blog post pager" }
+      %ul.pager
+        - if prev_article
+          %li.pull-left
+            = link_to prev_article.url, title: prev_article.title do
+              %i.fa.fa-chevron-left
+              %span.screen-reader-text Previous Post:
+              %span.adjacent_post_title
+                = prev_article.title.split(" ")[0..7].join(" ")
+                - if prev_article.title.split(" ")[0..7].join(" ") != prev_article.title
+                  = '...'
+        - if next_article
+          %li.pull-right
+            = link_to next_article.url, title: next_article.title do
+              %span.screen-reader-text Next Post:
+              %span.adjacent_post_title
+                = next_article.title.split(" ")[0..7].join(" ")
+                - if next_article.title.split(" ")[0..7].join(" ") != next_article.title
+                  = '...'
+              %i.fa.fa-chevron-right

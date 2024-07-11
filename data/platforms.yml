@@ -1,0 +1,92 @@
+- name: ubuntu
+  long_name: Ubuntu
+  subtitle: (recommended)
+  download_command: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+  install_commands: |
+                    sudo EXTERNAL_URL="https://gitlab.example.com" apt-get install gitlab-ce
+  dependency_commands: |
+                    sudo apt-get install -y curl openssh-server ca-certificates tzdata perl
+  postfix_commands: |
+                    sudo apt-get install -y postfix
+
+- name: debian
+  long_name: Debian
+  download_command: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh | sudo bash
+  install_commands: |
+                    sudo EXTERNAL_URL="https://gitlab.example.com" apt-get install gitlab-ce
+  dependency_commands: |
+                    sudo apt-get install -y curl openssh-server ca-certificates perl
+  postfix_commands: |
+                    sudo apt-get install -y postfix
+
+- name: centos7
+  long_name: CentOS 7
+  subtitle: (and RedHat/Oracle/Scientific Linux 7)
+  download_command: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+  install_commands: |
+                    sudo EXTERNAL_URL="https://gitlab.example.com" yum install -y gitlab-ce
+  dependency_commands: |
+                    sudo yum install -y curl policycoreutils-python openssh-server openssh-clients perl
+                    # Enable OpenSSH server daemon if not enabled: sudo systemctl status sshd
+                    sudo systemctl enable sshd
+                    sudo systemctl start sshd
+  firewall_open: |
+                    # Check if opening the firewall is needed with: sudo systemctl status firewalld
+                    sudo firewall-cmd --permanent --add-service=http
+                    sudo firewall-cmd --permanent --add-service=https
+                    sudo systemctl reload firewalld
+  postfix_commands: |
+                    sudo yum install postfix
+                    sudo systemctl enable postfix
+                    sudo systemctl start postfix
+
+- name: almalinux8
+  long_name: AlmaLinux 8
+  subtitle: (and RedHat 8)
+  download_command: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+  install_commands: |
+                    sudo EXTERNAL_URL="https://gitlab.example.com" dnf install -y gitlab-ce
+  dependency_commands: |
+                    sudo dnf install -y curl policycoreutils openssh-server openssh-clients
+                    # Enable OpenSSH server daemon if not enabled: sudo systemctl status sshd
+                    sudo systemctl enable sshd
+                    sudo systemctl start sshd
+  firewall_open: |
+                    # Check if opening the firewall is needed with: sudo systemctl status firewalld
+                    sudo firewall-cmd --permanent --add-service=http
+                    sudo firewall-cmd --permanent --add-service=https
+                    sudo systemctl reload firewalld
+  postfix_commands: |
+                    sudo dnf install postfix
+                    sudo systemctl enable postfix
+                    sudo systemctl start postfix
+
+- name: opensuse
+  long_name: OpenSUSE
+  download_command: curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+  install_commands: |
+                    sudo EXTERNAL_URL="https://gitlab.example.com" zypper install gitlab-ce
+  dependency_commands: |
+                    sudo zypper install curl openssh perl
+                    # Enable OpenSSH server daemon if not enabled: sudo systemctl status sshd
+                    sudo systemctl enable sshd
+                    sudo systemctl start sshd
+  firewall_open: |
+                    # Check if opening the firewall is needed with: sudo systemctl status firewalld
+                    sudo firewall-cmd --permanent --add-service=http
+                    sudo firewall-cmd --permanent --add-service=https
+                    sudo systemctl reload firewalld
+  postfix_commands: |
+                    sudo zypper install postfix
+
+- name: raspberrypi
+  long_name: Raspberry Pi OS
+  download_command: |
+                    sudo curl -sS https://packages.gitlab.com/install/repositories/gitlab/raspberry-pi2/script.deb.sh | sudo bash
+  install_commands: |
+                    sudo EXTERNAL_URL="https://gitlab.example.com" apt-get install gitlab-ce
+  dependency_commands: |
+                    sudo apt-get install curl openssh-server ca-certificates apt-transport-https perl
+                    curl https://packages.gitlab.com/gpg.key | sudo tee /etc/apt/trusted.gpg.d/gitlab.asc
+  postfix_commands: |
+                      sudo apt-get install -y postfix

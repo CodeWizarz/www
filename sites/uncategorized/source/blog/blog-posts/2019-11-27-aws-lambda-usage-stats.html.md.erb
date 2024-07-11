@@ -1,0 +1,92 @@
+---
+title: "AWS Lambda usage survey results"
+author: Viktor Nagy # if name includes special characters use double quotes "First Last"
+author_gitlab: nagyv.gitlab 
+author_twitter: nagyviktor 
+categories: open source
+image_title: "/images/blogimages/gitlab-values-cover.png"
+description: "The results of our quick AWS Lambda usage survey"
+tags: community, open source, integrations
+cta_button_text: 'Start an AWS Lambda project with GitLab' 
+cta_button_link: 'https://gitlab.com/projects/new' 
+postType: content marketing 
+merch_banner: merch_two
+twitter_text: "GitLab and AWS Lambda do play very nicely together. Here's how to get started" 
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2019-12-03.
+{: .alert .alert-info .note}
+
+In early October, I asked the community to [share your AWS Lambda tooling habits](https://forms.gle/9xhjaPxKdZsHDs2V9), so we can better serve your needs from within GitLab. This blog post presents the results of that survey. The survey was shared on Reddit, some Facebook Groups, and on the GitLab Twitter and Facebook channels. All told we received 58 responses which makes the results thought-provoking, but certainly not conclusive. 
+
+## Intro
+
+So, what did I ask you about? I had a few assumptions in mind when I put together the survey.
+
+- Lambda is mostly used by developers, but - at least in the enterprise - ops people might be involved too, because of monitoring or security.
+- There are differences between hobby and professional usage, and I wanted to be able to try to filter out hobby users.
+- Serverless has an adoption path in the enterprise. This might result in it being used only for backoffice scripts at first. So I wanted to know if it's used in production or backoffice scripting only.
+
+Besides testing these assumptions, I wanted to learn about usage habits with respect to:
+
+- Frameworks used (if any)
+- Testing tools and approaches used
+- CI/CD tools used
+- Monitoring and debugging tools and approaches followed
+
+Who answered the survey?
+{: .note.text-center}
+
+![User role](/images/blogimages/aws-lambda-survey-2019/aws-population.png)
+
+## How do we write code for AWS Lambda
+
+The first interesting topic was what frameworks were being used for AWS Lambda. It was possible to select multiple options and responders could even provide a free text answer.
+
+![Company size](/images/blogimages/aws-lambda-survey-2019/aws-frameworks.png){: .small.left.wrap-text}
+
+As many responders chose more than just a single option, we should look a bit behind the data to understand more. From that you can see that the [serverless framework](/topics/serverless/) is popular with these respondents and its use is  wide-spread. The *Other* section is quite scattered and there are no other big players; responses included Zappa, Chalice, Netlify function, etc. 
+
+I thought that there might be differences once I controlled for the company size. I expected more Terraform and less CLI usage as the company size increases. I didn't look into statistical significance, but a simple eye-ball test shows that SMBs are going heads down with tech stacks. They are the strongest users of both serverless and Terraform. I'd say that enterprise users try to follow along, but have a quite big direct usage of AWS CLI too. Why might this be true? A few scenarios come to mind that can think about:
+
+- Enterprises are lagging in terms of technology adoption, thus their Terraform usage is lower
+- They use AWS CLI more extensively as the serverless framework can't fulfill all their use cases
+- Possibly we don't have enough data and with a stronger analysis it would turn out that there are no differences
+
+## What about testing
+
+When asked about the challenges serverless technologies pose one topic repeatedly arose: the lack of good testing infrastructure.
+
+At GitLab we strive to provide outstanding CI/CD capabilities for testing. We also work hard to spread best practices. 
+
+I asked the community about the current approaches they take to CI/CD and testing. Here again, multiple answers were allowed.
+
+![Company size](/images/blogimages/aws-lambda-survey-2019/aws-testing.png){: .small.right.wrap-text}
+
+This pie chart is filtered to show only non-hobby projects. Even here, almost every fifth project has no testing at all! Otherwise, we can barely speak about test pyramids here as the majority of the projects either don't run any tests or run only unit tests.
+
+Getting into the data by company size, we see what we would expect: as the company size grows, testing becomes more important.
+
+## CI/CD bias
+
+The survey also contained a question about which CI/CD tools are being used. I skipped the analysis here. As the survey was mostly shared by GitLab team members, and through GitLab channels, clearly the majority of responders use GitLab. A wise choice! 
+
+## Monitoring
+
+Alongside developing and deploying software, thinking about its operational health in production is just as important. This led me to ask a few questions on Lambda monitoring habits.
+
+![Company size](/images/blogimages/aws-lambda-survey-2019/aws-monitoring.png){: .small.left.wrap-text}
+
+Even given the small sample size, I was surprised the vast majority choose AWS CloudWatch. I expected most production environments would use more advanced instrumentation, and I was wrong.
+
+A related question I asked is, "What metrics are you  most interested in?" This was a free-text answer. There were no surprises here with "error rates" coming out as the clear winner.
+
+## Conclusion
+
+Based on the survey it became clear that even today, GitLab can be used very well with AWS lambda. To make getting started easy, we've created a project template that uses GitLab Pages to host the frontend of your app, and AWS Lambda for your backend needs. Besides the basic hosting needs, our templates have `serverless-offline` support added, so you can start writing tests against it without any additional setup needed. You can easily begin by starting a [new project using the Serverless Framework/JS template](https://gitlab.com/projects/new).
+
+![Easy getting started with project templates](/images/blogimages/aws-lambda-survey-2019/aws-project-template.png){: .medium}
+
+These were the insights I gathered about the data. Because this data was provided by the community, I'm making it available to everyone. You can [download the responses as a csv](/images/blogimages/aws-lambda-survey-2019/aws-lambda-survey-responses.csv). In case you are serious about Serverless usage in production, I'd love to hear your insights! Feel free to [reach out to me](https://gitlab.com/nagyv.gitlab)!
+
+<%= partial "includes/blog/blog-merch-banner" %>

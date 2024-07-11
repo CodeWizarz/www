@@ -1,0 +1,87 @@
+- stages.each do |stageKey, stage|
+  - categories = data.categories.select{|catKey,cat| cat.stage==stageKey && cat.marketing && !cat.available.blank?}
+  - next if categories.empty?
+  %h3.scroll-anchor{id: "#{stageKey}"}
+  .drop-shadow
+    %table.stage-table
+      %col{width: "300"}
+      %tbody
+        %tr.stage-row
+          %td.stage-icon
+            - if stage.marketing
+              - link = "/stages-devops-lifecycle/#{stageKey}/"
+            - else
+              - link = stage.direction
+            %a{href: link}
+              = partial "/includes/icons/sdlc-icons/#{stageKey}.svg"
+            %a{href: link}
+              %p #{stage.display_name}
+          %td.stage-maturity{colspan: "3"}
+            .left-align
+              %p
+                = succeed ":" do
+                  = link_to "Stage Lifecycle", "#legend"
+                #{lifecycle(stage.lifecycle)}
+              %p
+                = succeed ":" do
+                  = link_to "Stage Investment Thesis", "#legend"
+                #{stage.horizon}
+              %p
+                = succeed ":" do
+                  = link_to "Analyst Reports", "/analysts/"
+                %ul
+                  - if stage.analyst_reports
+                    - stage.analyst_reports.each do |report|
+                      %li
+                        %a{href: "#{report.url}"} #{report.title}
+              %p
+                = succeed " " do
+                  = link_to "Stage SMAU", "https://about.gitlab.com/handbook/product/performance-indicators/#stage-monthly-active-users-smau"
+                  #{stage.smau}
+          %td.stage-contributions{colspan: "2"}
+            .left-align
+              %p
+                = succeed ":" do
+                  Velocity over last 3 months
+              %p
+                %span
+                  %a{href: "https://gitlab.com/groups/gitlab-org/-/merge_requests?scope=all&utf8=✓&state=merged&label_name[]=devops%3A%3A#{stageKey}"} #{stage_velocity[stageKey]}
+                changes merged
+              %p
+                %span
+                  %a{href: "https://gitlab.com/groups/gitlab-org/-/merge_requests?scope=all&utf8=✓&state=merged&label_name[]=Community%20contribution&label_name[]=devops%3A%3A#{stageKey}"} #{stage_contributions[stageKey]}
+                wider community contributions
+        %tr
+          %td.maturity-chart-embed{colspan: 6}
+            = maturity_chart(stage: stageKey, embed: true)
+        %tr
+          %td
+            Category
+          %td.text-center
+            Today
+          - quarters.each do |quarter|
+            %td.text-center
+              = quarter.name
+        %tr
+          %td
+            %i Date
+          %td.text-center
+            %i
+              %span.today
+          - quarters.each do |quarter|
+            %td.text-center
+              %i
+                = "by #{quarter.ends_at.to_s}"
+        - categories.each do |categoryKey, category|
+          %tr
+            %td
+              %a.scroll-anchor{id: "#{categoryKey}"}
+              - if category.direction
+                %a{href: "#{category.direction}"} #{category.name}
+              - else
+                = category.name
+            %td.maturity-cell
+              = partial "/images/maturity/#{maturity(category, Date.today)}.svg"
+            - quarters.each do |quarter|
+              %td.maturity-cell
+                = partial "/images/maturity/#{maturity(category, quarter.ends_at)}.svg"

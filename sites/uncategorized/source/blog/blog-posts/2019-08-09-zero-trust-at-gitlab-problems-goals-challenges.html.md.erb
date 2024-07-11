@@ -1,0 +1,144 @@
+---
+title: "Zero Trust at GitLab: Problems, goals, and coming challenges"
+author: Mark Loveless
+author_gitlab: mloveless
+author_twitter: simplenomad
+categories: security
+image_title: '/images/blogimages/beasty-ztblog-unsplash.jpg'
+description: "We map out our Zero Trust goals, the challenges we expect to encounter along the way, and how we
+plan to address them."
+tags: inside GitLab, security, zero trust
+twitter_text: "A closer look at the issues we're trying to solve with #ZeroTrust at @GitLab, along
+with our working approach"
+postType: content marketing
+---
+
+Update: This is part 2 of an ongoing [Zero Trust series](/blog/tags.html#zero-trust). See our next post: [Zero Trust at GitLab: The data classification and infrastructure challenge](/blog/2019/08/21/zero-trust-at-gitlab-the-data-classification-and-infrastructure-challenge/).
+{: .alert .alert-info .note}
+
+
+_Zero Trust is the practice of shifting access control from the perimeter of the organization to the
+individuals, the assets and the endpoints. For GitLab, Zero Trust means that all devices trying
+to access an endpoint or asset within our GitLab environment will need to authenticate and
+be authorized. This is part two of a multi-part series. Read the first post, [The evolution of Zero Trust](/blog/2019/04/01/evolution-of-zero-trust/)._
+
+The benefits of Zero Trust Networking (ZTN) on paper are ideal and many rush to
+implement it with no idea exactly what it is (or how to get there).
+We [previously discussed the evolution of ZTN](/blog/2019/04/01/evolution-of-zero-trust/)
+and have been working on ways to implement things since then.
+
+Vendors have appeared left and right, trying to sell their own versions of ZTN, but curiously no
+two seem to have the same interpretation. All of them say
+they have a product that does ZTN and it is “easy to use,” but of course if you nail them down on
+the implementation they all seem to fall short in one area or another.
+
+## Defining the problem
+
+I alluded to this above, but let’s clearly restate the problem – how does a diverse company
+implement Zero Trust when no one can seem to agree on any of it? The most common issue for those
+trying to roll out a ZTN is that, to be successful, everything must work together.
+The basic principles of Zero Trust – positively identify the user, positively identify
+the device accessed as managed and secure, ensure the user and the device
+are allowed to get into the asset they are trying to access, and do all of this in real time –
+are somehow very hard for most people to understand.
+
+We probably should have clearly stated in our last blog post that the biggest problem with
+[the BeyondCorp solution](https://cloud.google.com/beyondcorp/) outlined by Google is that it is
+tailored for Google. This series
+of blog posts will take a closer look at the issues we are trying to solve, along with our
+working approach. It is tailored for GitLab and won’t necessarily work everywhere else.
+Hopefully it will provide insight into our thought process, encourage some discussion, and
+possibly help others along their own paths.
+
+## What we want
+
+Implementing ZTN at GitLab involves determining what we want out of this, which is really an
+extension of our objectives for [GitLab security](/handbook/security/#security-vision)
+in general. What we want to do is the following:
+
+- **Protect the data that needs to be protected.** Different types of data need to be protected at
+different levels, so we must be able to have that flexibility.
+- **Positive team member identification.** When a team member authenticates, we need to know it
+truly is that team member, and we need to know what the allowable data is. This needs
+to happen in real time.
+- **Positive device identification.** We need to identify the authenticated team member’s access
+device, and based upon the level of trust associated with that device, determine whether the
+device is allowed to access particular data, regardless of team member identity. This needs to
+happen in real time.
+- **Geo-location identification.** We need to identify the team member’s location while at work
+and restrict access to certain data based upon team member geolocation. This
+needs to happen in real time.
+- **Automated access.** We need to subject all automated processes that access data to the
+same data protection policies as team members and devices. Again, this needs to happen in real time.
+- **Logging.** We need to properly log all transactions for auditing and monitoring purposes.
+- **No weakening of existing controls.** Data must be protected at rest and in transit. Any
+and all solutions should not detract from this.
+- **Security should make things easier, not harder.** If we do this correctly, the process
+will be streamlined. Team members in general should be able to do their jobs effectively and
+quickly. Security should be so streamlined that the process is not cumbersome, as this tends
+to inspire some team members to try and bypass it.
+
+## Expected challenge areas
+
+We’ve laid out what we want to do, and it was pleasant to discover in quite a few cases
+we are already doing just that. We just lacked either the real-time component or we
+simply had some type of inconvenient workaround to protect data that inhibited team members
+from doing their jobs easily. Based upon that knowledge and what we want to achieve, we’ve
+devised a list of potentially challenging areas we may encounter:
+
+### Our network
+
+We are a company that has no perimeter to speak of, as all team members are
+remote. In a way this is good, since [we don’t have a corporate
+VPN](/handbook/security/#why-we-dont-have-a-corporate-vpn) and therefore don't have to
+face dismantling it. But we do have to ensure that we maintain some semblance of control so we
+are assured that as a team member authenticates, it is done in a safe way and is independent
+of the network they are using.
+
+### Our apps and our data
+
+We use a number of products, including our own DevOps
+offering. While we can control our own product and alter it to better serve our needs
+(and subsequently release said changes to our customers for their own needs), this does not
+address the public cloud offerings our infrastructure is based on and that we use on
+a regular basis: GCP, AWS, Azure, and Digital Ocean. Nor does it consider the variety of
+controls (and their variations) used to administer and secure these platforms. Solutions
+that present themselves as working just fine on one cloud offering may not work the same
+(or at all) on another platform, which causes its own challenges. It also does not address
+additional services such as Slack, Expensify, BambooHR, Zendesk, and others that contain
+data we have to protect. Therefore, we need to extend our protection to cover our
+data no matter where it resides.
+
+### It’s not just us
+
+We sell services to customers including private groups and projects
+on GitLab.com that need protecting from the public and whose access is restricted from
+us on a need-to-know basis.
+
+### Scaling
+
+We’re growing at a rather accelerated rate, in terms of both customers and team
+members. All solutions to problems have to scale, including security solutions such as ZTN.
+
+### Our customers are global
+
+There are contractual obligations, and as well as regulatory
+and compliance issues, across the globe for our customers that need to be observed.
+
+### Our team members are also global
+
+There are unique issues across our diverse team
+member base, residing in more than a quarter of all countries on the planet. Each country has its
+own regulations, standards, and needs.
+
+## Coming next
+
+We think some of these challenge areas might look familiar to many of you, and while we
+hope this post has been useful we're definitely heading into some deep and murky water going forward!
+In the next post, we’ll take a dive into the deep end of this far-from-straightforward issue in to one of the more
+challenging areas: our data and the infrastructure it resides upon.
+
+*Special shout-out to the entire security team for their input on this entire blog series.*
+
+Photo by [beasty](https://unsplash.com/@beastydesign?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

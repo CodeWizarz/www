@@ -1,0 +1,89 @@
+---
+title: "How to prevent crypto mining abuse on GitLab.com SaaS"
+author: GitLab
+author_twitter: gitlab
+categories: news
+#image_title: '/images/blogimages/post-cover-image.jpg'
+description: "GitLab now requires new users to provide a valid credit or debit card in order to use free pipeline minutes on GitLab.com SaaS."
+tags: CI, news, security
+featured: yes
+related_posts:
+- "/blog/2021/04/28/devops-platform-supply-chain-attacks/"
+- "/blog/2021/01/04/how-we-prevented-security-fixes-leaking-into-our-public-repositories/"
+- "/blog/2021/04/30/why-its-crucial-to-break-things-down-into-smallest-iterations/"
+---
+
+**Update: As of 2022-01-13, GitLab no longer requires users created after 2021-05-17 to provide a valid credit or debit card in order to run CI/CD jobs hosted at GitLab, [if those CI/CD jobs are run on namespaces that have purchased CI/CD minutes that have not been used](https://gitlab.com/gitlab-org/gitlab/-/issues/349835).**
+
+**Update: As of 2021-07-17, GitLab has implemented [CI minute quotas](https://docs.gitlab.com/ee/subscriptions/gitlab_com/index.html#ci-pipeline-minutes) for public projects on new namespaces. Existing public projects and namespaces are not impacted.**
+
+**Update: As of 2021-05-24, GitLab will require trial users created on or after 2021-05-17 to provide a valid credit or debit card number in order to use CI jobs hosted at GitLab. Prospective customers that are unable or unwilling to provide a card can reach out to [sales for assistance](https://about.gitlab.com/sales/)** 
+
+Recently, there has been a massive uptick in abuse of free pipeline minutes available on GitLab.com and on
+[other CI/CD providers](https://layerci.com/blog/crypto-miners-are-killing-free-ci/) to mine cryptocurrencies.
+In addition to the cost increases, the abuse creates intermittent performance issues for GitLab.com users
+and requires our teams to work 24/7 to maintain optimal services for our customers and users.
+To discourage and reduce abuse, starting May 17, 2021, GitLab will require new [free users](/pricing/) to provide a valid credit or debit card number in order to use shared runners on GitLab.com. A user will be able to run pipelines without providing a credit or debit card if they use their own runner and disable shared runners.
+Although imperfect, we believe this solution will reduce the abuse.
+
+
+We plan to rollout this change gradually and increase the scope if needed as follows:
+- Start with adding the new requirement for new free users created on or after May 17, 2021.
+- If we continue to see abuse through existing free accounts, we plan to extend the requirement to additional users.
+
+This change does not currently impact any of the following users:
+
+* GitLab self-managed customers and users (free or otherwise)
+* Paid or program users (e.g., [education](/solutions/education/), [open source](https://about.gitlab.com/solutions/open-source/)) on GitLab.com
+* Users created before **May 17, 2021**
+
+When you provide the card, it will not be charged but instead will be verified with a one-dollar authorization transaction.
+No charge will be made and no money will transfer.
+
+A credit or debit card is one (of many) controls we have put in place to reduce abuse of our platform.
+We will never fully solve platform abuse, but the more barriers we put up, the more difficult and expensive it becomes to engage in abuse.
+
+The GitLab team members have already activated and shipped many improvements. These were helpful in deterring abuse, although are not sufficient.
+A sampling of the fixes we have delivered to mitigate pipeline abuse include:
+
+1. Fail creation of jobs when pipeline minutes quota is exceeded.
+1. Fail pipelines after user exceeds pipeline minutes quota.
+1. Adding restrictions to the creation of namespaces via the API.
+1. Enabling the termination of pipelines when blocking a user.
+1. Ensuring pipelines do not run when pipelines are owned by a blocked user.
+1. Closing gaps in jobs running by user accounts deleted by users.
+1. Utilizing and enhancing the [External Pipeline Validation Service](https://docs.gitlab.com/ee/administration/external_pipeline_validation.html) specifically around authentication, payload, and access restriction.
+1. Ensuring scheduled pipelines don't run by blocked users.
+1. Include public projects in pipeline minutes quota for free users. 
+
+As of July 17, 2021 public projects in namespaces created on July 17th or later will be included in [CI pipeline minute usage quotas](https://docs.gitlab.com/ee/subscriptions/gitlab_com/index.html#ci-pipeline-minutes). Once a free user exceeds the 50,000 minute quota on public projects, a failed pipeline will occur and to resume running the user will need to [purchase additional minutes](https://about.gitlab.com/pricing/faq-compute-credit/#purchasing-additional-cicd-minutes). 
+
+We expect to make enhancements to harden our pipeline system against abuse.
+We believe using pipeline minute quotas as the foundation for free minute usage will be the best mechanism for failing jobs and pipelines to stop abuse.
+Including this effort, our other pipeline abuse improvements are below:
+
+1. Expand application limits for preventing abuse of webhooks.
+
+A user impacted by this change has the following options:
+
+* Provide a credit or debit card and use the 400 free minutes with shared runners.
+* A user can also run pipelines without providing a credit or debit card if they use their [own runner](https://docs.gitlab.com/runner/install/index.html)
+  and [disable shared runners](https://docs.gitlab.com/ee/ci/runners/#disable-shared-runners) for their project.
+* Decline to provide the card and continue to use many of the GitLab capabilities for free.
+  In this case, any feature within GitLab that relies on our pipelines won't work, such as:
+  A pipeline ([CI/CD generally](https://docs.gitlab.com/ee/ci/quick_start/index.html)),
+  scheduled pipelines including [on-demand DAST scans](https://docs.gitlab.com/ee/user/application_security/dast/),
+  [defining your own pipelines](https://docs.gitlab.com/ee/ci/quick_start/#create-a-gitlab-ciyml-file),
+  utilizing [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/).
+* Switch to GitLab self-managed
+
+## Validating an account
+
+<!-- blank line -->
+<figure class="video_container">
+    <iframe src="https://www.youtube-nocookie.com/embed/s3G0qxwT11c" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Continue the conversation
+Please share your questions and feedback with us on the [community forum](https://forum.gitlab.com/t/preventing-crypto-mining-abuse-on-gitlab-com-saas/).

@@ -1,0 +1,118 @@
+---
+title: "SourceWarp: Make data-driven, agile DevSecOps decisions"
+author: GitLab Vulnerability Research Team
+guest: true
+author_twitter:
+categories: engineering
+featured: no
+tags: devsecops, CI/CD, security
+description: "How the SourceWarp approach and tool help make informed, agile decisions for CI/CD tools and DevSecOps platforms at GitLab."
+image_title: '/images/blogimages/velocity2.png'
+twitter_text: "How the SourceWarp approach and tool help make informed, agile decisions for CI/CD tools and DevSecOps platforms at @gitlab"
+---
+
+At GitLab, we use different strategies to make assessments about the stability
+or robustness of a feature by means of best practices such as staging
+environments, feature flags, or canary testing. We also use testing
+strategies such as [A/B testing](/handbook/marketing/digital-experience/engineering-ab-tests/)
+to assess how users react to feature variants. 
+
+However, our short release cycles require testing and benchmarking approaches that
+make it possible to prototype, test, and benchmark ideas quickly (ideally while
+developing them). We need an approach that works on large code
+bases, can help assess a feature **before** deployment to staging or
+production, and provides data to support data-driven decision making.
+
+To address this need, we developed the SourceWarp tool: a record-and-replay framework
+for source code management systems. In this blog post, we will explain our motivation
+for creating SourceWarp and explain how we use it to inform data-driven decision making within the GitLab platform.
+
+## Motivation: Data-driven decision making in the DevSecOps context
+
+[DevSecOps](/topics/devsecops/) streamlines software development by allowing teams to ship features quickly
+and providing short feedback cycles for customers. These short feedback cycles can be used to monitor the impact of
+a feature from the time it is shipped and inform developers and product
+managers about the success or failure of a given deployment.
+
+GitLab, as a heterogeneous DevSecOps platform, acts as an integration point for
+different [CI/CD tools](https://docs.gitlab.com/ee/ci/) that often contribute
+to user-facing functionality. For example, the [vulnerability report](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/),
+which displays all detected vulnerabilities, is visible
+as a single functionality, but the data in the report may come from a
+number of different tools in various pipelines. The DevSecOps
+platform collects and stores results in the backend database and keeps track of user actions on the
+findings (through the UI or the API). A large portion of the automation in the platform
+is built around or initiated by code changes where the
+source code management system or Git respoitory basically holds the input data. In
+order to test and benchmark new features for these systems effectively, the
+testing and benchmarking approach needs to have some source code awareness.
+
+We can use SourceWarp to achieve this. Let's dive in to a real-world example
+of how we used SourceWarp to help make an informed decision about a product integration.
+
+## Case study: Advanced vulnerability tracking
+
+As a DevSecOps platform, GitLab provides automation
+centered around code changes, where the source code is stored in a source code
+management system. SourceWarp uses a Git repository as input, which we use to
+source test-input data to test and benchmark our newly developed feature.
+
+In a record phase, SourceWarp extracts commits from the source history that are
+relevant with respect to a given test criterion and generates a patch replay
+sequence. In the monitor phase, SourceWarp replays the generated sequence on a
+target system. These phases are executed while continuously monitoring the
+DevSecOps platform to collect metrics and to generate a report that provides
+the testing and benchmarking results.
+
+We used SourceWarp to test and benchmark [advanced vulnerability tracking](https://docs.gitlab.com/ee/user/application_security/sast/#advanced-vulnerability-tracking),
+which identifies and deduplicates vulnerabilities in a changing code base. In our
+benchmarking and testing experiment, we let SourceWarp automatically sample patch
+sequences from a slice of GitLab's source code repository history (2020-10-31
+and 2020-12-31) and replay them on two target systems: One system had advanced
+vulnerability tracking enabled, and the other one was using our old
+vulnerability tracking approach.
+
+After the application of every patch from the
+patch sequence, SourceWarp collected metrics from the target system that
+recorded the observed vulnerabilities. We observed that our vulnerability
+tracking approach was 30% more effective than traditional
+vulnerability tracking where `<file, line number>` are used to identify the
+location of a vulnerability. This means that advanced vulnerabiilty tracking
+reduces the manual effort of auditing vulnerabilities by 30%.
+
+In addition, we
+observed that with an increasing number of source code changes, the deduplication
+effectiveness of vulnerability tracking increases. Looking at the relatively
+short timeframe from 2020-10-31 to 2020-12-31, the deduplication effectivness
+increased from 11% to 30%, which suggests that the effectiveness increases over
+time as the source code evolves.
+
+SourceWarp performed this experiment in an automated and reproducible way, and
+provided data that was helpful in making an informed decision about the product
+integration of vulnerability tracking. 
+
+## Where to find more SourceWarp information
+
+The SourceWarp approach is detailed in our research paper, "[SourceWarp](/resources/downloads/research-paper-ast2023-sourcewarp.pdf): A scalable, SCM-driven testing and benchmarking approach to support data-driven and agile decision making for CI/CD tools and DevSecOps platforms," which will be presented at the 4th ACM/IEEE International Conference on Automation of Software Test ([AST 2023](https://conf.researchr.org/home/ast-2023)). 
+
+The [SourceWarp testing and benchmarking tool](https://gitlab.com/gitlab-org/vulnerability-research/foss/sourcewarp) is implemented in Ruby and is open source (MIT license).
+The `README.md` provides information about the tool setup and implementation.
+You can also see it in action in the demo below.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/-9lk_Jhuq14" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+
+## Useful Links
+
+- [Vulnerability Research Team](/handbook/engineering/development/sec/secure/vulnerability-research/)
+- [SourceWarp tool](https://gitlab.com/gitlab-org/vulnerability-research/foss/sourcewarp)
+- [Recorded Demo](https://www.youtube.com/watch?v=-9lk_Jhuq14)
+- [AST 2023](https://conf.researchr.org/home/ast-2023)
+- [Research Paper](/resources/downloads/research-paper-ast2023-sourcewarp.pdf)
+
+Cover image by [Jason Corey](https://unsplash.com/@jason_corey_) on [Unsplash](https://unsplash.com/photos/AT5vuPoi8vc)
+{: .note}

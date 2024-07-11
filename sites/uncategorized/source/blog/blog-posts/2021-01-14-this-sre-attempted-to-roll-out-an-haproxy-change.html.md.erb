@@ -1,0 +1,262 @@
+---
+title: "This SRE attempted to roll out an HAProxy config change. You won't believe what happened next... "
+author: Igor Wiedler
+author_gitlab: igorwwwwwwwwwwwwwwwwwwww
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/infra-proxy-protocol-wireshark-header.png'
+description: "This post is about a wild discovery made while investigating strange behavior from HAProxy. We dive into the pathology, describe how we found it, and share some investigative techniques used along the way."
+tags: production, inside GitLab
+related_posts:
+  - "/blog/2021/02/03/how-we-automatically-fixed-hundreds-of-ruby-2-7-deprecation-warnings/"
+  - "/blog/2021/01/27/we-need-to-talk-no-proxy/"
+  - "/blog/2021/01/21/high-availability-git-storage-with-praefect/"
+merch_banner: merch_eight
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2021-02-12.
+{: .note .alert-info .text-center}
+
+## TL;DR
+
+- HAProxy has a `server-state-file` directive that persists some of its state across restarts.
+- This state file contains the port of each backend server.
+- If an `haproxy.cfg` change modifies the port, the new port will be overwritten with the previous one from the state file.
+- A workaround is to change the backend server name, so that it is considered to be a separate server that does not match what is in the state file.
+- This has implications for the rollout procedure we use on HAProxy.
+
+## Background
+
+All of this occurred in the context of [the gitlab-pages PROXYv2
+project](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/11902).
+
+The rollout to staging involves changing the request flow from TCP proxying...
+```
+                   443                   443                        1443
+[ client ] -> [ google lb ] -> [ fe-pages-01-lb-gstg ] -> [ web-pages-01-sv-gstg ]
+      tcp,tls,http         tcp                        tcp            tcp,tls,http
+```
+
+... to using the [PROXY protocol](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt):
+```
+                   443                   443                        2443
+[ client ] -> [ google lb ] -> [ fe-pages-01-lb-gstg ] -> [ web-pages-01-sv-gstg ]
+      tcp,tls,http         tcp                     proxyv2,tcp       proxyv2,tcp,tls,http
+```
+
+This is done through this change to `/etc/haproxy/haproxy.cfg` on
+`fe-pages-01-lb-gstg` (note the port change):
+```diff
+-    server web-pages-01-sv-gstg web-pages-01-sv-gstg.c.gitlab-staging-1.internal:1443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080
+-    server web-pages-02-sv-gstg web-pages-02-sv-gstg.c.gitlab-staging-1.internal:1443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080
++    server web-pages-01-sv-gstg web-pages-01-sv-gstg.c.gitlab-staging-1.internal:2443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080 send-proxy-v2
++    server web-pages-02-sv-gstg web-pages-02-sv-gstg.c.gitlab-staging-1.internal:2443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080 send-proxy-v2
+```
+
+Seems straightforward enough, let's go ahead and apply that change.
+
+## The brokenness
+
+After applying this change on one of the two `fe-pages` nodes, the requests to
+that node start failing.
+
+By retrying a few times via `curl` on the command line, we see this error:
+```
+➜  ~ curl -vvv https://jarv.staging.gitlab.io/pages-test/
+*   Trying 35.229.69.78...
+* TCP_NODELAY set
+* Connected to jarv.staging.gitlab.io (35.229.69.78) port 443 (#0)
+* ALPN, offering h2
+* ALPN, offering http/1.1
+* successfully set certificate verify locations:
+*   CAfile: /etc/ssl/cert.pem
+  CApath: none
+* TLSv1.2 (OUT), TLS handshake, Client hello (1):
+* LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to jarv.staging.gitlab.io:443
+* Closing connection 0
+curl: (35) LibreSSL SSL_connect: SSL_ERROR_SYSCALL in connection to jarv.staging.gitlab.io:443
+```
+
+This looks like some issue in the TLS stack, or possibly with the underlying
+connection. It turns out that `LibreSSL` does not give us much insight into the
+underlying issue here.
+
+So to get a better idea, let's capture a traffic dump on the HAProxy node:
+```
+sudo tcpdump -v -w "$(pwd)/$(hostname).$(date +%Y%m%d_%H%M%S).pcap"
+```
+
+While `tcpdump` is running, we can generate some traffic, then ctrl+c and pull
+the dump down for further analysis. That `pcap` file can be opened in Wireshark, and this allows the data to be
+explored and filtered interactively. Here, the first really surprising thing happens:
+
+**We do not see any traffic on port 2443.**
+
+At the same time, we _do_ see some traffic on port 1443. But we came here to look at what underlies the LibreSSL error, and what we find
+is the following (by filtering for `ip.addr == <my external ip>`). We have a TCP SYN/ACK, establishing the connection. Followed by the client
+sending a TLS "hello". After which the server closes the connection with a FIN.
+
+In other words, the server is closing the connection on the client.
+
+## The early hypotheses
+
+So here come the usual suspects:
+
+* Did we modify the correct place in the config file?
+* Did we catch all places we need to update in the config?
+* Did the HAProxy process parse th econfig successfully?
+* Did HAProxy actually reload?
+* Is there a difference between reload and restart?
+* Did we modify the correct config file?
+* Are there old lingering HAProxy processes on the box?
+* Are we actually sending traffic to this node?
+* Are backend health checks failing?
+* Is there anything in the HAProxy logs?
+
+None of these gave any insights whatsoever.
+
+In an effort to reproduce the issue, I ran HAProxy on my local machine with a
+similar config, proxying traffic to `web-pages-01-sv-gstg`. To my surprise, this
+worked correctly. I tested with different HAProxy versions. It worked locally, but not on
+`fe-pages-01`.
+
+At this point I'm stumped. The local config is not identical to gstg, but quite
+similar. What could possibly be the difference?
+
+## Digging deeper
+
+This is when I reached out to [Matt Smiley](/company/team#/msmiley) to help with the investigation.
+
+We started off by repeating the experiment. We saw the same results:
+
+* Server closes connection after client sends TLS hello
+* No traffic from fe-pages to web-pages on port 2443
+* Traffic from fe-pages to web-pages on port 1443
+
+The first lead was to look at the packets going to port 1443. What do they
+contain? We see this:
+
+![Traffic capture in wireshark showing a TCP FIN and the string QUIT in the stream](/images/blogimages/infra-proxy-protocol-wireshark.png){: .shadow.center}
+Traffic capture in Wireshark showing a TCP FIN and the string QUIT in the stream
+{: .note.text-center}
+
+There is mention of `jarv.staging.gitlab.io` which does match what the client sent. And before that there is some really weird preamble:
+
+```
+"\r\n\r\n\0\r\nQUIT\n"
+```
+
+What on earth is this? Is it from the PROXY protocol? Let's search [the
+spec](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for the word
+"QUIT." Nothing.
+
+Is this something in the HAProxy source? Searching for "QUIT" in the code
+reveals some hits, but none that explain this.
+
+So this is a mystery. We leave it for now, and probe in a different direction.
+
+## Honing in
+
+How come we are sending traffic to port 1443, when that port is not mentioned in
+`haproxy.cfg`? Where on earth is HAProxy getting that information from?
+
+I suggested running `strace` on HAProxy startup, so that we can see which files
+are being `open`ed. This is a bit tricky to do though, because the process is
+systemd-managed.
+
+It turns out that thanks to BPF and [BCC](https://github.com/iovisor/bcc), we
+can actually listen on open events system-wide using the wonderful
+[opensnoop](https://github.com/iovisor/bcc/blob/master/tools/opensnoop.py). So we run `opensnoop` and restart `haproxy`, and this is what we see, highlighting the relevant bit:
+```
+iwiedler@fe-pages-01-lb-gstg.c.gitlab-staging-1.internal:~$ sudo /usr/share/bcc/tools/opensnoop  -T --name haproxy
+
+...
+
+24.117171000  16702  haproxy             3   0 /etc/haproxy/haproxy.cfg
+...
+24.118099000  16702  haproxy             4   0 /etc/haproxy/errors/400.http
+...
+24.118333000  16702  haproxy             4   0 /etc/haproxy/cloudflare_ips_v4.lst
+...
+24.119109000  16702  haproxy             3   0 /etc/haproxy/state/global
+```
+
+What do we have here? `/etc/haproxy/state/global`, this seems oddly suspicious.
+What could it possibly be? Let's see what this file contains.
+```
+iwiedler@fe-pages-01-lb-gstg.c.gitlab-staging-1.internal:~$ sudo cat /etc/haproxy/state/global
+
+1
+# be_id be_name srv_id srv_name srv_addr srv_op_state srv_admin_state srv_uweight srv_iweight srv_time_since_last_change srv_check_status srv_check_result srv_check_health srv_check_state srv_agent_state bk_f_forced_id srv_f_forced_id srv_fqdn srv_port srvrecord
+5 pages_http 1 web-pages-01-sv-gstg 10.224.26.2 2 0 1 1 21134 15 3 4 6 0 0 0 web-pages-01-sv-gstg.c.gitlab-staging-1.internal 1080 -
+5 pages_http 2 web-pages-02-sv-gstg 10.224.26.3 2 0 1 1 20994 15 3 4 6 0 0 0 web-pages-02-sv-gstg.c.gitlab-staging-1.internal 1080 -
+6 pages_https 1 web-pages-01-sv-gstg 10.224.26.2 2 0 1 1 21134 15 3 4 6 0 0 0 web-pages-01-sv-gstg.c.gitlab-staging-1.internal 1443 -
+6 pages_https 2 web-pages-02-sv-gstg 10.224.26.3 2 0 1 1 20994 15 3 4 6 0 0 0 web-pages-02-sv-gstg.c.gitlab-staging-1.internal 1443 -
+```
+
+It appears we are storing some metadata for each backend server, including its old port number!
+
+Now, looking again in `haproxy.cfg`, we see:
+```
+global
+    ...
+    server-state-file /etc/haproxy/state/global
+```
+
+So we are using the
+[`server-state-file`](https://cbonte.github.io/haproxy-dconv/1.8/configuration.html#server-state-file)
+directive. This will persist server state across HAProxy restarts. That is
+useful to keep metadata consistent, such as whether a server was marked as
+MAINT.
+
+**However, it appears to be clobbering the port from `haproxy.cfg`!**
+
+The suspected behavior is:
+
+* HAProxy is running with the old config: `web-pages-01-sv-gstg`, `1443`
+* `haproxy.cfg` is updated with the new config: `web-pages-01-sv-gstg`, `2443`, `send-proxy-v2`
+* HAProxy reload is initiated
+* HAProxy writes out the state to `/etc/haproxy/state/global` (including the old port of each backend server)
+* HAProxy starts up, reads `haproxy.cfg`, initializes itself with the new config: `web-pages-01-sv-gstg`, `2443`, `send-proxy-v2`
+* HAProxy reads the state from `/etc/haproxy/state/global`, matches on the backend server `web-pages-01-sv-gstg`, and overrides all values, including the port!
+
+The result is that we are now attempting to send PROXYv2 traffic to the TLS port.
+
+## The workaround
+
+To validate the theory and develop a potential workaround, we modify
+`haproxy.cfg` to use a different backend server name.
+
+The new diff is:
+```diff
+-    server web-pages-01-sv-gstg         web-pages-01-sv-gstg.c.gitlab-staging-1.internal:1443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080
+-    server web-pages-02-sv-gstg         web-pages-02-sv-gstg.c.gitlab-staging-1.internal:1443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080
++    server web-pages-01-sv-gstg-proxyv2 web-pages-01-sv-gstg.c.gitlab-staging-1.internal:2443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080 send-proxy-v2
++    server web-pages-02-sv-gstg-proxyv2 web-pages-02-sv-gstg.c.gitlab-staging-1.internal:2443 check inter 3s fastinter 1s downinter 5s fall 3 port 1080 send-proxy-v2
+```
+
+With this config change in place, we reload HAProxy and indeed, it is now
+serving traffic correctly. See [the merge request fixing it](https://gitlab.com/gitlab-cookbooks/gitlab-haproxy/-/merge_requests/261).
+
+## A follow-up on those `QUIT` bytes
+
+Now, what is up with that `QUIT` message? Is it part of the PROXY protocol? Remember, searching [the
+spec](https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt) for that
+string did not find any matches. However, Matt actually read the spec, and found this section on version 2 of
+the protocol:
+```
+The binary header format starts with a constant 12 bytes block containing the
+protocol signature :
+
+   \x0D \x0A \x0D \x0A \x00 \x0D \x0A \x51 \x55 \x49 \x54 \x0A
+```
+
+Those are indeed the bytes that make up "\r\n\r\n\0\r\nQUIT\n". Slightly less mnemonic than the header from text-based version 1 of the protocol:
+```
+- a string identifying the protocol : "PROXY" ( \x50 \x52 \x4F \x58 \x59 )
+  Seeing this string indicates that this is version 1 of the protocol.
+```
+
+Well, I suppose that explains it.
+
+I believe our work here is done. Don't forget to like and subscribe!

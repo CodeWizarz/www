@@ -1,0 +1,252 @@
+---
+title: "How we upgraded PostgreSQL at GitLab.com"
+author: Jose Finotto
+author_gitlab: finotto
+author_twitter: jfinotto
+categories: engineering
+image_title: "/images/blogimages/pg-gear.jpg"
+description: "We explain the precise maintenance process to execute a major version upgrade of PostgreSQL."
+tags: production
+cta_button_text: 'Watch the PostgreSQL upgrade video!'
+cta_button_link: 'https://youtu.be/TKODwTtKWew'
+guest: Sergio Ostapowicz and Alvaro Hernandez from OnGres
+ee_cta: false
+install_cta: false
+twitter_text: "How @gitlab conducted a major version upgrade of PostgreSQL"
+featured: no
+postType: content marketing
+merch_banner: merch_eight
+related_posts:
+  - "/blog/2018/10/11/gitlab-com-stability-post-gcp-migration/"
+  - "/blog/2020/09/16/year-of-kubernetes/"
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+---
+
+We teamed up with [OnGres](https://ongres.com/) to [perform a major version upgrade of GitLab.com's main Postgres cluster from version 9.6 to 11](https://status.gitlab.com/pages/maintenance/5b36dc6502d06804c08349f7/5ea322c1d1097004ba30d227) back in May 2020. We upgraded it during a maintenance window, and it all went according to plan. We unpack all that was involved – from planning, testing, and full process automation – to achieve a near-perfect execution of the PostgreSQL upgrade. The full operation was recorded and you can [watch it on GitLab Unfiltered](https://youtu.be/TKODwTtKWew).
+
+The biggest challenge was to do a complete fleet major upgrade through an orchestrated [pg_upgrade](https://www.postgresql.org/docs/11/pgupgrade.html). We needed to have a rollback plan to optimize our capacity right after [Recovery Time Objective (RTO)](https://en.wikipedia.org/wiki/Disaster_recovery) while maintaining a 12-node cluster’s 6TB-data consistent serving 300.000 aggregated transactions per second from around six million users.
+
+The best way to resolve an engineering challenge is to follow the blueprints and design docs. In the process of creating the blueprint, you define the problem that we are attempting to solve, evaluate the most suitable solutions, and consider the pros and cons of each solution. Here is a [link](https://gitlab.com/gitlab-com/gl-infra/readiness/-/tree/master/library/database/postgres/Postgresql-upgrade/blueprint/) to the blueprint from the project.
+
+After the blueprint comes the design process. The implementation is detailed in the design process, where we explain the steps and requirements involved in executing the design. The design doc from the project is [linked here](https://gitlab.com/gitlab-com/gl-infra/readiness/-/tree/master/library/database/postgres/Postgresql-upgrade/design).
+
+## Why we upgraded PostgreSQL
+
+We made a business decision in GitLab 13.0 to discontinue support for Postgresql 10.0. PostgreSQL version 9.6 is becoming EOL in November 2021, so we needed to take action.
+
+Here are some of the main differences in features [between PostgreSQL versions 9.6 and 11](https://why-upgrade.depesz.com/show?from=9.6.18&to=11.7&keywords=):
+
+ * Native table partitioning, supporting LIST, RANGE, and HASH.
+ * Transaction supporting in stored procedures.
+ * [Just-in-time (JIT) compilation](https://www.postgresql.org/about/news/1894/) for accelerating the execution of expressions in queries.
+ * Query parallelism improvements and adds parallelized data definition capabilities.
+ * The new PostgreSQL version comes with the "[Logical Replication - A publish/subscribe framework for distributing data](https://www.postgresql.org/about/news/1786/)" that was introduced in version 10. This feature enables smoother future upgrades and simplifies other relevant processes.
+ * Quorum-based commit that would ensure our transactions are committed in the specified nodes from the cluster.
+ * Improved performance for queries over partitioned tables
+
+## The environment and architecture
+
+The infrastructure capacity of the PostgreSQL cluster consisted of 12 n1-highmem-96 GCP instances for OLTP and asynchronous pipelines purposes – plus two BI nodes within different specs, each one with 96 CPU cores and 614GB RAM. The cluster HA is managed and configured through [Patroni](https://github.com/zalando/patroni), which keeps a consistent leader election through a Consul cluster and all its replicas working with asynchronous streaming replication using replication slots and WAL shipping against a GCS storage bucket.
+Our setup currently uses Patroni HA solution, which constantly gathers critical information about the cluster, leader detection, and node availability. It is implemented using key features from Consul, such as DNS service, which in turn updates PgBouncer endpoints, keeping a different architecture for traffic read-write and read-only.
+
+![GitLab.com Architecture{: .note.text-center}](/images/blogimages/pg-up-arch.png)
+[GitLab.com architecture](/handbook/engineering/infrastructure/production/architecture/#database-architecture)
+{: .note.text-center}
+
+For HA purposes, two of the replicas are out of the read-only server list pool, used by the API, and served by Consul DNS. After several enhancements to Gitlab's architecture, we were able to downscale the fleet to seven nodes.
+
+Furthermore, the entire cluster handles a weekly average of approximately 181,000 transactions per second. As the image below indicates, the traffic increases on Monday and maintains the throughput during the week right up to Friday/Saturday. The traffic data was critical to set up a proper maintenance window so we can impact the fewest users.
+
+![GitLab.com Connection Numbers](/images/blogimages/pg-up-prom1.png)
+Number of connections at GitLab.com
+{: .note.text-center}
+
+The fleet is reaching 250,000 transactions per second in the busiest hours of the day.
+
+![GitLab.com Commits](/images/blogimages/pg-up-prom2.png)
+The number of commits at GitLab.com.
+{: .note.text-center}
+
+It is also handling spikes of 300,000 transactions per second. GitLab.com is reaching 60,000 connections per second.
+
+## Our upgrade requirements
+
+We established a number of requirements before proceeding with the upgrade at production.
+
+ * No regressions should be on PostgreSQL 11. We developed a custom benchmark to perform extensive regression testing. The goal was to identify potential query performance degradation in PostgreSQL 11.
+ * The upgrade should be done across the whole fleet within the maintenance window.
+ * Use pg_upgrade which relies on physical, and not logical, replication.
+ * Keep a 9.6 cluster sample: Not all the nodes should be upgraded, a few of them should be left in 9.6 as a rollback procedure.
+ * The upgrade should be fully automated to reduce the chance of any human error.
+ * Only 30 minutes of maintenance threshold time for all the database upgrades.
+ * The upgrade will be recorded and published.
+
+## The project
+
+To accomplish a smooth execution in production, the project had the following phases:
+
+### Phase one: Develop automation in a isolated environment
+
+* Develop the [ansible-playbook](https://gitlab.com/gitlab-com/gl-infra/db-migration/-/tree/master/pg-upgrade) and test on a PostgreSQL environment (created using a back-up from staging) for these tests.
+* We used a separate environment to have the freedom to stop, initiate or restore the backup at any time, to focus on the development, and be able to restore an environment shortly before the upgrade.
+* We used a backup from staging to get the upgrade project in contact with the environment, where we faced some challenges such as migrating the procedures that are different for monitoring in our database.
+
+### Phase two: Integrate development with our configuration management in staging
+
+* Integrate with our configuration management in Chef, and execute a snapshot from the database disk that could be used in a restore scenario.
+* We told our customers that we would schedule a maintenance window with the goals of having the least impact possible on their work and to execute a safe upgrade without any risk of data loss.
+* After iterating and testing the integration to our configuration management we started to execute end-to-end tests in staging. Those tests were announced internally, so the other teams that share this environment would know that staging would be unavailable for a period of time.
+
+### Phase three: Test the upgrade end-to-end in staging
+
+ * Pre-flight checks on the environment. We sometimes found problems with credentials or made tiny adjustments to improve the efficiency of our tests.
+ * Stop all the applications and traffic to GitLab.com, add a maintenance mode in CloudFlare and HA-proxy, and stop all the applications that accessed the database, sidekiq, workhorse, WEB-API, etc.
+ * Upgrade three nodes from the six node cluster. We had a similar strategy in production with a rollback scenario in mind.
+ * Execute the ansible-playbook for the PostgreSQL upgrade, first on the leader database node, and after on the secondaries nodes.
+ * Regarding post upgrade: We executed some automated tests in our ansible-playbook, checking that the replication and data were consistent.
+ * Next, we started the applications to enable our QA team to execute several tests suites. They executed local unit tests on the upgraded database. We investigated negative results.
+ * Once we finished the test we stopped the applications again to restore the staging cluster to version 9.6 and shut down the upgraded nodes to version 11, and started the old cluster. Where Patroni will promote one of the nodes, start the applications and the cluster could receive the traffic back. We restored the Chef configuration to the cluster 9.6 and rebuilt those databases to have six nodes ready for the next test.
+
+We executed seven tests in staging in total, iterating to perfect the team's execution.
+
+### Phase four: Upgrade in production
+
+In production, the steps were very similar to staging, and our plan was to have eight nodes migrated and four left behind as a backup:
+
+ * Execute the pre-checks for the project.
+ * Announce the start of the maintenance.
+ * Execute the ansible-playbook to stop the traffic and application.
+ * Execute the ansible-playbook to carry out the PostgreSQL upgrade.
+ * Start the validation tests and restore the traffic. We performed the minimum amount of tests required, so we could fit everything in the narrow maintenance window.
+
+The rollback plan would only be called in case of any problems with the database consistency, or errors in the QA test. The steps included:
+
+ * Stop the cluster with PostgreSQL 11.
+ * Restore the configuration in Chef to PostgreSQL 9.6.
+ * Initialize the cluster with the four nodes in version 9.6. With these four nodes, we could restore the activity for GitLab.com when traffic was quieter.
+ * Start receiving traffic – with this approach we could minimize downtime.
+ * Recreate the other nodes using disk snapshot image that were taken during the maintenance and before the upgrade.
+
+All the steps of the upgrade are detailed in the template used to execute the project.
+
+## How pg_upgrade works
+
+The [pg_upgrade](https://www.postgresql.org/docs/11/pgupgrade.html) process allows us to upgrade data files from PostgreSQL to a later PostgreSQL major version, without using a dump/reload strategy which would require more downtime.
+
+As explained in the [official PostgreSQL documentation](https://www.postgresql.org/docs/11/pgupgrade.html), the pg_upgrade tool avoids performing the dump/restore method to upgrade the PostgreSQL version. There are some important details to review before proceeding with this tool. Major PostgreSQL releases add new features that often change the layout of the system tables, but the internal data storage format rarely changes. If a major release changes the data storage format, pg_upgrade could not be used, so we must verify what changes were included between the major versions.
+
+It is important that any external modules are also binary-compatible, though this cannot be checked by pg_upgrade. For the GitLab upgrade, we uninstalled views/extensions such as [postgres_exporter](https://github.com/wrouesnel/postgres_exporter) before the upgrade, to recreate them after the upgrade (with slight modifications for compatibility reasons).
+
+Before performing the upgrade, the new version binaries have to be installed. The new binaries from PostgreSQL and extensions were installed in the set of hosts, that were listed to be upgraded.
+
+There are some options when using pg_upgrade. We chose to use pg_upgrade's link mode on the Leader node because of our narrow, two-hour maintenance window. This method avoids copying the 6TB data files by hard linking files through [inode](https://en.wikipedia.org/wiki/Inode). The drawback is the old data cluster could not be rolled back to 9.6. We provided a rollback path via the replicas kept in 9.6 and GCP snapshots as a secondary choice.
+Rebuilding the replicas from scratch was not an option either so we used rsync to upgrade them using incremental features. pg_upgrade's documentation says: "From a directory on the primary server that is above the old and new database cluster directories, run this on the primary for each standby server".
+
+The ansible-playbook implemented this step by having a task from the leader node to each replica, triggering the rsync command from the parent directory of both new and old datadirs.
+
+## Regression testing benchmarks
+
+Any migration or database upgrade requires a regression test before performing the final production upgrade. For the team, the database test was a key step in this process, executing performance tests based on the query load from production, captured in the table pg_stat_statements. These were executed in the same dataset - once for the 9.6 version and another iteration for version 11. The process was captured in the following public issues:
+
+ * [Preparing the tool](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/7817)
+ * [Creating the test environment](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/9177)
+ * [Capacity planning](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/9094)
+ * [Run the benchmark with JMeter tool](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/9545)
+
+Finally, based on OnGres work on this benchmark, GitLab will be following up with a new benchmark test for the future:
+
+ * [Capacity assessment for our main production DB cluster](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/10258)
+ * [Database capacity and saturation analysis](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/10340)
+
+### The upgrade process: automate everything
+
+During the upgrade project, the upgrade teams have a strong commitment to Infrastructure as Code (IaC) and automation: All the processes had to be fully automated in order to keep any human error to a minimum during the maintenance window. All the steps for pg_upgrade execution are detailed at this [Gitlab pg_upgrade template issue](https://gitlab.com/gitlab-com/gl-infra/db-migration/-/blob/master/.gitlab/issue_templates/pg_upgrade.md).
+
+The GitLab.com environment is managed by Terraform and Chef. All the automation for the upgrade was scripted via Ansible 2.9 playbooks and roles, where we used two ansible-playbooks to automate the upgrade:
+
+One [ansible-playbook](https://gitlab.com/gitlab-com/gl-infra/ansible-migrations/-/tree/master/maintenance-mode) controlled the traffic and the applications:
+
+ * Put Cloudflare in maintenance and do not receive traffic.
+ * Stop HA-proxy
+ * Stop the middleware that accesses the database:
+   * Sidekiq
+   * Workhorse
+   * WEB-API
+
+The second [ansible-playbook](https://gitlab.com/gitlab-com/gl-infra/db-migration/-/tree/master/pg-upgrade) executed the upgrade process:
+
+ * Orchestrate all the database and pools traffic
+ * Control Patroni cluster and Consul instances
+ * Execute the upgrade on the primary and secondary nodes
+ * Collect statistics after the upgrade
+ * Synchronize the changes using Chef to keep the integrity with our configuration management
+ * Verify the integrity and status of the cluster
+ * Execute a GCP snapshot
+ * Possible rollback process
+
+The playbook was run interactively task by task, providing the operator with the ability to skip or pause in any given execution point. Every step was reviewed by all the teams that participated in the tests and iterations in staging for the upgrade.
+The staging environment allowed us to rehearse and find issues using the same procedure that we planned to use in production. After executing and iterating the automated process in staging we reached a quasi-flawless upgrade of PostgreSQL 9.6 to version 11.
+
+To complete the release, the QA GitLab team reported errors that happened on some of the tests. Find the reference for this work in [this issue note](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/106#note_332170837).
+
+### Pre-upgrade steps of the PostgreSQL
+
+The first part of the process was the "pre-upgrade" section, which deals with the instances reserved for rollback purposes. We did the corresponding analysis to ensure that the new cluster could start with eight out of 12 instances of the fleet without losing throughput, reserving four instances for a potential rollback scenario - where they could be brought as a 9.6 cluster via standard Patroni cluster synchronization.
+
+It was necessary also in this phase to stop Postgres-dependent services, such as PgBouncer, Chef Client, and Patroni services.
+
+Before proceeding with the upgrade itself, Patroni had to be signaled to avoid any spurious leader election, take a consistent backup through GCP Snapshots (using corresponding [low-level backup API](https://www.cybertec-postgresql.com/en/exclusive-backup-deprecated-what-now/?gclid=CjwKCAjwltH3BRB6EiwAhj0IUBjiSxBdmS11SUpITLCmk-oPkBa7udOWyA6bK6hig8neaiJc8n1WexoCq8UQAvD_BwE)) and apply the new settings via Chef run.
+
+### The upgrade phase of the PostgreSQL
+
+First, we stopped all the nodes.
+
+We executed these checks:
+
+* pg_upgrade's version check
+* Verify that all the nodes were synchronized and not receiving any traffic.
+
+Once the primary node data was upgraded, an rsync process was triggered for syncing the data with the replicas. After the upgrade was done, the Patroni service was started up and all the replicas caught up easily with the new cluster configuration.
+
+The binaries were installed by Chef and the setup of the new cluster on the version was defined in the same MR that would install the extensions used in the database, from GitLab.com.
+
+The last stage involved resuming the traffic, running an earlier vacuum and finally starting the PgBouncer and Chef Client services.
+
+### The migration day
+
+Finally, fully prepared to perform the production upgrade, the team met on that Sunday (night time for some, and early morning for others) at 08:45 AM UTC. The service would be down for a max of two hours. When the last announcements were sent, the enginering team was given permission to start the procedure.
+
+The upgrade process began by stopping the traffic and related services, to avoid users getting into the site.
+
+The graph below shows the traffic and HTTP stats of the service before the upgrade, during the maintenance period (the "gap" in the graphs) and after, when the traffic was resumed.
+
+![GitLab.com Commits](/images/blogimages/pg-up-traf.png)
+Graphs of the traffic on GitLab.com before and after the upgrade maintenance.
+{: .note.text-center}
+
+The total elapsed time to do the entire job was four hours, it only required [two hours of downtime](https://status.gitlab.com/pages/maintenance/5b36dc6502d06804c08349f7/5ea322c1d1097004ba30d227).
+
+## It's on video
+
+We recorded the full PostgreSQL upgrade and posted it to GitLab Unfiltered. Warm up the popcorn 🍿
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/TKODwTtKWew" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+
+Thanks to [Alvaro Hernandez](https://twitter.com/ahachete) and [Sergio Ostapowicz](https://twitter.com/Cepxio_OS) for co-authoring this blog post, as well as the [OnGres team](https://ongres.com) for their contributions and performing the upgrade with the GitLab team.
+
+## References
+
+The issues used to coordinate this project are public:
+
+* [Upgrade Postgresql to version 11.7 on GitLab.com](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/106)
+* [Execute PostgreSQL upgrade on staging](https://gitlab.com/gitlab-com/gl-infra/infrastructure/-/issues/9592)
+* [OnGres Inc on Twitter](https://twitter.com/ongresinc/status/1259441563614273537)
+* [Scheduled maintenance at GitLab.com](https://status.gitlab.com/pages/maintenance/5b36dc6502d06804c08349f7/5ea322c1d1097004ba30d227)
+
+Cover image by [Tim Mossholder](https://unsplash.com/@timmossholder) on [Unsplash](https://unsplash.com/photos/GmvH5v9l3K4)
+{: .note}

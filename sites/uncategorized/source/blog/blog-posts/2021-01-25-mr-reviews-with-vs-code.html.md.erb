@@ -1,0 +1,68 @@
+---
+title: "How to do GitLab merge request reviews in VS Code"
+author: Tomas Vik
+author_gitlab: viktomas
+author_twitter: viktomas_com
+categories: engineering
+image_title: '/images/blogimages/mr-reviews-with-vs-code/cover.jpg'
+description: "Code review is critical to modern software development. We're making it easier by bringing merge request reviews right into VS Code."
+tags: code review, integrations, tutorial
+ee_cta: false
+postType: content marketing
+twitter_text: "How to do @GitLab merge request reviews in @code"
+related_posts:
+  - "/blog/2018/03/01/gitlab-vscode-extension/"
+  - "/blog/2020/07/31/use-gitlab-with-vscode/"
+  - "/blog/2020/11/30/vscode-extension-development-with-gitlab/"
+merch_banner: merch_seven
+---
+
+This post will give you an idea of how VS Code can aid your code review process. You'll get an overview of the features that GitLab VS Code Extension currently supports, as well as what we plan to introduce in the future.
+
+Reviewing merge requests is a core part of GitLab: both the product (since [version 2.0.0](https://gitlab.com/gitlab-org/gitlab/blob/6a3621202e3f7274150862198f59d2579c326650/changelogs/archive.md#L7222), released in 2011) and the company. We recognize that certain review tasks are hard to do just by looking at the diff, and we strive to make them easier. One such task might be looking in the codebase for duplicated code or examples of a particular coding style.
+
+We decided to aid code reviewers in two ways:
+
+## First way: The GitLab Web IDE
+
+First, we introduced the [Web IDE](/blog/2018/06/15/introducing-gitlab-s-integrated-development-environment/), which helps our users work [with the codebase in the browser](/direction/create/ide/web_ide/#overview). You can quickly open multiple files, make changes, and commit them. The Web IDE is handy when you need to make a small change, or you don't have the project cloned locally.
+
+The second way is more recent. We always wanted to bring the code review experience closer to code editors, where developers spend a large portion of their time. But the editor market is very fragmented (you find out the hard way if Emacs and Vim users meet at a party). And it isn't feasible to build GitLab support into all major editors (however, there are plenty of editor plugins maintained by the community[^1]). 
+
+## Second way: Bringing code reviews into the editor
+
+Recently, as [VS Code gained a significant user share](https://insights.stackoverflow.com/survey/2019#development-environments-and-tools), it started to make sense to [commit to maintaining the GitLab VS Code extension](/blog/2020/07/31/use-gitlab-with-vscode/), which was started as a community project by one, at the time, GitLab employee: [Fatih](https://gitlab.com/fatihacet). After an initial housekeeping period, we started chipping away tasks that will ultimately bring the code review experience into the editor.
+
+In my previous post I talked about the great [VS Code Extension API](/blog/2020/11/30/vscode-extension-development-with-gitlab/). This API gives extensions almost full control over the editor. When the API introduced commenting functionality two years ago, extensions could start contributing comments to the editor windows. These comments are shown similarly as comments on a Google Doc. Being able to natively show comments is perfect for reviewing code changes in the editor and other extensions that provide code reviews are already using this commenting API[^2].
+
+![Merge request review in VS Code](/images/blogimages/mr-reviews-with-vs-code/full-mr-review-screen.png){: .shadow.medium.center}
+Merge request review in VS Code
+{: .note .text-center}
+
+Over the last few milestones, we started showing MR changes in VS Code and even showing discussions on these. This means that you can open an MR in your editor and read through the code and comments without switching windows and context. I find this really useful because I can still interact with my editor the way I'm used to, even as I'm reviewing MRs. I can use full-text search to find if the MR duplicates existing code or I can open a different test file and compare whether the code style matches.
+
+Currently, the interaction with MR is mostly read-only. That means you can see the changes and discussions, but you can't add or change comments, yet[^3]. But even in this current form, you can benefit from having the VS Code functionality so close to your review, especially for the initial understanding of the change.
+
+![VS Code supports Markdown in the comments](/images/blogimages/mr-reviews-with-vs-code/mr-review-long-comment.png){: .shadow.medium.center}
+VS Code supports Markdown in the comments
+{: .note .text-center}
+
+## What's next
+
+Over the next few milestones, we plan to make the commenting as interactive as you know it from the GitLab web interface. We'll start with editing existing comments, adding emoji reactions and resolving discussion threads. Lastly, we'll implement the full review functionality with creating comments and reviews[^4]. Each [iteration](/handbook/values/#iteration) will make the feature a bit more useful.
+
+I'm excited about the potential to stay in my editor for both creating and reviewing merge requests. I'm already using the current merge request review feature to get the initial understanding of what the MR tries to achieve. I can explore the related code more quickly in my editor. If you'd like to help us build the code review feature or just look at the current state of development, visit the [Merge Request Review epic](https://gitlab.com/groups/gitlab-org/-/epics/4607).
+
+You can check out a walkthrough our initial proof of concept of merge request reviews in VS Code below:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/kKA6i8oqZAA" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+[^1]: [IntelliJ](https://plugins.jetbrains.com/plugin/7447-gitlab-integration-plugin), [Atom](https://atom.io/packages/search?q=gitlab), [vim](https://github.com/shumphrey/fugitive-gitlab.vim), [Emacs](https://github.com/nlamirault/emacs-gitlab), ...
+[^2]: [Jira and Bitbucket](https://marketplace.visualstudio.com/items?itemName=Atlassian.atlascode), [GitHub Pull Requests and Issues](https://marketplace.visualstudio.com/items?itemName=GitHub.vscode-pull-request-github)
+[^3]: You can work around that by using the MR overview and commenting there.
+[^4]: [MR review: interacting with existing comments - POC](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues/269) and [MR review: new comments and reviews POC](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues/293) represent the initial investigation.
+
+[Cover image](https://art.ljubicapetkovic.com/cc-licensed/) by [Ljubica Petkovic](https://art.ljubicapetkovic.com), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+{: .note}

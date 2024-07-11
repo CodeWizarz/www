@@ -1,0 +1,98 @@
+---
+title: "How Arctic Engine uses GitLab's fuzz testing"
+author: Huldra
+author_gitlab: huldra
+author_twitter: Huldra64711141
+guest: true
+categories: unfiltered
+image_title: '/images/blogimages/arcticengine.png'
+description: "Using GitLab's fuzz testing, we discovered and fixed various real defects that could crash our software. Now we can detect vulnerabilities before merging the code."
+tags: CI/CD, open source, security, testing, user stories, fuzz testing
+---
+
+{::options parse_block_html="true" /}
+
+
+
+## About Arctic Engine
+
+[Arctic Engine](https://gitlab.com/huldra/arctic) is an open-source, free game
+engine released under the [MIT license](https://opensource.org/licenses/MIT).
+Arctic Engine is implemented in C++ and focuses on simplicity. Being a C++
+programmer and making games should not be joyless, disillusioning, and
+discouraging. In the '80s and '90s, a programmer could make games alone, and
+it was fun. Arctic Engine aims at making game development in C++ fun again.
+
+## Testing can be fun
+
+Testing the game engine is very important since games are usually no more
+robust and performant than the underlying middleware or game engine. Writing
+tests by hand is time-consuming and disillusioning, and it may drain the fun
+from the development process. So, to my shame, I avoided writing tests in every
+way I could. For instance, I used static analyzers to detect bugs. The problem
+with static analyzers was the lack of motivation to fix potential issues. You
+may be unsure whether a bug is really there, and it can sometimes be hard to
+find a way to trigger it.
+
+The other possibility was fuzz testing. I heard about fuzzing but didn't try it
+earlier because I thought it was hard to integrate with the project. I could
+not be more wrong. It's amazing how little effort it takes to get fuzz testing
+up and running with GitLab.
+
+## Fuzz testing and what it exposed
+
+Thanks to [Sam Kerr](https://gitlab.com/stkerr) for proving me wrong about
+fuzzing by [actually fuzzing](https://gitlab.com/huldra/arctic/-/commit/946382569d88c3af7f4a7ea075c3c3cb18d3b06b)
+the sound loader code. Arctic Engine allows loading a sound from a WAV file in
+memory. To fuzz the loader's code, you create a small CPP file with a single
+function like this:
+
+```cpp
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t * data, size_t size) {
+    std::shared_ptr<arctic::SoundInstance> result = arctic::LoadWav(data, size);
+    return 0;
+}
+```
+
+Then you add ``-fsanitize=fuzzer`` flag to the CMakeLists.txt file and a few
+lines to the `.gitlab-ci.yml` file, and the fuzzing begins! You may want to
+drop in a few WAV files to the corpus folder to help the fuzzer and speed up
+the process, but that's optional. Ok, it was a little harder than that with the
+Arctic Engine because it would output a message and quit upon processing
+unsupported file formats. Still, handling file loading errors this way was a
+bad idea, and I finally had a reason to fix it.
+
+The fuzzer started crashing Arctic Engine: first, it triggered a signed integer
+overflow, a division by zero, and a buffer overrun. And then, the wave loader
+got out-of-memory while trying to resample a tiny WAV file with a sampling rate
+of 1 sample per second to 44100 samples per second. Wow.
+
+What I liked about fuzzing is that fuzzer actually crashes your program and
+provides you the input so you can reproduce the crash. And once you've set up
+the test harness, the entire testing process is fully automated, saving you
+time and effort. It's like having a personal QA team, you commit your code, and
+in a few minutes, you already have it tests-covered.
+
+Then I fuzzed the CSV and the TGA file parsers and expected to find some bugs
+in the CSV and none in the TGA. What can I say? You may not find bugs where you
+expect them to be and find bugs where you thought there were none. The TGA
+loader crashed immediately with a buffer overrun. It did not account for files
+containing only a valid header but no actual image data after it.
+
+## Plans
+
+I will add a simple HTTP web server and some multiplayer network interaction
+code to the Arctic Engine. I was putting it off for quite a while now because I
+thought testing would be a pain. Now that I know how easy it is to apply
+GitLab's fuzz testing to any data processing code, I'm very optimistic and
+somewhat challenged. Like "Can I make it withstand the fuzzer from the first try?".
+It makes writing code fun for me once again.
+
+## Further reading
+
+- [GitLab's coverage-guided fuzz testing documentation](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/#coverage-guided-fuzz-testing)
+- [GitLab's Fuzzing 101 playlist](https://www.youtube.com/playlist?list=PL05JrBw4t0KoYzW1CR-g1rMc9Xgmnhjfe)
+
+### About the guest author
+
+Huldra is a senior videogame programmer by day maintainer of the [Arctic Engine](https://gitlab.com/huldra/arctic) by night. She started it because she wanted a game engine that kept simple things simple and made complex things possible.

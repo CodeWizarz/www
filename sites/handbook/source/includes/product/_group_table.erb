@@ -1,0 +1,12 @@
+<% count_pm = [*group.pm].count %>
+<% count_ux = [*group.ux].count %>
+<% count_bem = [*group.backend_engineering_manager].count %>
+<% count_fem = [*group.frontend_engineering_manager].count %>
+<% count_be_devs = team_member_count_from_group(group: group.be_team_tag) %>
+<% count_fe_devs = team_member_count_from_group(group: group.fe_team_tag) %>
+<% total_count = count_pm + count_ux + count_bem + count_fem + count_fe_devs + count_be_devs %>
+
+| <%= group.name %> | PM | UX | EM | FEM | FE | BE | Total |
+|:-----------------:| -- | -- | -- | --- | -- | -- | ---------- |
+| Names  | <%= [*group.pm].map{|pm| "#{pm}"}.join(", ") %> | <%= [*group.ux].map{|ux| "#{ux}"}.join(", ") %> | <%= group.backend_engineering_manager if group.backend_engineering_manager %> | <%= group.frontend_engineering_manager if group.frontend_engineering_manager %> | <%= "#{team_links_from_group(group: group.fe_team_tag)}" if group.fe_team_tag %> | <%= "#{team_links_from_group(group: group.be_team_tag)}" if group.be_team_tag %> | N/A |
+| Count  | <%= count_pm %>                                 | <%= count_ux %>                                 | <%= count_bem %>                                                              | <%= count_fem %>                                                                | <%= count_fe_devs %>                                                             | <%= count_be_devs %>                                                             | <%= total_count %> |

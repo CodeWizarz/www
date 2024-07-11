@@ -1,0 +1,272 @@
+---
+title: "Scaling down: How we shrank image transfers by 93%"
+author: "Matthias Käppler" # if name includes special characters use double quotes "First Last"
+author_gitlab: mkaeppler # ex: johndoe
+author_twitter: mttkay # ex: johndoe
+categories: unfiltered
+image_title: "/images/blogimages/gitlab-values-cover.png"
+description: "Our approach to delivering an image scaling solution to speed up GitLab site rendering"
+tags: workhorse, image scaling, performance
+guest: false # required when the author is not a GitLab Team Member
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the "Install GitLab" banner
+twitter_text: "Scaling down: How we shrank image transfers by 93 percent" # optional;  If no text is provided it will use post's title.
+featured: no # reviewer should set
+---
+
+{::options parse_block_html="true" /}
+
+
+
+The [Memory](https://about.gitlab.com/handbook/engineering/development/enablement/data_stores/application_performance/) team recently shipped an improvement to our image delivery functions
+that drastically reduces the amount of data we serve to clients. Learn here how we went from knowing nothing about
+[Golang](https://golang.org/) and image scaling to a working on-the-fly image scaling solution built into 
+[Workhorse](https://gitlab.com/gitlab-org/gitlab-workhorse).
+
+## Introduction
+
+Images are an integral part of GitLab. Whether it is user and project avatars, or images embedded in issues
+and comments, you will rarely load a GitLab page that does not include images in some way shape or form.
+What you may not be aware of is that despite most of these images appearing fairly small when presented
+on the site, until recently we were always serving them in their original size.
+This meant that if you would visit a merge request, then all user avatars that appeared merely as thumbnails
+in sidebars or comments would be delivered by the GitLab application in the same size they were uploaded in,
+leaving it to the browser rendering engine to scale them down as necessary. This meant serving
+megabytes of image data in a single page load, just so the frontend would throw most of it away!
+
+While this approach was simple and served us well for a while, it had several major drawbacks:
+
+- **Perceived latency suffers.** The perceived latency is the time that passes between a user
+  requesting content, and that content actually becoming visible or being ready to engage with.
+  If the browser has to download several megabytes of image data, and then has to furthermore
+  scale down those images to fit the cells they are rendered into, the user experience unnecessarily suffers.
+- **Egress traffic cost.** On gitlab.com, we store all images in object storage, specifically GCS
+  (Google Cloud Storage). This means that our Rails app first needs to resolve an image entity to
+  a GCS bucket URL where the binary data resides, and have the client
+  download the image through that endpoint. This means that for every image served, we cause
+  traffic from GCS to the user that we have to pay for, and the more data we serve, the higher the cost.
+
+We therefore took on the challenge to both improve rendering performance and reduce traffic costs
+by implementing [an image scaler that would downscale images](https://gitlab.com/groups/gitlab-org/-/epics/3822)
+to a requested size before delivering them to the client.
+
+### Phase 1: Understanding the problem
+
+The first problem is always: understand the problem! What is the status quo exactly? How does it work?
+What is broken about it? What should we focus on?
+
+We had a pretty good idea of the severity of the problem, since we regularly run performance tests
+through [sitespeed.io](https://www.sitepeed.io) that highlight performance problems on our site.
+It had identified images sizes as one of the most severe issues:
+
+![sitespeed performance test](https://gitlab.com/groups/gitlab-org/-/uploads/a06d8bfde802995c577afca843be7e96/Bildschirmfoto_2020-07-15_um_11.45.44.png)
+
+To better inform a possible solution, an essential step was to [collect enough data](https://gitlab.com/gitlab-org/gitlab/-/issues/227387)
+to help identify the areas we should focus on. Here are some of the highlights:
+
+- **Most images requested are avatars.** We looked at the distribution of requests for certain types of images.
+  We found that about 70% of them were for avatars, while the remaining 30% accounted for embedded images.
+  This suggested that any solution would have the biggest reach if we focused on avatars first. Within the
+  avatar cohort we found that about 62% are user avatars, 22% are project avatars, and 16% are group avatars,
+  which isn't surprising. 
+- **Most avatars requested are PNGs or JPEGs.** We also looked at the distribution of image formats. This is partially
+  affected by our upload pipeline and how images are processed (for instance, we always crop user avatars and store them as PNGs)
+  but we were still surprised to see that both formats made up 99% of our avatars (PNGs 76%, JPEGs 23%). Not much
+  love for GIFs here!
+- **We serve 6GB of avatars in a typical hour.** Looking at a representative window of 1 hour of GitLab traffic, we saw
+  almost 6GB of data move over the wire, or 144GB a day. Based on experiments with downscaling a representative user avatar,
+  we estimated that we could reduce this to a mere 13GB a day on average, saving 130GB of bandwidth each day!
+
+This was proof enough for us that there were significant gains to be made here. Our first intuition was: could this
+be done by a CDN? Some modern CDNs like Cloudflare [already support image resizing](https://support.cloudflare.com/hc/en-us/articles/360028146432-Understanding-Cloudflare-Image-Resizing)
+in some of their plans. However, we had two major concerns about this:
+
+1. **Supporting our self-managed customers.** While gitlab.com is the largest GitLab deployment we know of, we have hundreds of thousands
+  of customers who run their own GitLab installation. If we were to only resize images that pass through a CDN in front of gitlab.com,
+  none of those customers would benefit from it.
+1. **Pricing woes.** While there are request budgets based on your CDN plan, we were worried about the operational cost this would
+  add for us and how to reliably predict it.
+
+We therefore decided to look for a solution that would work for all GitLab users, and that would be more under
+our own control, which led us to phase 2: experimentation!
+
+### Phase 2: Experiments, experiments, experiments!
+
+A frequent challenge for [our team (Memory)](https://about.gitlab.com/handbook/engineering/development/enablement/data_stores/application_performance/)
+is that we need to venture into parts of GitLab's code base
+that we are unfamiliar with, be it with the technology, the product area, or both. This was true in this
+case as well. While some of us had some exposure to image scaling services, none of us had ever built or
+integrated one.
+
+Our main goal in phase 2 was therefore to identify what the possible approaches to image scaling were,
+explore them by researching existing solutions or even building proof-of-concepts (POCs), and grade
+them based on our findings. The questions we asked ourselves along the way were:
+
+- **When should we scale?** Upfront during upload or on-the-fly when an image is requested?
+- **Who does the work?** Will it be a dedicated service? Can it happen asynchronously in Sidekiq?
+- **How complex is it?** Whether it's an existing service we integrate, or something we build ourselves,
+  does implementation or integration complexity justify its relatively simple function?
+- **How fast is it?** We shouldn't forget that we set out to solve a performance issue. Are we sure that
+  we are not making the server slower by the same amount of time we save in the client?
+
+With this in mind, we identifed [multiple architectural approaches](https://gitlab.com/groups/gitlab-org/-/epics/3979) to consider,
+each with their own pros and cons. These issues also doubled as a form of [architectural decision log](https://github.com/joelparkerhenderson/architecture_decision_record#what-is-an-architecture-decision-record)
+so that decisions for or against an approach are recorded.
+
+The major approaches we considered are outlined next.
+
+#### Static vs. dynamic scaling
+
+There are two basic ways in which an image scaler can operate: it can either create thumbnails of
+an existing image ahead of time, e.g. during the original upload as a background job. Or it can
+perform that work on demand, every time an image is requested. To make a long story short: while
+it took a lot of back and forth, and even though we had [a working POC](https://gitlab.com/gitlab-org/gitlab/-/issues/232616),
+we eventually discarded the idea of scaling statically, at
+least for avatars. Even though [CarrierWave](https://github.com/carrierwaveuploader/carrierwave) (the Ruby uploader
+we employ) has an integration
+with MiniMagick and is able to perform that kind of work, it suffered from several issues:
+
+1. **Maintenance heavy.** Since image sizes may change over time, a strategy is needed to backfill sizes
+  that haven't been computed yet. This raised questions especially for self-managed customers where
+  we do not control the GitLab installation.
+1. **Statefulness.** Since thumbnails are created alongside the original image, it was unclear how to perform
+  cleanups should they become necessary, since CarrierWave does not store these as separate database
+  entities that we could easily query.
+1. **Complexity.** The POC we created turned out to be more complex than anticipated and felt like we
+  were shoehorning this feature onto existing code. This was exacerbated by the fact that at the time
+  we were running a very old version of CarrierWave that was already a maintenance liability, and upgrading it
+  would have added scope creep and delays to an already complex issue.
+1. **Flexibility.** The actual scaler implementation in CarrierWave is buried three layers down the Ruby dependency stack,
+  and it was difficult to replace the actual scaler binary (which would become a
+  problem when trying to secure this solution as we will see in a moment.)
+
+For these reasons we decided to scale images on-the-fly instead.
+
+### Dynamic scaling: Workhorse vs. dedicated proxy
+
+When scaling images on-the-fly the question becomes: where? Early on there was a suggestion to use
+[imgproxy](https://github.com/imgproxy/imgproxy), a "fast and secure standalone server for resizing and converting remote images".
+This sounded tempting, since it is a "batteries included" offering, it's free to use, and it is a great
+way to isolate the task of image scaling from other production work loads, which has benefits around
+security and fault isolation.
+
+The main problem with imgproxy was exactly that, however: a standalone server. 
+[Introducing a new service to GitLab](https://docs.gitlab.com/ee/development/adding_service_component.html#adding-a-new-service-component-to-gitlab)
+is a complex task, since we strive to appear as a [single application](https://about.gitlab.com/handbook/product/single-application/) to the end user,
+and documenting, packaging, configuring, running and monitoring a new service just for rescaling images seemed excessive.
+It therefore wasn't in line with our prerogative of focusing on the
+[minimum viable change](https://about.gitlab.com/handbook/product/product-principles/#the-minimal-viable-change-mvc).
+Moreover, imgproxy had significant overlap with existing architectural components at GitLab, since we already
+run a reverse proxy: [Workhorse](https://gitlab.com/gitlab-org/gitlab-workhorse).
+
+We therefore decided that the fastest way to deliver an MVC was to build out this functionality in Workhorse
+itself. Fortunately we found that we already had an established pattern for dealing with special, performance
+sensitive workloads, which meant that we could
+learn from existing solutions for similar problems (such as image delivery from remote storage), and we could
+lean on its existing integration with the Rails application for request authentication and running business
+logic such as validating user inputs, which helped us tremendously to focus on the actual problem: scaling images.
+
+There was a final decision to make, however: scaling images is a very different kind of workload from 
+serving ordinary requests, so an open question was how to integrate a scaler into Workhorse in a way
+that would not have knock-on effects on other tasks Workhorse processes need to execute.
+The two competing approaches discussed were to either shell out to an executable that performs the scaling,
+or run a [sidecar process](https://docs.microsoft.com/en-us/azure/architecture/patterns/sidecar#:~:text=Sidecars%20are%20supporting%20processes%20or,fate%20of%20its%20parent%20application.)
+that would take over image scaling work loads from the main Workhorse process.
+
+### Dynamic scaling: Sidecar vs. fork-on-request
+
+The main benefit of a sidecar process is that it has its own life-cycle and memory space, so it can be tuned
+separately from the main serving process, which improves fault isolation. Moreover, you only pay the
+cost for starting the process once. However, it also comes with
+additional overhead: if the sidecar dies, something has to restart it, so we would have to look at
+process supervisors such as `runit` to do this for us, which again comes with a significant amount
+of configuration overhead. Since at this point we weren't even sure how costly it would be to serve
+image scaling requests, we let our MVC principle guide us and decided to first explore the simpler
+fork-on-request approach, which meant shelling out to a dedicated scaler binary on each image scaling
+request, and only consider a sidecar as a possible future iteration.
+
+Forking on request was [explored as a POC](https://gitlab.com/gitlab-org/gitlab/-/issues/230519)
+first, and was quickly made production ready and deployed
+behind a feature toggle. We initially ended up settling on [GraphicsMagick](http://www.graphicsmagick.org/)
+and its `gm` binary to perform the actual image scaling for us, both because it is a battle tested library, but also
+because there was precedent at GitLab to use it for existing features, which allowed us to ship
+a solution even faster.
+
+The overall request flow finally looked as follows:
+
+```mermaid
+sequenceDiagram
+    Client->>+Workhorse: GET /image?width=64
+    Workhorse->>+Rails: forward request
+    Rails->>+Rails: validate request
+    Rails->>+Rails: resolve image location
+    Rails-->>-Workhorse: Gitlab-Workhorse-Send-Data: send-scaled-image
+    Workhorse->>+Workhorse: invoke image scaler
+    Workhorse-->>-Client: 200 OK
+```
+
+The "secret sauce" here is the `Gitlab-Workhorse-Send-Data` header synthesized by Rails. It carries
+all necessary parameters for Workhorse to act on the image, so that we can maintain a clean separation
+between application logic (Rails) and serving logic (Workhorse).
+We were fairly happy with this solution in terms of simplicity and ease of maintenance, but we
+still had to verify whether it met our expectations for performance and security.
+
+### Phase 3: Measuring and securing the solution
+
+During the entire development cycle, we frequently measured the performance of the various appraoches
+we tested, so as to understand how they would affect request latency and memory use.
+For latency tests we relied on [Apache Bench](https://httpd.apache.org/docs/2.4/programs/ab.html), since
+recalling our initial mission, we were mostly interested in reducing the request latency a user might experience.
+
+We also ran benchmarks encoded as Golang tests that specifically [compared different scaler implementations](https://gitlab.com/ayufan/image-resizing-test)
+and how performance changed with different image formats and image sizes. We learned a lot from these
+tests, especially where we would typically lose the most time, which often was in encoding/decoding
+an image, and not in resizing an image per se.
+
+We also took security very seriously from the start. Some image formats such as SVGs are notorious
+for remote code execution attacks, but there were other concerns such as DOS-ing the service with
+too many scaler requests or PNG compression bombs. We therefore
+put very strict requirements in place around what sizes (both dimensionally but also in bytes) and
+formats we will accept.
+
+Unfortunately one fairly severe issue remained that turned out to be a deal breaker with our simple
+solution: `gm` is a complex piece of software, and shelling out to a 3rd party binary written in C still
+leaves the door open for a number of security issues. The decision was to [sandbox the binary](https://gitlab.com/groups/gitlab-org/-/epics/4373)
+instead, but this turned out
+to be a lot more difficult than anticipated. We evaluated but discarded multiple approaches to sandboxing
+such as via `setuid`, `chroot` and `nsjail`, as well as building a custom binary on top of [seccomp](https://en.wikipedia.org/wiki/Seccomp).
+However, due to performance, complexity or other concerns we discarded all of them in the end.
+We eventually decided to sarifice some performance for the sake of protecting our users as best we can and 
+wrote a scaler binary in Golang, based on an existing [imaging](https://github.com/disintegration/imaging)
+library, which had none of these issues.
+
+### Results, conclusion and outlook
+
+In roughly two months we took an innocent sounding but in fact complex topic, image scaling, and went
+from "we know nothing about this" to a fully functional solution that is now running on gitlab.com.
+We faced many headwinds along the way, in part because we were unfamiliar with both the topic and
+the technology behind Workhorse (Golang), but also because we underestimated the challenges of delivering
+an image scaler that will be both fast and secure, an often difficult trade-off. A major lesson learned
+for us is that security cannot be an afterthought; it has to be part of the design from day one and
+must be part of informing the approach taken.
+
+So was it a success? Yes! While the feature didn't have as much of an impact on overall perceived client
+latency as we had hoped, we still dramatically improved a number of metrics. First and foremost, the
+dreaded "properly size image" reminder that topped our sitepeed metrics reports is resolved. This is also evident
+in the average image size processed by clients, which for image heavy pages fell off a cliff (that's good -- lower is
+better here):
+
+![image size metric](https://gitlab.com/groups/gitlab-org/-/uploads/b453aedaf2132db1292898508fd6a0c1/Bildschirmfoto_2020-10-06_um_07.02.56.png)
+
+Site-wide we saw a staggering **93% reduction** in image transfer size of page content delivered to clients.
+These gains also translate into savings for GCS egress traffic, and hence Dollar cost savings, by an equivalent amount.
+
+A feature is never done of course, and there are a number of things we are looking to improve in the future:
+
+- Improving metrics and observability
+- Improving performance through more aggressive caching
+- Adding support for WebP and other features such as image blurring
+- Supporting content images embedded into GitLab issues and comments
+
+The Memory team meanwhile will slowly step back from this work, however, and hand it over to product teams
+as product requirements evolve.

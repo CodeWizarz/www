@@ -1,0 +1,41 @@
+.customer-logos-container.clear-background
+  %p
+    Used by more than 100,000 organizations around the globe
+  .customer-logo-band.container
+    - data.organizations.each do |org|
+      - if org.landing == true
+        - if org.asset_link
+          %a{ href: "#{org.asset_link}", class: "intro-organization-logo-box", :"data-ga-name" => "#{org.name.downcase}", :"data-ga-location" => "customer logos" }
+            = image_tag "#{org.logo}", alt: "#{org.name} logo", loading: "lazy"
+        - else
+          %span.intro-organization-logo-box
+            = image_tag "#{org.logo}", alt: "#{org.name} logo", loading: "lazy"
+  .see-all-link
+    = link_to "/customers/", :"data-ga-name" => "customers", :"data-ga-location" => "customer logos"  do
+      See all customers →
+
+-# CSS For Component
+:sass
+  .customer-logo-band
+    display: flex
+    justify-content: space-between
+    flex-wrap: wrap
+    align-items: center
+    width: 100%
+    max-width: 1200px
+  .customer-logo-band.container::before
+    display: none;
+  .customer-logo-band.container::after
+    display: none;
+  .intro-organization-logo-box 
+      width: 12% 
+      padding: 16px 1% 0 0
+      opacity: .4
+  .intro-organization-logo-box:hover
+    opacity: 1 
+  @media all and (max-width: 768px)
+    .intro-organization-logo-box 
+      width: 25% 
+      margin: 16px 1% 0 0
+        
+      

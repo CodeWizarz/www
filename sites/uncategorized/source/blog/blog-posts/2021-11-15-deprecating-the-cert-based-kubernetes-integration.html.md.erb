@@ -1,0 +1,121 @@
+---
+title: We are deprecating the certificate-based integration with Kubernetes in GitLab 14.5
+author: Viktor Nagy
+author_gitlab: nagyv-gitlab
+author_twitter: nagyvviktor
+description: Understand why we're deprecating this integration, how it might affect you, and get a closer look at GitLab Agent for Kubernetes.
+categories: news
+image_title: '/images/blogimages/kubernetesterms.jpg' 
+tags: kubernetes, integrations, releases
+twitter_text: We are deprecating the certificate-based integration with Kubernetes in GitLab 14.5
+featured: no 
+postType: ​​announcement
+---
+
+We are deprecating the certificate-based Kubernetes integration with GitLab and all the features that
+rely on it. This is the legacy integration, [introduced](/releases/2018/01/22/gitlab-10-4-released/#gitlab-clusters-now-generally-available) early in 2018, in GitLab 10.4.
+
+In September 2020, we started to build a more robust, secure, forthcoming, and reliable integration
+with Kubernetes and released the [GitLab Agent for Kubernetes](https://docs.gitlab.com/ee/user/clusters/agent/),
+which is the recommended methodology to connect clusters with GitLab.
+
+In this post, we explain the reasons for the change of path, what to expect, and how this
+affects the features that rely on the certificate-based integration with Kubernetes.
+
+## What to expect
+
+The deprecation of the certificate-based Kubernetes integration affects all the features
+that require a cluster connected to GitLab through cluster certificates. All those features are deprecated. The certificate-based integrations will be switched off on gitlab.com starting with the GitLab 15.0 release. Self-managed users will be able to switch the features back until their final removal. [The final removal will happen](https://gitlab.com/gitlab-org/configure/general/-/issues/199) once all the collected, critical use-cases are supported with the agent and enough time was given for our users to migrate to the agent.
+
+In regards to the existing features that rely on the certificate-based integration:
+
+- Some of the features will be migrated to use the GitLab Agent and we will
+provide you with migration guides to help you follow along. We will communicate them
+through the following releases in our release posts, as usual.
+- If you already use features that depend on cluster certificates, you can keep using
+them. But note that you might need to take extras steps in the future to migrate them
+to the Agent. However, we **do not** guarantee that we will migrate all the existing
+certificate-based features to the Agent.
+- Existing users should not expect new functionality except for the developments required to support more recent Kubernetes versions, security and critical fixes, and community contributions. 
+- If you currently do not use a deprecated feature and regardless decide to use it anyway,
+understand that there's a risk of having to migrate it to the Agent later, or, in the
+worst-case scenario, you might have to stop using the feature in the future.
+
+See the updated list of the [affected features](https://docs.gitlab.com/ee/user/infrastructure/clusters/#deprecated-features) on the docs.
+
+## What this deprecation means
+
+The deprecation means that we will not build more features on top of the existing features
+that depend on cluster certificates. It doesn't mean that the features will stop working right now.
+
+New features for Kubernetes clusters will be built on top of the connection between GitLab and
+your cluster through the Agent rather than on top of the certificate-based connection.
+
+We have [dedicated documentation](https://docs.gitlab.com/ee/user/infrastructure/clusters/migrate_to_gitlab_agent.html) to support you migrating from the certificate-based connections to agent-based connections.
+
+## What should you do for clusters not connected to GitLab yet
+
+To connect new clusters with GitLab, use the [Agent](https://docs.gitlab.com/ee/user/clusters/agent/)
+so that you don't have to take extra steps to use the Agent later on.
+
+## Why we deprecated the certificate-based integration with Kubernetes
+
+There were several reasons why we decided to rethink our approach to Kubernetes:
+
+- The certificate-based integration's biggest shortcoming is that it relies on direct
+access to the Kubernetes API. Its exposure often comes with unacceptably high risk, especially for GitLab
+SaaS users.
+- The most valuable features within the integration required elevated privileges, often
+requiring you to give cluster-admin rights to GitLab. At the same time, features that did
+not need these privileges could not be restricted with more limited access. This means
+that you had to grant full access to a rather simple feature, which could turn out as a liability.
+- Feedback from users implied that many of the features were never ready for production and
+could be used only in limited situations.
+- The industry progressed, and pull-based deployments started to gain ground. And this approach
+was mostly unknown when we built the integration.
+
+We decided to address all these shortcomings with the GitLab Agent.
+
+## The advantages of the GitLab Agent
+
+The integration with Kubernetes through the Agent provides many benefits compared to the
+certificate-based integration, such as:
+
+- Security
+- Reliability
+- Scalability
+- Speed
+- Functionality
+
+Compared to the certificate-based integration, the Agent offers the following functionalities:
+
+- Configure your cluster through code. This enables a clear separation of duties and you can use well-known merge request workflows and approvals.
+- An agent can be configured using regular Kubernetes RBAC rules, maintaining access
+to your cluster safe.
+- Scaling to multiple environments is trivial as each agent connects to one environment.
+- An agent's connection to a cluster can be shared by other groups and projects to simplify
+coordination and maintenance.
+- The Agent supports pull-based deployments, enabling modern GitOps approaches.
+- The Agent supports push-based deployments, enabling existing GitLab CI/CD workflows to
+remain functional.
+- Having a bi-directional channel between GitLab and the cluster enables a new set of integrations,
+like surfacing container network security policy alerts and container scan results into GitLab.
+
+## What is next on the roadmap of the GitLab Agent
+
+We identified a few high-value features on the list of deprecated features. Moreover, we know
+that having some level of observability around the resources managed by the Agent is
+its biggest shortcoming. As a result, we are going to focus on the following three items first:
+
+- Provide [observability features for cluster resources](https://gitlab.com/groups/gitlab-org/-/epics/2493) so you can track your metrics and logs directly from GitLab.
+- [Auto DevOps and especially Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/stages.html#auto-deploy) can already by used on top of an Agent-based connection, but the setup is not easy. We will provide you with a solution soon.
+- [GitLab-Managed Clusters](https://docs.gitlab.com/ee/user/project/clusters/gitlab_managed_clusters.html#gitlab-managed-clusters-deprecated) are expected to work as they do today until we ship an equivalent or superior functionality
+built around the Agent. Together with shipping this functionality, we will provide a migration guide if necessary.
+
+## We are listening
+
+Please help us to help you. We need your feedback to help us prioritize the migration of the
+current features to the Agent and to build new features based on the Agent. We are especially seeking
+feed back around real-world, high-scale usage of the features built for using Kubernetes clusters with GitLab.
+
+If you would be open to sharing your feedback, please start a new thread in [this epic](https://gitlab.com/groups/gitlab-org/configure/-/epics/8). Feel free to mention `@nagyv-gitlab` in your comment to make sure that your comment is read and the information won't be missed.

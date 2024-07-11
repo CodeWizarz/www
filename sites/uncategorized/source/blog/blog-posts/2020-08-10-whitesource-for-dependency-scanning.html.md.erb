@@ -1,0 +1,194 @@
+---
+title: "How to secure your dependencies with GitLab and WhiteSource"
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: security
+image_title: "/images/blogimages/snowymtns.jpg"
+description: "We walk you through how to configure WhiteSource in your GitLab instance to enhance your application security."
+tags: CI/CD, security, integration, appsec, kubernetes
+twitter_text: "How to secure your dependencies with GitLab and WhiteSource"
+featured: no
+postType: Technical Marketing
+---
+
+GitLab's WhiteSouce integration empowers developers to enhance application security
+directly within the GitLab UI. The integration provides dependency scanning with
+in-depth analysis, along with actionable insights, and auto-remediation. WhiteSource for
+GitLab enhances your team's productivity, security, and compliance.
+
+[Rhys Arkins](https://twitter.com/rarkins?lang=en), Product Director at WhiteSource, and I hosted a webinar on "[Harnessing development to scale AppSec](/webcast/scalable-secure-ci/)"
+showcasing the features of GitLab's WhiteSource integration for open source dependency scanning.
+
+<!-- blank line -->
+<figure class="video_container">
+<iframe src="https://www.youtube-nocookie.com/embed/yJpE_ACt9og" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+This blog post will guide you through setting up WhiteSource in your private GitLab instance
+and show you how the integration with WhiteSource enhances your application's security within GitLab.
+
+## Installing the WhiteSource integration
+
+First, let's go over how to install the WhiteSource integration. In this section, I will review how to
+set up GitLab service credentials, generate a WhiteSource configuration,
+build WhiteSource containers, and how to run them in a Kubernetes cluster.
+
+### Requirements for WhiteSource integration
+
+But first, the WhiteSource integration requires that you have the following setup:
+
+- [GitLab on-prem instance](/pricing/#self-managed): The GitLab instance where the WhiteSource integration will run.
+- [WhiteSource account](https://www.whitesourcesoftware.com/whitesource-pricing/): Provides access to the WhiteSource integration.
+- [Kubernetes cluster](/solutions/kubernetes/): Deploys the WhiteSource containers.
+
+### Create GitLab service credentials
+
+The next step is to create GitLab service credentials. This can be accomplished in three simple steps:
+
+- In your GitLab instance, go to `Admin Area > System Hooks` and create a system hook as follows:
+    - **URL:** `https://whitesource.INGRESS_URL.com/payload`
+    - **Secret Token:** Make up a token, you can use `openssl rand -base64 12`
+    - **Trigger:** All except `Tag push events`
+    - **Enable SSL Verification:** `Yes`
+
+  Note: Make sure you save the secret token for use in the next section.
+- Create a user named `@whitesource`, with a developer role. An email is not required.
+- As the `@whitesource` user, go to `Settings > Access tokens` and create a personal access token:
+    - **Name:** `WhiteSourceToken`
+    - **Scopes:** `all`
+- Remember to save the access token for use in the next section.
+
+### Generate the WhiteSource configuration
+
+Next, we generate the WhiteSource configuration, which is used to configure the WhiteSource integration containers.
+This can be done in a few simple steps:
+
+- Login to [WhiteSource](https://saas.whitesourcesoftware.com/Wss/WSS.html#!login) and click on
+the `Integrate` tab.
+
+![whitesource webpage view](../images/whitesource-integration/whitesource_webpage_view.png)
+WhiteSource mainpage
+{: .note.text-center}
+
+- Expand the `WhiteSource for GitLab server` bar and fill the following:
+    - **GitLab Server API URL:** `https://GITLAB_SERVER_URL/api/v4`
+    - **GitLab Webhook URL:** `https://whitesource.INGRESS_URL.com/payload`
+    - **GitLab Webhook secret:** Use the same secret generated in GitLab credentials section
+    - **GitLab personal access token:** `@whitesource` user access token
+
+![whitesource integration view](../images/whitesource-integration/whitesource_integration_setup.png)
+WhiteSource integrations page
+{: .note.text-center}
+
+- Press `Get Activation Key` and copy the generated key
+- Open the [wss-configurator](https://gitlab.com/fjdiaz/whitesource-helm/-/blob/master/whitesource/wss-configuration/index.html) with your browser
+- Select `Export` from the menu, and select the [prop.json](https://gitlab.com/fjdiaz/whitesource-helm/-/blob/master/whitesource/wss-configuration/config/prop.json)
+- Click on the `General` tab
+- Paste the generated key and click `Export` to save a new `prop.json` file
+
+### Build the WhiteSource containers
+
+- Move the generated prop.json from the previous section to [wss-gls-app](https://gitlab.com/fjdiaz/whitesource-helm/-/tree/master/whitesource/wss-gls-app/docker/conf), [wss-remediate](https://gitlab.com/fjdiaz/whitesource-helm/-/tree/master/whitesource/wss-remediate/docker/src), and [wss-scanner](https://gitlab.com/fjdiaz/whitesource-helm/-/tree/master/whitesource/wss-scanner/docker/conf).
+- Build and push the Docker containers:
+
+```bash
+$ docker build -t wss-gls-app:19.12.2 whitesource/wss-gls-app/docker
+$ docker push wss-gls-app:19.12.2
+
+$ docker build -t wss-scanner:19.12.1.2 whitesource/wss-scanner/docker
+$ docker push wss-scanner:19.12.1.2
+
+$ docker build -t wss-remediate:19.12.2 whitesource/wss-remediate/docker
+$ docker push wss-remediate:19.12.2
+```
+
+### Running the WhiteSource containers
+
+GitLab provides native Kubernetes cluster integration. This means that GitLab allows you
+to deploy software from [GitLab CI/CD](/topics/ci-cd/) pipelines directly to your Kubernetes cluster.
+
+WhiteSource containers can be deployed and managed within the same Kubernetes cluster
+used to deploy your application, all by running a simple Helm commands.
+
+- Download the WhiteSource [Helm chart](https://gitlab.com/fjdiaz/whitesource-helm)
+- Edit [values.yaml](https://gitlab.com/fjdiaz/whitesource-helm/-/blob/master/helm/whitesource/values.yaml)
+- In vaules.yaml set `whitesource.ingress` to **https://whitesource.INGRESS_URL.com**
+
+You can get the INGRESS_URL from your Kubernetes cluster settings
+
+![ingress url location](../images/whitesource-integration/base_domain.png)
+Ingress URL location
+{: .note.text-center}
+
+- Make sure Ingress is installed.
+
+![ingress installation](../images/whitesource-integration/ingress_installation.png)
+Installing Ingress
+{: .note.text-center}
+
+- Install [Helm](https://helm.sh/docs/intro/install/)
+- Deploy WhiteSource with Helm template:
+
+```bash
+helm upgrade -f helm/whitesource/values.yaml --install whitesource-gitlab ./helm/whitesource
+```
+
+## Using WhiteSource
+
+Once the WhiteSource plugin has been installed we can add the `@whitesource` user to the repositories
+we wish to scan. A merge request (MR) with the `.whitesource` file will be generated automatically.
+
+WhiteSource will now scan your repository and generate issues for all the vulnerabilities discovered on the main (master)
+branch. These issues will provide detailed information on the vulnerability as well as how to resolve it. Some issues
+can even be auto-remediated.
+
+![whitesource issue view](../images/whitesource-integration/whitesource_issues.png)
+WhiteSource vulnerability issues
+{: .note.text-center}
+
+Each time a new MR is pushed, a WhiteSource scan will run, and provide a detailed output.
+
+![whitesource merge request view](../images/whitesource-integration/whitesource_merge_requests.png)
+WhiteSource MR scanning
+{: .note.text-center}
+
+Each link provided by WhiteSource shows detailed information on the vulnerabilities the scan detected:
+
+![whitesource web links](../images/whitesource-integration/whitesource_advanced_issues.png)
+WhiteSource vulnerability information
+{: .note.text-center}
+
+WhiteSource can be integrated into the [GitLab Security Dashboard](https://docs.gitlab.com/ee/user/application_security/security_dashboard/) so that your security team can manage the
+status of these vulnerabilities. Access to the Security Dashboard requires a [GitLab Ultimate account](/pricing/ultimate/).
+
+For integrating WhiteSource to the Security Dashboard, add the following to the CI.yaml:
+
+```
+whitesource-security-publisher:
+  image: openjdk:8-jdk
+  when: manual
+  script:
+    - curl "{{WEBHOOK_URL}}/securityReport?repoId=$CI_PROJECT_ID&repoName=$CI_PROJECT_NAME&ownerName=$CI_PROJECT_NAMESPACE&branchName=$CI_COMMIT_REF_NAME&defaultBranchName=$CI_DEFAULT_BRANCH&commitId=$CI_COMMIT_SHA" -o gl-dependency-scanning-report-ws.json
+  artifacts:
+    paths:
+      - gl-dependency-scanning-report-ws.json
+    reports:
+      dependency_scanning:
+        - gl-dependency-scanning-report-ws.json
+    expire_in: 30 days
+```
+
+For more details on the integration checkout [WhiteSource for GitLab](https://whitesource.atlassian.net/wiki/spaces/WD/pages/806191420/WhiteSource+for+GitLab).
+Learn more at [DevSecOps](/solutions/dev-sec-ops/) and checkout the [Secure direction page](/direction/secure/) for more
+information on the upcoming features and integrations.
+
+## Learn more about application security at GitLab
+
+- [How application security engineers can use GitLab to secure their projects](/blog/2020/07/07/secure-stage-for-appsec/)
+- [Get better container security with GitLab: 4 real-world examples](/blog/2020/07/28/container-security-in-gitlab/)
+- [How to capitalize on GitLab Security tools with external CI](https://docs.gitlab.com/ee/integration/jenkins.html)
+
+Cover image by [Alexandra Avelar](https://unsplash.com/@alexandramunozavelar) on [Unsplash](https://unsplash.com/s/photos/snow-capped-mountains)
+{: .note}

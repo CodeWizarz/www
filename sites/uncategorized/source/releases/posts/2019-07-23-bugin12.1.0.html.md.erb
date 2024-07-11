@@ -1,0 +1,42 @@
+---
+title: "12.1.0 Bug: Self-managed users get an incorrect notification to purchase CI minutes on GitLab.com"
+author: William Chia
+author_gitlab: thewilliamchia
+author_twitter: gitlab
+categories: releases
+description: "A bug in GitLab 12.1.0 sends unintentional notifications to self-managed users to purchase CI Runner minutes on GitLab.com. Here’s how to remediate it."
+tags: patch releases, releases
+twitter_text: "A bug in GitLab 12.1.0 sends unintentional notifications to self-managed users to purchase CI Runner minutes on GitLab.com. Here’s how to remediate it."
+featured: yes
+postType: product
+---
+
+We’d like to apologize for shipping a bug in our latest release that may affect you.
+
+On GitLab.com we provide a bucket of shared CI Runner minutes for users with the ability to purchase additional minutes if you run out. When you reach 5% of your quota, the following notification is sent via email or in-app depending on how your notification preferences are set.
+
+> This is an automated notification to let you know that your CI Runner Minutes quota for <name> is below 5%.
+
+> Click here to purchase more minutes.
+
+> If you need assistance, please contact GitLab support.
+
+After upgrading to 12.1.0, folks on GitLab self-managed (i.e., you host your own instance of GitLab) may find that users on your instance are receiving this notification. This bug has been reported for instances that have quotas set as well as those that don't. So users may receive the notification even if your Runner quotas are set to `0` (unlimited).
+
+This message can be confusing for users of self-managed GitLab instances who should be directed to contact their instance admin rather than GitLab if they run out of provisioned minutes.
+
+### How to fix the bug
+
+~~We are [working on a fix in this merge request](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/14809/diffs) that will disable this notification for self-managed instances. The fix will go out in our next point release 12.1.1. We hope to have this release available in the next day or two.~~
+
+~~If you’d like a fix sooner rather than waiting for the next point release, [instructions for a hot fix](https://gitlab.com/gitlab-org/gitlab-ee/issues/12998#note_195052407) are posted on the issue for this bug.~~
+
+**Update**:
+
+This bug is now fixed. [Upgrading to 12.1.1](/releases/2019/07/24/gitlab-12-1-1-released/) or later will remediate this issue and your users will no longer receive this notification.
+
+Again, we’re sorry for this mistake. We pride ourselves on making every release of GitLab stable and easy to upgrade. We know that many of you upgrade to the latest release as soon as it’s available. [View this issue to see our retrospective](https://gitlab.com/gitlab-org/fulfillment/issues/34) on how we determined why this bug made it into the release and how we plan to avoid similar bugs in the future visit the issue where we are tracking progress.
+
+
+
+

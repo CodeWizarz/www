@@ -1,0 +1,73 @@
+---
+title: "How we work to detect and mitigate Spam on GitLab.com and beyond"
+author: Charl de Wit and Greg Myers
+author_gitlab: cjdewit
+author_twitter: gitlab
+categories: unfiltered
+image_title: '/images/blogimages/ranurte-unsplash.jpg'
+description: "Working to fight spam and abuse can be a full time job.  Here's how we do that for gitlab.com and some tips for self-managed users."
+tags: security 
+twitter_text: "Working to fight spam and abuse can be a full time job. Here's how we do that for gitlab.com and some tips for @gitlab self-managed users." 
+---
+
+{::options parse_block_html="true" /}
+
+
+
+We know spam can be a big problem.  Beyond being annoying, abusive behavior, we know it affects workflows and performance and puts a strain on rate limits and brand reputation.  We’re here to help.  Our security team works around the clock to actively detect and mitigate spam for GitLab.com users and our product utilizes filters, captcha and user-defined configuration to help self-managed instances prevent and mitigate spam and abuse.  But, there’s always more that can be done.  Below, we detail the work we do to protect .com users, offer up tips and best practices for self-managed users, and talk about some new automation and tooling we’re exploring that will help all users prevent spam.
+
+## How we work to detect and mitigate spam on GitLab.com
+Our [Trust and Safety team](/handbook/security/security-operations/trustandsafety) works to investigate and protect against the malicious use of GitLab.com and it’s associated features and tools with the goal of making our product safer for our customers and the wider community. One of their focus areas surrounds the detection and mitigation of [abusive activity](/handbook/security/security-operations/trustandsafety/#what-is-abuse) on GitLab.com.  
+
+### What is abuse?
+We define abuse as the intentional misuse of GitLab products/services to cause harm or for personal gain which includes the distribution of malware, spam, and prohibited content.  This activity is covered under Section 3 of the [GitLab website Terms of Use](/terms/#gitlab-com). You can learn more about how we [classify abuse](/handbook/security/security-operations/trustandsafety/#examples-of-common-forms-of-abuse-include-but-are-not-limited-to) in our handbook. 
+
+### How to report abuse as a GitLab.com user
+Users on GitLab.com can report abuse via the `Report Abuse` [button](https://docs.gitlab.com/ee/user/abuse_reports.html) while logged in. Alternately, users can email abuse reports to `abuse@gitlab.com`.  Be sure to include any relevant information details in the issue or email so we can quickly and accurately understand the problem.
+
+## Self-managed customers: preventing, detecting and mitigating spam
+GitLab [uses Akismet Spam filter](/handbook/support/workflows/managing_spam.html) to check for spam when users create issues and reCaptcha as an added level of spam and abuse prevention. 
+
+This tooling helps respond to the symptoms of abuse, but the root of the problem remains: malicious actors register new accounts, or take over existing accounts and then use the accounts to spam and abuse instances and projects. 
+
+***So, what more can you self-managed Admins do to prevent and mitigate spam?***
+
+### 2FA
+Hosted instances of GitLab can reduce spam by making it more difficult for bots to automate account creation or takeover. Requiring [2FA](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html) for all users is one way to prevent legitimate users from having their accounts taken over and used to create spam.
+
+### Authentication restrictions
+
+#### Sign-up restrictions
+[Sign-up restrictions](https://docs.gitlab.com/ee/administration/settings/sign_up_restrictions.html) will allow self-managed Admins to:
+* Disable new sign-ups.
+* Require Admin approval for new sign-ups.
+* Require user email confirmation.
+* Denylist or allowlist email addresses belonging to specific domains.
+
+In fact, for customers running public-facing GitLab instances, we highly recommend that you consider disabling new sign-ups if you do not expect or want public users to sign up for an account on your instance.
+
+#### Sign in restrictions
+[Sign in restrictions](https://docs.gitlab.com/ee/administration/settings/sign_in_restrictions.html) allow self-managed Admins to customize authentication restrictions for web interfaces as well as Git over HTTP(S). These settings will allow you to enforce: 
+* Mandatory 2FA for new users; this makes it more difficult for bots to surpass and prevents legitimate users from getting pwned via single factor authentication + weak password combinations.
+* Email confirmation on sign-up; making it more difficult for bots to register new spam accounts. 
+
+We know that spammers are humans (or humans running bots) and these configurations create additional work for illegitimate users with the intent to spam your instance; thus presenting a deterrent and making your instance a more difficult target.
+
+### Harden your instance
+Also, customizing your instance configuration can go a long way to discourage and reduce spam and abuse. This includes [defining how users access your instance and who can have access](/blog/2020/05/20/gitlab-instance-security-best-practices/#restricting-how-and-who). 
+
+### Understand how abuse is reported and managed by self-managed Admins
+It’s also key to understand how users can [report abuse from other GitLab users to GitLab self-managed Administrators](https://docs.gitlab.com/ee/user/abuse_reports.html), the [actions that self-managed Admins can take against abusers](https://docs.gitlab.com/ee/user/abuse_reports.html) and how [abuse reports are managed and resolved by Admins](https://docs.gitlab.com/ee/user/abuse_reports.html). 
+
+### Rate limits
+Finally, if you’re in the midst of spam abuse you can impose [rate limits](https://docs.gitlab.com/ee/security/rate_limits.html) to help respond to the increased loads. You can also [limit rates on issue creation](https://docs.gitlab.com/ee/administration/settings/rate_limit_on_issues_creation.html) and impose [rate limits on user and IPs](https://docs.gitlab.com/ee/administration/settings/user_and_ip_rate_limits.html).
+
+## What’s next in spam and abuse prevention and detection
+We continue to look for new ways to prevent, detect and mitigate abuse on GitLab.com and within our product.  We are [exploring alternate options for captcha](https://gitlab.com/gitlab-org/gitlab/-/issues/273480) to improve user experience and [options to prevent bots posting URLs followed by crawlers](https://gitlab.com/gitlab-org/gitlab/-/issues/273618) to prevent spam.  In addition, our security team is in the process of developing new automation to detect and prevent the creation of spam and are aiming to begin testing a first iteration on GitLab.com within the next 3 months. If successful, this is something we’ll look to incorporate into the product so all customers can benefit.  For current, working product improvements to detect and mitigate spam, see our [active merge requests](https://gitlab.com/gitlab-org/gitlab/-/merge_requests?scope=all&utf8=%E2%9C%93&state=merged&label_name[]=spam%20fighting).
+
+### Suggestions and feature requests
+If you have any suggestions or requests to improve abuse prevention on GitLab CE and EE, feel free to create a **feature proposal** issue from the provided templates in the [GitLab Project](https://gitlab.com/gitlab-org/gitlab/-/issues) and add the ~"Abuse Prevention" label. For more information on how to contact our Trust & Safety Team, see our [handbook](https://about.gitlab.com/handbook/security/security-operations/trustandsafety/#contact-us).
+
+
+Photo by [Ranurte](https://unsplash.com/@ranurte) from [Unsplash](https://www.unsplash.com).
+{: .note}

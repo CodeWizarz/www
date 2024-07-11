@@ -1,0 +1,14 @@
+features:
+  secondary:
+    - name: "Validation for tag Cleanup policy regex"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/packages/container_registry/#troubleshooting-cleanup-policies'
+      reporter: trizzi
+      stage: package
+      categories:
+        - 'Container Registry'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/220413'
+      description: |
+        You can regularly remove older tags from the Container Registry by creating a per-project tag cleanup policy. These policies are based on user-created regular expressions. Unfortunately the `container_repository:cleanup_container_repository` job that runs against these expressions has been experiencing error rates of 25%. The `Gitlab::UntrustedRegexp` job considers the regex to be invalid, and when a policy fails to run, no one is notified. 
+
+        We have taken the first step in resolving this issue. GitLab now validates the regex with the [re2](https://github.com/google/re2/wiki/Syntax) library, so you can't save an invalid pattern. We also added [some common regex patterns to the documentation](https://docs.gitlab.com/ee/user/packages/container_registry/#regex-pattern-examples). You can find more details and our plan for adding future enhancements to this feature based on our roadmap in the [epic](https://gitlab.com/groups/gitlab-org/-/epics/2270).

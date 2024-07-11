@@ -1,0 +1,243 @@
+---
+title: "How to use a push-based approach for GitOps with Terraform and AWS ECS and EC2"
+author: Cesar Saavedra
+author_gitlab: csaavedra1
+author_twitter: cesar_saavedr
+categories: engineering
+description: "Learn how GitLab supports agentless approach for GitOps on AWS."
+tags: GitOps, DevOps, demo
+twitter_text: "How to use a push-based approach for GitOps with Terraform and AWS ECS and EC2"
+postType: content marketing
+merch_sidebar: merch_eight
+related_posts:
+  - "/blog/2021/04/27/gitops-done-3-ways/"
+  - "/blog/2021/06/23/how-to-use-agent-based-gitops/"
+  - "/blog/2021/07/23/how-to-agentless-gitops-vars/"
+---
+
+In [part two of our GitOps series](/blog/2021/07/23/how-to-agentless-gitops-vars/), we described how to use a push-based (or agentless) approach for [GitOps](/topics/gitops/) by using GitLab scripting capabilities as well as integrating infrastructure-as-code tools into GitOps pipelines. In this third blog post, we’ll also dig deep into how to use a push-based approach, but this time our focus will be on the integrations of Terraform, AWS ECS, and AWS EC2 in GitOps flows. This approach may be preferable when using infrastructure components that aren't Kubernetes, such as VMs, physical devices, and cloud-provider services.
+
+Similar to Ansible – an agentless IT automation solution – Terraform can be leveraged by the scripting capabilities of GitLab to shape your infrastructure. GitLab also provides out-of-the-box integrations with Terraform, such as GitLab-managed Terraform state and Terraform plan reports in merge requests.
+
+## GitOps flows with GitLab and Terraform
+
+In this section, we explain how to use GitLab and Terraform for a non-Kubernetes GitOps flow and Kubernetes GitOps.
+
+### GitLab and Terraform for non-K8s infrastructure
+
+GitLab leverages Terraform to provision a non-Kubernetes infrastructure component, namely a MySQL database running on AWS.
+
+Note: Ideally, the provisioning of a database should be an on-demand, self-service process that developers can just use. We use this scenario to illustrate a GitOps flow using a non-Kubernetes infrastructure component.
+
+#### How collaboration works in GitLab
+
+Sasha, a developer, creates an issue and assigns the issue to Sidney, the database administrator, who then creates a Merge Request (MR) to start her work and invite collaboration with other stakeholders across the organization. Opening the MR automatically creates a feature branch for the GitLab project. Sidney uses Terraform to create an infrastructure-as-code configuration for the database, named `mysqlmain.tf`. The database happens to be an AWS RDS MySQL instance. The database Terraform configuration file should look like this:
+
+![Terraform configuration file for MySQL database](/images/blogimages/how-to-agentless-gitops-aws/0-tf-mysqlmain-created.png){: .shadow.small.center.wrap-text}
+Terraform configuration file for MySQL database.
+{: .note.text-center}
+
+Take note of the version of the database (`engine_version`), the database storage (`allocated_storage`), and the embedded database admin user (`username`) and password, in the image above.
+
+As soon as Sidney adds the file `mysqlmain.tf` file to the feature branch, a pipeline is automatically executed by GitLab in the MR. As part of the review process, a "Terraform plan" is executed against the Terraform files and the output is attached to the MR as an artifact:
+
+![Terraform plan output attached to Merge Request](/images/blogimages/how-to-agentless-gitops-aws/1-tf-report-in-MR.png){: .shadow.small.center.wrap-text}
+Terraform plan output attached to MR.
+{: .note.text-center}
+
+In the picture above, you can see the note "1 Terraform report was generated in your pipelines". You can click on the `View full log` button to see the output file of the "Terraform plan" command that was run against the new configuration file, as seen below:
+
+![Terraform plan output detailed log view](/images/blogimages/how-to-agentless-gitops-aws/2-tf-plan-output.png){: .shadow.small.center.wrap-text}
+Terraform plan output detailed log view.
+{: .note.text-center}
+
+The Terraform output shows that a database will be created once this configuration file is applied to the infrastructure. The artifacts attached to an MR provide information that can help stakeholders review the proposed changes. The Terraform output in the MR fosters collaboration between stakeholders, and leads to infrastructure that is more consistent, resilient, reliable, and stable, and helps prevent unscheduled outages.
+
+In the image below, we see how reviewers can collaborate in GitLab. The screenshow shows that the original requester, Sasha, notices that a database storage of 5 GB is too small, so she makes an inline suggestion to increase the database storage capacity to 10 GB.
+
+![Inline suggestion to increase database storage to 10GB](/images/blogimages/how-to-agentless-gitops-aws/3-tf-inline-suggestion-by-Sasha.png){: .shadow.small.center.wrap-text}
+Inline suggestion to increase database storage to 10GB.
+{: .note.text-center}
+
+Inline suggestions foster collaboration and help increase developer productivity suggested changes can be added with the click of a button.
+
+Next, Sidney invites DevOps engineer Devon to collaborate on the MR. Devon notices that the database version in the configuration file is not the latest one. He proceeds to make an inline suggestion proposing a more up-to-date version for Sidney to review:
+
+![Inline suggestion to update database version](/images/blogimages/how-to-agentless-gitops-aws/4-tf-inline-suggestion-by-Devon.png){: .shadow.small.center.wrap-text}
+Inline suggestion to update database version.
+{: .note.text-center}
+
+Sidney can monitor the discussion between code reviewers on the MR by tracking the number of unresolved threads. So far, there are four unresolved threads:
+
+![Number of unresolved threads displayed at the top of the MR](/images/blogimages/how-to-agentless-gitops-aws/5-tf-unresolved-threads-for-Sidney.png){: .shadow.small.center.wrap-text}
+Number of unresolved threads displayed at the top of the MR.
+{: .note.text-center}
+
+Sidney starts resolving the threads by following the convenient thread navigation provided by GitLab, which makes it easy for her to process each of the proposed review items. Sidney just needs to click "Apply suggestion" to accept an input from a reviewer:
+
+![Applying a suggestion with a single button click](/images/blogimages/how-to-agentless-gitops-aws/6-tf-apply-inline-suggestion-by-Sidney.png){: .shadow.small.center.wrap-text}
+Applying a suggestion with one click.
+{: .note.text-center}
+
+Devon suggested replacing the embedded database admin username and password with a parameter in the inline review, so Sidney replaces the embedded values with variables. The variable values will be managed by masked variables within GitLab:
+
+![Parameterizing variables in Terraform configuration file](/images/blogimages/how-to-agentless-gitops-aws/7-tf-parameterizing-vars-by-Sidney.png){: .shadow.small.center.wrap-text}
+Parameterizing variables in Terraform configuration file.
+{: .note.text-center}
+
+Once the threads are resolved and the stakeholders involved in thh MR finish collaborating, it's time to merge.
+
+Learn more about how GitLab fosters collaboration using the principles of GitOps in the video below:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/onFpj_wvbLM" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+
+In this next example, Sasha is the one merging the MR:
+
+![Merge Request with infrastructure updates being merged](/images/blogimages/how-to-agentless-gitops-aws/8-tf-MR-merged.png){: .shadow.small.center.wrap-text}
+MR with infrastructure updates being merged.
+{: .note.text-center}
+
+Merging automatically launches a pipeline that will apply the changes to the infrastructure:
+
+![GitOps pipeline completed execution](/images/blogimages/how-to-agentless-gitops-aws/9-tf-pipeline-complete.png){: .shadow.small.center.wrap-text}
+GitOps pipeline completed execution.
+{: .note.text-center}
+
+#### CI/CD with non-K8s infrastructure
+
+The CI/CD pipeline in the previous example works by validating the infrastructure configuration files. Then the pipeline validates the proposed updates against the current state of the infrastructure. Finally, it applies the updates to the production infrastructure.
+
+Running this GitOps flow results in a brand new MySQL database on AWS RDS:
+
+![A new MySQL database has been created via a GitOps flow](/images/blogimages/how-to-agentless-gitops-aws/10-db-ready.png){: .shadow.small.center.wrap-text}
+A new MySQL database has been created via a GitOps flow.
+{: .note.text-center}
+
+By checking the details of the new MySQL database you can corroborate that the database storage is 10 GB and that the database version is the most current"
+
+![Resulting MySQL database configuration from the collaboration of stakeholders](/images/blogimages/how-to-agentless-gitops-aws/11-db-version-and-10g-storage.png){: .shadow.small.center.wrap-text}
+The MySQL database configuration built by team member collaboration.
+{: .note.text-center}
+
+In the next section, we look at how a similar GitOps flow can be applied to a Kubernetes cluster.
+
+### GitLab and Terraform for K8s infrastructure
+
+We skip past all the collaboration steps to focus on a change to the EKS cluster Terraform configuration file. In the picture below, a user is changing the minimum size of the autoscaling group of the EKS cluster from one to two:
+
+![Raising autoscaling group minimum to 2](/images/blogimages/how-to-agentless-gitops-aws/12-worker-nodes-to-two.png){: .shadow.small.center.wrap-text}
+Increasing autoscaling group minimum to two.
+{: .note.text-center}
+
+When the stakeholder commits the change in the MR, a CI/CD pipeline validates the configuration, performs a plan against production, and applys the updates to the production infrastructure. After the pipeline finishes, the user can log into the Amazon EC2 console to verify that the EKS cluster now has a minimum of two nodes in its autoscaling group:
+
+![GitOps flow modified the number of worker nodes in K8s cluster](/images/blogimages/how-to-agentless-gitops-aws/13-two-worker-nodes-on-AWS.png){: .shadow.small.center.wrap-text}
+GitOps flow modified the number of worker nodes in K8s cluster.
+{: .note.text-center}
+
+See this scenario in action by watching the [GitOps presentation](/topics/gitops/gitops-multicloud-deployments-gitlab/) on our GitOps topics page.
+
+## GitOps flows for non-K8s (like ECS, EC2)
+
+GitLab also provides Auto Deploy capabilities to streamline application deployment to ECS and EC2, so you can shape infrastructure as desired.
+
+### Deploying to Amazon ECS
+
+After creating your ECS cluster, GitLab can deliver your application and its infrastructure to the cluster by including the ECS Deployment template in your `gitlab-ci.yml`, using CI/CD.
+
+```
+include:
+Template: AWS/Deploy-ECS.gitlab-ci.yml
+```
+
+Next, create the `ECS Task Definition` file in your project that specifies your app's infrastructure requirements, along with other details.
+
+![ECS Task Definition file snippet](/images/blogimages/how-to-agentless-gitops-aws/14-ECS-taskdef-file.png){: .shadow.small.center.wrap-text}
+ECS Task Definition file snippet.
+{: .note.text-center}
+
+Finally, define the project variable that will drive the template:
+
+![Project variables required to auto-deploy to ECS](/images/blogimages/how-to-agentless-gitops-aws/15-ECS-related-vars.png){: .shadow.small.center.wrap-text}
+Project variables required to auto-deploy to ECS.
+{: .note.text-center}
+
+The ECS deployment template does the rest, including support review pipelines.
+
+![Review pipeline in GitOps flow](/images/blogimages/how-to-agentless-gitops-aws/16-ECS-review-pipeline.png){: .shadow.small.center.wrap-text}
+Review pipeline in GitOps flow.
+{: .note.text-center}
+
+In the review pipeline above, stakeholders can review the proposed changes before sending to production. The two screenshots below show different aspects of the proposed changes in the log output of the `review_fargate` job:
+
+![Configuring load balancers in ECS](/images/blogimages/how-to-agentless-gitops-aws/17-review-fargate-log-begin.png){: .shadow.small.center.wrap-text}
+Configure load balancers in ECS.
+{: .note.text-center}
+
+See the configuration for infrastructure components like load balancers in the image above. The image below shows infrastructure components like subnets, security groups, and the assignment of a public IP address:
+
+![Configuring subnets, security groups in ECS](/images/blogimages/how-to-agentless-gitops-aws/18-review-fargate-log-middle.png){: .shadow.small.center.wrap-text}
+Configuring subnets and security groups in ECS.
+{: .note.text-center}
+
+Once all stakeholders are done collaborating on a proposed change to the production infrastructure, the updates are applied using a CI/CD pipeline. Below is an example of this type of pipeline:
+
+![Applying infrastructure updates to production](/images/blogimages/how-to-agentless-gitops-aws/19-ECS-prod-pipeline.png){: .shadow.small.center.wrap-text}
+Applying infrastructure updates to production.
+{: .note.text-center}
+
+Read our documentation to learn more about [how GitLab users can Auto Deploy to ECS](https://docs.gitlab.com/ee/ci/cloud_deployment/#deploy-your-application-to-the-aws-elastic-container-service-ecs).
+
+### Deploying to Amazon EC2
+
+GitLab also provides a built-in template to provision infrastructure and deploy your applications to EC2 as part of Auto DevOps. The template:
+
+- Provisions infrastructure using AWS CloudFormation
+- Pushes application to S3
+- Deploys your application from S3 to EC2
+
+Each of these steps requires a JSON configuration file. Below is an example of a portion of a CloudFormation Stack JSON file used to create your infrastructure:
+
+![CloudFormation stack JSON snippet](/images/blogimages/how-to-agentless-gitops-aws/20-EC2-portion-stack-file.png){: .shadow.small.center.wrap-text}
+CloudFormation stack JSON snippet.
+{: .note.text-center}
+
+The JSON used by the Auto Deploy template to push your application to S3 would look similar to this:
+
+![JSON to push application to S3](/images/blogimages/how-to-agentless-gitops-aws/21-EC2-push-file.png){: .shadow.small.center.wrap-text}
+JSON to push application to S3.
+{: .note.text-center}
+
+And the file used for the actual deployment of your application from S3 to EC2 would be like the following:
+
+![JSON to deploy application to EC2](/images/blogimages/how-to-agentless-gitops-aws/22-EC2-deploy-file.png){: .shadow.small.center.wrap-text}
+JSON to deploy application to EC2.
+{: .note.text-center}
+
+After creating these files, you need to create the following variables in your project - displayed here with some sample values:
+
+```
+variables:
+  CI_AWS_CF_CREATE_STACK_FILE: 'aws/cf_create_stack.json'
+  CI_AWS_S3_PUSH_FILE: 'aws/s3_push.json'
+  CI_AWS_EC2_DEPLOYMENT_FILE: 'aws/create_deployment.json'
+  CI_AWS_CF_STACK_NAME: 'YourStackName'
+```
+
+The last step is to include the template in your `.gitlab-ci.yml` file:
+
+```
+include:
+  - template: AWS/CF-Provision-and-Deploy-EC2.gitlab-ci.yml
+```
+
+More details on [how GitLab uses Auto Deploy to EC2 are available in the documentation](https://docs.gitlab.com/ee/ci/cloud_deployment/#provision-and-deploy-to-your-aws-elastic-compute-cloud-ec2).
+
+## Agent or agentless: GitLab has your GitOps flows covered
+
+Whether your situation calls for an agent-based/pull-approach to doing GitOps, or for an agentless/push-approach, GitLab has your back. GitLab offers the flexibility to choose the approach to GitOps that best fits your specific projects or applications. GitLab also supports many types of infrastructures – from physical components and virtual machines, Kubernetes and containers, as well as infrastructure-as-code tools like Terraform, Ansible, and AWS Cloud Formation.

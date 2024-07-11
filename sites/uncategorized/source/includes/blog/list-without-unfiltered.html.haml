@@ -1,0 +1,53 @@
+.wrapper
+  .section
+    .articles
+      - articles.each do |article|
+        - unless article.data.categories.include?("unfiltered")
+          .article
+            - image_title = article.data.image_title ? article.data.image_title : '/images/default-blog-image.png'
+
+            %a.cover{ href: article.url, loading: 'lazy', style: "background-image: url(#{image_title});" }
+              .overlay
+                %h3
+                  - if article.data.release_number
+                    GitLab
+                    = article.data.release_number
+                    released
+                  - else
+                    = article.title
+            .article-information
+              .author
+                %strong
+                  - guest = article.data.guest
+                  - anchor = article.data.author_twitter || article.data.author_gitlab
+                  - if guest
+                    = article.data.author
+                  - else
+                    - if anchor
+                      = link_to article.data.author, "/company/team/##{anchor}"
+                    - else
+                      = article.data.author
+                  - if article.data.author_gitlab
+                    %span &nbsp;
+                    = link_to "https://gitlab.com/#{article.data.author_gitlab}" do
+                      %spam.author-gitlab
+                        %i.fab.fa-gitlab
+                  - if article.data.author_twitter
+                    %span &nbsp;
+                    = link_to "https://twitter.com/#{article.data.author_twitter}" do
+                      %span.author-twitter
+                        %i.fab.fa-twitter
+              .date
+                = article.date.to_time.strftime '%b %e, %Y'
+              - if article.data.description
+                .summary
+                  = article.data.description
+              - else
+                .summary
+                  = article.summary
+              %a.more{ href: article.url } Read on
+
+              -# - if article.tags.length > 0
+              -#   .tag-info
+              -#     %span Tags:
+              -#     = article.tags.map{ |t| link_to(t, tag_path(t)) }.join(', ')

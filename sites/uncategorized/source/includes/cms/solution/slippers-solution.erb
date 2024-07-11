@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Set up meta data for template that is pulled from data file -->
+    <% 
+      current_page.data.title = event.seo_title
+      current_page.data.title = event.title  
+      current_page.data.description = event.description
+      current_page.data.twitter_image = event.twitter_image
+      current_page.data.canonical_path = event.canonical_path
+
+    %>
+    <%= partial "includes/layout/head" %>
+    <%= partial "includes/cms/reusable-blocks/schema", locals: { schema: event.schema } %>
+  </head>
+  <body class="slp-bg-white">
+    <%= partial "includes/google/gtm" %>
+    <%= partial "includes/layout/header" %>
+    <main class="solution slp-px-16 slp-container slp-mx-auto lg:slp-px-60">
+      <!-- Header -->
+      <% if event.header %>
+        <%= partial "includes/cms/reusable-blocks/header", locals: { header: event.header } %>
+      <% end %>
+      <!-- Tracks spot one -->
+      <% if event.tracks %>
+        <%= partial "includes/cms/solution/slp-tracks", locals: { tracks: event.tracks } %>
+      <% end %>
+      <!-- Body Cascading Images -->
+      <% if event.body_image %>
+        <%= partial "includes/cms/solution/body-image", locals: { content: event.body_image } %>
+      <% end %>
+      <!-- Cards Section -->
+      <% if event.cards_section %>
+        <%= partial "includes/cms/solution/card-section", locals: { cards_section: event.cards_section } %>
+      <% end %>
+      <!-- Partners -->
+      <% if event.partners %>
+        <%= partial "includes/cms/solution/partners", locals: { partners: event.partners } %>
+      <% end %>
+      <!-- Pull Quote -->
+      <% if event.customer_quotes %>
+        <% event.customer_quotes.each_with_index do |quote, index| %>
+        <div class="container md:slp-mb-160">
+          <%= partial "includes/cms/reusable-blocks/pull-quote", locals: { quote: quote }  %>
+        </div>
+        <% end %>
+      <% end %>
+      <!-- Related blog content -->
+      <% if event.related_posts %>
+        <%= partial "includes/cms/reusable-blocks/related-blog-posts", locals: { related_posts: event.related_posts } %>
+      <% end %>
+      <!-- Videos -->
+      <% if event.videos %>
+        <%= partial "includes/cms/solution/slp-videos", locals: { videos: event.videos } %>
+      <% end %>      
+      <!-- CTA Banner -->
+      <% if event.cta_banner %>
+        <%= partial "includes/cms/reusable-blocks/cta-banner", locals: { cta_banner: event.cta_banner } %>
+      <% end %>
+      <!-- Sattelight events section -->
+      <% if event.satellite_events %>
+        <%= partial "includes/cms/event/slp-card", locals: { section: event.satellite_events } %>
+      <% end %>
+      <!-- mrkto form -->
+      <% if event.markto %>
+        <%= partial "includes/cms/solution/mkto-form", locals: { markto: event.markto } %>
+      <% end %>
+      <!-- Body Block 2 -->
+      <% if event.body_block_2 %>
+        <%= partial "includes/cms/reusable-blocks/fullwidth-body-copy", locals: { content: event.body_block_2 } %>
+      <% end %>
+      <!-- List block -->
+      <% if event.block_list_long %>
+        <%= partial "includes/cms/reusable-blocks/list-block-long", locals: { block_list: event.block_list_long } %>
+      <% end %>
+      <!-- CTA Banner two -->
+      <% if event.cta_banner_two %>
+        <%= partial "includes/cms/reusable-blocks/cta-banner", locals: { cta_banner: event.cta_banner_two } %>
+      <% end %>
+      
+    </main>
+    
+    <!-- Standard footer, also needed for all the scripts -->
+    <%= partial "includes/layout/footer" %>
+
+  </body>
+</html>

@@ -1,0 +1,184 @@
+---
+title: "Visual Studio code editor: Eight tips for using GitLab VS Code"
+author: Tomas Vik
+author_gitlab: viktomas
+author_twitter: viktomas_com
+categories: engineering
+image_title: '/images/blogimages/vscode-extension-development-with-gitlab/cover.jpg'
+description: "Learn how to use the Visual Studio code editor more efficiently and meet some of the GitLab contributors that made these new features happen."
+tags: integrations, tutorial
+ee_cta: false
+postType: content marketing
+featured: yes
+twitter_text: "Tips to increase your @GitLab efficiency when working in @code"
+related_posts:
+  - "/blog/2018/03/01/gitlab-vscode-extension/"
+  - "/blog/2020/07/31/use-gitlab-with-vscode/"
+  - "/blog/2020/11/30/vscode-extension-development-with-gitlab/"
+  - "/blog/2021/01/25/mr-reviews-with-vs-code"
+merch_banner: merch_seven
+---
+
+As a software engineer, I spend a significant portion of my day in the Visual Studio code editor. Since I started maintaining the officially supported [GitLab VS Code extension](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow), I've developed a few tricks that make me a productive GitLab user. Below, I share eight tips that make my work more efficient and productive, while also introducing you to some of the GitLab contributors who made this tooling happen.
+
+## What is Visual Studio Code?
+[Visual Studio Code](https://en.wikipedia.org/wiki/Visual_Studio_Code), developed by Microsoft, lets a user debug source code in various languages from the editor. It is also used for syntax highlighting, intelligent code completion, code refactoring, embedded Git and autocomplete. VS Code, as it is commonly known, can be launched or attached to running apps. 
+
+It is designed for Windows, Linux, and MacOS. VS Code can be used with several programming languages such as Java, JavaScript, Node.js, Python, C++ and Fortran. Support for additional languages is provided by freely available extensions on the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow).  
+
+Below are eight tips for using GitLab VS Code.
+
+### How to clone any GitLab project
+
+GitLab contributor [Felix Haase](https://gitlab.com/haasef) recently [implemented a feature that lets you clone any GitLab project where you are a member](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/merge_requests/172). To clone the project, use the official `Git: Clone` command and select your GitLab instance. Use the `Git: Clone` command by selecting the command from the [Command Palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
+
+This feature can save you time if you already know the name of the project you want to clone.
+
+![VS Code clone dialogue](/images/blogimages/vscode-workflows-for-working-with-gitlab/clone.png){: .shadow.medium.center}
+VS Code lets you filter which project to clone.
+{: .note .text-center}
+
+### How to view MRs and issues
+
+It is easy to look through issues and MRs that you created, are assigned to, or are reviewing using GitLab. The lesser-known feature of the GitLab Workflow extension is [custom queries](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/blob/main/docs/user/custom-queries.md). Custom search queries allow you to refine the search expressions for issues and MRs that appear in the VS Code side panel. You can apply all the advanced search terms you are used to from the GitLab web search: Labels, full-text search expression, milestones, authors, assignees, and more.
+
+![GitLab extension sidebar](/images/blogimages/vscode-workflows-for-working-with-gitlab/issues-and-mrs.png){: .shadow.medium.center}
+See your issues and MRs in the VS Code sidebar.
+{: .note .text-center}
+
+Another option is [reviewing the MRs in VS Code](/blog/2021/01/25/mr-reviews-with-vs-code/). The final functionality that is missing in MR review is [creating new comments on the MR diff](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues/342), which we plan to ship by July 2021.
+
+### How to create an MR with two clicks
+
+If you use the `git` command in a terminal, you might have noticed that pushing your branch to GitLab produces the following output:
+
+```txt
+remote: To create a merge request for my-new-branch, visit:
+remote:   https://gitlab-instance.com/my-group/my-project/merge_requests/new?merge_request%5Bsource_branch%5D=my-new-branch
+```
+
+After clicking the link, the terminal will open your browser on a new MR page where you can create an MR from the branch you just pushed.
+
+When I started pushing my branches through VS Code, I missed this feature. To the point that I searched through the VS Code Git Extension logs to find the create MR link (command `Git: Show Git Output`).
+
+Luckily, GitLab contributor [Jonas Tobias Hopusch](https://gitlab.com/jotoho) implemented a [status bar button](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/merge_requests/155) that lets you create MRs just as easily.
+
+To create an MR from your changes, push them to your remote repository (the cloud icon next to the branch name) and then click on the `GitLab: Create MR.` button.
+
+![VS Code status bar](/images/blogimages/vscode-workflows-for-working-with-gitlab/status-bar-create-mr.png){: .shadow.medium.center}
+VS Code status bar with buttons from GitLab extension.
+{: .note .text-center}
+
+### How to configure your GitLab CI
+
+The GitLab extension helps you edit your `.gitlab-ci.yml` configuration file in two ways: Autocompleting environment variables and validating the configuration.
+
+Thanks to [Kev's](https://gitlab.com/KevSlashNull) fantastic [contribution](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/merge_requests/140), you can [use CI](/features/continuous-integration/) variable autocompletion anywhere in your `.gitlab-ci.yml`. The hints even include variable descriptions and explain supported GitLab versions.
+
+![CI variables autocomlete dialogue](/images/blogimages/vscode-workflows-for-working-with-gitlab/ci-autocomplete.png){: .shadow.medium.center}
+CI variables autocomplete dialogue.
+{: .note .text-center}
+
+When you finish writing your `.gitlab-ci.yml` CI configuration, you can use the `GitLab: Validate GitLab CI config` command to surface any problems before committing the CI config to your repository.
+
+### How to create and paste project snippets
+
+Is there a piece of text that you and your teammates often use? Maybe it is a license header for a file or a test scenario template. You can use GitLab snippets in combination with Visual studio code editor to save you a few keystrokes.
+
+For example, you can create a [test file snippet](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/snippets/2110322) with the `GitLab: Create snippet` command and then paste it into every new test file you create with the `GitLab: Insert snippet` command.
+
+![Paste Snippet dialogue](/images/blogimages/vscode-workflows-for-working-with-gitlab/paste-snippet.png){: .shadow.medium.center}
+Paste Snippet dialogue.
+{: .note .text-center}
+
+I mostly use snippets when I want to share a big blob of text. I select the text and then create the snippet with the `GitLab: Create snippet` command.
+
+### How to copy web URL for a project file
+
+Most of the [communication at GitLab happens asynchronously](/handbook/values/#bias-towards-asynchronous-communication). So instead of being able to show your colleague an open file in your editor, you'll need to be able to create a textual pointer to the file.
+
+A straightforward way to do that is to use the `GitLab: Copy link to active file on GitLab` command, which will copy the web URL of the open file into your clipboard. It even includes the line number or a range of lines based on your cursor or selection in the Visual studio code editor.
+
+You might also consider using the `GitLens: Copy Remote File URL`, which even includes the commit SHA in the URL, making it a permalink. The permalink will always point to the same version of the file regardless of further commits to your branch. We'll look at the GitLens extension in tip number 7 a bit later on.
+
+For the GitLab Enterprise/Community Edition you can use:
+"gitweblinks.gitLabEnterprise": [
+    {
+        "http": "https://local-gitlab",
+        "ssh": "git@local-gitlab"
+    }
+]
+
+#### What to do if VS Code source control is not working
+
+A `SourceControl` is the entity responsible for populating the [Source Control model](https://code.visualstudio.com/api/extension-guides/scm-provider)  with resource states, instances of `SourceControlResourceState`. Resource states are organized in groups, instances of `SourceControlResourceGroup`.
+
+Linking to issues in source code is a normal part of the VS Code workflow, especially when there's some logic that's difficult to understand or when there's a //TODO comment that needs action. [Users report experiencing issues](https://stackoverflow.com/questions/60232215/visual-studio-code-source-control-not-showing-changes)  with changes in the file not appearing to the source code, unless inputted manually.
+
+One user offered a 7-step solution that worked for them. Another said that all they had to do was disable and then reenable the build in Git extension, which fixed it. Yet another said they went to their “code” folder where they keep all their repos, right-clicked on the folder containing the repo they wanted and opening that folder with VS code.
+
+An often-used approach to look at issues is to pick one to work on, create a branch to work in, make some commits, then merge your changes back into the main or default branch with a pull request. You can do that from the new Issues view.
+
+#### GitLab Workflow extensions for VS Code
+
+The [GitLab Workflow extension](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow)  integrates GitLab with VS Code. You can decrease context switching and do more day-to-day tasks in VS Code, such as:
+
+- [View issues](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#browse-issues-review-mrs).
+- Run [common commands](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#commands)  from the Visual Studio Code [command palette](https://code.visualstudio.com/docs/getstarted/userinterface#_command-palette).
+- Create and [review](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#merge-request-reviews)  merge requests directly from Visual Studio Code.
+- [Validate](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#validate-gitlab-ci-configuration)  your GitLab CI configuration.
+- [View the status](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#information-about-your-branch-pipelines-mr-closing-issue)  of your current pipeline.
+- [Create](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#create-snippet)  and paste snippets to, and from, your editor.
+- [Browse repositories](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#browse-a-repository-without-cloning)  without cloning them
+
+Download the extension from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow). Then you can configure:
+
+- [Features to display or hide](https://gitlab.com/gitlab-org/gitlab-vscode-extension#extension-settings).
+- [Self-signed certificate](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow#self-signed-certificates) information
+
+Report any issues, bugs, or feature requests in the [gitlab-vscode-extension issue queue](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues).
+
+This extension supports GitLab Version 13.0 and later. To find your GitLab version, visit [help](https://gitlab.com/help).
+
+You can also see pipeline status, open MR and closing issue links in the status bar. The pipeline status is updated automatically so you don’t need to open GitLab to see your pipeline status.
+
+Within the marketplace you can also use the command palette to run the commands and create a GitLab personal access token (required) and assign it to the extension.
+
+You can also set set the token in an environment variable and learn how to change the VS Code settings. There are instructions for several other in-depth features as well.
+
+## How GitLens simplifies working with VS Code editor
+
+Up until now, the tips were centered around the [GitLab Workflow extension](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow), but there is a fantastic extension that's improving VS Code git integration regardless of where you host your repository: [GitLens](https://marketplace.visualstudio.com/items?itemName=eamodio.gitlens).
+
+### Walking file history
+
+GitLens makes it easy to browse the history of changes to the current file. Each versioned file will have three new editor icons, which provides quick access to all previous revisions of the file. The middle button seen in the image below provides series of actions on the current version (e.g., opening the commit in GitLab web).
+
+![GitLens history browsing buttons](/images/blogimages/vscode-workflows-for-working-with-gitlab/gitlens-history.png){: .shadow.medium.center}
+GitLens history browsing buttons
+{: .note .text-center}
+
+### How to compare current HEAD against branch or tag
+
+One of my habits was inspecting `git diff` between my feature branch and the main branch before creating an MR. More often than not, I forgot to write a test or remove some pesky `console.log()`.
+
+GitLens adds multiple sections to your ["Source Control" tab](https://code.visualstudio.com/docs/editor/versioncontrol#_scm-providers). For each branch, tag, and commit, click a "Compare" icon which will show you changes between your current HEAD and the reference. Seeing the local diff is great for previewing changes before pushing the new branch to the remote.
+
+![GitLens - compare with branch](/images/blogimages/vscode-workflows-for-working-with-gitlab/gitlens-compare.png){: .shadow.medium.center}
+How to compare with a branch using GitLens.
+{: .note .text-center}
+
+## Everyone can contribute
+
+New features and fixes to the GitLab Visual Studio Code editor extension are added every month. If you find any issues or have a feature request, please go to our [GitLab VSCode issues tracker](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues) and if your request isn't already present in the tracker, create one. Everyone can contribute to GitLab, and we welcome your ideas on how to improve our Visual Studio Code editor.
+
+## Read more on Visual Studio and GitLab:
+
+- [Four new tools for your Visual Studio Code and GitLab tool belt](/blog/2021/11/17/vscode-workflow-new-features/)
+
+- [VS Code extension development with GitLab](/blog/2020/11/30/vscode-extension-development-with-gitlab/)
+
+- [How to do GitLab merge request reviews in VS Code](/blog/2021/01/25/mr-reviews-with-vs-code/)
+
+- [How we created a GitLab Workflow Extension for VS Code](/blog/2020/07/31/use-gitlab-with-vscode/)
+

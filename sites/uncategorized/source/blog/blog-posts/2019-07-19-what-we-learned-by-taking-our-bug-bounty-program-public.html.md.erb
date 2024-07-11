@@ -1,0 +1,63 @@
+---
+title: "What we learned by taking our bug bounty program public"
+author: Ethan Strike
+author_gitlab: estrike
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/inside-gitLab-public-bug-bounty-program.png'
+description: "Six months into our public bug bounty program, we're taking stock of what's working and where we can make improvements."
+twitter_text: "Six months into our public #bugbounty program, we're taking stock of what's working & where we can make improvements"
+tags: community, security, inside GitLab, bug bounty
+postType: content marketing
+---
+
+When [we opened up our bug bounty program to the public back in December 2018](/blog/2018/12/12/gitlab-hackerone-bug-bounty-program-is-public-today/), we weren’t sure WHAT to expect. Certainly we anticipated a flood of new reports which would keep us occupied for quite some time, and the community did not disappoint! While this was true for the first few months, that spike has since evened itself out. We did encounter a few surprises, though, around the net number of new, unique reporters and the number of reports from unique reporters.
+
+In the first seven weeks after making the program public, 42% of all reporters were first-time contributors, and 64% of all the reports received since going public were from first-time reporters to the GitLab program.
+
+Since taking the program public, we roughly doubled the number of valid reports in the program’s history. We have had a paid, private program since 2017, and this program included only the top 1-10% of HackerOne contributors, so opening our program up publicly has not only engaged a broad cross-section of the reporter community, but also made our products and services more secure. We took a closer look at [how we measure success in our public bug bounty program in an earlier blog post](/blog/2019/04/29/inside-the-gitlab-public-bug-bounty-program/).
+
+## Triage and response
+Responding to the sheer volume of new reports coming in presents its own set of challenges. So, what does our triage and response process look like?
+
+For new reports we use an automated bot to provide the initial response to reporters that includes our current triage ETA. This gives an estimation of how long it will take for our team to triage their report. Reports which clearly have a "critical" impact will be triaged first. Then, everything else is triaged according to the order submitted. This is important because it helps us to identify duplicate reports and gives fair priority.
+
+For effective triage, it's paramount for reports to include clear proof of concepts and any other evidence which makes the impact evident to our triage team. Here we classify impact as the amount of affected assets multiplied against their sensitivity levels, according to our data classification policy. This and other factors help us to determine the appropriate severity and priority of an issue.
+
+We also use an internally developed slack command to import triaged reports from HackerOne and into GitLab issues. We define the impacted project and appropriate labels as input, and then the script creates a new confidential issue. The correct team is then assigned, specifically the [product managers](/handbook/product/categories/), where they will take further action to schedule the fix with the engineering teams. Read more on our [issue triage process](/handbook/security/#issue-triage).
+
+![Thank you to our new reporters!](/images/blogimages/New-reporters-July2019.png){: .shadow.medium.center}
+
+Refining our triage process is just one area where we’ve built improvements based on lessons learned and the evolution of the public program over the last six months. If we look at overall results, we’ve got both positive and not-so-positive results we’re analyzing and improving upon. Our public program has certainly been impactful in the number of vulnerabilities we've identified:
+* From the public program debut through July 3rd, we received 205 valid vulnerabilities. Of that total, 89 vulnerabilities (43%) were from reporters new to the program.
+* In that same period, we received 10 critical-severity vulnerabilities, three of which were from new reporters.
+* And, of the 33 high-severity vulnerabilities reported, 24 (72%) were from new reporters.
+
+On the flip side, we received an increased number of false positives. Of the 677 reports received through July 3rd, 277 were false positives; 215 (78%) of which were by reporters that started participating after the program went public. Overall though, we consider it a net win, because even these false positives allow us to refine and improve our triage and response processes.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+## Timely and accurate communications
+The one area where we’re most looking to improve upon is communication. An effective feedback loop with our HackerOne reporters is vital to continued engagement and effective collaboration. Naturally, with the increased number of reports it’s even more challenging to keep reporters in the loop with timely information. Luckily, this is one area in which automation can help.
+
+Previously, our security automation team had put together a bot that made first contact when a report was submitted. As the program has matured, our automation team has added the ability to send the reporter the expected date of fix, based on the milestone assigned to the issue; providing further transparency into our triage and response process. Initially, this information was collected by the triaging engineer, but utilizing the GitLab API allows for communication in a more timely manner.
+
+Outside of automation, we’ve implemented a rotation schedule within our team, which assigns a dedicated individual for H1 response and triage each week. This simple system has allowed us to work through our backlog and increase our responsiveness. We’ll continue to explore ways to keep our reporters best informed.
+
+We’ve also tweaked how fixes are reported and scheduled based on lessons learned from the first few weeks of our public program. Previously, fixes were reported to engineering managers for each team, who fit them into each development cycle as needed. With the increased number of findings, however, we’ve adjusted the process so that the security team now assigns the due date, but the product manager is the single decision-maker for balancing feature and security deliverables. This allows us to better track company response times, and work with development teams to prioritize fixes.
+
+## Transparency and collaboration
+[Transparency](/handbook/values/#transparency) is one of our core values; everything we make at Gitlab is public by default and HackerOne reports are no different. We believe that publicly disclosing the reports we receive through our bug bounty program helps reduce the threshold to contribution because it allows researchers to learn and develop on top of other researchers’ findings.
+
+It’s also noteworthy that the public bug bounty findings help us identify areas to focus on for developer secure coding training. For example, if we see a trend of a certain class of vulnerabilities, we can target education efforts for our developers around the recommended best practices to reduce the number of future reports relating to that class of vulnerabilities.
+
+Our bug bounty program has also delivered data and findings that prompted us to refine and improve how we approach [application security](/topics/devsecops/) at GitLab. Due to the significant volume of authorization issues reported, we realized that ensuring precision and accuracy of our [permissions model](https://docs.gitlab.com/ee/user/permissions.html) across the whole platform is an area that needs improvement. An efficient solution we are investigating is to automate these authorization checks via CI.
+
+Another key finding this program helped us uncover is that certain classes of vulnerabilities appear repeatedly. Therefore we advocate code reuse through the use of security-focused libraries. This consolidates the security controls needed to prevent vulnerability classes such as SSRF from reappearing.
+
+We’re proud to see the benefits and value being generated by our bug bounty program and specifically our reporter community, spread far beyond GitLab and across the industry.
+
+You can always see the most up-to-date program stats on our public [HackerOne dashboard](https://hackerone.com/gitlab).
+
+Cover image by [markus spiske](https://www.pexels.com/photo/photo-of-green-data-matrix-1089438/) on [Pexels](https://www.pexels.com)
+{: .note}

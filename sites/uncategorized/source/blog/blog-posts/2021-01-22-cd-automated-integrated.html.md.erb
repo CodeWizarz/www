@@ -1,0 +1,108 @@
+---
+title: "GitLab’s automated and integrated continuous delivery"
+author: Cesar Saavedra
+author_gitlab: csaavedra1
+author_twitter: cesar_saavedr
+categories: unfiltered
+image_title: '/images/blogimages/cd-automated-integrated/CD-2st-mkt-diff-cover-1275x849.jpg'
+description: "Learn about how the power of GitLab Auto DevOps can help increase productivity and speed up releases."
+tags: CD, DevOps, demo
+cta_button_text: 'Watch GitLab’s automated and integrated continuous delivery video!' # optional
+cta_button_link: 'https://youtu.be/blJT8f6ZDH8'
+guest: false
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "" # optional;  If no text is provided it will use post's title.
+postType: content marketing # i.e.: content marketing, product, corporate
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+
+
+Organizations adopting DevOps best practices to software delivery spend time and effort designing, building, testing, integrating, and maintaining CI/CD pipelines for their different projects. Just as they must spend some of their time maintaining their business applications instead of innovating, they must do the same for their pipelines. Freeing your developers so that they can spend more of their time creating new business applications and differentiating value to the business is of utmost importance to remain competitive in a world where organizations must be digital leaders to succeed in the marketplace.
+
+GitLab provides [Auto DevOps](/topics/devops/), which are prescribed out-of-the-box CI/CD templates that auto-discover the source code you have. Based on best practices, they automatically detect, build, test, deploy, and monitor your applications. Auto DevOps save your developers from implementing their own pipelines so that they can spend more time innovating. In the following paragraphs, we go over how the power of Auto DevOps automates and integrates your continuous delivery to help increase productivity and speed up releases.
+
+## Enabling Auto DevOps
+
+It’s very easy to enable Auto DevOps for your application. All you need to do is go to your Project Settings and select the configuration you desire for Auto DevOps. As the picture below depicts, you can select the deployment strategy to “Automatic deployment to staging, manual deployment to production”:
+
+![autodevops-on](/images/blogimages/cd-automated-integrated/autodevops-on.png){: .shadow.medium.center.wrap-text}
+
+The Auto DevOps pipeline shifts work left to find and prevent defects as early as possible in the software delivery process.
+
+The pipeline then deploys the application to staging for verification and then to production in an incremental fashion. Auto DevOps saves you and your developers from implementing your own pipelines so that you can spend more time innovating.
+
+## Auto DevOps stages and jobs
+
+The stages and jobs of the Auto DevOps pipeline vary according to the way you configured it. You can also customize the prescribed Auto DevOps pipeline or reuse only portions of it. Let’s review the prescribed stages and jobs for a simple Java application.
+
+1) First you find the Build stage. Auto Build creates a build of the application using an existing Dockerfile or buildpacks. The resulting Docker image is pushed to the built-in Container Registry. 
+
+![auto-build](/images/blogimages/cd-automated-integrated/auto-build.png){: .shadow.medium.center.wrap-text}
+
+All these steps are automatically executed on your application so that you can spend more time delivering value to the business.
+
+2) Next is a variety of tests under the Test stage. Auto DevOps includes jobs for static analysis and code checks, For identifying security issues in containers, For analyzing project dependencies and security issues, For scanning license dependencies, For detecting credentials and secrets exposure, For running security analysis of Java code, And for specific unit tests for the language and framework.
+
+![auto-test](/images/blogimages/cd-automated-integrated/auto-test.png){: .shadow.medium.center.wrap-text}
+
+All these tests increase the quality of code, compliance and reliability that translate into a highly resilient production environment.
+
+3) The review stage contains a single job that spins up an ephemeral environment to be used by the Dynamic Application Security Testing or DAST. Likewise the Dast stage has the job, Auto Dynamic Application Security Testing, which analyzes the current code and checks for potential security issues by running (Open Web Application Security Project) OWASP-related tests.
+
+![auto-review-dast](/images/blogimages/cd-automated-integrated/auto-review-dast.png){: .shadow.medium.center.wrap-text}
+
+4) The prescribed stages and jobs in Auto DevOps vary depending on how you configure it. In this example, the user has selected “Automatic deployment to staging, manual deployment to production” when enabling Auto DevOps, so towards the CD portion of the pipeline, we see the staging stage, which contains a single job. The staging job deploys the user’s application to the staging environment. It will also instantiate the staging environment, if needed.
+
+![auto-staging](/images/blogimages/cd-automated-integrated/auto-staging.png){: .shadow.medium.center.wrap-text}
+
+5) The production stage is manual and contains four jobs to incrementally deploy his application to production. An incremental rollout decreases the risk of a production outage or downtime. By releasing production changes gradually, error rates or performance degradation can be monitored, and if there are no problems, all of production can be updated.
+
+![auto-prod](/images/blogimages/cd-automated-integrated/auto-prod.png){: .shadow.medium.center.wrap-text}
+
+6) The user has been prescribed a performance stage with a single job with the same name. Auto Browser Performance Testing measures the browser performance of each web page and reports on any degradation or improvement so that appropriate action can be taken.
+
+![auto-browser-perf](/images/blogimages/cd-automated-integrated/auto-browser-perf.png){: .shadow.medium.center.wrap-text}
+
+7) The last stage is the cleanup stage, which contains a job that brings down and frees all resources of the ephemeral DAST environment that was brought up earlier in the CI portion of the pipeline.
+
+![auto-cleanup](/images/blogimages/cd-automated-integrated/auto-cleanup.png){: .shadow.medium.center.wrap-text}
+
+This entire prescribed CI/CD pipeline, with all its stages and jobs, is based on best practices and is automatically run for the user’s project saving them time and effort from developing their own pipeline.
+
+## Auto Review Apps
+
+As developers collaborate on a project, Auto DevOps automatically includes Auto Review Apps, which stands up an ephemeral environment for stakeholders to review the running application with proposed changes before they are merged to the main branch. The teardown and freeing of the resources of the ephemeral review environment are also automatically done by Auto DevOps once the merge takes place.
+
+![auto-review-apps](/images/blogimages/cd-automated-integrated/auto-review-apps.png){: .shadow.medium.center.wrap-text}
+
+## Modifying Auto DevOps
+
+Here are some ways that you can modify Auto DevOps.
+
+1) **Customization via environment variables**. If you would like to skip some of the stages and jobs in Auto DevOps, you can do this via project variables. For example, say you are using all open source licensed software within your project and you are pretty confident about your web application performance, and you’d also like to add the ability to do canary deployments. You can customize Auto DevOps via environment variables to skip the license-scanning and performance jobs and add canary deployments to your project by creating and setting specific environment variables as shown below.
+
+![auto-env-vars](/images/blogimages/cd-automated-integrated/auto-env-vars.png){: .shadow.medium.center.wrap-text}
+
+You could also use the GitLab APIs to script these modifications if he so desired.
+
+2) **Customization by editing the DevOps pipeline**. Another way to customize the Auto DevOps pipeline is by adding it to your own project and then making changes to it.
+Below you can see a screen snapshot of an Auto DevOps pipeline edit where LICENSE_MANAGEMENT and web PERFORMANCE tests are being disabled.
+
+![autodevops-pipeline-edit](/images/blogimages/cd-automated-integrated/autodevops-pipeline-edit.png){: .shadow.medium.center.wrap-text}
+
+3) **Customization by using only portions of Auto DevOps**. You could also leverage portions of Auto DevOps in your own pipeline by including specific templates. In the smaller pipeline below, only the Auto Build and Auto Test capabilities of Auto DevOps are being reused.
+
+![autodevops-portions](/images/blogimages/cd-automated-integrated/autodevops-portions.png){: .shadow.medium.center.wrap-text}
+
+The power of Auto DevOps automates and integrates your continuous delivery to help speed up your releases by saving you time from having to write your own pipelines. By using Auto DevOps you can accelerate your product delivery times and bring differentiating application features faster to market.
+
+If you’d like to see the power of GitLab Auto DevOps in action, watch this [video](https://youtu.be/blJT8f6ZDH8).
+
+For more information, visit [LEARN@GITLAB](https://about.gitlab.com/learn/).
+
+Photo by [Tim Carey](https://unsplash.com/@baudy?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/formula-1?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)

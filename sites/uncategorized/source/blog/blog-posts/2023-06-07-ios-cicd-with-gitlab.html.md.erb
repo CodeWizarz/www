@@ -1,0 +1,153 @@
+---
+title: "Tutorial: iOS CI/CD with GitLab"
+author_twitter: gitlab
+author: Darby Frey
+author_gitlab: darbyfrey
+categories: engineering
+tags: mobile, DevOps, CI/CD, tutorial
+description: "Learn how to create an automated CI/CD pipeline using GitLab and fastlane."
+image_title: "/images/blogimages/2023-04-15-ios-cicd-with-gitlab/john-cameron-DgRb7aAGK4k-unsplash.jpg"
+twitter_text: "Creating an automated CI/CD pipeline with GitLab is easier than you think! This tutorial shows you how."
+---
+
+Creating an automated [CI/CD](https://docs.gitlab.com/ee/ci/) pipeline for an Apple iOS application can be challenging. Configuring build environments and managing code signing can be very time-consuming and error-prone, and when you get that all working, you still need a way to send your app to Apple.
+
+GitLab makes this much easier with [GitLab Mobile DevOps](https://docs.gitlab.com/ee/ci/mobile_devops.html).
+
+GitLab Mobile DevOps is a collection of features built right into GitLab to solve the biggest challenges mobile teams face in establishing a [DevOps](https://about.gitlab.com/topics/devops/) practice.
+
+In this blog post, I’ll demonstrate how to set up an automated CI/CD pipeline using GitLab and [fastlane](https://fastlane.tools/).
+
+## Prerequisites
+To get started, there are a few prerequisites you’ll need:
+
+* An Apple Developer account - [https://developer.apple.com/](https://developer.apple.com/)
+* Ruby and XCode command line tools installed on your local machine [https://docs.fastlane.tools/getting-started/ios/setup](https://docs.fastlane.tools/getting-started/ios/setup/) 
+
+> Try out our [Android CI/CD with GitLab tutorial](/blog/2023/06/13/android-cicd-with-gitlab/).
+
+## Reference project
+For this walkthrough, we’ll use the iOS demo project for reference: [https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo)
+
+## Install fastlane
+If you haven’t done so yet, the first step will be to install fastlane. Do this by creating a file in the root of your project called Gemfile. Give it the following contents:
+
+```
+source "https://rubygems.org"
+
+gem "fastlane"
+```
+
+Then, from the terminal in your project, run:
+
+```
+bundle install
+```
+
+This command will install fastlane, and all of its related dependencies.
+
+## Initialize fastlane
+Now that fastlane is installed, we can set it up for our project. Run the following command from the terminal in your project and choose Option No. 2 since we will be targeting Test Flight in this tutorial:
+
+```
+bundle exec fastlane init
+```
+
+Running this command will create a new folder in your project called `fastlane`. This folder will contain two files `Appfile` and `Fastfile`. 
+
+![Initialize Fastlane](/images/blogimages/2023-04-15-ios-cicd-with-gitlab/fastlane-init.png)
+
+The Appfile contains the configuration information for the app, and the Fastfile has some sample code that we will replace later. See the fastlane docs for more information about the configuration details in the Appfile [https://docs.fastlane.tools/advanced/Appfile/](https://docs.fastlane.tools/advanced/Appfile/)
+
+## Initialize fastlane match
+The next step will be to set up fastlane Match, which is the part of fastlane that handles code signing. For more information on fastlane match, see the docs [https://docs.fastlane.tools/actions/match/](https://docs.fastlane.tools/actions/match/ )
+
+We’ll start by running the following command from the terminal in your project:
+
+```
+bundle exec fastlane match init
+```
+
+This command will prompt you to choose which storage backend you want to use (select gitlab_secure_files) and to input your project path (for example: gitlab-org/gitlab). It will then generate a fastlane Matchfile configured to use your project as the storage backend for fastlane Match.
+
+![Initialize fastlane Match](/images/blogimages/2023-04-15-ios-cicd-with-gitlab/match-init.png)
+
+## Generate a project access token
+Next, you'll need a GitLab Access Token to use fastlane Match from your local machine. To create a project access token, visit the Access Tokens section under Settings in your GitLab project. Create a new token with maintainer access to the “api” scope.
+
+Then run the following command from the terminal in your project replacing “YOUR_NEW_TOKEN” with the access token you just generated:
+
+```
+export PRIVATE_TOKEN=YOUR_NEW_TOKEN
+```
+
+This will configure fastlane to use this access token when making fastlane Match requests to your project.
+
+## Generate signing certificates
+Now that fastlane Match is configured, we can use it to generate the signing certificates and provisioning profiles for our app and upload them to GitLab.
+
+NOTE: If you already have these files for your app, see the instructions in this blog post on how to use fastlane to import your existing code signing files [/blog/2022/10/03/mobile-devops-with-gitlab-part-3-code-signing-for-ios-with-gitlab-and-fastlane/](/blog/2022/10/03/mobile-devops-with-gitlab-part-3-code-signing-for-ios-with-gitlab-and-fastlane/).
+
+Run the following command from the terminal in your project to generate development code signing files and upload them to GitLab.
+
+```
+bundle exec fastlane match development
+```
+
+When this command completes, go to the CI/CD settings page in your project and scroll down to the Secure Files section to see the files that were just generated and added to your project.
+
+While we’re here, we can go ahead and do that same thing for the appstore code signing files. Run the following command to generate the appstore code signing files and upload them to GitLab.
+
+```
+bundle exec fastlane match appstore
+```
+
+## Update Xcode configuration
+With the code signing files ready to go, we have one small change to make in Xcode. In your project in Xcode, go to the Signing & Capabilities section and disable automatically managing code signing. Then, select the appropriate provisioning profile and signing certificate from the list based on your build target. The certificates we just generated will show up in that list.
+
+![Configure Xcode Provisioning Profiles](/images/blogimages/2023-04-15-ios-cicd-with-gitlab/xcode.png)
+
+With all of our code signing configuration in place, we can now move on to setting up the integration with the Apple App Store.
+
+## Apple App Store integration
+The final bit of configuration is the Apple App Store integration. To do this, we’ll need to create an API key in App Store Connect. See the instructions here to create and download the key file to your location machine. This key should have the role of App Manager. [https://developer.apple.com/documentation/appstoreconnectapi/creating_api_keys_for_app_store_connect_api](https://developer.apple.com/documentation/appstoreconnectapi/creating_api_keys_for_app_store_connect_api)
+
+Once the key is generated, go to Settings, Integrations in your project, and click on the integration for Apple App Store Connect. You’ll be asked to supply the issuer ID and key ID from App Store Connect, along with the key file you just downloaded. With all of that configuration in place, click the Test Settings button to ensure everything works. If it gives you an error, double check your settings and try again. Once it’s working, click Save Changes to save and activate the integration. 
+
+With the integration activated, the following CI variables are added to all pipelines on protected branches and tags:
+
+* `APP_STORE_CONNECT_API_KEY_ISSUER_ID`
+* `APP_STORE_CONNECT_API_KEY_KEY_ID`
+* `APP_STORE_CONNECT_API_KEY_KEY`
+
+These CI variables can be used by fastlane or any custom tooling to interact with the Apple App Store to upload builds, or perform other API enabled tasks.
+
+## Fastfile
+With all of our configuration in place, we can now drop in a sample Fastfile to show how to perform the build, sign, and release actions.
+
+From the [sample project](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo), copy the contents of the fastlane/Fastfile and paste it into the Fastfile in your project, replacing the existing content. 
+
+[https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo/-/blob/main/fastlane/Fastfile](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo/-/blob/main/fastlane/Fastfile)
+
+This sample Fastfile contains two lanes, which are actions fastlane can execute. The lanes in this file are `build` and `beta`. 
+
+### Build
+The build lane will perform just a couple of actions to `setup_ci`, `match`, and `build_app`. This will use the development certificate we generated with fastlane Match earlier to build and sign the app for development. 
+
+### Beta
+The beta lane takes a few more steps to `setup_ci`, `match`, `app_store_connect_api_key`, `increment_build_number`, `build_app`, and `upload_to_testflight`. This lane will use the appstore certificates we generated with faslane Match earlier to build and sign the app for an appstore release. This lane also uses the App Store Connect integration to connect to the app store to determine the next build number to use, and to upload the final build to Test Flight. 
+
+### .gitlab-ci.yml
+With the fastlane configuration ready to go, the last step is to hook it up to GitLab CI. 
+
+From the [sample project](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo), copy the contents of the `.gitlab-ci.yml` file and paste it into the project. 
+
+[https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo/-/blob/main/.gitlab-ci.yml](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/demo-projects/ios-demo/-/blob/main/.gitlab-ci.yml )
+
+This is a simplified CI configuration that created two CI jobs to run each of the lanes in fastlane on the GitLab macOS shared runners. The build job will run for all CI pipelines and the beta job will only be run on CI pipelines on the master branch. The beta job is also manually triggered, so you can control when the beta release is pushed to Test Flight. 
+
+With all of this in place, commit all of these changes and push them up to your project. The CI pipeline will kick off, and you can see these jobs in action. 
+
+Cover image by <a href="https://unsplash.com/@john_cameron?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">John Cameron</a> on <a href="https://unsplash.com/photos/DgRb7aAGK4k?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>
+{: .note}
+  

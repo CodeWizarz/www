@@ -1,0 +1,164 @@
+---
+title: "How to use a pull-based (agent-based) approach for GitOps"
+author: Cesar Saavedra
+author_gitlab: csaavedra1
+author_twitter: cesar_saavedr
+categories: engineering
+image_title: '/images/blogimages/how-to-use-agent-based-gitops/agent-based-gitops-cover-880x587.jpg'
+description: "Learn how GitLab supports agent-based approach for GitOps"
+tags: GitOps, Infrastructure-as-code, IaC, DevOps, demo
+cta_button_text: 'TBD' # optional
+cta_button_link: 'TBD' # optional
+twitter_text: "How to use a pull-based (agent-based) approach for GitOps" # optional;  If no text is provided it will use post's title.
+postType: content marketing
+merch_sidebar: merch_one
+related_posts:
+  - "TBD"
+---
+
+In the previous post, titled [3 ways to approach GitOps](https://about.gitlab.com/blog/2021/04/27/gitops-done-3-ways/), we discussed the many benefits and options that GitLab supports for fulfilling the [GitOps](/topics/gitops/) requirements of customers, whose IT environments are composed of heterogeneous technologies and infrastructures. This post is a 3-part series, in which we delve deeper into these options. In this first part, we cover the pull-based or agent-based approach.
+
+## About a pull-based or agent-based approach
+
+In this approach, an agent is installed in your infrastructure components to pull changes whenever there is a drift from the desired configuration, which resides in GitLab. Although the infrastructure components could be anything from a physical server or router to a VM or a database, we will focus on a Kubernetes cluster in this section.
+
+In the following example, the [reconciliation loop](https://about.gitlab.com/solutions/gitops/) is made up of two components: an agent running on the Kubernetes cluster and a server-side service running on the GitLab instance. One of the benefits of this approach is that you don’t have to expose your Kubernetes clusters outside your firewall. Another benefit is its distributed architecture, in that agents running on the infrastructure components are in charge of correcting any drift relieving the server-side from resource consumption. This approach requires the maintenance and installation of agents on all infrastructure components you want to be part of your GitOps flows.
+
+### GitLab Agent for Kubernetes as a pull-based approach
+
+[Introduced](https://about.gitlab.com/releases/2020/09/22/gitlab-13-4-released/#introducing-the-gitlab-kubernetes-agent) as part of GitLab 13.4, the GitLab Agent for Kubernetes runs on your Kubernetes cluster and pulls changes in your infrastructure configuration from GitLab to your cluster keeping your infrastructure configuration from drifting away from its desired state.
+
+GitLab Agent for Kubernetes (the feature) is currently implemented as two components ([architecture doc](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent/-/blob/master/doc/architecture.md)):
+
+- GitLab Agent for Kubernetes (agentk program): The component that users install into their cluster.
+
+- GitLab Agent for Kubernetes Server (kas program): The server-side counterpart, that runs "next to GitLab."
+
+The high-level architecture of the GitLab Agent for Kubernetes is depicted below:
+
+![GitLab K8s agent high-level architecture](/images/blogimages/how-to-use-agent-based-gitops/0-K8s-agent-arch.png){: .shadow.small.center.wrap-text}
+GitLab K8s agent high-level architecture.
+{: .note.text-center}
+
+The **agentk** is installed on your Kubernetes cluster and it is the component that applies updates to the infrastructure. The **kas** is installed on the GitLab instance and it manages the authentication and authorization between **agentk** instances and GitLab, monitors projects for any changes and gathers latest project manifests to send to **agentk** instances.
+
+> **NOTE:** on Gitlab.com, the **kas** is installed and maintained by GitLab. On self-managed instances, the customer needs to install it.
+
+In the following self-managed instance example, we go through a GitOps flow that leverages the pull-based approach to GitOps.  After the **agentk** component has already been installed on the K8s cluster, the user proceeds to log on to the GitLab instance and creates a project called **gitops-project**:
+
+![Creating the gitops-project](/images/blogimages/how-to-use-agent-based-gitops/1-create-gitops-proj.png){: .shadow.medium.center.wrap-text}
+Creating the gitops-project.
+{: .note.text-center}
+
+The project **gitops-project** will be the one that will be monitored or observed by the **kas** component. Then, under **gitops-project**, the user creates an empty manifest file called **manifest.yaml**. This is the manifest file that will contain the Infrastructure as Code configuration for this project:
+
+![Manifest file created](/images/blogimages/how-to-use-agent-based-gitops/2-manifest-file-created.png){: .shadow.medium.center.wrap-text}
+Manifest file created.
+{: .note.text-center}
+
+Next, the user creates a Kubernetes agent configuration repository project, **kubernetes-agent**, which will contain information pertinent to the **kas** component.
+
+![Creating the kubernetes-agent project](/images/blogimages/how-to-use-agent-based-gitops/3-create-K8s-agent-proj.png){: .shadow.medium.center.wrap-text}
+Creating the kubernetes-agent project.
+{: .note.text-center}
+
+Within the **kubernetes-agent** project, the user creates a subdirectory **.gitlab/agents/agent1**, where **agent1** is the name given to this specific agent:
+
+![Config.yaml file created](/images/blogimages/how-to-use-agent-based-gitops/4-config-yaml-created.png){: .shadow.medium.center.wrap-text}
+Config.yaml file created.
+{: .note.text-center}
+
+Notice that in the screenshot above, the project to be observed, **gitops-project**, was created in an earlier step.
+
+The next step consists of the creation of a GitLab Rails Agent record to associate it with the Kubernetes agent configuration repository project. In the following screenshot, you see the commands that the user enters to first identify the task-runner pod, to log into it, to enter the Rails Console, and finally to create the agent record and a token for it:
+
+![Agent record created](/images/blogimages/how-to-use-agent-based-gitops/5-agent-record-created.png){: .shadow.medium.center.wrap-text}
+Agent record created.
+{: .note.text-center}
+
+In the above screenshot, the last command uses the agent token to create a secret on the K8s cluster for secured communication between the **agentk** and the **kas** components.
+
+The **agentk** pod creation on the K8s cluster is the next step. For this, the user creates a **resources.yml** file, in which the secured communication protocol between the **agentk** and the **kas** is specified as shown in the following snippet:
+
+![Websockets line](/images/blogimages/how-to-use-agent-based-gitops/6-wss-line-in-resources-yml.png){: .shadow.medium.center.wrap-text}
+WebSockets communication specified in the resources.yml file.
+{: .note.text-center}
+
+In the above snippet, secured WebSockets protocol is being used. GitLab also supports gRPC.
+
+Once the **resources.yml** file is updated with the corresponding GitLab instance information, the user proceeds to create the pod:
+
+![Agentk pod created](/images/blogimages/how-to-use-agent-based-gitops/7-agentk-created.png){: .shadow.medium.center.wrap-text}
+Creation of the **agentk** pod.
+{: .note.text-center}
+
+In the screenshot above, you can see the execution of the **kubectl apply** that created the **agentk** pod in the K8s cluster.
+
+Now that the **agentk** and **kas** have been installed and are communicating securely with each other, the user can start performing some GitOps flows. Although the [GitLab Flow](https://about.gitlab.com/topics/version-control/what-is-gitlab-flow/) is the recommended approach for DevOps, it is also applicable to GitOps flows; after all GitOps is all about applying the goodness of DevOps to managing [Infrastructure as Code](/topics/gitops/infrastructure-as-code/).
+
+This means that the user should create an issue and then a merge request, in which all stakeholders can collaborate towards the resolution of the issue. For the sake of brevity, in this technical blog post, we will skip all these steps and show you how updates to the Infrastructure as Code configuration files are automatically applied to the infrastructure components.
+
+NOTE: Fostering Collaboration is a great benefit of GitOps. For more information on this, check out this short [tech video](https://youtu.be/onFpj_wvbLM).
+
+For example, the user can start making updates to the **manifest.yaml** file under the **gitops-project**, which is being observed by the kas component. Here you can see the user has pasted content into this file:
+
+![Manifest.yaml file updated](/images/blogimages/how-to-use-agent-based-gitops/8-manifest-yaml-updated.png){: .shadow.medium.center.wrap-text}
+Manifest.yaml file updated.
+{: .note.text-center}
+
+Remember that this file had been created as an empty file. As soon as the user commits the changes displayed above, the **kas** component will detect the changes and communicate these to the **agentk** component, which is running on the K8s cluster. The **agentk** will immediately apply these changes to the infrastructure. In this example, the user has updated the infrastructure configuration file to have 2 instances of an nginx. As shown in the screenshot below, the **agentk** has applied these updates by the instantiation of 2 nginx pods in the K8s cluster:
+
+![Two nginx pods up and running](/images/blogimages/how-to-use-agent-based-gitops/9-two-nginx-running.png){: .shadow.medium.center.wrap-text}
+GitOps flow instantiates two nginx pods.
+{: .note.text-center}
+
+If the user were to change the **manifest.yaml** file one more time and increment the replicas of the nginx pod to 3:
+
+![Manifest.yaml file updated with 3 nginx](/images/blogimages/how-to-use-agent-based-gitops/10-manifest-yaml-updated-again.png){: .shadow.medium.center.wrap-text}
+Manifest.yaml file updated with 3 nginx instances.
+{: .note.text-center}
+
+Again, as soon as the commit takes place, the **kas** component detects the update and communicates this to the **agentk** component, which in turn, spins up a third nginx pod in the K8s cluster:
+
+![Three nginx pods up and running](/images/blogimages/how-to-use-agent-based-gitops/11-three-nginx-running.png){: .shadow.medium.center.wrap-text}
+GitOps flow instantiates a third nginx pod.
+{: .note.text-center}
+
+Lastly, the user can check the log files of the different components running on GKE, in this example. In the following screenshot, the user can see the **kas** component running on the GitLab instance:
+
+![kas running on GKE](/images/blogimages/how-to-use-agent-based-gitops/12-kas-on-GKE.png){: .shadow.medium.center.wrap-text}
+The **kas** component running on GKE.
+{: .note.text-center}
+
+And then the user can drill down into the log of the **kas** component, and see how it is detecting commits on the project it is observing:
+
+![kas log on GKE](/images/blogimages/how-to-use-agent-based-gitops/13-kas-log-on-GKE.png){: .shadow.medium.center.wrap-text}
+The **kas** log output on GKE.
+{: .note.text-center}
+
+Likewise, the user can navigate to the **agentk** component of the K8s cluster:
+
+![agentk running on GKE](/images/blogimages/how-to-use-agent-based-gitops/14-agentk-on-GitLab.png){: .shadow.medium.center.wrap-text}
+The **agentk** component running on GKE.
+{: .note.text-center}
+
+And, again drill down to its log to see, how the **agentk** component runs synchronizations with the **kas** component:
+
+![agentk log on GKE](/images/blogimages/how-to-use-agent-based-gitops/15-agentk-log-top-on-GitLab.png){: .shadow.medium.center.wrap-text}
+The **agentk** log output on GKE.
+{: .note.text-center}
+
+In the following screenshot, the user sees the log statements indicating that the **agentk** is instantiating a third instance of an nginx pod:
+
+![agentk instantiating a third nginx pod](/images/blogimages/how-to-use-agent-based-gitops/16-agentk-log-synced-on-GitLab.png){: .shadow.medium.center.wrap-text}
+The **agentk** instantiating a third nginx pod.
+{: .note.text-center}
+
+The above sections described an example of the setup needed to install and run the GitLab Agent for Kubernetes as well as how projects are monitored and synchronized from GitLab to a running K8s cluster.
+
+## Conclusion
+
+We have gone over the setup and use of the Agent, which is an integral part of our pull-based or agent-based approach to GitOps. We also covered a GitOps flow that leveraged this agent-based approach, which is a good choice for Kubernetes shops that need to keep their clusters secured and behind their firewall. This approach comes with its drawbacks in that you need to maintain the agents, which also consume the resources of your infrastructure components. In part two of this series, we will discuss the push-based or agentless approach to GitOps.
+
+Cover image by [Vincent Ledvina](https://unsplash.com/@vincentledvina?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/grand-tetons?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

@@ -1,0 +1,12 @@
+deprecations:
+  - feature_name: "Planned removal of x-y-stable docker images in favor of Semantic Versions for Security Products"
+    due: May 22, 2020
+    reporter: tmccaslin
+    description: |
+      GitLab Secure tools have historically leveraged an `x-y-stable` docker tag to tie the scanners to the release version of GitLab. We are moving to publish docker images matching [semantic versions](https://semver.org/) of our tools (Major.minor.patch).
+      Semantic versioning provides a number of benefits, which include:
+
+        * The Docker image version will  match the version in each analyzer's `CHANGELOG`, so it's easier to understand what features come with a specific version of the analyzer.
+        * Users can choose their level of stability: no changes (pin to `major.minor.patch`), patch fixes only (pin to `major.minor`), new features and patch fixes (pin to `major`), bleeding edge (pin to `edge`).
+
+      We will continue releasing `x-y-stable` docker images until we officially drop support for them as early as %13.0. To prevent the failure of Secure scan jobs with **customized** [vendored templates](https://gitlab.com/gitlab-org/gitlab/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml) after this transition, users can follow [this issue](https://gitlab.com/gitlab-org/gitlab/issues/207128) for details on how to update/migrate existing templates.

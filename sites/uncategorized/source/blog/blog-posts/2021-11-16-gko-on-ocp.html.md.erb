@@ -1,0 +1,167 @@
+---
+title: "How to install and use the GitLab Kubernetes Operator"
+author: Cesar Saavedra
+author_gitlab: csaavedra1
+author_twitter: cesar_saavedr
+categories: engineering
+image_title: '/images/blogimages/gko-on-ocp/GKO-Thumbnail.png'
+description: "Follow these step-by-step instructions to set up the GitLab Kubernetes Operator on a Kubernetes cluster."
+tags: kubernetes, features, integrations
+cta_button_text: 'To see how to to install and use the GitLab Kubernetes Operator, check out this video' # optional
+cta_button_link: 'https://youtu.be/sEBnuhzYD2I' # optional
+twitter_text: "The @gitlab #Kubernetes Operator was released in October. Learn step-by-step how to install and use it." # optional;  If no text is provided it will use post's title.
+postType: content marketing 
+---
+
+The GitLab Kubernetes Operator was released on October 12, 2021.
+
+## What is the GitLab Kubernetes Operator?
+
+The GitLab Operator allows you to install and run an instance of GitLab in a vanilla Kubernetes or OpenShift cluster. Kubernetes operators increase the reliability and availability of your applications by automating Day 2 operations such as upgrading components, management of data integrity, application reconfiguration, automatic recovery from a failure, and autoscaling.
+
+## Installing the GitLab Kubernetes Operator on an OpenShift Container Platform cluster
+
+In this short post, we show you how to install and run the GitLab Operator to create a GitLab instance on an OpenShift Container Platform cluster, which we have already preinstalled:
+
+![OCP console](/images/blogimages/gko-on-ocp/0-ocp-console.png){: .shadow.medium.center.wrap-text}
+The OpenShift Container Platform console
+{: .note.text-center}
+
+Inspecting the running pods of the OpenShift cluster, we see that Prometheus is already being used as the metrics server, which is a prerequisite for the installation of the GitLab Operator:
+
+![Prometheus up and running](/images/blogimages/gko-on-ocp/1-prometheus-up.png){: .shadow.medium.center.wrap-text}
+Prometheus up and running on cluster
+{: .note.text-center}
+
+Also, we verify that the gitlab-system namespace does not yet exist:
+
+![gitlab namespace not present](/images/blogimages/gko-on-ocp/2-no-gitlab-sys-namespace.png){: .shadow.medium.center.wrap-text}
+gitlab-system namespace non-existent
+{: .note.text-center}
+
+Another prerequisite is cert-manager, which automates the management and issuance of TLS certificates. Let’s use the OpenShift OperatorHub to install and instantiate an instance of cert-manager. We first verify that one is not running. Then we head to the OperatorHub and install the cert-manager Operator:
+
+![cert-manager in OperatorHub](/images/blogimages/gko-on-ocp/3-cert-mgr-in-operatorhub.png){: .shadow.medium.center.wrap-text}
+Installing cert-manager using its operator in OperatorHub
+{: .note.text-center}
+
+**NOTE:** Once the GitLab Kubernetes Operator is certified with OpenShift, it will have its own tile in the OperatorHub.
+{: .alert .alert-info}
+
+Then we create an instance of cert-manager by using its newly installed operator:
+
+![cert-manager instance creation](/images/blogimages/gko-on-ocp/4-create-instance-cert-mgr.png){: .shadow.medium.center.wrap-text}
+Creating an instance of cert-manager using its operator
+{: .note.text-center}
+
+In preparation of the GitLab Operator installation, we create the namespace gitlab-system, under which all of the GitLab resources will be:
+
+![gitlab-system namespace creation](/images/blogimages/gko-on-ocp/5-create-gitlab-sys-namespace.png){: .shadow.medium.center.wrap-text}
+Creating the gitlab-system namespace
+{: .note.text-center}
+
+To install the GitLab Operator, we define two environment variables: one is to set the version of the GitLab Operator we want to use and the other one is to set the platform for which we are targeting the Operator. In this case, it is OpenShift. We then apply the GitLab Operator Custom Resource Definition or CRD to the cluster, which creates the operator, by entering the following command:
+
+```
+export GL_OPERATOR_VERSION="0.1.0" 
+export PLATFORM="openshift"
+kubectl apply -f https://gitlab.com/api/v4/projects/18899486/packages/generic/gitlab-operator/${GL_OPERATOR_VERSION}/gitlab-operator-${PLATFORM}-${GL_OPERATOR_VERSION}.yaml
+```
+
+And here's is an example screenshot of what the output of this command would be like:
+
+![application of the CRD to the cluster](/images/blogimages/gko-on-ocp/6-applying-the-crd.png){: .shadow.medium.center.wrap-text}
+Applying the GitLab Kubernetes Operator to the OpenShift cluster
+{: .note.text-center}
+
+As we watch the pods in the gitlab-system namespace, we see the creation of two pods for the gitlab-controller-manager:
+
+![operator pods](/images/blogimages/gko-on-ocp/7-watching-operator-pods-creation.png){: .shadow.medium.center.wrap-text}
+GitLab Kubernetes Operator pods being created on the OpenShift cluster
+{: .note.text-center}
+
+The GitLab Kubernetes Operator is now installed on the OpenShift Container Platform cluster. Next, we need to use this newly installed operator to create an instance of GitLab.
+
+## Creating a GitLab instance on the cluster using the GitLab Kubernetes Operator
+
+To create an instance of GitLab, we create a Custom Resource file called mygitlab.yaml to provide information, such as domain name and certmanager issuer email, for the GitLab Operator to use during the creation of the GitLab instance. Here is a parameterized example of the contents for this file:
+
+```
+apiVersion: apps.gitlab.com/v1beta1
+kind: GitLab
+metadata:
+  name: gitlab
+spec:
+  chart:
+    version: "[REPLACE WITH THE CHART VERSION]"
+    values:
+      global:
+        hosts:
+          domain: [REPLACE WITH YOUR DOMAIN NAME]
+        ingress:
+          configureCertmanager: true
+      certmanager-issuer:
+        email: [REPLACE WITH YOUR EMAIL]
+```
+
+And here is an example screenshot of what this file would look like with actual values for the parameters:
+
+![creating-gitlab-yaml-file](/images/blogimages/gko-on-ocp/8-creating-mygitlab-yaml.png){: .shadow.small.center.wrap-text}
+Creating mygitlab.yaml, the custom resource file
+{: .note.text-center}
+
+We then apply the Custom Resource to the cluster. This action will kickstart the creation of all the pods needed for the instantiation of a GitLab instance on the cluster:
+
+![applying the custom resource to the cluster](/images/blogimages/gko-on-ocp/9-applying-the-cr.png){: .shadow.medium.center.wrap-text}
+Applying the custom resource file to the cluster
+{: .note.text-center}
+
+After a few minutes, when the GitLab instance is up and running, we obtain its external IP address from the nginx ingress controller installed by the GitLab Operator by entering the following command:
+
+> kubectl -n gitlab-system get services -o wide gitlab-nginx-ingress-controller
+
+Here's an example screenshot of its output:
+
+![getting the external ip](/images/blogimages/gko-on-ocp/10-get-external-ip.png){: .shadow.medium.center.wrap-text}
+Obtaining the external IP address for our newly created GitLab instance
+{: .note.text-center}
+
+We use this IP address to create DNS A records to map the DNS names of three (minio, registry, and gitlab) of the GitLab instance subsystems to it. Here is a snapshot for the gitlab one (you need to do the same for the minio and registry subsystems):
+
+![creating dns record](/images/blogimages/gko-on-ocp/11-creating-dns-record.png){: .shadow.medium.center.wrap-text}
+Creating DNS A record for the gitlab subsystem
+{: .note.text-center}
+
+**NOTE:** I owned the domain ocpgitlab.com. You would use a domain that you own.
+{: .alert .alert-info}
+
+## Logging in to the newly created instance running on the OpenShift Container Platform cluster
+
+Before logging in to our newly created GitLab instance running on OpenShift Container Platform, we need to obtain the initial root password, which is a secret stored under the gitlab-system namespace. You obtain the initial root password for the newly created GitLab instance by entering the following command:
+
+> kubectl -n gitlab-system get secret gitlab-gitlab-initial-root-password -ojsonpath='{.data.password}' \| base64 --decode ; echo
+
+At this moment, we can point our browser to our newly created GitLab instance on OpenShift and login as root:
+
+![logging in to GitLab](/images/blogimages/gko-on-ocp/13-log-in-to-gitlab.png){: .shadow.medium.center.wrap-text}
+Logging in to the newly created GitLab instance running on the OpenShift Container Platform cluster
+{: .note.text-center}
+
+That’s it!
+
+## Conclusion
+
+We have shown you how to install and run the GitLab Operator to create a GitLab instance on an OpenShift Container Platform cluster. View [this demo](https://youtu.be/sEBnuhzYD2I) to see how this feature works.
+
+## Read more on Kubernetes
+
+- [Threat modeling the Kubernetes Agent: from MVC to continuous improvement](/blog/2021/10/11/threat-modeling-kubernetes-agent/)
+
+- [How to deploy the GitLab Agent for Kubernetes with limited permissions](/blog/2021/09/10/setting-up-the-k-agent/)
+
+- [A new era of Kubernetes integrations on GitLab.com](/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/)
+
+- [Understand Kubernetes terminology from namespaces to pods](/blog/2020/07/30/kubernetes-terminology/)
+
+- [What we learned after a year of GitLab.com on Kubernetes](/blog/2020/09/16/year-of-kubernetes/)
+

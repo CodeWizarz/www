@@ -1,0 +1,106 @@
+---
+title: "An SA story about hyperscaling GitLab Runner workloads using Kubernetes"
+author: Brian Wald and Darwin Sanoy
+author_gitlab: BrianWald DarwinJS
+postType: content marketing
+categories: engineering
+image_title: '/images/blogimages/kaleidico-26MJGnCM0Wc-unsplash.jpg'
+description: "It is important to have the complete picture of scaled effects in view when designing automation."
+tags: CI, CD, performance, solutions architecture
+twitter_text: "A Story of hyper scaling GitLab Runner workloads using Kubernetes"
+---
+
+The following *fictional story*<sup>1</sup> reflects a repeating pattern that Solutions Architects at GitLab encounter frequently. In the analysis of this story we intend to demonstrate three things: (a) Why one should be thoughtful in leveraging Kubernetes for scaling, (b) How unintended consequences of an approach to automation can create a net productivity loss for an organization (reversal of ROI) and (c) How solutions architecture perspectives can help find anti-patterns - retrospectively or when applied during a development process.
+
+### A DevOps transformation story snippet
+
+Gild Investment Trust went through a DevOps transformational effort to build efficiency in their development process through automation with GitLab. Dakota, the application development director, knew that their current system handled about 80 pipelines with 600 total tasks and over 30,000 CI minutes so they knew that scaled CI was needed. Since development occurred primarily during European business hours, they were interested in reducing compute costs outside of peak work hours. Cloud compute was also a target due to acquring the pay per use model combined with elastic scaling.
+
+Ingrid was the infrastructure engineer for developer productivity who was tasked with building out the shared GitLab Runner fleet to meet the needs of the development teams. At the beginning of the project she made a successful bid to leverage Kubernetes to scale CI and CD to take advantage of the elastic scaling and high availability all with the efficiency of containers. Ingrid had recently achieved the Certified Kubernetes Administrator (CKA) certification and she was eager to put her knowledge to practical use. She did some additional reading around applications running on Kubernetes and noted the strong emphasis on minimizing the resource profile of microservices to achieve efficiency in the form of compute density. She defined runner containers with 2GB of memory and 750millicores (about three quarters of a CPU) had good results from running some test CI pipelines. She also decided to leverage the Kubernetes Cluster Autoscaler which would use the overall cluster utilization and scheduling to automatically add and remove Kubernetes worker nodes for smooth elastic scaling in response to demand.
+
+About 3 months into the proof of concept implementation, Sasha, a developer team lead, noted that many of their new job types were failing with strange error messages. The same jobs ran fine on quickly provisioned GitLab shell runners. Since the primary difference between the environments was the liberal allocation of machine resources in a shell runner, Sasha reasoned that the failures were likely due to the constrained CPU and memory resources of the Kubernetes pods. 
+
+To test this hypothesis, Ingrid decided to add a new pod definition. She found it was difficult to discern which of the job types were failing due to CPU constraints, which ones due to memory constraints and which ones due to the combination of both. She knew it could be a lot of her time to discern the answer. She decided to simply define a pod that was more liberal on both CPU and memory and have it be selectable by runner tagging when more resources were needed for certain CI jobs. She created a GitLab Runner pod definition with 4GB of memory and 1750 millicores of CPU to cover the failing job types. Developers could then use these larger containers when the smaller ones failed by adding the ‘large-container’ tag to their GitLab job.
+
+Sasha redid the CI testing and was delighted to find that the new resourcing made all the troubling jobs work fine. Sasha created a guide for developers to try to help discern when mysterious error messages and failed CI jobs were probably the fault of resourcing and then how to add a runner tag to the job to expand the resources.
+
+Some weeks later two of the key jobs that were fixed by the new container resourcing started intermittently failing on NPM package creation jobs for just 3 pipelines on 2 different teams. Of course Sasha tried to understand what the differences were and found that these particular pipelines were packaging notably large file sets because they were actually packaging testing data and the NPM format was a convenient way to provide testing data during automated QA testing.
+
+Sasha brought this information to Ingrid and together they did testing to figure out that a 6GB container with 2500 millicores would be sufficient for creating an NPM package out of the current test dataset size. They also discussed whether the development team might want to use a dedicated test data management solution, but it turned out that the teams needs were very simple and that their familiarity with NPM packaging meant that bending NPM packaging to suit their purpose was actually more efficient than acquiring, deploying, learning and maintaining a special system for this purpose. So a new pod resourcing profile was defined and could be accessed with the runner tag ‘xlarge’.
+
+Sasha updated the guide for finding the optimal container size through failure testing of CI jobs - but they were not happy with how large the document was getting and how imprecise the process was for determining when a CI job failure was, most likely due to container resource constraints. They were concerned that developers would not go through the process and instead simply pick the largest container resourcing profile in order to avoid the effort of optimizing and they shared this concern with Ingrid. In fact, Sasha noted, they were hard pressed themselves to follow their own guidelines and not to simply choose the largest container for all jobs themselves.
+
+The potential for this cycle to repeat was halted several months later when Dakota, the app dev director, generated a report that showed a 2% increase in developer time spent optimizing CI jobs using failure testing for container size optimization. Dakota considered this work to be a net new increase because when the company was not using container-based CI, the developers did not have to manage this concern at all. Across 298 developers this amounted to around $840,000/yr dollars of total benefits per month<sup>2</sup>. It was also thought to add about 2 hours (and growing) to developer onboarding training. It was noted that the report did not attempt to account for the opportunity cost tax - what would these people be doing to solve customer problems with that time? It also did not account for the "critical moments tax" (when complexity has an outsized frustration effect and business impact on high pressure, high risk situations).
+
+### Solution architecture retrospective: What went wrong?
+
+This story reflects a classic antipattern we see at GitLab, not only with regard to Kubernetes runner optimization, but also across other areas, such as overly minimalized build containers and the potential for resultant pipeline complexity as was discussed in a previous blog called [When the pursuit of simplicity creates complexity in container-based CI pipelines](/blog/2022/05/24/second-law-of-complexity-dynamics/). Frequently this result comes from inadvertent adherance to heuristics of a small part of the problem as though they were applicable to the entirety of the problem (a type of a logical “fallacy of composition”).
+
+Thankfully the emergence of the anti-pattern follows a pattern itself :). Let’s apply a little retrospective solution architecture to the "what happened" in order to learn what might be done proactively next time to create better iterations on the next automation project.
+
+There is a certain approach to landscaping shared greenspaces where, rather than shame people into compliance with signs about not cutting across the grass in key locations, the paths that humans naturally take are interpreted as the signal “there should be a path here.” Humans love beauty and detail in the environments they move through, but depending on the space, they can also value the efficiency of the shortest possible route slightly higher than aesthetics. A wise approach to landscaping holds these factors in a balance that reflects the efficiency versus aesthetic appeal balance of the space user. The space stays beautiful without any shaming required.
+
+In our story Sasha and Ingrid had exactly this kind of cue where the developers were likely to walk across the grass. If that cue is taken to be a signal that reflects efficiency, we can quickly see what can be done to avoid the antipattern when it starts to occur.
+
+The signal was the observation that developers might simply choose the largest container all the time to avoid the fussy process of optimizing the compute resources being consumed. Some would consider that laziness and not a good signal to heed. However, most human laziness is deeply rooted in efficiency trade-offs. The developers intuitively understand that their time fussing with failure testing to optimize job containers and their time diagnosing intermittent failures due to the varying content of those jobs, is not worth the amount of compute saved. That is especially true given the opportunity cost of not spending that time innovating the core software solution for the revenue generating application.
+
+Ingrid and Sasha’s collaboration has initially missed the scaled human toil factor that was introduced to keep container resources at the minimum tolerable levels. They failed to factor in the escalating cost of scaled human toil to have a comprehensive efficiency measurement. They were following a microservices resourcing pattern which assumes the compute is purpose designed around minimal and well known workloads. When taken as a whole in a shared CI cluster, CI compute follows generalized compute patterns where the needs for CPU, Memory, Disk IO and Network IO can vary wildly from one moment to the next.
+
+In the broadest analysis, the infrastructure team over indexed to the “team local” optimization of compute efficiency and unintentionally created a global de-optimization of scaled human toil for another team.
+
+## How can this antipattern be avoided?
+
+One way to combat over indexing on a criteria is to have balancing objectives. This need is covered in "Measure What Matters" with the concept of counter balancing objectives. There are some counter balancing questions that can be asked of almost any automation effort. When solution architecture is functioning well these counter balancing questions are asked during the iterative process of building out a solution. Here are some applicable ones for this effort:
+
+**Approporiate Rules: Does the primary compute optimization heuristic match the characteristics of the actual compute workload being optimized?**
+
+The main benefits of container compute for CI are dependency isolation, dependency encapsulation and a clean build environment for every job. None of these benefits has to do with the extreme resource optimizations available to engineer microservices architected applications. As a whole, CI compute reflects generalized compute, not the ultra-specialized compute of a 12 factor architected micro-service.
+
+**Appropriate granularity: Does optimization need to be applied at every level?**
+
+The fact that the cluster itself has elastic scaling at the Kubernetes node level is a higher order optimization that will generate significant savings. Another possible optimization that would not require continuous fussing by developers is having a node group running on spot compute (as long as the spot compute runners self-identify their compute as spot so pipeline engineers can select appropriate jobs for spot). These optimizations can create huge savings, without creating scaled human toil.
+
+**People and processes counter check: Does the approach to optimization create scaled human toil by its intensity and/or frequency and/or lack of predictability for any people anywhere in the organization?**
+
+Automation is all about moving human toil into the world of machines. While optimizing machine resources must always be a primary consideration, it is a lower priority objective than creating a net increase in human toil anywhere in your company. Machines can efficiently and elastically scale, while human workforces respond to scaling needs in months or even years.
+
+### Avoid scaled human toil
+
+Notice that neither the story, nor the qualifying questions, imply there is never a valid reason to have specialized runners that developers might need to select using tags. If a given attribute of runners could be selected once and with confidence then the antipattern would not be in play. One example would be selecting spot compute backed runners for workloads that can tolerate termination. It is the potential for repeated needed attention to calibrate container sizing - made worse by the possibility of intermittent failure based on job content - that pushes this specific scenario into the potential realm of “scaled human toil.” The ability to leverage elastic cluster autoscaling is also a huge help to managing compute resources more efficiently. 
+
+If the risk of scaled human toil could be removed then some of this approach may be able to be preserved. For example, having very large minimum pod resourcing and then a super-size for stuff that breaks the standard pod size just once. Caution is still warranted because it is still possible that developers have to fuss a lot to get a two pod approach working in practice.
+
+### Beware of scaled human toil of an individual
+
+One thing the story did not highlight is that even if we were able to move all the fussing of such a design to the Infrastructure Engineer persona (perhaps by building an AI tuning mechanism that guesses at pod resourcing for a given job), the cumulative taxes on their role are frequently still not worth the expense. This is, in part, because they have a leveraged role - they help with all the automation of the scaled developer workforce and any time they spend on one activity can’t be spent on another. We humans are generally bad at accounting for opportunity costs - what else could that specific engineer be innovating on to make a stronger overall impact to the organization’s productivity or bottom line? Given the very tight IT labor market, a given function may not be able to add headcount, so opportunity costs take on an outsized importance.
+
+### Unlike people’s time, cloud compute does not carry opportunity cost
+
+A long time ago people had to schedule time on shared computing resources. If the time was used for low-value compute activities it could be taking away time from higher value activities. In this model compute time has an opportunity cost - the cost of what it could be using that time for if it wasn’t doing a lower value activity. Cloud compute has changed this because when compute is not being used, it is not being paid for. Additionally, elastic scaling eliminates the costs of over provisioning hardware and completely eliminates the administrative overhead of procuring capacity - if you need lots for a short period of time it is immediately available. In contrast, people time is not elastically scalable nor pay per use. This means that the opportunity cost question “What could this time be used for if it didn’t have to be spent on low value activities?” is still relevant for anything that creates activities for people.
+
+### The first corollary to the Second Law of Complexity Dynamics
+
+The Second Law of Complexity Dynamics was introduced in an earlier blog. The essence is that complexity is never destroyed - it is only reformed - and primarily it is moved across a boundary line that dictates whether the management of the complexity is in our domain or externalized. For instance, if you write a function for md5 hashing in your code, you are managing the complexity of that code. If you install a dependency package that contains a premade md5 hash function that you simply use, then the complexity is externalized and managed for you by someone else.
+
+In this story we are introducing the corollary to that “Law” that “**Exchanging Raw Machine Resources for Complexity Management is Generally a Reasonable Trade-off.**” In this case our scaled human toil is created due to the complexity of unending, daily management of optimizing compute efficiency. This does not mean that burning thousands of dollars of inefficient compute is OK because it saved someone 20 minutes of fussing. It is scoped in the following way:
+
+- scoped to “complexity management” (which is creating the “scaled human toil” in our story) - many minutes of toil that increases proportionally or compounds with more of the activity. 
+- scoped to “raw machine resources” - meaning that there is not additional logistics nor human toil to gain the resources. In the cloud raw machine resources are generally available via configuration tweaks.
+- scoped to “generally reasonable” - this indicates a disposition of being very cautious about increasing human toil with an automatoin solution - but it still makes sense to use models or calculations to check if the rule actually holds in a given case.
+
+So if we can externalize complexity management that is great (The Second Law of Complexity Dynamics). If we can trade complexity management for raw computing resource, that is likely still better than managing it ourselves (The First Corollary).
+
+### Iterating SA: Experimental improvements for your next project
+
+This post contains specifics that can be used to avoid antipatterns in building out a Kubernetes cluster for GitLab CI. However, in the qualifying questions we’ve attempted to kick it up to one meta-level higher to help assess whether any automation effort may have an “overly local” optimization focus which can inadvertently create a net loss of efficiency across the more global “company context.” It is our opinion that automation efforts that create a net loss in human productivity should not be classified as automation at all. While it’s strong medicine to apply to one’s work, we feel that doing so causes appropriate innovation pressure to ensure that individual automation efforts truly deliver on their inherent promise of higher human productivity and efficiency. So simply ask “Does this way of solving a problem cause recurring work for anyone?”
+
+### DevOps transformation and solution architecture perspectives
+
+A technology architecture focus rightfully hones in on the technology choices for a solution build. However, if it is the only lens, it can result in scenarios like our story. Solutions architecture steps back to a broader perspective to sanity-check that solution iterations account for a more complete picture of both the positive and negative impacts across all three of people, processes and technology. As an organizational competency, DevOps emphasis solution architecture perspectives when it is defined as a collaborative and cultural approach to people, processes and technology.
+
+Footnotes:
+
+1. This fictional story was devised specifically for this article and does not knowingly reflect the details of any other published story or an actual situation. The names used in the story are from [GitLab’s list of personas](https://about.gitlab.com/handbook/product/personas/).
+2. Across a team of 300 full time developers. 9.6min/workday x 250 workdays / year = 2400mins / 8hrs/workday  = 5 workdays x $560 per day (140K Total Comp/250days) = $2800/dev/year x 300 developers = $840,000/yr
+
+Cover image by [Kaleidico](https://unsplash.com/@kaleidico?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/)

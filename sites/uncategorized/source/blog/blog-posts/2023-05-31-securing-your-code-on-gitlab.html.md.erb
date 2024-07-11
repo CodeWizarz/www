@@ -1,0 +1,117 @@
+---
+title: The ultimate guide to securing your code on GitLab.com
+author: Steve Grossman
+author_gitlab: Steevo
+author_twitter:
+categories: security
+image_title: /images/blogimages/security-pipelines.jpg
+description: "This in-depth tutorial, complete with best practices, will help you secure your development environment."
+tags: tutorial, DevSecOps platform
+twitter_text: "This in-depth tutorial, complete with best practices, walks you through step-by-step how to secure your development environment."
+featured: yes
+guest: false
+---
+
+A critical aspect of a DevSecOps methodology is to apply best practices to secure your development environment. Your software should be protected from malicious and accidental exposure or modification. This blog explains how to control and manage access to GitLab.com and, in turn, source code, build pipelines, dependency and package repositories, and deployment keys involved in the [software supply chain](/blog/2022/08/30/the-ultimate-guide-to-software-supply-chain-security/). The best practices specifically address the capabilities for end users on multi-tenant GitLab.com and are written for the Ultimate license tier. Not all of these capabilities are available at the Premium tier.
+
+## 1. Group settings
+Many security-related settings can be set on the top-level group and will cascade down into all subgroups and projects. They are the easiest and most important in securing your GitLab.com instance.
+
+### General settings
+In the top-level group, the following settings should be applied to provide the best security for the code within that group:
+
+#### Make the group visibility level private
+This is likely the most important setting among general settings. By marking the group “private", anyone who is not explicitly a member of the group will not be able to access it. Additionally, by making the top-level group private, all subgroups and projects will also be private and cannot be exposed.  
+
+#### Permissions and group features
+Under permissions:
+ - Set “Prevent members from sending invitations to outside groups”. This will prevent accidentally adding people who should not belong to the group.
+ - Set “Prevent sharing a project with other groups”. This prevents accidental or malicious exfiltration of code by sharing or moving a project to another group outside the control of the top-level group owner.
+ - Allow project and group access token creation. Project and group access tokens are much like [personal access tokens](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) with the following improvements:
+    - They are visible to and manageable by group owners and maintainers, which means they can be revoked and have expiration dates set by an administrator to limit the opportunity for abuse.
+    - They create a virtual “bot” user that does not count against your license count.
+ - Enable [delayed project deletion](/blog/2023/04/03/delayed-deletion/). This will give you a seven-day grace period to catch and prevent accidental or malicious removal of a repo. GitLab.com, like self-managed GitLab, does not have the ability to restore an individual project without significant expense for professional services.
+ - Allowlist the Classless Inter-Domain Routing (CIDR) or supernetting from which users should be accessing the code.
+ - Restrict membership to only those email domains belonging to your organization and contractors.
+ - Restrict creation of subgroups to Owners. This will help keep the structure of the top-level group within your policies and make [SAML Group Sync](https://docs.gitlab.com/ee/user/group/saml_sso/group_sync.html) for membership easier to manage.
+ - Block forking projects outside of this group hierarchy. This will help prevent code exfiltration.
+ - Require [two-factor authentication](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html). This disables the ability to use password authentication with Git over HTTPS.
+ - Disallow adding new members to projects within this group. All members must be inherited from the group.  
+
+#### Merge request approvals
+[Merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/) help prevent injection of malicious code into the repository by having people other than the author review them. Enable merge request approvals for all projects in your group to:  
+ - Prevent approval by authors.
+ - Prevent approvals by users who add commits.
+ - Prevent editing approval rules in projects and on individual merge requests.  
+
+### SAML SSO
+To more tightly control who can access your code in GitLab.com, set up [SAML SSO](https://docs.gitlab.com/ee/user/group/saml_sso/). This will ensure that everyone who accesses it is approved by someone in authority.
+
+#### To configure SAML SSO:  
+ - Enable SAML authentication for this group.
+ - Enforce SSO-only authentication for web activity for this group.
+ - Enforce SSO-only authentication for Git and Dependency Proxy activity for this group.
+ - Set the Default membership role to Minimal Access. Roles can be increased as needed in subgroups or individual projects, minimal access prevents any visibility to projects or subgroups where the user is not explicitly granted another role.
+ - Tightly control access to the Maintainer and Owner roles; every developer does not need to have a Maintainer role.
+
+## 2. Group auditing and compliance
+Regularly and periodically review the [compliance reports](https://docs.gitlab.com/ee/user/compliance/compliance_report/) to verify who is approving merge requests and what MRs are getting approved.
+
+Set up streaming group audit events to your corporate security information and event management (SIEM) system and monitor them for unusual activity. This needs to be repeated for each group and project in the hierarchy to get the maximum number of audit events.
+
+## 3. Group-level push rules
+ Setting restrictive push rules at the group level will help ensure malicious code is not injected into the repository:
+ - Require committers be verified.
+ - Reject unsigned commits.
+ - Ensure the commit author is a GitLab user.
+ - Prevent pushing secret files.
+ - Require commit author’s email to be from your email domain.  
+
+## CI/CD  
+The following settings can help insure the integrity of [CI/CD](/topics/ci-cd/) pipelines and reduce the opportunities for abuse and malice:
+ - Register runners at the lowest practical level to reduce the blast radius of any malicious use.
+ - Require tags to use all runners to reduce the opportunity for abuse.
+ - Define CI/CD variables – especially if they contain secrets – at the lowest practical level to reduce the blast radius of any malicious use.
+ - Use protected runners with protected variables and protected branches to significantly limit who can deploy into production environments or misuse cloud resources.
+ - Access to change the .gitlab-ci.yml pipeline definition file should be tightly controlled in all repos through the CODEOWNERS file to prevent malicious use of the CI/CD system.
+
+## 4. Project settings  
+Some settings do not cascade down from the group or are not available at the group level and must be set on individual projects instead. These include some repo-specific settings.
+
+### Repository
+Set up protected branches and protected tags to go along with the protected runners and protected variables defined above.
+
+### CI/CD  
+#### General 
+ - Disable public pipelines.
+ - Use separate caches for protected branches.  
+
+### Protected environments
+Use protected environments and tightly limit who can deploy and require approvals for deploying.
+
+#### Token access
+Restrict access to this project’s CI_JOB_TOKEN to only individual projects to ensure malicious projects to not retrieve the token and use it to access the API.
+
+#### Secure files
+Store keystores, provisioning profiles and signing certificates in the Secure Files storage rather than the repository.  
+
+## 5. Project-level security testing and compliance
+### Configuration
+#### Security testing
+ - Enable static application security testing [SAST](https://docs.gitlab.com/ee/user/application_security/sast/) to help prevent insertion of malicious code into the application.
+ - Enable dependency scanning and regularly review the dependency list or software, or software bill of materials ([SBOM](/blog/2022/10/25/the-ultimate-guide-to-sboms/)], generated by dependency scanning for vulnerabilities and malicious components.
+ - Enable [container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/) and cluster image scanning.  
+
+#### Policies
+As an alternative to the security testing section above, you may choose to enable scan execution policies.
+Enable [test scan result policies](https://docs.gitlab.com/ee/user/application_security/policies/scan-result-policies.html) to prevent merging code with critical vulnerabilities.
+
+
+Following these best practices will help ensure that your code hosted on GitLab.com is safe from tampering and 
+[public exposure](https://www.engadget.com/okta-stolen-source-code-205601214.html) and that your 
+software supply chain is secure and only authorized users 
+are accessing your software assets.
+
+## More resources
+- [Group level settings documentation](https://docs.gitlab.com/ee/user/group/)
+- [Project level settings documentation](https://docs.gitlab.com/ee/user/project/settings/)

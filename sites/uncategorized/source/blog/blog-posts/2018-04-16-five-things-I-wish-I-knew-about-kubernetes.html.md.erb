@@ -1,0 +1,66 @@
+---
+title: "5 things I wish I'd known about Kubernetes before I started"
+author: Jason Plum
+author_gitlab: WarheadsSE
+author_twitter: WarheadsSE
+categories: engineering
+image_title: '/images/blogimages/containers-for-five-things-kubernetes-blog-post.jpg'
+description: "Looking to dive into Kubernetes? Here’s some advice on how to get started from a GitLab engineer."
+ee_cta: false
+tags: kubernetes
+---
+
+I first encountered Kubernetes in January 2017 when our CEO [Sid Sijbrandij](/company/team/#sytses) challenged me and five other team members to get a live install functional on Kubernetes for an Idea to Production demo during the company summit in Cancún.
+
+Prior to the challenge I had never touched Kubernetes. Nonetheless, my team members and I conquered the challenge, completing the task a day before deadline to boot. You can [watch the demo here](#kubernetes-summit-challenge-demo).
+
+Now, a little more than a year later, I've taken a deeper dive into the container orchestration platform, leading my team in building and releasing the alpha version of the [cloud native GitLab helm chart](https://gitlab.com/charts/gitlab/blob/master/README.md), which allows for the deployment of GitLab on Kubernetes. With that experience fresh in mind, I've got a bit of advice for those looking to move into the world of Kubernetes:
+
+## The internet is your friend. Check out the documentation, online courses and walkthroughs.
+
+First things first, there are a couple of really good sets of documentation out there, and even a solid [course on edX](https://www.edx.org/course/introduction-to-kubernetes). These are all good choices. You don’t have to go through all of the courses to really get a running start with what’s going on. But if you want to get into the nitty-gritty, I would strongly suggest taking some of the courses. If all you want to do is see it work, be able to play with it and kind of get an idea of what it is, then you can get a [free trial](https://cloud.google.com/partners/partnercredit/?PCN=a0n60000006Vpz4AAC) with [GKE (Google Kubernetes Engine)](/blog/2018/04/05/gke-gitlab-integration/), set up a little cluster and do a deployment that way. And if all you want to do is deploy a couple of your applications into the same cluster, we (GitLab) already have [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/) that can hook everything together for you, and then you can use your entire workflow, do your deployments, and pop right in there. We’ll even help you spin up a GKE cluster with all the requirements [right from the UI](https://docs.gitlab.com/ee/user/project/clusters/#adding-and-creating-a-new-gke-cluster-via-gitlab).
+
+But if you want to do it by hand the first time, that’s one of those things where you should start with the tutorial walkthroughs. Install the tools. They are all straightforward to get your hands on. Pull down one of the charts, try it, change some configuration options and retry it. Just play with it.
+
+## Be clear on how you will use Kubernetes.
+
+The challenges you encounter in Kubernetes really depend on what you’re trying to do with it. Are you using it as a test round, are you using it as a staging environment, or are you going all the way in and going for production? Just using it for a development environment is not really complicated. You need to understand some basic concepts, like namespaces. You need to know what a secret is, what a configuration is, and what a deployment is. These core concepts will get you a very long way.
+
+Beyond that, you start getting into the involved steps. That’s where you need to understand what didn’t exist prior, like the role-based access controls, or RBAC, which is now involved with Kubernetes and also Helm. Those features did not exist a year ago, and now they do. They are becoming ever-present and even more involved. This is good for people doing production, engineers, SREs (site reliability engineers), deployments, customers, etc. because now you’re making sure that things aren’t touching other things they shouldn’t. It’s not an open, flat plane of network.
+
+Now you have fine-grained controls via RBAC. Multiple namespaces, with controls per namespace on access or creation to secrets and configuration. This allows you to have production-grade multi-tenant clusters where you are not concerned about neighbors stepping on each other or poking their nose where they don't belong. This is a big step compared to the state of Kubernetes as a whole in early 2017.
+
+> The thing I wish I knew was how fast it was going to develop. I walked into Kubernetes in January and then I walked away from it in February. When I came back to it in September, I was surprised by how much had changed. And then the same thing keeps happening every single release.
+
+## Don’t expect the same version on every service provider.
+
+I think the biggest thing that people should understand is that not all cloud providers provide the exact same version of Kubernetes. They’re all very close, they’re all almost identical, but the way in which certain features are implemented is slightly different. So, the way you get it on Azure’s container services and the way you get it on Amazon’s container services or GKE won't be exactly the same. Everybody’s implementation is slightly different. Perhaps the available version of the base functionality is going to be a little different, but the real difference will be between each of these providers' own product integrations.
+
+Then there’s the whole ‘roll your own’ approach, at which point you get to use really nifty plugins and other components that you can’t use out of the box with a cloud provider today. Play with it, but it still comes down to this: there are differences between the providers. Target mainline or vanilla, and it will work everywhere. Target a provider, and you’re now a part of that provider.
+
+## Be nimble. Change is constant, but don’t follow along blindly in an attempt to keep up.
+
+Wow, there is just so much development. In the year from when I first touched Kubernetes to where I’m at now, the feature set has expanded quite a bit. And the controls that are required for large enterprises are now in place. These can bite you if you’re not paying attention, but they’re not horribly hard to understand if you’re willing to just take a moment and read. Also, everybody and their brother is now doing this and playing with this. Just because you see somebody else do it doesn’t mean it’s an industry best practice.
+
+## Last bit of sage advice: Seriously. DO NOT sleep on the releases.
+
+The thing I wish I knew was how fast it was going to develop. I walked into Kubernetes in January and then I walked away from it in February. When I came back to it in September, I was surprised by how much had changed. And then the same thing keeps happening every single release.
+
+It is a production-ready system. However, new feature sets and capabilities are evolving at such a pace that it can be hard to keep up with. You’re not breaking anything, but now there’s all these new, nifty features. All the shinies keep coming.
+
+This is not a six-month release cycle software. I’m not going to install Kubernetes, walk away for a year and come back thinking I’ll simply be able to go to the next LTS (long-term support). You have to be present. You have to be paying attention. It doesn’t matter if you only check in once a month, you’ve got to check in once a month.
+
+----
+
+## Kubernetes summit challenge demo
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/39chczWRKws" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+_[Aricka Flowers](/company/team/#arickaflowers) contributed to this post._
+
+Photo by [Frank Mckenna](https://unsplash.com/photos/tjX_sniNzgQ) on [Unsplash](https://unsplash.com/)
+{: .note}

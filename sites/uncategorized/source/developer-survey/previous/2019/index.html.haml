@@ -1,0 +1,161 @@
+---
+layout: developer-survey
+title: GitLab 2019 Global Developer Report
+description: Discover key trends, attitudes, and perceptions on the state of culture, workflow, and tooling within IT organizations.
+canonical_path: "/developer-survey/previous/2019/"
+twitter_image: '/images/tweets/2019-global-developer-report.png'
+extra_css:
+  - dev-survey-report-2019.css
+extra_js:
+  - dev-survey-2019.js
+---
+
+%header.navbar.navbar-header-transparent#main-nav{role: "navigation"}
+  .navbar-left
+    = link_to "/", class: "navbar-brand animated" do
+      = partial "includes/logos/wm_web.svg"
+  .navbar-right
+    %ul
+      %li
+        %a.main-nav-link{href: "#development"}
+          = "Development"
+      %li
+        %a.main-nav-link{href: "#security"}
+          = "Security"
+      %li
+        %a.main-nav-link{href: "#operations"}
+          = "Operations"
+      %li
+        %a.main-nav-link{href: "https://learn.gitlab.com/c/2019-global-develope?x=G2Poyl"}
+          = "Download the full report"
+      %li
+        = link_to "/developer-survey/previous/", class: "main-nav-link" do
+          = "Previous years"
+  .mobile-icons
+    %button.mobile-icon#mobile-icon
+      .icon-bar
+      .icon-bar
+      .icon-bar
+  .display-none.mobile-menu#mobile-menu
+    %button.exit-icon-container#exit-icon
+      = image_tag "/images/icons/x.svg", class: "exit-icon", alt: "Gitlab x icon svg"
+    %ul
+      %li
+        %a.main-nav-link{href: "#development"}
+          = "Development"
+      %li
+        %a.main-nav-link{href: "#security"}
+          = "Security"
+      %li
+        %a.main-nav-link{href: "#operations"}
+          = "Operations"
+      %li
+        %a.main-nav-link{href: "https://learn.gitlab.com/c/2019-global-develope?x=G2Poyl"}
+          = "Download the full report"
+  %script{ src: "/javascripts/libs/tweenmax.min.js", type: "text/javascript" }
+
+%main
+  %section.hero.container
+    = image_tag "#{data.developer_report_2019.hero.image.url}", alt: data.developer_report_2019.hero.image.alt
+    %h1.huge
+      = data.developer_report_2019.hero.heading
+
+  %section.introduction.container
+    .text-wrapper
+      = image_tag "#{data.developer_report_2019.introduction.image.url}", alt: data.developer_report_2019.introduction.image.alt
+      %h3
+        = data.developer_report_2019.introduction.heading
+    = kramdown data.developer_report_2019.introduction.paragraph
+
+    %a.btn.cta-btn.btn-dev-2019.center{href: "https://learn.gitlab.com/c/2019-global-develope?x=G2Poyl"}
+      = "Download the full report"
+
+  - data.developer_report_2019.categories.each do |category|
+    %section.category.container{ id: "#{category.id}" }
+      - if category.image
+        = image_tag "#{category.image.url}", class: "category-image", alt: category.image.alt
+      - else
+        .planet-container
+          = partial "includes/dev-survey/#{category.id}-planet", locals: {}
+      .category-keypoints-container
+        %h1
+          = category.title
+        %h2
+          = category.subtitle
+        %ul.category-keypoints
+          - category.keypoints.each do |keypoint|
+            %li.category-keypoint
+              - if keypoint.horizontalBarChart
+                .chart-keypoint.not-visible
+                  .chart
+                    %h3.chart-title
+                      = keypoint.horizontalBarChart.title
+                    %ol.chart-list
+                      - keypoint.horizontalBarChart.data.each do |datapoint|
+                        %li
+                          %b
+                            = "#{datapoint.percentage}%"
+                          %span
+                            = datapoint.title
+                          .bar{ style: "width: #{datapoint.percentage}%; background-image: #{category.planetGradient};"}
+                    - if keypoint.horizontalBarChart.caption
+                      %p.chart-caption>
+                        = keypoint.horizontalBarChart.caption
+
+              - if keypoint.image
+                %figure
+                  = image_tag "#{keypoint.image.url}", class: "keypoint-image", alt: keypoint.image.alt
+                  - if keypoint.image.caption
+                    %figcaption
+                      = keypoint.image.caption
+
+              - if keypoint.text
+                %p>
+                  = keypoint.text
+
+              - if keypoint.largeText
+                .large-text-keypoint.not-visible
+                  = kramdown keypoint.largeText
+
+        %a.btn.cta-btn.btn-dev-2019.toggle-category{ id: "#{category.id}-toggle-button", style: "background-color: #{category.buttonBackgroundColor}", tabindex: "0"}
+          %span{  style: "color: #{category.buttonTextColor}"}
+            = "Read more"
+
+  %section.pdf{ id: "pdf" }
+    .form-wrapper
+      %h1
+        = data.developer_report_2019.pdf.heading
+      %h2
+        = data.developer_report_2019.pdf.paragraph
+      %script{src: "//page.gitlab.com/js/forms2/js/forms2.min.js"}
+      .confirm-form{style: "display:none;"}
+        %a.btn.cta-btn.btn-dev-2019.center{href: "/resources/downloads/2019-global-developer-report.pdf", target:"_blank"}
+          = "Download the full report"
+        %p A copy of the report will also land in your inbox.
+
+      %form#mktoForm_1002
+        %a.download-button{href: "https://www.surveymonkey.com/results/SM-8LLKL2N87", target:"_blank"}
+          = "2019 Global Developer Survey raw data"
+      :javascript
+        MktoForms2.setOptions(
+        {
+          formXDPath : "/rs/194-VVC-221/images/marketo-xdframe-relative.html"
+        });
+        MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", 1002, function(form) {
+          form.onSuccess(function() 
+          {
+            dataLayer.push(
+            {
+              'event' : 'resources', 
+              'mktoFormId' : form.getId(),
+              'eventCallback' : function()
+              {
+                form.getFormElem().hide();
+                $('.confirm-form').show();
+              }, 'eventTimeout' : 3000
+            });
+            return false;
+          });
+
+          $('.mktoButton').text('Download the full report');
+        });

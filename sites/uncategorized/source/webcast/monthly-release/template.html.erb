@@ -1,0 +1,97 @@
+---
+title: Release Radar
+description: GitLab Release Radar
+suppress_header: true
+extra_css:
+  - webcast.css
+  - monthly-release.css
+---
+<%current_page.data.title = release_radar.name%>
+<%current_page.data.description = release_radar.tagline%>
+<%current_page.data.canonical_path = release_radar.canonical_path%>
+
+<div class="webcast-header">
+  <img src="<%= release_radar.image %>">
+  <div class="webcast-info">
+    <h1><%= release_radar.name %></h1>
+    <p><%= release_radar.tagline %></p>
+  </div>
+</div>
+<div class="gitlab-content-container">
+  <div class="content flex-container flex-wrap-md">
+    <div class="release-content-container full-width">
+      <div class="share-container">
+        <p>Share:</p>
+        <a href="https://www.facebook.com/sharer/sharer.php?u=https://about.gitlab.com<%= current_page.url %>" target="_blank">
+          <i class="fab fa-facebook"></i>
+        </a>
+        <a href=" https://twitter.com/intent/tweet?url=https%3A%2F%2Fabout.gitlab.com<%= current_page.url %>&via=gitlab&text=Check%20out%20GitLab%27s%20upcoming%20Release%20Radar%20webcast%3A%20&hashtags=gitlab%2Cwebcast%2Cwebinar" target="_blank">
+          <i class="fab fa-twitter"></i>
+        </a>
+        <a href="http://www.reddit.com/submit?url=https://about.gitlab.com<%= current_page.url %>&title=Post%20to%20Reddit%20via%20URL" target="_blank">
+          <i class="fab fa-reddit"></i>
+        </a>
+      </div>
+      <% release_radar.description.each do |paragraph| %>
+        <p><%= paragraph %></p>
+      <% end %>
+      <% if release_radar.youtube_url == '' %>
+        <h3>What we'll cover:</h3>
+      <% else %>
+        <h3>What we covered:</h3>
+      <% end %>
+      <ul>
+        <% release_radar.what_we_cover.each do |list_item| %>
+          <li><%= list_item %></li>
+        <% end %>
+      </ul>
+      <% if release_radar.youtube_url == '' %>
+        <h3>Dates:</h3>
+        <ul>
+          <% release_radar.dates.each do |date| %>
+            <li><%= date.date %> at <%= date.time %></li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if release_radar.youtube_url == '' %>
+        <div class="what-to-expect-container margin-top50">
+          <h3>Here's what to expect!</h3>
+          <p>Take a look at our most recent Release Radar webcast on Security.</p>
+          <iframe src="https://www.youtube.com/embed/P0a6pdCeg1A" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+      <% end %>
+      <% if release_radar.youtube_url != '' %>
+        <div class="webcast-video-container margin-top50">
+          <iframe src="<%= release_radar.youtube_url %>" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
+      <% end %>
+    </div>
+    <% if release_radar.youtube_url == '' %>
+      <div class="release-form-container">
+        <h3 class="margin-top0">Register for the webcast</h3>
+        <script src="//page.gitlab.com/js/forms2/js/forms2.min.js"></script>
+        <form id="mktoForm_<%= release_radar.form %>"></form>
+        <script type="text/javascript">
+          var formNumber = <%= release_radar.form || 'null' %>;
+          MktoForms2.setOptions(
+          {
+            formXDPath : "/rs/194-VVC-221/images/marketo-xdframe-relative.html"
+          });
+          MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", formNumber, function(form) {
+            form.onSuccess(function() {
+              form.getFormElem().hide();
+              $('.confirmform').attr('style', 'display: inline-block');
+              return false;
+            });
+          });
+        </script>
+        <div class="confirmform" style="display:none;">
+          <div class="centered-form-info">
+            <h3>Registration Received!</h3>
+            <p>Thank you for registering. You will receive an email with additional webcast details.</p>
+          </div>
+        </div>
+      </div>
+    <% end %>
+  </div>
+</div>

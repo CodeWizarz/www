@@ -1,0 +1,50 @@
+---
+title: Introducing the infrastructure bill of materials
+author: Cindy Blake
+categories: security
+tags: security, integrations, open source
+image_title: '/images/blogimages/ibom.jpg'
+guest: true
+description: Pair IBoMs and SBOMs for a more secure software supply chain.
+twitter_text: Introducing infrastructure bills of materials alongside software
+  bills of materials can strengthen your software supply chain.
+---
+All eyes are on software supply chain security and organizations are busily generating software bills of materials, or SBOMs. But many are leaving out an equally critical part of software supply chain security: their infrastructure. GitLab has partnered with Firefly to help DevOps teams create bills of materials across the entire cloud footprint. 
+ 
+The SBOM, which is an ingredient list that identifies third-party and open source code used within software (a.k.a. dependencies), came into the spotlight with the U.S. Executive Order on "Improving the Nation's Cybersecurity" and its resulting [NIST guidelines to secure the software supply chain](/blog/2022/03/29/comply-with-nist-secure-supply-chain-framework-with-gitlab/).
+ 
+While SBOMs begin to peel back the layers on risky code using elements such as [composition analysis](/handbook/engineering/development/sec/secure/composition-analysis/) to scan for dependencies in containers, more attention must be paid to how cloud infrastructure, a critical part of the software development lifecycle, is managed and secured.
+ 
+## Assessing cloud infrastructure
+ 
+When people think about software integrity, they tend to think about applications. Yet with the rise of cloud computing, cloud native applications, and modern CI/CD pipelines, there is a considerable amount of code used to automate how infrastructure resources are provisioned, secured, and consumed. In fact, the cloud is defined using [infrastructure-as-code](/blog/2022/02/17/fantastic-infrastructure-as-code-security-attacks-and-how-to-find-them/) (IaC), and most of the power attributed to applications relies on infrastructure capabilities, configurations, permissions, and relations. Understanding an application's relationship with the underlying infrastructure and how it is configured is just as important to supply chain security as understanding an application’s usage of third-party and open source code. 
+ 
+The challenge is that it’s not easy to do. This infrastructure software, often referred to as cloud assets, includes resources provided by cloud services, orchestrators like Kubernetes, and even policies. Google Cloud nicely [lists its assets](https://cloud.google.com/asset-inventory/docs/supported-asset-types) as an example. Increasingly, companies are [using more than one cloud service provider](https://www.cncf.io/wp-content/uploads/2022/02/CNCF-AR_FINAL-edits-15.2.21.pdf) for different workloads, and each service uses different constructs. Even with a single provider, many companies organize their applications into multiple AWS accounts or GCP projects. It can be difficult to see what assets an organization has across these silos.
+ 
+## Enter the IBoM
+ 
+Despite these challenges, just as an organization needs to list all the application code dependencies, it also needs to list all the infrastructure components across multiple clouds, multiple accounts, and Kubernetes. Together, they make up the infrastructure bill of materials, or IBoM. These assets must be tracked and managed closely as they can be changed and, if not properly governed, can wreak havoc on the stability and consistency of an application’s performance, creating troubleshooting problems.
+ 
+The IBoM is the first key to understanding an organization’s complete cloud footprint and being able to better secure the software supply chain.
+ 
+The second key, and equally important, is managing the integrity of that IBoM. The configuration of cloud assets such as S3 buckets, identity and access management roles, EC2, database instances, and Kubernetes clusters determines access to data and what resources are available to an application. The configuration also impacts the stability of the infrastructure upon which the applications depend.
+ 
+With the surge of cloud native applications, the burden of managing this infrastructure has increased exponentially. To meet the challenge of governing this complex infrastructure, organizations have been codifying these cloud assets into IaC using tools like Terraform, Pulumi, and Helm. Once codified as IaC, they can utilize version control and be governed with the same rigor as application software – all within a DevOps platform like GitLab. This approach is typically called [GitOps](/topics/gitops/). It's important for the security of your supply chain because it provides visibility, traceability, and policy enforcement for your infrastructure software.
+ 
+## How Firefly and GitLab work together
+ 
+[Firefly’s Cloud Asset Management solution](https://www.gofirefly.io/) can help GitLab’s DevOps platform manage both application software and cloud infrastructure software - across an organization’s cloud footprint. Firefly essentially extends the GitLab [GitOps solution](/solutions/gitops/) to cover even more of your cloud and provides additional governance via drift detection and remediation.
+
+First, Firefly discovers all of an organization’s cloud infrastructure across AWS accounts, GCP projects, Kubernetes, and even SaaS application environments, providing an IBoM in one dashboard. Unmanaged and misconfigured environments are identified for DevOps. With a click, these unmanaged cloud assets are automatically coded into IaC such as Terraform or Helm, potentially saving engineering time and getting DevOps teams toward a more fully managed software supply chain.
+
+Now, as IaC, these cloud assets can be monitored for changes. Firefly continuously assesses drift between an organization’s desired IaC state and its actual cloud and Kubernetes configurations, helping ensure these configurations and policies remain enforced. When changes are made to either IaC or the underlying infrastructure, Firefly automatically creates a GitLab merge request to ensure changes to an organization’s infrastructure software are managed using DevOps automated CI/CD.
+ 
+Firefly and GitLab together enable DevOps teams to add to the security of their supply chains by generating IBoMs, applying version control, automation, and governance to the applications and infrastructure upon which they rely. Learn more about the [Firefly/GitLab integration](https://www.gofirefly.io/partners/gitlab) and give Firefly a try. 
+
+
+_Blake is vice president of marketing at Firefly._
+
+Cover image by [Edge2Edge Media](https://unsplash.com/photos/t1OalCBUYRc) on Unsplash
+{: .note}
+
+ 

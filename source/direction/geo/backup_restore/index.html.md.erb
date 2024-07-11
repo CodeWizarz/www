@@ -1,0 +1,163 @@
+---
+layout: markdown_page
+title: "Category Strategy - Backup and Restore"
+description: "GitLab supports backup and restore procedures that rely
+on standard unix tools."
+canonical_path: "/direction/geo/backup_restore/"
+---
+
+- TOC
+{:toc}
+
+## 🗄 Backup and Restore
+
+|Section | Group | Maturity | Last updated|
+|--------|-------|------|------|
+|[Enablement](https://about.gitlab.com/direction/enablement/) | [Geo](https://about.gitlab.com/direction/geo/)|  [<%= data.categories["backup_restore"].maturity.capitalize %>](/direction/maturity/)  | 2023-06-07   |
+
+Thanks for visiting this category strategy page for GitLab Geo Disaster Recovery. This page belongs to the [Geo group](https://about.gitlab.com/handbook/product/categories/#geo-group).
+
+
+⚠️  Backups are incomplete and do not yet contain some data.
+Please review [the list of excluded data](https://docs.gitlab.com/ee/raketasks/backup_gitlab.html) and take manual steps to backup this data.
+{: .alert .alert-warning}
+
+⚠️  The Geo group is focusing on improving GitLab's [Disaster Recovery
+capabilities](https://about.gitlab.com/direction/geo/disaster_recovery/). We support backup and restore on a best-effort basis. We will fix bugs in line with our SLOs but we have no capacity to contribute major feature improvements, such as incremental backups. We will re-evaluate the priority of this work in Q3 FY24.
+{: .alert .alert-warning}
+
+
+### Overview
+
+GitLab is part of the critical infrastructure for many of our self-managed customers. It is important that GitLab is resilient in the face of various types of disasters that might impact the availability of its services.
+
+A robust disaster recovery strategy needs to be able to recover quickly from hardware and power failures, and data centre outages. This is where [Geo Disaster Recovery](https://about.gitlab.com/direction/geo/disaster_recovery/) can help. 
+
+A good disaster recovery strategy also needs to defend against malicious and unintentional corruption of data. This is where [backup and restore](https://docs.gitlab.com/ee/raketasks/backup_restore.html) plays an important part. Being able to restore your data from a point in time in the past before the occurrence of such corruption will ensure you are protected from such events.
+
+The backup and restore solution from GitLab relies on standard unix tools, such as `rsync` and `tar`. By default, backups cover most data but not GitLab’s configuration. For GitLab instances that contain several hundred gigabytes or even terabytes, the current solution does not scale well. This means that backing up or restoring such a GitLab instance can take many hours.
+
+File system snapshots are a fast and scalable option for installations that do not run Gitaly cluster. For larger [GitLab reference architectures](https://docs.gitlab.com/ee/administration/reference_architectures/) such as 3K and above that require Gitaly cluster, snapshot backups can cause issues where the Praefect database becomes out of sync with the disk storage and create backups that are not viable.
+
+Our lack of a scalable backup solution requires our largest and most valuable customers to spend time implementing their own solutions. This is not efficient and leads to a very heterogeneous landscape that is difficult to maintain and support. GitLab should offer backup and restore capabilities for any scale and offer clear guidance for all reference architectures. We are working on [updating guidance and documentation for larger deployments](#update-guidance-and-documentation-for-larger-deployments) to address some of the challenges and improve the experience for our customers.
+
+#### How you can help
+
+Please reach out to Sampath Ranasinghe, Product Manager for the Geo group ([Email](mailto:sranasinghe@gitlab.com)) if you'd like to provide feedback or ask any questions related to this product category.
+
+This strategy is a work in progress, and everyone can contribute. Please comment and contribute in the linked [issues](https://gitlab.com/groups/gitlab-org/-/issues/?sort=created_date&state=opened&label_name%5B%5D=group%3A%3Ageo&label_name%5B%5D=Category%3ABackup%2FRestore%20of%20GitLab%20instances&first_page_size=50) and [epics](https://gitlab.com/groups/gitlab-org/-/epics?state=opened&page=1&sort=start_date_desc&label_name[]=group::geo&label_name[]=Category:Backup/Restore+of+GitLab+instances) on this page. Sharing your feedback directly on GitLab.com is the best way to contribute to our strategy and vision.
+
+#### Useful resources
+
+- [Roadmap for Backup and Restore](https://gitlab.com/groups/gitlab-org/-/roadmap?state=all&sort=start_date_asc&layout=MONTHS&timeframe_range_type=CURRENT_YEAR&label_name[]=group::geo&label_name[]=Category:Backup/Restore+of+GitLab+instances&progress=COUNT&show_progress=true&show_milestones=false&milestones_type=ALL&show_labels=false)
+- [Maturity: <%= data.categories["backup_restore"].maturity.capitalize %>](/direction/maturity/)
+- [Documentation](https://docs.gitlab.com/ee/raketasks/backup_restore.html)
+- [Viable Maturity epic](https://gitlab.com/groups/gitlab-org/-/epics/6079)
+- [All Epics](https://gitlab.com/groups/gitlab-org/-/epics?state=opened&page=1&sort=start_date_desc&label_name[]=group::geo&label_name[]=Category:Backup/Restore+of+GitLab+instances)
+
+
+
+### Target audience and experience
+
+#### [Sidney - (SystemsAdministrator)](https://about.gitlab.com/handbook/product/personas/#sidney-systems-administrator)
+ * Backups should be complete, easy to create, automate, and restore. They also
+need to complete as fast as possible.
+
+#### Jobs To be Done (JTBD)
+
+Jobs To be Done (JTBD) is a framework for viewing the product in terms of the process customers trying to achieve. [Learn more about the JTBD](https://about.gitlab.com/handbook/product/ux/jobs-to-be-done/).
+
+- Category JTBD: When my organization has critical data, I want to have a reliable backup and restore procedure, so that we can recover from any planned or unplanned data loss event.
+  - **Backup**: When my organization is building software on a DevOps platform, I want to have my most recent data backed up, so that I don't have to be afraid of losing critical data.
+  - **Restore**: When I experience an outage or data loss, I need to be able to restore the data as quickly as possible so that my customers experience minimal downtime with my service.
+
+
+### Future Opportunities
+
+
+#### GitLab backups should scale well
+
+GitLab is used by customers with thousands of users and terabytes of data.
+[Backups should be fast at any scale](https://gitlab.com/gitlab-org/gitlab/-/issues/28780). This means that GitLab should not only support base backups but also [incremental backups](https://gitlab.com/gitlab-org/gitlab/-/issues/19256). Copying terabytes of data every time when a backup is performed is not efficient at this scale and can take many hours. Backups should also because be agnostic with regards to the backend - local storage, cloud storage etc. should all be configurable.
+
+GitLab's backups also don't support [backing up pool repositories](https://gitlab.com/groups/gitlab-org/-/epics/6080), which makes it highly inefficient to backup instances with many forks.
+
+#### Increase usability
+
+Our current backup system is only command-line focused. By adding a [Backup/Restore admin interface](https://gitlab.com/gitlab-org/gitlab/-/issues/13965), we would allow systems administrators to manage backups from within GitLab’s UI. This would increase visibility of backups and increase the overall usability of GitLab. We also lack [any alerting or monitoring](https://gitlab.com/gitlab-org/gitlab/-/issues/17020) to [discover backup problems](https://gitlab.com/gitlab-org/gitlab/-/issues/17020). We could significantly improve [management of cloud-based storage](https://gitlab.com/gitlab-org/gitlab/-/issues/26100) and [integrate backups as part GitLab Plus](https://gitlab.com/gitlab-org/gitlab/-/issues/27674).
+
+#### Additional capabilities
+
+GitLab lacks support for many backup features, including [incremental backups](https://gitlab.com/gitlab-org/gitlab/-/issues/19256), [selective restore](https://gitlab.com/gitlab-org/gitlab/-/issues/14084), [default encryption](https://gitlab.com/gitlab-org/gitlab/-/issues/18097). By adding these additional features we would be able to move the maturity of our Backup and Restore capability to complete. We also need to invest in [performance and scalability improvements](https://gitlab.com/gitlab-org/gitlab/-/issues/28780) to support our largest customers (10k+). One example is [backing up Git data to object storage](https://gitlab.com/gitlab-org/gitlab/-/issues/222492) to drastically reduce the time it needs to create a new backup.
+
+Currently, GitLab uses `rsync` to create backups and we should investigate alternatives e.g [restic](https://restic.net/) to see if those help address some of these concerns.
+
+#### Utilize Geo sites
+
+We could establish [Geo as a backup site](https://gitlab.com/groups/gitlab-org/-/epics/6081), which reduces the load on the primary site and can offer advanced [selective restore](https://gitlab.com/gitlab-org/gitlab/-/issues/14084) functionality. For example, a customer could [restore a project from a Geo secondary site](https://gitlab.com/gitlab-org/gitlab/-/issues/332008). This would provide an avenue to establish Geo as a one-stop solution for Disaster Recovery including a warm standby and backups.
+
+#### Restoring specific data should be easy
+
+Sometimes, a user may remove a single project by accident. In those cases, it
+may be desirable to restore [only individual items from the backup](https://gitlab.com/gitlab-org/gitlab/-/issues/14084). This should ideally be possible via the UI and can be performed by a systems administrator.
+
+
+### What's Next & Why
+
+#### Update guidance and documentation for larger deployments
+
+The evolution of the GitLab backup and restore solution over the years has resulted in several tools and multiple pages of documentation. Customers have found it challenging to identify the right solution for their needs and successfully implement it. Therefore, together with the [Gitaly](https://about.gitlab.com/direction/gitaly/) and [Distribution](https://about.gitlab.com/direction/distribution/) teams the Geo team is working on [simplifying and enhancing our guidance and improving our backup and restore documentation](https://gitlab.com/groups/gitlab-org/-/epics/10047). We are also working on providing a runbook for customers who are on large reference architectures or have large data sets that find the current solutions are either taking too long or don't work at all. Our approach will focus on consolidating and levering the existing solutions together with storage and database vendor backup solutions to create a multi-part complete backup that can be used to fully restore a GitLab instance.
+
+
+#### Server-side repository backups 
+
+The Gitaly team is working on implementing [server-side repository backups](https://gitlab.com/groups/gitlab-org/-/epics/10077) which allow repository backups to be written directly to object storage from a Gitaly node. The Geo team will support integrating this solution into the existing backup rake task. The new approach will improve the performance of repository backup and restore and it will work with the existing tools (rake tasks). 
+
+
+In Q3 FY24 we will re-evaluate the priority of the backup and restore category and are going to assess [all currently open issues](https://gitlab.com/gitlab-org/gitlab/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=Category%3ABackup%2FRestore%20of%20GitLab%20instances) to define the priorities further.
+
+
+### What is not planned right now
+
+We are in the process of defining the product direction and are not in a position to answer this yet.
+
+### Maturity plan
+
+This category is currently at the <%= data.categories["backup_restore"].maturity
+%> maturity level, and our next maturity target is viable (see our
+[definitions of maturity levels](/direction/maturity/)).
+
+### User success metrics
+
+- Time to backup / time to restore
+- Number of manual steps required to be performed by a systems administrator to
+  backup and restore.
+- Number of backup/restore operations performed via Web UI
+
+To measure these success metrics, we also need to enable GitLab's usage ping
+and gather data specific to the backup and restore process. For example, the
+time it took for a backup to complete.
+
+### Competitive landscape
+
+All major competitors offer backup solutions for their products. GitHub, for
+example, offers a [more robust and scalable backup/restore solution](https://github.com/github/backup-utils#github-enterprise-server-backup-utilities) that allows for [incremental backups](https://gitlab.com/gitlab-org/gitlab/-/issues/19256) done on a separate host. There are also standalone solutions such as [GitProtect](https://gitprotect.io/gitlab.html).
+
+
+### Top customer success/sales issue(s)
+
+- [Most popular backup and restore issues with customer label](https://gitlab.com/gitlab-org/gitlab/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=Category%3ABackup%2FRestore%20of%20GitLab%20instances&label_name[]=customer)
+
+### Top user issues
+
+- [Most popular backup and restore issues](https://gitlab.com/gitlab-org/gitlab/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=Category%3ABackup%2FRestore%20of%20GitLab%20instances)
+
+### Top internal customer issues/epics
+
+- [Backups support Pool Repositories](https://gitlab.com/groups/gitlab-org/-/epics/6080)
+
+### Top strategy item(s)
+
+- [Backups should be performant at any scale](https://gitlab.com/gitlab-org/gitlab/-/issues/28780)
+- [Backups should support incremental backups](https://gitlab.com/gitlab-org/gitlab/-/issues/19256)
+- [Backups should be a part of the administrator UI](https://gitlab.com/gitlab-org/gitlab/-/issues/13965)

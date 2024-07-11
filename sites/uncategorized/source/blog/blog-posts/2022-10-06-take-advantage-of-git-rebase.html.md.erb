@@ -1,0 +1,185 @@
+---
+title: "Take advantage of Git rebase"
+author: Christian Couder
+author_gitlab: chriscool
+categories: engineering
+image_title: "/images/blogimages/speedmonorepo.jpg"
+description: "Tap into the Git rebase features to improve your workflow."
+twitter_text: "Learn how to use Git rebase to speed up review cycles."
+tags: git, workflow, rebase, tutorial
+featured: yes
+---
+
+These days, developers spend a lot of time reviewing merge requests
+and taking these reviews into account to improve the code. We'll discuss how
+[Git rebase](https://git-scm.com/docs/git-rebase) can help in
+speeding up these review cycles. But first, let's take a look at some
+workflow considerations.
+
+## Different ways to rework a merge request
+
+A developer who worked on some code changes and created a merge
+request with these changes will often have to rework them. Why does
+this happen? Tests can fail, bugs are found, or reviewers suggest
+improvements and find shortcomings.
+
+### Simple but messy method: add more commits
+
+One way to rework the code changes is to make more changes in some new
+commits on top of the branch that was used to create the merge
+request, and then push the branch again to update the merge
+request.
+
+When a number of commits have been added in this way, the merge
+request becomes problematic:
+
+- It's difficult to review by looking at all the changes together.
+- It's difficult to review the commits separately as they may contain different unrelated changes, or even multiple reworks of the same code.
+
+Reviewers find it easier to review changes split into a number of small,
+self-contained commits that can be reviewed individually.
+
+### Pro method: rebase!
+
+A better method to prepare or rework a merge request is to always
+ensure that each commit contains small, self-contained, easy-to-review
+changes.
+
+This means that all the commits in the branch may need reworking
+instead of stacking on yet more commits. This approach might seem much
+more complex and tedious, but `git rebase` comes to the rescue!
+
+## Rework your commits with `git rebase`
+
+If your goal is to build a merge request from a series of small,
+self-contained commits, your branch may need significant rework before its
+commits are good enough. When the commits are ready, you can push the branch
+and update or create a merge request with this branch.
+
+### Start an interactive rebase
+
+If your branch is based on `main`, the command to rework your branch
+is:
+
+```plaintext
+git rebase -i main
+```
+
+I encourage you to create [a Git alias](https://git-scm.com/book/en/v2/Git-Basics-Git-Aliases),
+or a shell alias or function for this command right away, as you will
+use it very often.
+
+The `-i` option passed to `git rebase` is an alias for
+`--interactive`. It starts
+[an 'interactive' rebase](https://git-scm.com/docs/git-rebase#Documentation/git-rebase.txt---interactive)
+which will open your editor. In it, you will find a list of the
+commits in your branch followed by commented-out lines beginning with
+`#`. The list of commits looks like this:
+
+```plaintext
+pick 1aac632db2 first commit subject
+pick a385014ad4 second commit subject
+pick 6af12a88cf other commit subject
+pick 5cd121e2a1 last commit subject
+```
+
+These lines are instructions for how `git rebase` should handle these
+commits. The commits are listed in chronological order, with the
+oldest commit at the top. (This order is the opposite of the default
+`git log` order.) What do these lines contain?
+
+- An instruction (here, `pick`) that tells Git what action to take
+- An abbreviated commit ID
+- A commit subject to help you identify the commit contents
+
+### Edit the instruction list
+
+You can edit these instructions! When you quit your text editor, `git rebase`
+reads the instructions you've just edited, and performs them
+in sequence to recreate your branch the way you want.
+
+After the instructions for all commits, a set of commented-out lines
+explain how to edit the instruction lines, and how each instruction
+will change your branch:
+
+- If you **delete a commit's entire instruction line** from the list,
+  that commit won't be recreated.
+- If you **reorder the instruction lines**, the commits will be
+  recreated in the order you specify.
+- If you **change the action** from `pick` to something else, such as
+  `squash` or `reword`, Git performs the action you specify on that
+  commit.
+- You can even **add new instruction lines** before, after, or between
+  existing lines.
+
+If the comment lines aren't enough, more information about what you
+can do and how it works is available in:
+
+- The [Git Tools - Rewriting History](https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History)
+  section of the "Pro Git" book
+- The [Interactive mode](https://git-scm.com/docs/git-rebase#_interactive_mode)
+  section of the `git rebase` documentation
+
+### Continue or abort the rebase
+
+An interactive rebase can stop if there is a conflict (as a regular
+rebase would) or if you used an instruction like `edit` in the
+instruction line. This allows you to make some changes, like splitting
+the current commit into two commits, or fixing the rebase conflict if
+there is one. You can then either:
+
+- Continue the interactive rebase with `git rebase --continue`.
+- Abort the rebase altogether with `git rebase --abort`.
+
+(These `git rebase` options also work when a regular, non-interactive
+rebase stops.)
+
+## Further tips and benefits
+
+### Try different instructions
+
+I recommend you try out the different instructions you can use in
+each instruction line, especially `reword`, `edit`, `squash`, and `fixup`. You'll
+soon want to use the abbreviated versions of these instructions: `r`,
+`e`, `s`, and `f`.
+
+### Run shell commands in your rebase
+
+You might also have noticed an `exec <command>` instruction that
+allows you to run any shell command at any point in the interactive rebase.
+I've found it more useful for non-interactive rebases, such as:
+
+```plaintext
+git rebase --exec 'make test' main
+```
+
+(It's not an interactive rebase because it doesn't contain the `-i` flag.)
+
+The `--exec <command>` flag allows you to run any shell command after
+each rebased commit, stopping if the shell command fails (which is
+signaled by a non zero exit code).
+
+### Test all your commits
+
+Passing a command to build your software and run its tests, like
+`make test`, to `--exec` will check that each commit in your branch
+builds correctly and passes your tests.
+
+If `make test` fails, the rebase stops. You can then fix the current
+commit right away, and continue the rebase to test the next
+commits.
+
+Checking each commit builds cleanly and passes all the tests ensures
+your code base is always in a good state. It's especially useful if
+you want to take advantage of
+[Git bisect](https://git-scm.com/docs/git-bisect) when you encounter
+regressions.
+
+## Conclusion
+
+In Git, a rebase is a very versatile and useful tool to rework
+commits. Use it to achieve a workflow with high-quality changes
+proposed in high-quality commits and merge requests. It makes your
+developers and reviewers more efficient. Code reviews and debugging also become easier and more effective.
+
+**EDIT:** Check out our [follow-up post on how you can apply this is real life](/blog/2022/11/08/rebase-in-real-life/).

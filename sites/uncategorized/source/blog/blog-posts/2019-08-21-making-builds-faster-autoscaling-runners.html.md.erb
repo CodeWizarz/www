@@ -1,0 +1,81 @@
+---
+title: "How to make builds faster"
+author: Chrissie Buchanan
+author_gitlab: cbuchanan
+author_twitter: gitlab
+categories: insights
+image_title: '/images/blogimages/autoscaling-balance.jpg'
+description: "How GitLab uses autoscaling to reduce build times and make developers happy."
+tags: CI/CD, features, DevOps
+merch_banner: merch_two
+merch_sidebar: merch_two
+twitter_text: "How we’re making builds faster and developers happier with autoscaling"
+postType: content marketing
+---
+
+Picture this: It’s 5:30 pm on a Friday and a project manager has an urgent request. A
+bug is affecting a group of customers and it needs to be fixed ASAP. You find the discrepancy
+and, _phew_, it looks like it’s going to be a relatively easy fix. You make the update and
+start the CI pipeline… and then you wait… and wait. Two hours later, you’re still waiting. What was
+supposed to be a quick fix has turned into another long night sitting in a queue.
+
+[The team at Ticketmaster](/blog/2017/06/07/continuous-integration-ticketmaster/) certainly felt the
+pain with their Jenkins pipelines, and many [DevOps](/topics/devops/) teams are all too familiar with sluggish CI.
+
+Slow builds hinder development speed. Plus – they’re annoying. It’s just one more thing developers
+have to deal with in order to do their jobs. Organizations might dedicate more servers to process
+these builds in an effort to solve the problem, but often that creates more problems. More servers
+mean higher cloud and computing costs. When it comes to long builds, many developers have
+resigned themselves to just “grin and bear it.”
+
+## Making builds _faster_
+
+[Continuous integration](/features/continuous-integration/) allows you to run a number of tasks as you
+prepare to deploy your software, like building a software package or running tests. These tasks
+need to be run by something. At GitLab we call these task enablers runners, though other [CI tools](/features/continuous-integration/) call them
+agents. Runners are an application that processes builds: If all of these runners are in use, work
+is queued until one becomes available. Let's say your peak usage is 100 jobs, but your average
+usage is around 25 jobs. You have to decide how many servers to provision. If you go with the
+average, you will have to wait during peak usage times. So why not just add more runners? Some
+services actually charge for each of these virtual machines, and if you’re not using them all
+the time, those costs can add up. If you're on a cloud infrastructure, you're paying for that
+server time – even when it's not doing anything.
+
+For ops teams, it’s been a never-ending balancing act of having the right amount of runners
+for the right amount of work. But tasks don’t happen in a vacuum – every team has slow times
+and busier times that are unpredictable.
+
+Nobody likes waiting. With this universal truth in mind, we introduced autoscaling to GitLab Runners.
+
+## What are autoscaling runners?
+
+Autoscaling gives teams the ability to utilize resources in a more elastic and dynamic way. What
+this means is that our runners can be configured so that machines are created _on demand_.
+Those machines, after the job is finished, can wait to run the next jobs or be removed automatically.
+You can even specify the `IdleTime` of a server before it shuts off. Once runners are set up to
+autoscale, your infrastructure contains only enough capacity to handle the load.
+
+Autoscaling runners ensure builds can be processed more efficiently and you aren’t paying for
+more machines than you need. Developers can focus on their code instead of worrying about
+their infrastructure environment, and ops teams no longer have to moonlight as soothsayers.
+
+The only thing you need to take advantage of autoscaling is one GitLab instance and
+one [GitLab Runner](https://docs.gitlab.com/runner#features) that can be installed for free.
+Our runner is written in Go and can run on any platform where you can build Go binaries
+including Linux, macOS, Windows, FreeBSD, and Docker.
+
+See how the team at [Substrakt Health](https://substrakthealth.com/) set up an autoscaling
+cluster of GitLab CI/CD runners using Docker-Machine and AWS – and saved 90% on EC2 costs in the process.
+
+[Read their story.](/blog/2017/11/23/autoscale-ci-runners/)
+{: .alert .alert-gitlab-purple .text-center}
+
+Speed and efficiency are important cornerstones of effective DevOps, so waiting for builds has
+always felt like a step backward. As everyone strives to deploy more software, it seems only right
+that your architecture be up for the task. Autoscaling runners let DevOps teams focus on what
+they do best: Deploying better, faster software (yes, even on a Friday).
+
+<%= partial "includes/blog/blog-merch-banner" %>
+
+Photo by [Austin Neill](https://unsplash.com/@arstyy?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com)
+{: .note}

@@ -1,0 +1,68 @@
+---
+title: "How to provision Ready-To-Run GitLab for 50,000 users with the AWS Quick Start"
+author: "Darwin Sanoy"
+author_gitlab: DarwinJS
+categories: engineering
+image_title: '/images/blogimages/construction-blueprint.jpg'
+description: "If you have two hours, you can deploy a GitLab instance on EKS for any number of users. All it takes is about 14 clicks! Here's what you need to know."
+tags: cloud native, integrations, AWS
+twitter_text: "Deploy a @gitlab instance on @awscloud's EKS in about the same time you'd spend having a long lunch. Seriously. In two hours."
+featured: yes
+postType: content marketing
+---
+
+If you have spent time reviewing GitLab Reference Architectures, you may have noticed the flexibility of the GitLab codebase; it's possible to support a broad range of implementations from a single box for under one hundred users to horizontal hyper-scaled setups for 50,000 or more.
+
+Scaling to massive sizes requires the services within GitLab to be broken out into dedicated compute and storage layers so they can each expand cost effectively based on high loading and an organization's specific usage patterns.
+
+Those who provision large scale systems on the cloud generally turn to [Infrastructure as Code (IaC)](/direction/delivery/infrastructure_as_code/) to ensure consistency and to allow easy setup of pre-production environments for the target system. Until recently, GitLab implementers have had to craft this code from scratch.
+
+Now, thanks to our investments in IaC tooling, GitLab customers now have an entire implementation eco-system to work from. These efforts include the [GitLab Environment Toolkit (GET)](/blog/2021/06/15/why-we-are-building-the-gitlab-environment-toolkit-to-help-deploy-gitlab-at-scale/) and the AWS Quick Start for cloud native hybrid on EKS.
+
+This post will focus on the AWS Quick Start - but it's worth noting both initiatives are open source - so you can consume, customize and contribute!
+
+## What is an AWS Quick Start?
+
+AWS Quick Starts are much more than the "getting started" feeling implied by their name. As a part of the Quick Start program, AWS ensures that each one reflects the best practices of the software vendor (GitLab in this case) as well as AWS' own well-architected standards. They reflects a high level of technical partnership and technical assurance by both companies. The Quick Start program also includes a hard requirement for high availability of every component of the deployed application. Even bastion hosts are run in an autoscaling group so they will respawn if they unexpectedly terminate. Quick Starts are also intended to create a "Ready-to-Run" implementation whenever possible. Quick Starts are open source and have a dependency model which allows GitLab to reuse the existing EKS Quick Start as a foundation.
+
+## What Is the GitLab AWS implementation pattern for cloud native hybrid on EKS?
+
+GitLab has Reference Architectures that determine how to install GitLab for various user counts. Each Reference Architecture has a section on cloud native hybrid to show how to configure it and the advised number of vCPUs and memory for the target user count. Each one is similar to blueprints for a building. 
+
+The AWS implementation pattern for cloud native hybrid on EKS builds on this information by:
+
+- Showing how to maximize the usage of AWS PaaS with assurance of GitLab Reference Architecture compliance.
+- Showing a tally of total cluster resources as specified by the Rreference Architecture.
+- Presenting a bill of materials listing:
+
+  - EKS node instance type (sizing) and count as tested.
+  - RDS PostgreSQL and Redis Elasticache instance types (sizing) and count as tested.
+  - Gitaly Cluster instance types (sizing) and count as tested.
+  
+- [GPT testing](https://gitlab.com/gitlab-org/quality/performance) results for a system configured according to the bill of materials. This can be used to compare back to the reference architectures and to your own configuration that is based on the bill of materials.
+
+So while the Reference Architectures are like building blueprints, the AWS implementation pattern for cloud native hybrid on EKS intends to be like a bBill of mterials (shopping list) you can plug directly into the parameters of the AWS Quick Start or the GitLab Environment Toolkit to build GitLab on EKS with a pre-tested configuration.
+
+## "Deploy Now" links
+
+Within each AWS implementation pattern for cloud native hybrid on EKS you will find some "Deploy Now" links.  These make the AWS Quick Start even easier to use by presetting all the instance types and instance counts based on the bill of materials for the user size.  This reduces the number of fields you need to fill out on the Quick Start form. The Deploy Now links are how we were able to reduce the number of clicks to deploy for 50,000 users to just 14.
+
+The Quick Start takes about two hours to deploy regardless of the size of instance you choose.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/s3ZaBXYG8nc" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## How you can deploy GitLab for any number of users in a couple of hours
+
+The YouTube playlist [Learning to provision the AWS Quick Start for GitLab on EKS](https://youtube.com/playlist?list=PL05JrBw4t0Koi8VBnoVhmj_MstnbJjGw5) walks you through:
+
+1. [GitLab Reference Architectures, performance testing, cloud native hybrid and what is Gitaly](https://www.youtube.com/watch?v=1TYLv2xLkZY&list=PL05JrBw4t0Koi8VBnoVhmj_MstnbJjGw5&index=1&t=399s) (11mins)
+2. [An overview of GitLab AWS implementation patterns](https://www.youtube.com/watch?v=_x3I1aq7fog&list=PL05JrBw4t0Koi8VBnoVhmj_MstnbJjGw5&index=2) (13mins)
+3. [An overview of AWS Quick Start for cloud native hybrid on EKS](https://www.youtube.com/watch?v=XHg6m6fJjRY&list=PL05JrBw4t0Koi8VBnoVhmj_MstnbJjGw5&index=3&t=8s) (9mins)
+4. [Provisioning Ready-To-Run GitLab for 50,000 users in 14 clicks and a long lunch)](https://www.youtube.com/watch?v=s3ZaBXYG8nc&list=PL05JrBw4t0Koi8VBnoVhmj_MstnbJjGw5&index=4&t=798s) (21mins) - same as above video.
+5. [Easy performance testing an AWS Quick Start-provisioned GitLab cloud native hybrid instance](https://www.youtube.com/watch?v=QpkF1vXXCjk&list=PL05JrBw4t0Koi8VBnoVhmj_MstnbJjGw5&index=5&t=510s) (32mins)
+
+If you would like help getting started with Gitlab instance provisioning on AWS, please contact your GitLab account team or reach out to [GitLab Sales](https://about.gitlab.com/sales/)!

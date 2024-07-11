@@ -1,0 +1,76 @@
+---
+title: "How to keep GitLab Auto DevOps and Managed Apps working after Helm stable repo is removed"
+author: "Thong Kuah"
+author_gitlab: tkuah
+author_twitter: thongkuah
+categories: news
+image_title: '/images/blogimages/ensure-auto-devops-work-after-helm-stable-repo/maximilian-weisbecker-Esq0ovRY-Zs-unsplash.jpg'
+description: "The Helm stable repository will be removed this month. We explain how to keep Auto DevOps and GitLab Managed Apps working."
+tags: DevOps, CI/CD, news 
+guest: false
+ee_cta: false
+install_cta: false
+featured: no
+postType: product
+---
+
+The Helm project announced that the Helm Stable repository will be [removed](https://www.cncf.io/blog/2020/10/07/important-reminder-for-all-helm-users-stable-incubator-repos-are-deprecated-and-all-images-are-changing-location/) on November 13. This change impacts GitLab [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/index.html) and [GitLab Managed Apps](https://docs.gitlab.com/ee/user/clusters/applications.html).
+
+## How Auto DevOps is impacted
+
+Removing the Helm stable repository affects Auto Deploy and Auto Review Apps stages of Auto DevOps. The deploy jobs from these stages will fail because they cannot fetch the Helm stable repository. GitLab has mitigated this in GitLab 13.6 by switching to a [Helm Stable Archive repository](https://gitlab.com/gitlab-org/cluster-integration/helm-stable-archive) maintained by GitLab.
+
+In case Auto DevOps pipelines are failing because of this problem, you can:
+
+1. Upgrade to GitLab 13.6.0 when it is released, or
+1. If you are on GitLab 13.5.X, you can also upgrade to GitLab 13.5.3
+1. If you are on GitLab 13.4.X, you can also upgrade to GitLab 13.4.6
+1. Specify a newer version of the `auto-deploy-image` image, which contains the fix, in your `.gitlab-ci.yml` file:
+
+    ```
+    include:
+      - template: Auto-DevOps.gitlab-ci.yml
+
+    .auto-deploy:
+      image: "registry.gitlab.com/gitlab-org/cluster-integration/auto-deploy-image:v1.0.7"
+    ```
+
+Not all users will be affected by the change. Users who are not using Helm as part of Auto DevOps, for example, those that are not using Kubernetes (Auto Deploy to AWS targets) will not be impacted by the removal of the Helm stable respository.
+
+## How GitLab managed apps are impacted
+
+The removal of the Helm stable repository affects installation of the Ingress, Fluentd, Prometheus, and Sentry apps. These apps will fail to install as the Helm stable repository is removed. For the following:
+
+[GitLab Managed Apps](https://docs.gitlab.com/ee/user/clusters/applications.html): GitLab has mitigated this problem in [GitLab 13.5.0](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/44875) by switching to a [Helm Stable Archive repository](https://gitlab.com/gitlab-org/cluster-integration/helm-stable-archive) maintained by GitLab.
+
+There are a few ways to fix app installation failures because of the Helm stable repository was removed.
+
+1. Upgrade to GitLab 13.5.0 or later, or
+1. If you are on GitLab 13.4.X, you can also upgrade to GitLab 13.4.6.
+1. If you are on GitLab 13.3.X, you can also upgrade to GitLab 13.3.8.
+
+GitLab has mitigated the problem in [GitLab 13.6](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/45487) for users with [GitLab Managed Apps using CI/CD](https://docs.gitlab.com/ee/user/clusters/applications.html#install-using-gitlab-cicd-alpha) by switching to a [Helm Stable Archive repository](https://gitlab.com/gitlab-org/cluster-integration/helm-stable-archive) maintained by GitLab.
+
+In case GitLab Managed Apps CI/CD installation pipelines are failing because of this problem, you can:
+
+1. Upgrade to GitLab 13.6.0 when it is released, or
+1. Specify a newer version of the `cluster-applications` image, which contains the fix, in your `.gitlab-ci.yml` file:
+
+    ```
+    include:
+      - template: Managed-Cluster-Applications.gitlab-ci.yml
+
+    apply:
+      image: "registry.gitlab.com/gitlab-org/cluster-integration/cluster-applications:v0.34.1"
+    ```
+
+If you are installing applications that were not hosted in the Helm stable repository such as GitLab Runner, these applications will not be affected.
+
+## Learn more about the project
+
+- [Epic for Helm chart deprecation](https://gitlab.com/groups/gitlab-org/-/epics/4695)
+- [Information on error alert](https://docs.gitlab.com/ee/topics/autodevops/#error-error-initializing-looks-like-httpskubernetes-chartsstoragegoogleapiscom-is-not-a-valid-chart-repository-or-cannot-be-reached)
+- [Information on Helm chart change from CNCF](https://www.cncf.io/blog/2020/10/07/important-reminder-for-all-helm-users-stable-incubator-repos-are-deprecated-and-all-images-are-changing-location/)
+
+Cover image by Maximilian Weisbecker on [Unsplash](https://unsplash.com/)
+{: .note}

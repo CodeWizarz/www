@@ -1,0 +1,166 @@
+---
+title: Blog
+comments: false
+suppress_header: true
+description: "Visit the GitLab blog to learn about releases, applications, contributions, news, events, and more."
+extra_css:
+  - blog-landing.css
+  - 2022-blog-refresh.css
+  - 2022-refresh-blog.css
+extra_js:
+  - blog-home.js
+---
+-# // This logic creates an array to populate the hero post based on posts from both the main and releases blog
+- featured_blog_articles = blog('blog').articles
+- featured_release_articles = blog('releases').articles
+- hero_post = [ featured_blog_articles, featured_release_articles].flatten.compact.sort_by(&:date).reverse
+
+// Create list of second line homepage articles using both blogs
+- non_hero_blog_articles = blog('blog').articles.delete_if{ |a| a.data.categories.include?("unfiltered") || a == hero_post[0]}
+- non_hero_major_releases = blog('releases').articles.delete_if{ |a| a == hero_post[0] || a != a.data.featured }
+- non_hero_articles = [ non_hero_blog_articles, non_hero_major_releases].flatten.compact.sort_by(&:date).reverse
+
+// This logic creates an array of devops platform posts to populate the hero post based on posts from the main
+
+// Create list of articles by category
+- news_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("news")}
+- news_articles = [ news_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- releases = blog('releases').articles
+- releases_articles = [ releases[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- engineering_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("engineering")}
+- engineering_articles = [ engineering_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- opensource_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("open source")}
+- opensource_articles = [ opensource_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- culture_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("culture")}
+- culture_articles = [ culture_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- insights_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("insights")}
+- insights_articles = [ insights_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- company_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("company")}
+- company_articles = [ company_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- security_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("security")}
+- security_articles = [ security_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- devopsplatform_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories == "devops platform"}
+- devopsplatform_articles = [ devopsplatform_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- devops_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories == "devops"}
+- devops_articles = [ devops_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- ai_ml_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("ai-ml")}
+- ai_ml_articles = [ ai_ml_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- careers_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?("careers")}
+- careers_articles = [ careers_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- devsecops_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories == "devsecops"}
+- devsecops_articles = [ devsecops_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+- devsecops_platform_blog_articles = blog('blog').articles.keep_if{ |a| a.data.categories == "devsecops-platform"}
+- devsecops_platform_articles = [ devsecops_platform_blog_articles[0..12] ].flatten.compact.sort_by(&:date).reverse
+
+%div.refresh-blog{id: 'blog-landing'}
+  .refresh-blog-hero-wrapper
+    = partial "includes/blog/hero-section", locals: {articles: hero_post[0...15]}
+    = partial "includes/blog/search-filters"
+  = partial "includes/newsletter-signup-short-refresh.html"
+
+  .slp-container.section-posts
+    %h4
+      Recent Posts
+    .row.justify-sb
+      = partial "includes/blog/recent-posts",locals: {articles: non_hero_articles[3...6]}
+  .slp-container.section-posts
+    %h4
+      Browse by category
+    .row.blog-category-section.justify-sb
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/ai-ml/", :"data-ga-name" => "AI/ML view more", :"data-ga-location" => "body"}
+              AI/ML
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: ai_ml_articles[0...3], image: "/images/blog-landing/category-card-unfiltered.png", alt: "AI/ML Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/news/", :"data-ga-name" => "news view more", :"data-ga-location" => "body" }
+              News
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: news_articles[0...3], image: "/images/blog-landing/category-card-engineering.png", alt: "News Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/releases/categories/releases/", :"data-ga-name" => "releases view more", :"data-ga-location" => "body"}
+              Releases
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: releases_articles[0...3], image: "/images/blog-landing/category-card.png", alt: "Releases Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/engineering/", :"data-ga-name" => "engineering view more", :"data-ga-location" => "body"}
+              Engineering
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: engineering_articles[0...3], image: "/images/blog-landing/category-card-engineering.png", alt: "Engineering Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/open-source/", :"data-ga-name" => "open source view more", :"data-ga-location" => "body"}
+              Open Source
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: opensource_articles[0...3], image: "/images/blog-landing/category-card-open-source.png", alt: "Open Source Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/culture/", :"data-ga-name" => "culture view more", :"data-ga-location" => "body"}
+              Culture
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: culture_articles[0...3], image:"/images/blog-landing/category-card-engineering.png", alt: "Engineering Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/insights/", :"data-ga-name" => "insights view more", :"data-ga-location" => "body"}
+              Insights
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: insights_articles[0...3], image:"/images/blog-landing/category-card-engineering.png", alt: "Engineering Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/company/", :"data-ga-name" => "company view more", :"data-ga-location" => "body"}
+              Company
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: company_articles[0...3], image: "/images/blog-landing/category-card-company.png", alt: "Company Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/security/", :"data-ga-name" => "security view more", :"data-ga-location" => "body"}
+              Security
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: security_articles[0...3], image: "/images/blog-landing/category-card-security.png", alt: "Security Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/devops-platform/", :"data-ga-name" => "devops platform view more", :"data-ga-location" => "body"}
+              DevOps Platform
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: devopsplatform_articles[0...3], image: "/images/blog-landing/category-card-unfiltered.png", alt: "Devops Platform Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/devops/", :"data-ga-name" => "devops view more", :"data-ga-location" => "body"}
+              DevOps
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: devops_articles[0...3], image: "/images/blog-landing/category-card-unfiltered.png", alt: "Devops Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/careers/", :"data-ga-name" => "careers view more", :"data-ga-location" => "body"}
+              Careers
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: careers_articles[0...3], image: "/images/blog-landing/category-card-unfiltered.png", alt: "Careers Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/devsecops/", :"data-ga-name" => "DevSecOps view more", :"data-ga-location" => "body"}
+              DevSecOps
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: devsecops_articles[0...3], image: "/images/blog-landing/category-card-unfiltered.png", alt: "DevSecOps Category Image"}
+      .flex-col-1-3
+        .category-card
+          .category-card-title
+            %a.eyebrow{:href => "/blog/categories/devsecops-platform/", :"data-ga-name" => "DevSecOps Platform view more", :"data-ga-location" => "body"}
+              DevSecOps Platform
+            = partial "includes/blog/simple-blog-category-list", locals: {articles: devsecops_platform_articles[0...3], image: "/images/blog-landing/category-card-unfiltered.png", alt: "DevSecOps Platform Category Image"}

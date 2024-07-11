@@ -1,0 +1,128 @@
+---
+title: "How to migrate GitLab groups and projects more efficiently"
+author: Magdalena Frankiewicz
+author_gitlab: m_frankiewicz
+categories: devsecops-platform
+image_title: '/images/blogimages/migration2.jpg'
+description: "Learn about performance improvements to GitLab migration by direct transfer and what's next."
+twitter_text: "Learn about performance improvements to GitLab migration by direct transfer and what's next."
+tags: features, news, product, workflow
+featured: no
+postType: product
+---
+Migrating groups and projects using direct transfer enables you to easily move GitLab resources between GitLab instances using either the UI or API. In a [previous blog post](https://about.gitlab.com/blog/2023/01/18/try-out-new-way-to-migrate-projects/), we announced the release of migrating projects as a beta
+feature **available to everyone**. We described the benefits of the method and steps to try it out.
+
+Since then, we have made further improvements, especially focusing on [efficient](https://gitlab.com/groups/gitlab-org/-/epics/8983) and
+[reliable](https://gitlab.com/groups/gitlab-org/-/epics/8927) migrations for large projects. In this blog, we'll elaborate on these improvements, as well as their impact on the overall process and speed of migrations. We'll also discuss estimating the duration of migrations.
+
+## Imports of CI/CD pipelines
+### Problem: Timing out
+We received [a bug report about imports of CI/CD pipelines timing out](https://gitlab.com/gitlab-org/gitlab/-/issues/365702) and realized we needed to refine the underlying migration process. We considered the root cause of the problem and possible solutions, and ran proofs of concept. We concluded that we should tackle the
+problem of having one massive archive file for a project with a large number of a certain relation types (for example, pipelines).
+
+### What we improved
+To fix the problem of timeouts, we decided to introduce batching to the process of exporting and importing relations (for example, merge requests or pipelines).
+
+Before we could fully complete the [epic for introducing the batching](https://gitlab.com/groups/gitlab-org/-/epics/9036), we had to introduce a couple of other optimizations
+to the process of exporting CI/CD pipelines.
+
+In GitLab 15.10, we started:
+- [preloading associations when exporting CI/CD pipelines](https://gitlab.com/gitlab-org/gitlab/-/issues/391593)
+- [exporting commit notes as a separate relation](https://gitlab.com/gitlab-org/gitlab/-/issues/391601)
+ 
+With these optimizations, exporting CI/CD pipelines sped up considerably. That allowed for a large number of pipelines in a project to be successfully exported to an archive file and then imported on the destination instance. However, because we were finally importing the pipelines, the overall duration of the migration increased.
+
+In GitLab 16.3, we are introducing [exporting and importing relations in batches](https://gitlab.com/groups/gitlab-org/-/epics/9036). This has two benefits:
+- improves migration performance by creating and transferring smaller archive files, instead of one file per relation. These files can be very big if a project has thousands of pipelines.
+- enables more parallelism. For example, the CI pipeline data is now split into multiple batches and concurrent Sidekiq jobs (assuming the Sidekiq workers are available on the destination instance, see below) import each batch.
+
+This improvement is already available by default on GitLab.com.
+- **Users migrating from a self-managed GitLab instance to GitLab.com** have to have their self-managed instance on at least GitLab 16.2, where batched export is available, to benefit from this improvement.
+- **Users migrating from GitLab.com to a self-managed GitLab instance** have to have their self-managed instance on at least GitLab 16.2 and enable the `bulk_imports_batched_import_export` [feature flag](https://docs.gitlab.com/ee/administration/feature_flags.html) to benefit from this improvement.
+
+## Can we estimate the duration of a migration?
+This question has been asked time and again. The answer is that duration of migration with direct transfer depends on many different factors. Some of them are: 
+
+- Hardware and database resources available on the source and destination GitLab instances. More resources on the source and destination instances can result in shorter migration duration because:
+  - the source instance receives API requests, and extracts and serializes the entities to export
+  - the destination instance runs the jobs and creates the entities in its database
+- Complexity and size of data to be exported. For example, imagine you want to migrate two different projects with 1,000 merge requests each. The two projects can take very different amounts of time to migrate if one of the projects has a lot more attachments, comments, and other items on the merge requests. Therefore, the number of merge requests on a project is a poor predictor of how long a project will take to migrate.
+
+There’s no exact formula to reliably estimate a migration. However, we checked the duration of each job importing a project relation to share with you the average numbers, so you can get an idea of how long importing your projects might take. Here is what we found:
+
+- importing an empty project takes about 2.4 seconds
+- importing one MR takes about 1 second
+- importing one issue takes about 0.1 seconds
+
+You can find more project relations and the average duration to import them in the table below.
+
+| Project resource type | Average time (in seconds) to import a single record |
+| ---- | ---- |
+| Empty project	| 2.4 |
+| Repository | 20 |
+| Project attributes	| 1.5 |
+| Members	| 0.2 |
+| Labels	| 0.1 |
+| Milestones	| 0.07 |
+| Badges	| 0.1 |
+| Issues	| 0.1 |
+| Snippets	| 0.05 |
+| Snippet repositories | 0.5 |
+| Boards	| 0.1 |
+| Merge requests	| 1 |
+| External pull requests	| 0.5 |
+| Protected branches	| 0.1 |
+| Project feature	| 0.3 |
+| Container expiration policy	| 0.3 |
+| Service desk setting	| 0.3 |
+| Releases | 0.1 |
+| CI/CD pipelines	| 0.2 |
+| Commit notes	| 0.05 |
+| Wiki	| 10 |
+| Uploads |	0.5 |
+| LFS objects	| 0.5 |
+| Design	| 0.1 |
+| Auto DevOps	| 0.1 |
+| Pipeline schedules	| 0.5 |
+| References	| 5 |
+| Push rule	| 0.1 |
+
+## How can we migrate efficiently?
+We also know what is needed to achieve the most efficient migration possible. 
+
+A single direct transfer migration runs up to five entities (groups or projects) per import at a time, independent of the number of Sidekiq workers available on the destination instance. Importing five concurrent entities is the maximum allowed per migration by direct transfer. This limit has been set to not overload the source GitLab instance, because
+we saw network timeouts from source instances when we removed this limitation.
+
+That doesn't mean that if more than five Sidekiq workers are available on the destination instance that they won't be utilized during a migration. On the contrary, more Sidekiq
+workers help speed up the migration by decreasing the time it takes to import each entity. Import of relations is distributed across multiple jobs and a single project entity
+has over 30 relations to be migrated. [Exporting and importing relations in batches](https://gitlab.com/groups/gitlab-org/-/epics/9036) mentioned above results in even more
+jobs to be processed by the Sidekiq workers. 
+
+Increasing the number of Sidekiq workers on the destination instance helps speed up the migration until the source instance hardware resources are saturated. For more information on
+increasing the number of Sidekiq workers (increasing concurrency), see [Set up Sidekiq instance](https://docs.gitlab.com/ee/administration/sidekiq/#set-up-sidekiq-instance).
+
+The number of Sidekiq workers on the source instance should at least be enough to export the five concurrent entities in parallel (for each running import). Otherwise, there will
+be delays and potential timeouts as the destination is waiting for exported data to become available.
+
+Distributing projects in different groups helps to avoid timeouts. If several large projects are in the same group, you can:
+1. Move large projects to different groups or subgroups.
+1. Start separate migrations each group and subgroup.
+ 
+The GitLab UI can only migrate top-level groups. Using the API, you can also migrate subgroups.
+
+## What's next for migrating by direct transfer?
+Of course, we're not done yet! We will continue to improve the direct transfer method, aiming towards coming out of beta and into general availability. Next, we are working on:
+
+- [Moving hardcoded limits of direct transfer to settings](https://gitlab.com/gitlab-org/gitlab/-/issues/384976) - Migration by direct transfer has some hardcoded limits that can be made configurable to allow self-managed GitLab administrators to tune them according to their needs. For GitLab.com, we could set these limits higher than their hardcoded setting.
+- [Removing a 90-minute export timeout](https://gitlab.com/gitlab-org/gitlab/-/issues/392725) - Removing this limit will allow exporting of even larger projects, because only projects that can be migrated in under 90 minutes are supported at the moment.
+
+More details can be found on our [migrating by direct transfer roadmap direction page](https://about.gitlab.com/direction/manage/import_and_integrate/importers/). We are excited about this roadmap and hope you are too!
+
+We want to hear from you. What's the most important missing piece for you? What else can we improve? Let us know
+in the [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/284495) or [schedule time](https://calendly.com/gitlab-magdalenafrankiewicz/45mins) with the Import and Integrations group product manager, and we'll keep iterating!
+
+_Disclaimer: This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab._
+
+Cover image by [Adrien VIN](https://unsplash.com/fr/@4dr13nv1n?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/migration-birds?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

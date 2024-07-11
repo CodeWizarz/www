@@ -1,0 +1,14 @@
+features:
+  secondary:
+    - name: "Resolve Docker garbage collection issues for GitLab Container Registries hosted on DigitalOcean S3"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/administration/packages/container_registry.html#container-registry-garbage-collection'
+      reporter: trizzi
+      stage: package
+      categories:
+        - "Container Registry"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/issues/30325'
+      description: |
+        There is a known Docker issue where Ceph-based storage for all requests with absolute URI impacts the Docker garbage collection process. Since DigitalOcean uses Ceph, it prevents users from running garbage collection if they are using DigitalOcean for storage. This results in higher storage costs for those users.
+
+        In GitLab 12.8, we resolved this issue by updating the driver for [Ceph](https://ceph.io/ceph-storage/) to support the latest version of the API. This allows any organization using DigitalOcean for storage for their GitLab Container Registry to run garbage collection and lower their cost of storage.

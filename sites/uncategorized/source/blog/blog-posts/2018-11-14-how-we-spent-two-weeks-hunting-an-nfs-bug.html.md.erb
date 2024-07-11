@@ -1,0 +1,518 @@
+---
+title: "How we spent two weeks hunting an NFS bug in the Linux kernel"
+categories: engineering
+author: Stan Hu
+author_gitlab: stanhu
+author_twitter: stanhu
+categories: engineering
+image_title: '/images/blogimages/nfs-debug/nfs-bug-hunt-detective.jpg'
+description: "Here's an in-depth recap of debugging a GitLab issue that culminated in a patch for the Linux kernel."
+twitter_text: "How @gitlab spent two weeks hunting an NFS kernel bug"
+tags: community, git, inside GitLab, open source
+featured: yes
+postType: content marketing
+ee_cta: false
+related_posts:
+  - "/blog/2019/08/27/tyranny-of-the-clock/"
+  - "/blog/2019/11/15/tracking-down-missing-tcp-keepalives/"
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+---
+
+UPDATE 2019-08-06: This bug has now been resolved in the following
+distributions:
+
+* [Red Hat Enterprise Linux 7](https://access.redhat.com/errata/RHSA-2019:2029)
+* [Ubuntu](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1802585)
+* Linux mainline: Backported to [4.14-stable](https://lkml.org/lkml/2019/8/2/562) and [4.19-stable](https://lkml.org/lkml/2019/8/2/639)
+
+On Sep. 14, the GitLab support team escalated a critical
+problem encountered by one of our customers: GitLab would run fine for a
+while, but after some time users encountered errors. When attempting to
+clone certain repositories via Git, users would see an opaque `Stale
+file error` message. The error message persisted for a long time,
+blocking employees from being able to work, unless a system
+administrator intervened manually by running `ls` in the directory
+itself.
+
+Thus launched an investigation into the inner workings of Git and the
+Network File System (NFS). The investigation uncovered a bug with the
+Linux v4.0 NFS client and culiminated with a [kernel patch that was written by
+Trond Myklebust](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=be189f7e7f03de35887e5a85ddcf39b91b5d7fc1)
+and [merged in the latest mainline Linux kernel](https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?h=c7a2c49ea6c9eebbe44ff2c08b663b2905ee2c13)
+on Oct. 26.
+
+This post describes the journey of investigating the issue and
+details the thought process and tools by which we tracked down the
+bug. It was inspired by the fine detective work in [How I spent two
+weeks hunting a memory leak in Ruby](http://www.be9.io/2015/09/21/memory-leak/)
+by Oleg Dashevskii.
+
+More importantly, this experience exemplifies how open source software
+debugging has become a team sport that involves expertise across
+multiple people, companies, and locations. The GitLab motto "[everyone can
+contribute](/company/mission/#mission)" applies not only to GitLab itself, but also to other open
+source projects, such as the Linux kernel.
+
+## Reproducing the bug
+
+While we have run NFS on GitLab.com for many years, we have stopped
+using it to access repository data across our application
+machines. Instead, we have [abstracted all Git calls to
+Gitaly](/blog/2018/09/12/the-road-to-gitaly-1-0/).
+Still, NFS remains a supported configuration for our customers who
+manage their own installation of GitLab, but we had never seen the exact
+problem described by the customer before.
+
+[Our customer gave us a few important clues](https://gitlab.com/gitlab-org/gitlab-ce/issues/51437):
+
+1. The full error message read, `fatal: Couldn't read ./packed-refs: Stale file handle`.
+2. The error seemed to start when they started a manual Git garbage
+collection run via `git gc`.
+3. The error would go away if a system administrator ran `ls` in the
+directory.
+4. The error also would go away after `git gc` process ended.
+
+The first two items seemed obviously related. When you push to a branch
+in Git, Git creates a loose reference, a fancy name for a file that
+points your branch name to the commit. For example, a push to `master`
+will create a file called `refs/heads/master` in the repository:
+
+```bash
+$ cat refs/heads/master
+2e33a554576d06d9e71bfd6814ee9ba3a7838963
+```
+
+`git gc` has several jobs, but one of them is to collect these loose
+references (refs) and bundle them up into a single file called
+`packed-refs`. This makes things a bit faster by eliminating the need to
+read lots of little files in favor of reading one large one. For
+example, after running `git gc`, an example `packed-refs` might look
+like:
+
+```
+# pack-refs with: peeled fully-peeled sorted
+564c3424d6f9175cf5f2d522e10d20d781511bf1 refs/heads/10-8-stable
+edb037cbc85225261e8ede5455be4aad771ba3bb refs/heads/11-0-stable
+94b9323033693af247128c8648023fe5b53e80f9 refs/heads/11-1-stable
+2e33a554576d06d9e71bfd6814ee9ba3a7838963 refs/heads/master
+```
+
+How exactly is this `packed-refs` file created? To answer that, we ran
+`strace git gc` with a loose ref present. Here are the pertinent lines
+from that:
+
+```
+28705 open("/tmp/libgit2/.git/packed-refs.lock", O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 3
+28705 open(".git/packed-refs", O_RDONLY) = 3
+28705 open("/tmp/libgit2/.git/packed-refs.new", O_RDWR|O_CREAT|O_EXCL|O_CLOEXEC, 0666) = 4
+28705 rename("/tmp/libgit2/.git/packed-refs.new", "/tmp/libgit2/.git/packed-refs") = 0
+28705 unlink("/tmp/libgit2/.git/packed-refs.lock") = 0
+```
+
+The system calls showed that `git gc` did the following:
+
+1. Open `packed-refs.lock`. This tells other processes that `packed-refs` is locked and cannot be changed.
+1. Open `packed-refs.new`.
+1. Write loose refs to `packed-refs.new`.
+1. Rename `packed-refs.new` to `packed-refs`.
+1. Remove `packed-refs.lock`.
+1. Remove loose refs.
+
+The fourth step is the key here: the rename where Git puts `packed-refs`
+into action. In addition to collecting loose refs, `git gc` also
+performs a more expensive task of scanning for unused objects and
+removing them. This task can take over an hour for large
+repositories.
+
+That made us wonder: for a large repository, does `git gc` keep the file
+open while it's running this sweep? Looking at the `strace` logs and
+probing the process with `lsof`, we found that it did the following:
+
+![Git Garbage Collection](/images/blogimages/nfs-debug/git-gc-diagram.svg)
+
+Notice that `packed-refs` is closed only at the end, after the potentially
+long `Garbage collect objects` step takes place.
+
+That made us wonder: how does NFS behave when one node has `packed-refs`
+open while another renames over that file?
+
+To experiment, we asked the customer to run the following experiment on
+two different machines (Alice and Bob):
+
+1. On the shared NFS volume, create two files: `test1.txt` and
+`test2.txt` with different contents to make it easy to distinguish them:
+
+    ```bash
+    alice $ echo "1 - Old file" > /path/to/nfs/test1.txt
+    alice $ echo "2 - New file" > /path/to/nfs/test2.txt
+    ```
+
+2. On machine Alice, keep a file open to `test1.txt`:
+
+    ```bash
+     alice $ irb
+     irb(main):001:0> File.open('/path/to/nfs/test1.txt')
+    ```
+
+3. On machine Alice, show the contents of `test1.txt` continuously:
+
+    ```bash
+    alice $ while true; do cat test1.txt; done
+    ```
+
+4. Then on machine Bob, run:
+
+    ```bash
+    bob $ mv -f test2.txt test1.txt
+    ```
+
+This last step emulates what `git gc` does with `packed-refs` by
+overwriting the existing file.
+
+On the customer's machine, the result looked something like:
+
+```
+1 - Old file
+1 - Old file
+1 - Old file
+cat: test1.txt: Stale file handle
+```
+
+Bingo! We seemed to reproduce the problem in a controlled way. However,
+the same experiment using a Linux NFS server did not have this
+problem. The result was what you would expect: the new contents were
+picked up after the rename:
+
+```
+1 - Old file
+1 - Old file
+1 - Old file
+2 - New file  <--- RENAME HAPPENED
+2 - New file
+2 - New file
+```
+
+Why the difference in behavior? It turns out that the customer was using
+an [Isilon NFS
+appliance](https://www.dellemc.com/en-us/storage/isilon/index.htm) that
+only supported NFS v4.0. By switching the mount parameters to v4.0 via
+the `vers=4.0` parameter in `/etc/fstab`, the test revealed a different
+result with the Linux NFS server:
+
+```
+1 - Old file
+1 - Old file
+1 - Old file
+1 - Old file <--- RENAME HAPPENED
+1 - Old file
+1 - Old file
+```
+
+Instead of a `Stale file handle`, the Linux NFS v4.0 server showed stale
+*contents*. It turns out this difference in behavior can be explained by
+the NFS spec. From [RFC
+3010](https://tools.ietf.org/html/rfc3010#page-153):
+
+> A filehandle may or may not become stale or expire on a rename.
+> However, server implementors are strongly encouraged to attempt to keep
+> file handles from becoming stale or expiring in this fashion.
+
+In other words, NFS servers can choose how to behave if a file is
+renamed; it's perfectly valid for any NFS server to return a `Stale file
+error` when that happens. We surmised that even though the results were
+different, the problem was likely related to the same issue. We
+suspected some cache validation issue because running `ls` in the
+directory would "clear" the error. Now that we had a reproducible test
+case, we asked the experts: the Linux NFS maintainers.
+
+## False path: NFS server delegations
+
+With a clear set of reproduction steps, I [sent an email to the Linux
+NFS mailing list](https://marc.info/?l=linux-nfs&m=153721785231614&w=2)
+describing what we had found. Over the week, I went back and forth with
+Bruce Fields, the Linux NFS server maintainer, who suggested this was a
+NFS bug and that it would be useful to look at the network traffic. He
+thought there might be an issue with NFS server delegations.
+
+### What is an NFS server delegation?
+
+In a nutshell, NFS v4 introduced server delegations as a way to speed up file access. A server can
+delegate read or write access to a client so that the client doesn't
+have to keep asking the server whether that file has changed by another
+client. In simpler terms, a write delegation is akin to someone lending
+you a notebook and saying, "Go ahead and write in here, and I'll take it
+back when I'm ready." Instead of having to ask to borrow the notebook
+every time you want to write a new paragraph, you have free rein until
+the owner reclaims the notebook. In NFS terms, this reclamation process
+is called a delegation recall.
+
+Indeed, a bug in the NFS delegation recall might explain the `Stale file
+handle` problem. Remember that in the earlier experiment, Alice had
+an open file to `test1.txt` when it was replaced by `test2.txt` later.
+It's possible that the server failed to recall the delegation on
+`test1.txt`, resulting in an incorrect state. To check whether this was
+an issue, we turned to `tcpdump` to capture NFS traffic and used
+Wireshark to visualize it.
+
+[Wireshark](https://www.wireshark.org/) is a wonderful open source tool
+for analyzing network traffic, and it's especially good for viewing NFS
+in action. We captured a trace using the following command on the NFS server:
+
+```
+tcpdump -s 0 -w /tmp/nfs.pcap port 2049
+```
+
+This command captures all NFS traffic, which typically is on TCP port 2049.
+Because our experiment worked properly with NFS v4.1 but did not
+ with NFS v4.0, we could compare and contrast how NFS behaved
+in a non-working and a working case. With Wireshark, we saw the
+following behavior:
+
+### NFS v4.0 (stale file case)
+
+![NFS v4.0 flow](/images/blogimages/nfs-debug/nfs-4.0-flow.svg)
+
+In this diagram, we can see in step 1 Alice opens `test1.txt` and gets
+back an NFS file handle along with a `stateid` of 0x3000. When Bob
+attempts to rename the file, the NFS server tells to Bob to retry via
+the `NFS4ERR_DELAY` message while it recalls the delegation from Alice
+via the `CB_RECALL` message (step 3). Alice then returns her delegation
+via `DELEGRETURN` (step 4), and then Bob attempts to send another
+`RENAME` message (step 5). The `RENAME` completes in both cases, but
+Alice continues to read using the same file handle.
+
+### NFS v4.1 (working case)
+
+![NFS v4.1 flow](/images/blogimages/nfs-debug/nfs-4.1-flow.svg)
+
+The main difference happens at the bottom at step 6. Notice in NFS v4.0
+(the stale file case), Alice attempts to reuse the same `stateid`. In
+NFS v4.1 (working case), Alice performs an additional `LOOKUP` and
+`OPEN`, which causes the server to return a different `stateid`. In v4.0,
+these extra messages are never sent. This explains why Alice continues
+to see stale content because she uses the old file handle.
+
+What makes Alice decide to do the extra `LOOKUP`? The delegation recall
+seemed to work fine, but perhaps there was still an issue, such as a
+missing invalidation step. To rule that out, we disabled NFS delegations
+by issuing this command on the NFS server itself:
+
+```sh
+echo 0 > /proc/sys/fs/leases-enable
+```
+
+We repeated the experiment, but the problem persisted. All this
+convinced us this wasn't a NFS server issue or a problem with NFS
+delegations; it was a problem that led us to look into the NFS client
+within the kernel.
+
+## Digging deeper: the Linux NFS client
+
+The first question we had to answer for the NFS maintainers:
+
+### Was this problem still in the latest upstream kernel?
+
+The issue occurred with both CentOS 7.2 and Ubuntu 16.04 kernels, which
+used versions 3.10.0-862.11.6 and 4.4.0-130, respectively. However, both
+those kernels lagged the most recent kernel, which was 4.19-rc2 at the
+time.
+
+We deployed a new Ubuntu 16.04 virtual machine on Google Cloud Platform
+(GCP), cloned the latest Linux kernel, and set up a kernel development
+environment. After generating a `.config` file via `make menuconfig`, we
+checked two items:
+
+1. The NFS driver was compiled as a module (`CONFIG_NFSD=m`).
+2. The [required GCP kernel settings](https://cloud.google.com/compute/docs/images/building-custom-os)
+were set properly.
+
+Just as a geneticist would use fruit flies to study evolution in
+real time, the first item allowed us to make quick changes in the NFS
+client without having to reboot the kernel. The second item was required
+to ensure that the kernel would actually boot after it was
+installed. Fortunately, the default kernel settings had all the settings
+right out of the box.
+
+With our custom kernel, we verified that the stale file problem still
+existed in the latest version. That begged a number of questions:
+
+1. Where exactly was this problem happening?
+2. Why was this problem happening with NFS v4.0 but not in v4.1?
+
+To answer these questions, we began to investigate the NFS [source
+code](/stages-devops-lifecycle/source-code-management/). Since we didn't have a kernel debugger available, we sprinkled the
+source code with two main types of calls:
+
+1. `pr_info()` ([what used to be `printk`](https://lwn.net/Articles/487437/)).
+2. `dump_stack()`: This would show the stack trace of the current function call.
+
+For example, one of the first things we did was hook into the
+`nfs4_file_open()` function in `fs/nfs/nfs4file.c`:
+
+```c
+static int
+nfs4_file_open(struct inode *inode, struct file *filp)
+{
+...
+        pr_info("nfs4_file_open start\n");
+        dump_stack();
+```
+
+Admittedly, we could have [activated the `dprintk` messages with the
+Linux dynamic
+debug](https://www.kernel.org/doc/html/v4.15/admin-guide/dynamic-debug-howto.html)
+or used
+[`rpcdebug`](https://www.thegeekdiary.com/how-to-enable-nfs-debug-logging-using-rpcdebug/),
+but it was nice to be able to add our own messages to verify changes
+were being made.
+
+Every time we made changes, we recompiled the module and reinstalled it
+into the kernel via the commands:
+
+```sh
+make modules
+sudo umount /mnt/nfs-test
+sudo rmmod nfsv4
+sudo rmmod nfs
+sudo insmod fs/nfs/nfs.ko
+sudo mount -a
+```
+
+With our NFS module installed, repeating the experiments would print
+messages that would help us understand the NFS code a bit more. For
+example, you can see exactly what happens when an application calls `open()`:
+
+```
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233460] Call Trace:
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233462]  dump_stack+0x8e/0xd5
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233480]  nfs4_file_open+0x56/0x2a0 [nfsv4]
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233488]  ? nfs42_clone_file_range+0x1c0/0x1c0 [nfsv4]
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233490]  do_dentry_open+0x1f6/0x360
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233492]  vfs_open+0x2f/0x40
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233493]  path_openat+0x2e8/0x1690
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233496]  ? mem_cgroup_try_charge+0x8b/0x190
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233497]  do_filp_open+0x9b/0x110
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233499]  ? __check_object_size+0xb8/0x1b0
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233501]  ? __alloc_fd+0x46/0x170
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233503]  do_sys_open+0x1ba/0x250
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233505]  ? do_sys_open+0x1ba/0x250
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233507]  __x64_sys_openat+0x20/0x30
+Sep 24 20:20:38 test-kernel kernel: [ 1145.233508]  do_syscall_64+0x65/0x130
+```
+
+What are the `do_dentry_open` and `vfs_open` calls above? Linux has a
+[virtual filesystem
+(VFS)](https://www.kernel.org/doc/Documentation/filesystems/vfs.txt), an
+abstraction layer which provides a common interface for all
+filesystems. The VFS documentation explains:
+
+> The VFS implements the open(2), stat(2), chmod(2), and similar system
+> calls. The pathname argument that is passed to them is used by the VFS
+> to search through the directory entry cache (also known as the dentry
+> cache or dcache). This provides a very fast look-up mechanism to
+> translate a pathname (filename) into a specific dentry. Dentries live
+> in RAM and are never saved to disc: they exist only for performance.
+
+### This gave us a clue: what if this was a problem with the dentry cache?
+
+We noticed a lot of dentry cache validation was done in
+`fs/nfs/dir.c`. In particular, `nfs4_lookup_revalidate()` sounded
+promising. As an experiment, we hacked that function to bail
+out early:
+
+
+```diff
+diff --git a/fs/nfs/dir.c b/fs/nfs/dir.c
+index 8bfaa658b2c1..ad479bfeb669 100644
+--- a/fs/nfs/dir.c
++++ b/fs/nfs/dir.c
+@@ -1159,6 +1159,7 @@ static int nfs_lookup_revalidate(struct dentry *dentry, unsigned int flags)
+        trace_nfs_lookup_revalidate_enter(dir, dentry, flags);
+        error = NFS_PROTO(dir)->lookup(dir, &dentry->d_name, fhandle, fattr, label);
+        trace_nfs_lookup_revalidate_exit(dir, dentry, flags, error);
++       goto out_bad;
+        if (error == -ESTALE || error == -ENOENT)
+                goto out_bad;
+        if (error)
+```
+
+That made the stale file problem in our experiment go away! Now we were onto something.
+
+To answer, "Why does this problem not happen in NFS v4.1?", we added
+`pr_info()` calls to every `if` block in that function. After running our
+experiments with NFS v4.0 and v4.1, we found this special condition being run
+in the v4.1 case:
+
+```c
+        if (NFS_SB(dentry->d_sb)->caps & NFS_CAP_ATOMIC_OPEN_V1) {
+          goto no_open;
+        }
+```
+
+What is `NFS_CAP_ATOMIC_OPEN_V1`? We saw [this kernel
+patch](https://patchwork.kernel.org/patch/2300511/) mentioned this was
+an NFS v4.1-specific feature, and the code in `fs/nfs/nfs4proc.c`
+confirmed that this flag was a capability present in v4.1 but not in v4.0:
+
+```c
+static const struct nfs4_minor_version_ops nfs_v4_1_minor_ops = {
+        .minor_version = 1,
+        .init_caps = NFS_CAP_READDIRPLUS
+                | NFS_CAP_ATOMIC_OPEN
+                | NFS_CAP_POSIX_LOCK
+                | NFS_CAP_STATEID_NFSV41
+                | NFS_CAP_ATOMIC_OPEN_V1
+```
+
+That explained the difference in behavior: in the v4.1 case, the `goto
+no_open` would cause more validation to happen in
+`nfs_lookup_revalidate()`, but in v4.0, the `nfs4_lookup_revalidate()`
+would return earlier. Now, how do we actually solve the problem?
+
+## The solution
+
+I reported the [findings to the NFS mailing
+list](https://marc.info/?l=linux-nfs&m=153782129412452&w=2) and proposed
+[a naive patch](https://marc.info/?l=linux-nfs&m=153807208928650&w=2). A
+week after the report, Trond Myklebust sent a [patch series to the list
+fixing this bug and found another related issue for NFS
+v4.1](https://marc.info/?l=linux-nfs&m=153816500525563&w=2).
+
+It turns out the fix for the NFS v4.0 bug was deeper in the code base
+than we had looked. Trond summarized it well in the
+[patch](https://marc.info/?l=linux-nfs&m=153816500525564&w=2):
+
+> We need to ensure that inode and dentry revalidation occurs correctly
+> on reopen of a file that is already open. Currently, we can end up not
+> revalidating either in the case of NFSv4.0, due to the 'cached open'
+> path.  Let's fix that by ensuring that we only do cached open for the
+> special cases of open recovery and delegation return.
+
+We confirmed that this fix made the stale file problem go away and filed
+bug reports with
+[Ubuntu](https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1802585)
+and [RedHat](https://bugzilla.redhat.com/show_bug.cgi?id=1648482).
+
+Knowing full well that kernel changes may take a while to make it to
+stable releases, we also added a [workaround in
+Gitaly](https://gitlab.com/gitlab-org/gitaly/merge_requests/924) to deal
+with this issue. We did experiments to test that calling `stat()` on the
+`packed-refs` file appears to cause the kernel to revalidate the dentry
+cache for the renamed file. For simplicity, this is implemented in
+Gitaly regardless of whether the filesystem is NFS; we only do this once
+before Gitaly "opens" a repository, and there are already other `stat()`
+calls that check for other files.
+
+## What we learned
+
+A bug can be anywhere in your software stack, and sometimes you have to
+look beyond your application to find it. Having helpful partners in the
+open source world makes that job much easier.
+
+We are extremely grateful to Trond Myklebust for fixing the problem, and
+Bruce Fields for responding to questions and helping us understand
+NFS. Their responsiveness and professionalism truly reflects the best of
+the open source community.
+
+Photo by [dynamosquito](https://www.flickr.com/photos/dynamosquito) on [Flickr](https://www.flickr.com/photos/dynamosquito/4265771518)
+{: .note}

@@ -1,0 +1,129 @@
+---
+layout: default
+title: Press and Logos
+description: "Here you can find all our recent GitLab news, press releases, and our press kit. Learn more!"
+canonical_path: "/press/"
+suppress_header: true
+extra_css:
+  - press.css
+---
+
+.blank-header.blank-header--press
+  .header-content
+    = image_tag "/images/press/press-header-icon.svg", class: "hero-image-large", alt: "GitLab press header icon svg"
+    %h1 GitLab Press
+    %p Recent News, press releases, and our press kit.
+
+.toc-links
+  = link_to "Recent news", "#recent-news"
+  = link_to "Press releases", "#press-releases"
+  = link_to "Press kit", "#press-kit"
+  = link_to "Get in touch", "#get-in-touch"
+
+.gitlab-content-container
+
+  // recent news
+  .content
+    .content-section
+      .content-section-title-container#recent-news
+        = image_tag "/images/press/news-icon.svg", class: "content-section-icon", alt: "GitLab press header icon svg"
+        %h2.margin-top0 Recent news
+      - data.press.recent_news[0..4].each_with_index do |news, index|
+        - if index === 0
+          .tile.featured-press-block
+            .featured-press-block-info
+              %p.news-date
+                = news.date.to_time.strftime '%b %e, %Y'
+              %h3
+                = news.title
+              %a.article-link{ href: "#{news.link}", target: "_blank" }
+                Go to article
+                %i.fa.fa-arrow-right
+            = image_tag "#{news.logo}", class: "news-logo", alt: "Gitlab recent news logo"
+        - else
+          .press-block
+            .logo-and-date
+              = image_tag "#{news.logo}", class: "news-logo-small", alt: "Gitlab recent news logo"
+              %p.news-date
+                = news.date.to_time.strftime '%b %e, %Y'
+            %p
+              = news.title
+            %a.article-link{ href: "#{news.link}", target: "_blank" }
+              Go to article
+              %i.fa.fa-arrow-right
+      = link_to "/press/recent-news/", class: "btn cta-btn orange" do
+        See all news
+
+  // press releases
+  .content
+    .content-section
+      .content-section-title-container#press-releases
+        = image_tag "/images/press/press-release-icon.svg", class: "content-section-icon", alt: "GitLab press release icon svg"
+        %h2.margin-top0 Press releases
+      - data.press_releases.last(5).reverse.each_with_index do |press_release, index|
+        - if index === 0
+          .tile.featured-press-block
+            .featured-press-block-info
+              %p.news-date
+                = press_release.date.to_time.strftime '%b %e, %Y'
+              %h3
+                = press_release.title
+              %a.article-link{ href: "#{press_release.link}", target: "_blank" }
+                Read more
+                %i.fa.fa-arrow-right
+        - else
+          .press-block
+            .logo-and-date
+              %p.news-date
+                = press_release.date.to_time.strftime '%b %e, %Y'
+            %p
+              = press_release.title
+            %a.article-link{ href: "#{press_release.link}", target: "_blank" }
+              Read more
+              %i.fa.fa-arrow-right
+      = link_to "/press/releases/", class: "btn cta-btn orange" do
+        See all press releases
+
+  // press kit
+  .content
+    .content-section
+      .content-section-title-container#press-kit
+        = image_tag "/images/press/press-kit-icon.svg", class: "content-section-icon", alt: "GitLab press kit icon svg"
+        %h2.margin-top0 Press kit
+      .tile.featured-press-block
+        .featured-press-block-info
+          %h3
+            Official GitLab press kit including photos, logos, and our press release boilerplate.
+          = link_to "/press/press-kit/", class: "article-link" do
+            Get resources
+            %i.fa.fa-arrow-right
+        = image_tag "/images/logos/gitlab-wordmark.svg", class: "news-logo", alt: "GitLab logo svg"
+
+  // get in touch
+  .content
+    .content-section
+      .content-section-title-container#get-in-touch
+        = image_tag "/images/icons/get-in-touch-icon.svg", class: "content-section-icon", alt: "Get in touch GitLab icon svg"
+        %h2.margin-top0 Get in touch
+      .tiles-container
+        .tile-resource
+          .tile-background-container{ style: "background: url('/images/press/press-email.png') center center no-repeat;" }
+          .tile-info
+            %h4.tile-title For press inquiries, please email press@gitlab.com
+            %a.tile-link{ href: "mailto:press@gitlab.com" }
+              Contact us
+              %i.fa.fa-arrow-right
+        .tile-resource
+          .tile-background-container{ style: "background: url('/images/press/press-blog.png') center center no-repeat;" }
+          .tile-info
+            %h4.tile-title Visit our blog for updates from the GitLab team
+            %a.tile-link{ href: "/blog/", target: "_blank" }
+              Visit our blog
+              %i.fa.fa-arrow-right
+        .tile-resource
+          .tile-background-container{ style: "background: url('/images/press/press-twitter.png') center center no-repeat;" }
+          .tile-info
+            %h4.tile-title Follow us on Twitter/X for the latest @gitlab news
+            %a.tile-link{ href: "https://www.twitter.com/gitlab", target: "_blank" }
+              Go to @gitlab
+              %i.fa.fa-arrow-right

@@ -1,0 +1,102 @@
+---
+title: "How to prevent deployments from overrunning your budget"
+author: Bahubali (Bill) Shetti and Tim Davis
+author_twitter: cloudjourneyio
+categories: insights
+image_title: "/images/blogimages/gitlab-cloud-journey.png"
+description: "Guest authors from VMware share how to include budget and resource checking into your continuous deployment with Cloudhealth and GitLab."
+tags: CI/CD, cloud native, DevOps, integrations
+guest: true
+install_cta: false
+twitter_text: "Practical tips to keep cloud deployments budget friendly"
+postType: product
+---
+
+Managing deployments is a complex task and DevOps admins generally consider it a victory when a deployment is
+achieved and somewhat repeatable. Unfortunately this process doesn't give DevOps admins time to
+consider the impact of the outcome on the larger operations pipeline. We know the importance of
+[Continuous Verification](https://thenewstack.io/continuous-verification-the-missing-link-to-fully-automate-your-pipeline/)
+– it's just one of several day-two operations and best practices that need to be brought into the
+continuous deployment (CD) process to achieve efficiencies. But we also need to look at the budget.
+
+## Adding budget and resource checking into your CD
+
+Most developers and DevOps admins don't consider the impact of their deployment on the budget. They
+also don't generally check if sufficient resources in AWS exist prior to deployment because, after
+all, aren't there "unlimited" resources on AWS?
+
+Adding the proper budget and resource checks into the pipeline helps avoid:
+
+* Potential rollbacks and clean-up actions
+* Redeployment ("lift and shift") into other regions in AWS
+* Long analysis to pinpoint budget overruns
+
+Not having to deal with these tasks improves the DevOps admin's metrics, such as mean time to change (MTTC),
+deployment time, etc., and subsequently efficiency goes up.
+
+## Understanding the policy
+
+Prior to implementing any of these checks, it’s important to understand the "policy." While every
+organization is different, and the iterations of "policy" are endless, there are some basic checks
+that should always be implemented:
+
+* Ensure the project-specific budget is not already overrun
+* Will this deployment exceed the project budget?
+* Is the project already over project-specific limits and restrictions? (i.e. cannot use RDS, or
+can't have more than 10 EC2 instances in a deployment)
+* Will this deployment exceed the project-specific resource policy?
+
+With these basic checks in place, at least some initial sanity is achieved during a pipeline execution.
+More and more complex iterations can be added as more is learned about the project and processes are improved.
+
+## How do you do it?
+
+Regardless of the policy complexity, implementing these checks can be easily accomplished with
+standard off-the-shelf tools like [CloudHealth by VMware](https://cloudhealthtech.com) and [GitLab](/).
+
+* CloudHealth by VMware allows you to define "perspectives" specific to your project, create governance
+rules, and access this information through an API for easy integration into any CI/CD tool.
+* GitLab allows you to easily add in scripts and/or pre-built code (containers) enabling
+any possible check against any potential external system.
+
+In order to highlight how to implement this type of check into the CI/CD pipeline, we've
+delivered an [example configuration](https://cloudjourney.io/articles/multicloudops/budget_check_cicd-td/)
+using both CloudHealth and GitLab. We hope this provides a nice baseline to build from.
+
+![CD WITH A CH check from GitLab CI/CD pipelines](/images/blogimages/glcdpipeline.png){: .shadow.medium.center}
+
+## In summary
+
+Although we've provided a baseline that we hope can be used for more complex policy checks in CD,
+convincing DevOps admins to implement this is another problem. Improving metrics should provide
+an incentive for DevOps admins but it is not sufficient for them to simply add budget and resource checks.
+While every enterprise has its own process and metrics, we recommend adding a budgetary efficiency
+metric for DevOps admins.
+
+Using the configuration above, it’s easy to add in CloudHealth to continuously check the project's
+budget and utilization, and adding a DevOps budget metric will not only ensure that these checks
+are deployed but will also lead to more efficient deployments.
+
+If you have any questions regarding this or any other issue, feel free to reach out
+to us [@cloudjourneyio](https://twitter.com/cloudjourneyio) on Twitter!
+
+### About the guest authors
+
+_Bahubali (Bill) Shetti is the director of public cloud solutions for VMware Cloud Services at VMware.
+He leads a team of cloud architects that evangelize and develop solutions for improving public cloud
+operations (AWS/Azure/GCP). Bahubali was part of the initial team that developed and launched
+VMware Cloud Services. Previous to VMware, he was director of product management at VCE
+(now Dell) for Cloud Management Products. Between 2011-2014, Bahubali lead operations at Cumulus
+Networks, lead AWS cloud operations at several startups, and headed an open source routing
+software project. Between 2008-2010, Bahubali lead the cloud investment practice at Storm Ventures.
+He spent 9 years at Cisco in product management and business development. He holds an M.S. in
+Information Networking from Carnegie Mellon and a B.S. in Electrical Engineering from Rutgers._
+
+_Tim Davis is a cloud advocate at VMware where he focuses on public cloud operations and cloud native
+applications. He provides consulting guidance to a wide range of customers on these topics and
+provides a bridge between customers and product teams at VMware. He also works to evangelize
+native cloud usage including AWS, Azure and GCP. Prior to his current role, he was a specialist systems
+engineer focused on VMware’s Networking and Security product line. Before VMware, Tim worked as a
+consultant and VMware architect at Dell Services, which wasone of the largest contracts held at
+the time. His background is in operations/management and architecture. He holds numerous
+industry certifications including from VMware and Amazon Web Services._

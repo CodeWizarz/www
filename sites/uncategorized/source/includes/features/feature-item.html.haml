@@ -1,0 +1,19 @@
+.col-sm-4.clearfix.feature-container
+  .col-xs-12.feature-contents
+    %h4
+      = feature.title
+    = partial "includes/features/badges", locals: { tier_hash: serialize_tier_hash(feature), gitlab_com: feature.gitlab_com }
+    %p
+      = kramdown(feature.description)
+    - unless (feature.link == nil)
+      %span
+        - if (feature.link.to_s.start_with?("https://docs.gitlab.com"))
+          = link_to "Documentation", feature.link
+        - elsif (feature.link.to_s.start_with?("/features", "/features"))
+          = link_to "Feature details", feature.link
+        - elsif (feature.link.to_s.start_with?("/20", "/20"))
+          = link_to "Blog post", feature.link
+        - elsif (feature.link.to_s.start_with?("https://gitlab.com/"))
+          = link_to "Issue details", feature.link
+        - else
+          = link_to feature.link_description, feature.link

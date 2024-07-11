@@ -1,0 +1,195 @@
+---
+title: "How to get started with Parent-child pipelines"
+author: Chris Ward 
+author_gitlab: chrischinchilla 
+author_twitter: chrischinch 
+categories: engineering
+image_title: "/images/blogimages/parent_pipeline_graph.png"
+description: "We introduced improvements to pipelines to help scale applications and their repo structures more effectively. Here's how they work."
+tags: CI/CD, features, inside GitLab, tutorial
+twitter_text: "How to get started with @gitlab Parent-child pipelines"
+postType: product
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+As applications and their repository structures grow in complexity, a repository `.gitlab-ci.yml` file becomes difficult to manage, collaborate on, and see benefit from. This problem is especially true for the increasingly popular "[monorepo](https://en.wikipedia.org/wiki/Monorepo)" pattern, where teams keep code for multiple related services in one repository. Currently, when using this pattern, developers all use the same `.gitlab-ci.yml` file to trigger different automated processes for different application components, likely causing merge conflicts, and productivity slowdown, while teams wait for "their part" of a pipeline to run and complete.
+
+To help large and complex projects manage their automated workflows, we've added two new features to make pipelines even more powerful: Parent-child pipelines, and the ability to generate pipeline configuration files dynamically.
+
+## Meet Parent-child pipelines
+
+So, how do you solve the pain of many teams collaborating on many inter-related services in the same repository? 
+Let me introduce you to [Parent-child pipelines](https://docs.gitlab.com/ee/ci/parent_child_pipelines.html), released with with [GitLab 12.7](/releases/2020/01/22/gitlab-12-7-released/#parent-child-pipelines). Splitting complex pipelines into multiple pipelines with a parent-child relationship can improve performance by allowing child pipelines to run concurrently. This relationship also enables you to compartmentalize configuration and visualization into different files and views. 
+
+### Creating a child pipeline
+
+You trigger a child pipeline configuration file from a parent by including it with the `include` key as a parameter to the `trigger` key. You can name the child pipeline file whatever you want, but it still needs to be valid YAML.
+
+The parent configuration below triggers two further child pipelines that build the Windows and Linux version of a C++ application. 
+
+```cpp
+#include <iostream>
+int main()
+{
+  std::cout << "Hello GitLab!" << std::endl;
+  return 0;
+}
+```
+
+The setup is a simple one but hopefully illustrates what is possible.
+
+```yaml
+stages:
+  - triggers
+
+build_windows:
+  stage: triggers
+  trigger:
+    include: .win-gitlab-ci.yml
+  rules:
+    - changes:
+      - cpp_app/*
+
+build_linux:
+  stage: triggers
+  trigger:
+    include: .linux-gitlab-ci.yml
+  rules:
+    - changes:
+      - cpp_app/*
+```
+
+The important values are the `trigger` keys which define the child configuration file to run, and the parent pipeline continues to run after triggering it. You can use all the normal sub-methods of `include` to use local, remote, or template config files, up to a maximum of three child pipelines.
+
+Another useful pattern to use for parent-child pipelines is a `rules` key to trigger a child pipeline under certain conditions. In the example above, the child pipeline only triggers when changes are made to files in the _cpp_app_ folder.
+
+The Windows build child pipeline (`.win-gitlab-ci.yml`) has the following configuration, and unless you want to trigger a further child pipeline, it follows standard a configuration format:
+
+```yaml
+image: gcc
+build:
+  stage: build
+  before_script:
+    - apt update && apt-get install -y mingw-w64
+  script:
+    - x86_64-w64-mingw32-g++ cpp_app/hello-gitlab.cpp -o helloGitLab.exe
+  artifacts:
+    paths:
+      - helloGitLab.exe
+```
+
+Don't forget the `-y` argument as part of the `apt-get install` command, or your jobs will be stuck waiting for user input.
+
+The Linux build child pipeline (`.linux-gitlab-ci.yml`) has the following configuration, and unless you want to trigger a further child pipeline, it follows standard a configuration format:
+
+```yaml
+image: gcc
+build:
+  stage: build
+  script:
+    - g++ cpp_app/hello-gitlab.cpp -o helloGitLab
+  artifacts:
+    paths:
+      - helloGitLab
+```
+
+In both cases, the child pipeline generates an artifact you can download under the _Job artifacts_ section of the Job result screen.
+
+Push all the files you created to a new branch, and for the pipeline result, you should see the two jobs and their subsequent child jobs.
+
+![Parent-child pipeline result](/images/blogimages/non-dynamic-pipelines.png){: .shadow.medium.center}
+The result of a parent-child pipeline
+{: .note.text-center}
+
+## Dynamically generating pipelines
+
+Taking Parent-child pipelines even further, you can also dynamically generate the child configuration files from the parent pipeline. Doing so keeps repositories clean of scattered pipeline configuration files and allows you to generate configuration in your application, pass variables to those files, and much more.
+
+Let's start with the parent pipeline configuration file:
+
+```yaml
+stages:
+  - setup
+  - triggers
+
+generate-config:
+  stage: setup
+  script:
+    - ./write-config.rb
+    - git status
+    - cat .linux-gitlab-ci.yml
+    - cat .win-gitlab-ci.yml
+  artifacts:
+    paths:
+      - .linux-gitlab-ci.yml
+      - .win-gitlab-ci.yml
+
+trigger-linux-build:
+  stage: triggers
+  trigger:
+    include:
+      - artifact: .linux-gitlab-ci.yml
+        job: generate-config
+       
+trigger-win-build:
+  stage: triggers
+  trigger:
+    include:
+      - artifact: .win-gitlab-ci.yml
+        job: generate-config
+```
+
+During our self-defined `setup` stage the pipeline runs the `write-config.rb` script. For this article, it's a Ruby script that writes the child pipeline config files, but you can use any scripting language. The child pipeline config files are the same as those in the non-dynamic example above. We use `artifacts` to save the generated child configuration files for this CI run, making them available for use in the child pipelines stages.
+
+As the Ruby script is generating YAML, make sure the indentation is correct, or the pipeline jobs will fail.
+
+```ruby
+#!/usr/bin/env ruby
+
+linux_build = <<~YML
+    image: gcc
+    build:
+        stage: build
+        script:
+            - g++ cpp_app/hello-gitlab.cpp -o helloGitLab
+        artifacts:
+            paths:
+                - helloGitLab
+YML
+
+win_build = <<~YML
+    image: gcc
+    build:
+        stage: build
+        before_script:
+            - apt update && apt-get install -y mingw-w64
+        script:
+            - x86_64-w64-mingw32-g++ cpp_app/hello-gitlab.cpp -o helloGitLab.exe
+        artifacts:
+            paths:
+                - helloGitLab.exe
+YML
+
+File.open('.linux-gitlab-ci.yml', 'w'){ |f| f.write(linux_build)}
+File.open('.win-gitlab-ci.yml', 'w'){ |f| f.write(win_build)}
+```
+
+Then in the `triggers` stage, the parent pipeline runs the generated child pipelines much as in the non-dynamic version of this example but instead using the saved `artifact` files, and the specified `job`.
+
+Push all the files you created to a new branch, and for the pipeline result, you should see the three jobs (with one connecting to the two others) and the subsequent two children.
+
+![Dynamic parent-child pipeline result](/images/blogimages/dynamic-pipelines.png){: .shadow.medium.center}
+The result of a dynamic parent-child pipeline
+{: .note.text-center}
+
+## Pipeline flexibility
+
+This blog post showed some simple examples to give you an idea of what you can now accomplish with pipelines. With one parent, multiple children, and the ability to generate configuration dynamically, we hope you find all the tools you need to [build CI/CD workflows](/topics/ci-cd/) you need.
+
+You can also watch a demo of Parent-child pipelines below:
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/n8KpBSqZNbk" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->

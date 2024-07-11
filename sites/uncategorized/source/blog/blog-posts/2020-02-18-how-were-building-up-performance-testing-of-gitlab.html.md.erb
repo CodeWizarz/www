@@ -1,0 +1,82 @@
+---
+title: "How our QA team leverages GitLab’s performance testing tool (and you can too)"
+author: Grant Young
+author_gitlab: grantyoung
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/performance-server-front.jpg'
+description: "We built our open source GitLab Performance tool to evaluate pain points and implement solutions on every GitLab environment."
+tags: performance, testing
+guest: false
+ee_cta: false
+install_cta: false
+twitter_text: "The @GitLab Quality team created a new tool to track GitLab's performance"
+featured: yes
+postType: product
+merch_banner: merch_one
+---
+
+We’ve set up several initiatives aimed at testing and improving the performance of GitLab, which is why the Quality team built a new tool to test GitLab's performance.
+
+Performance testing is an involved process and distinct from other testing disciplines. The strategies and tooling in this space are specialized and require dedicated resources to achieve results. When I joined the company and became the first member of this team, the task was to expand our nascent performance efforts to a much larger scale. For this, we needed to build out a new tool that we aptly named the [GitLab Performance tool](https://gitlab.com/gitlab-org/quality/performance) (GPT).
+
+We're happy to announce the general release of [GPT](https://gitlab.com/gitlab-org/quality/performance/-/releases). In this blog post, we'll share how GPT is used to performance test GitLab, and how you can use it as well to test your own environments.
+
+However, before we get into what the GPT is, we need to first touch on what we use it with.
+
+## Reference Architectures and test data
+
+In our experience, the challenging part of performance testing isn’t actually to do with the testing itself, but instead configuring the right environments and data to test against.
+
+As such, one of the initiatives we’ve been driving is the design of several [GitLab Reference Architectures](https://docs.gitlab.com/ee/administration/reference_architectures/index.html#available-reference-architectures) that can handle large numbers of users. We wanted to create these architectures as a way to standardize our recommended configurations to ensure we were presenting customers with options for performant, scalable, and highly available GitLab setups.
+
+In order to create a tool like this, we needed to add realistic data into these environments to test against, e.g., large projects with commits and merge requests. As a first iteration, we started with our very own GitLab project.
+
+Once we got our environments running and configured we were ready to test them with the GPT.
+
+## What is the GitLab Performance tool (GPT)?
+
+The GPT can be used to run numerous load tests to verify the performance of any GitLab environment. All that’s required is to a knowledge of what throughput the intended environment can handle (as requests per second) and to ensure that the environment has the necessary data prepared.
+
+The GPT is built upon one of the leading tools in the industry, [k6](https://k6.io/). Here are some examples of what the GPT provides:
+
+* A broad test suite that comes out-of-the-box and covers various endpoints across the GitLab product with added ability to add your own custom tests as desired. [See the latest out-of-the-box test details](https://gitlab.com/gitlab-org/quality/performance/-/wikis/current-test-details) with more being added frequently.
+* [Options](https://gitlab.com/gitlab-org/quality/performance/-/blob/master/docs/k6.md#options) for customizing test runs, such as specifying desired GitLab environment data or defining what throughput to use with default examples given.
+* [Ability to run multiple tests sequentially as well as be selective about which are chosen](https://gitlab.com/gitlab-org/quality/performance/-/blob/master/docs/k6.md#running-the-tests-with-the-tool).
+* [Enhanced reporting and logging](https://gitlab.com/gitlab-org/quality/performance/-/blob/master/docs/k6.md#running-the-tests-with-the-tool).
+* [Built-in test success thresholds](https://gitlab.com/gitlab-org/quality/performance/-/blob/master/docs/k6.md#test-thresholds) based on [time to first byte](https://en.wikipedia.org/wiki/Time_to_first_byte), throughput achieved and successful responses.
+
+The talented team at [Load Impact](https://loadimpact.com/) created [k6](https://k6.io/), which is the core of the GPT. We realized quickly that we didn’t need to reinvent the wheel because k6 met most of our needs: It is written in Go, so is very performant and is an open source solution. Thanks to the team for not only developing k6 but also for reaching out to us soon after we started to collaborate.
+
+## How we use GPT
+
+We use the GPT in several automated [GitLab CI pipelines](/blog/2019/07/12/guide-to-ci-cd-pipelines/) for quick feedback on how GitLab is performing. The CI pipelines typically run daily or weekly against our reference architecture environments, which themselves are running on the latest pre-release code. We review the test results as they come in and then investigate any failures. In line with our [Transparency value](https://about.gitlab.com/handbook/values/#transparency), we also publish all of the [latest results](https://gitlab.com/gitlab-org/quality/performance/-/wikis/Benchmarks/Latest) for anyone to view on the [GPT wiki](https://gitlab.com/gitlab-org/quality/performance/-/wikis/home).
+
+The GPT is also used in a comparison test pipeline to see how GitLab’s performance changes in every release cycle. These results are important because they show the whole picture of our performance evolution. The [benchmark comparison results](https://gitlab.com/gitlab-org/quality/performance/-/wikis/Benchmarks/GitLab-Versions) are also available on the [GPT wiki](https://gitlab.com/gitlab-org/quality/performance/-/wikis/home).
+
+By using the GPT, we’ve been able to identify several performance pain points of GitLab and collaborate with our dev teams to prioritize improvements. The process has been fruitful so far and we’re excited to already see improvements in the performance numbers with each release of GitLab. The 12.6 release for example showed [several notable improvements across the board](https://gitlab.com/gitlab-org/quality/performance/-/wikis/Benchmarks/GitLab-Versions#comparisions), one even as high as a 92% reduction! You can see the issues we've raised so far through this work over on our [issue tracker](https://gitlab.com/gitlab-org/gitlab/issues?scope=all&utf8=%E2%9C%93&state=all&label_name[]=Quality%3Aperformance-issues).
+
+## How you can use GPT
+
+We decided early that we wanted to follow the same open source principles as our main product, so we build the GPT with all users in mind rather than making it a strictly internal tool. So not only do we let others use it, we encourage it! This is beneficial for us and customers, as we receive feedback from diverse viewpoints that we hadn’t considered. Some examples of this are [improving the recommended spec guidelines based on throughput](https://gitlab.com/gitlab-org/quality/performance/issues/172) or [making it easier for users who have private clouds to use the GPT offline](https://gitlab.com/gitlab-org/quality/performance/issues/106).
+
+If you want to use the GPT for yourself, the best place to start is with its [documentation](https://gitlab.com/gitlab-org/quality/performance#documentation). As mentioned earlier, most of the effort to use the GPT is preparing the intended environment. The docs will take you through this along with how to use the tool itself.
+
+## The GPT in action
+
+Finally after writing all about the GPT we should actually show it in action. Here's how it looks when running a load test for the [List Group Projects API](https://docs.gitlab.com/ee/api/groups.html#list-a-groups-projects) against our [10k Reference Architecture](https://docs.gitlab.com/ee/administration/reference_architectures/10k_users.html):
+
+[![asciicast](https://asciinema.org/a/O96Wc5fyxvLb1IDyviTwbujg8.svg)](https://asciinema.org/a/O96Wc5fyxvLb1IDyviTwbujg8?autoplay=1)
+
+Read the GPT [documentation](https://gitlab.com/gitlab-org/quality/performance/blob/master/docs/k6.md#test-output-and-results) for more details on output and results.
+
+## What’s next?
+
+Our aim is to make GitLab’s performance best in class. This is only the start of our performance testing journey with GPT and we are excited about the additional ways we can continue to help improve the customer experience.
+
+[Some examples of our plans for the next few releases](https://gitlab.com/gitlab-org/quality/performance/issues) include expanding test coverage to more of GitLab’s features and entry points (API, Web, Git) and expanding our work on the reference architectures, test data, and user behavior patterns to be as representative and realistic as possible.
+
+Share your feedback and/or suggestions on GPT here or on our [GPT project](https://gitlab.com/gitlab-org/quality/performance)! We welcome your ideas or contributions.
+
+Cover image by [Taylor Vick](https://unsplash.com/@tvick?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/server?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText).
+{: .note}

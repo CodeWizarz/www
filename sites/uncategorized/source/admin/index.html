@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="canonical" href="https://about.gitlab.com/admin/" />
+  <title>GitLab Marketing Content Manager</title>
+  <meta name="description" content="Access the Netlify CMS to edit an existing or create a new page in Netlify CMS.">
+</head>
+<body>
+  <h2 class="gl-netlify-banner">Note: Creating draft content in this CMS will appear as a Merge Request in the <a href="https://gitlab.com/gitlab-com/www-gitlab-com">GitLab Marketing Repository</a>. This repo is open source, but maintainer privileges will be necessary to merge.</h2>
+  <!-- Include the script that builds the page and powers Netlify CMS -->
+  <script src="https://unpkg.com/netlify-cms@^2.0.0/dist/netlify-cms.js"></script>
+
+  <!-- YouTube block level component for the Markdown editor --> 
+  <script>
+	CMS.registerEditorComponent({
+	  // Internal id of the component
+	  id: "youtube",
+	  // Visible label
+	  label: "Youtube",
+	  // Fields the user need to fill out when adding an instance of the component
+	  fields: [{name: 'id', label: 'Youtube Video ID', widget: 'string'}],
+	  // Pattern to identify a block as being an instance of this component
+	  pattern: /^youtube (\S+)$/,
+	  // Function to extract data elements from the regexp match
+	  fromBlock: function(match) {
+	    return {
+	      id: match[1]
+	    };
+	  },
+	  // Function to create a text block from an instance of this component
+	  toBlock: function(obj) {
+	    return '<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/' + obj.id + '" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>';
+	  },
+	  // Preview output for this component. Can either be a string or a React component
+	  // (component gives better render performance)
+	  toPreview: function(obj) {
+	    return (
+	      '<img src="http://img.youtube.com/vi/' + obj.id + '/maxresdefault.jpg" alt="Youtube Video"/>'
+	    );
+	  }
+	});
+	
+	</script>
+</body>
+<style>
+  .gl-netlify-banner {
+    background: #D6EAFF;
+    padding: 16px;
+    text-align: center;
+  }
+
+  .gl-netlify-banner a {
+    text-decoration: underline;
+  }
+</style>
+</html>

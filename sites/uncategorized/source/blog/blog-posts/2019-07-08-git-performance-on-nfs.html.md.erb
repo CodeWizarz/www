@@ -1,0 +1,171 @@
+---
+title: "What we're doing to fix Gitaly NFS performance regressions"
+author: "James Ramsay and Zeger-Jan van de Weg"
+guest: true
+author_twitter: gitlab
+categories: engineering
+image_title: "/images/blogimages/git-performance-nfs.jpg"
+description: "How we're improving our Git IO patterns to fix performance regressions when running Gitaly on NFS."
+tags: git, performance
+featured: yes # reviewer should set
+postType: content marketing
+ee_cta: false
+---
+
+From the start, Gitaly, GitLab's service that is the interface to our Git data,
+focused on removing the dependency on NFS. We achieved this task at the end
+of the summer 2018, when the [NFS drives were unmounted on GitLab.com][gitaly-nfs-blog].
+The migration was geared towards improving the availability of Git data at
+GitLab and correctness, that is: fixing bugs. To an extent, performance
+was an afterthought. By rewriting most of the RPCs in Go there were side effects
+that positively improved performance, but conversely there were also occasions
+where performance wasn't addressed immediately, but rather added to the backlog
+for the next iteration.
+
+Since releasing Gitaly 1.0, and updating GitLab to use Gitaly instead of Rugged
+for all Git operations, we have observed severe performance regressions for
+large GitLab instances when using NFS. To address these performance problems in
+GitLab 11.9, we added [feature flags][feature-flag-docs] to enable
+Rugged implementations that improve performance for affected GitLab instances.
+These have been back ported to 11.5-11.8.
+
+### So what's the problem?
+
+While the migration was under way, there were noticeable performance regressions.
+In most cases, these were so-called N + 1 access patterns. One example was the
+[pipeline index view](https://gitlab.com/gitlab-org/gitlab-ce/pipelines/), where
+each pipeline runs on a commit. On that page, GitLab used to call the `FindCommit`
+RPC for each pipeline. To improve performance, a new RPC was added;
+`ListCommitsByOid`. In which case, the object IDs for the commits were collected
+first, once request was made to Gitaly to get all the commits and return them to
+continue rendering the view.
+
+This approach was, and still is, successful. However, detecting these N + 1
+queries is hard. When GitLab is run for development as part of the GDK, or
+during testing, a special N + 1 detector will raise an error if an N + 1
+occurred. This approach has several shortcomings, for one; most tests will only
+test the behavior of one entity, not 20. This reduces the likelihood of the
+error being raised. There is also a way to silence N + 1 errors, for example:
+
+```ruby
+project = Project.find(1)
+
+GitalyClient.allow_n_plus_1 do
+  project.pipelines.last(20).each do |pipeline|
+    project.repository.find_commit(pipeline.sha)
+  end
+end
+
+# The better solution would be
+
+shas = project.pipelines.last(20).select(&:sha)
+repository.list_commits_by_oid(shas)
+```
+
+Whatever happened in that block would not be counted. For each of these blocks
+issues were created and added to [an epic][epic-nplus1], however, little
+progress was made by the teams who had bypassed these checks in this way. This
+was primarily because these performance issues were not a big
+problem for GitLab.com, despite the fact they had become a problem for our customers.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+The detected N + 1 issues included a lot of Git object read operations, for
+example the `FindCommit` RPC. This is especially bad because this requires a
+new Git process to be invoked to fetch each commit. If a millisecond later
+another request comes in for the same repository, Gitaly will invoke Git again
+and Git will do all this work again. Before the migration and when GitLab.com
+was still using NFS, GitLab leveraged Rugged, and used memoization to keep around
+the Rugged Repository until the Rails request was done. This allowed Rugged to
+load part of the Git repository into memory for faster access for subsequent
+requests. This property was not recreated in Gitaly for some time.
+
+## Enter cat-file cache
+
+In GitLab 12.1, Gitaly will cache a repository per Rails session to recreate this
+behavior with a feature called ['cat-file' cache](https://gitlab.com/gitlab-org/gitaly/merge_requests/1203).
+To explain how this cache works and its name, it should be noted that objects
+in Git are compressed using [zlib][zlib]. This means that a commit object
+isn't packed and can be located on disk, it seemingly contains garbage:
+
+```
+# This example is an empty .gitkeep file
+$ cat .git/objects/e6/9de29bb2d1d6434b8b29ae775ad8c2e48c5391
+xKOR0`
+```
+
+Now cat-file will query for the object, and when using the `-p` flag pretty print
+it. In the following example, the current [Gitaly license][gitaly-mit].
+
+```
+$ git cat-file -p c7344c56da804e88a0bca979a53e1ec1c8b6021e
+The MIT License (MIT)
+... ommitted
+```
+
+Cat-file has another flag, `--batch`, which allows for multiple objects to be
+requested to the same process through STDIN.
+
+```
+$ git cat-file --batch
+c7344c56da804e88a0bca979a53e1ec1c8b6021e
+c7344c56da804e88a0bca979a53e1ec1c8b6021e blob 1083
+The MIT License (MIT)
+
+... ommitted
+```
+
+Inspecting the Git process using [strace][strace] allows us to inspect how Git
+amortizes expensive operations to improve performance. The output on STDOUT and
+the strace are available [as a snippet](https://gitlab.com/snippets/1858975).
+
+The process is reading the first input from STDIN, or file descriptor 0, at
+[line 141](https://gitlab.com/snippets/1858975#L141). It starts writing the output
+about [40 syscalls later](https://gitlab.com/snippets/1858975#L180). In between
+there are two important operations performed: an
+[mmap of the pack file index](https://gitlab.com/snippets/1858975#L167), and
+another [mmap of the pack file itself](https://gitlab.com/snippets/1858975#L177).
+These operations store part of these files in memory, so that they are available
+the next time they are needed.
+
+In the snippet, we've requested the same blob on the same process again. This a
+syntactic follow-up request, but even when the next request would've been `HEAD`
+Git would have to do a considerable amount less work to come up with the object
+that `HEAD` deferences to.
+
+Keeping a cat-file process around for subsequent requests was shipped in
+GitLab 11.11 behind the `gitaly_catfile-cache` feature flag, and will be
+[enabled by default][remove-ff] in GitLab 12.1.
+
+### Next steps
+
+The `cat-file` cache is one of many improvements being made to improve Git IO
+patterns in GitLab, to mitigate slow IO when using NFS and improve performance
+of GitLab. Particularly, progress has been made in GitLab 11.11, and continues
+to be made in eliminating the worst N + 1 access patterns from GitLab. You can
+follow [gitlab-org&1190][epic-worst-io] for
+the full plan and progress.
+
+The Gitaly team's highest priority is
+[automatically enabling Rugged][automatic-rugged]
+for GitLab servers using NFS to immediately mitigate the performance
+regressions until performance improvements are sufficiently complete in GitLab
+and Gitaly, allowing Rugged to again be removed.
+
+In the future, we will remove the need for NFS with
+[High Availability for Gitaly][ha-epic], providing both performance and
+availability, and eliminating the burden of maintaining an NFS cluster.
+
+Cover image by [Jannes Glas](https://unsplash.com/@jannesglas) on [Unsplash](https://unsplash.com/photos/P6iOpqQpwwU)
+{: .note}
+
+[automatic-rugged]: https://gitlab.com/gitlab-org/gitlab-ce/issues/60931
+[epic-nplus1]: https://gitlab.com/groups/gitlab-org/-/epics/827
+[epic-worst-io]: https://gitlab.com/groups/gitlab-org/-/epics/1190
+[feature-flag-docs]: https://docs.gitlab.com/ee/administration/nfs.html#improving-nfs-performance-with-gitlab
+[gitaly-mit]: https://gitlab.com/gitlab-org/gitaly/blob/1b09f13374be5b272d40b3b089372adae2801f81/LICENSE
+[gitaly-nfs-blog]: /2018/09/12/the-road-to-gitaly-1-0/
+[ha-epic]: https://gitlab.com/groups/gitlab-org/-/epics/842
+[remove-ff]: https://gitlab.com/gitlab-org/gitaly/issues/1671
+[strace]: https://strace.io/
+[zlib]: https://www.zlib.net/

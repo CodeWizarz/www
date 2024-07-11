@@ -1,0 +1,110 @@
+---
+title: "Progressive Delivery: How to get started with Review Apps"
+author: Jason Yavorska
+author_gitlab: jyavorska
+author_twitter: j4yav
+categories: engineering
+image_title: '/images/blogimages/progressive-delivery-review-apps.jpeg'
+description: "Progressive Delivery is the next evolution of continuous delivery, and Review Apps are a key enabler."
+tags: CI/CD, features,
+cta_button_text: 'Watch a GitLab CI/CD webcast' 
+cta_button_link: '/webcast/mastering-ci-cd/' 
+twitter_text: "Progressive Delivery: How to get started with Review Apps" 
+ee_cta: false
+postType: content marketing
+---
+
+If you're not familiar with [Progressive Delivery](https://redmonk.com/jgovernor/2018/08/06/towards-progressive-delivery/),
+it's a new set of best practices that is gaining hold for delivering safely and frequently to
+production. Although it's not a completely new idea in the same way that continuous
+delivery originally was, it is a clear evolution of those ideas that brings something
+new to the table. By taking a step back and considering the corpus of knowledge and experience
+gained over the last 10 years, then applying a bit of systems thinking to
+how all these different practices interact with emerging technologies, it has set a new
+baseline for how software delivery can be done effectively.
+
+We discuss our overall vision for Progressive Delivery on our [CI/CD vision page](/direction/ops/#progressive-delivery),
+which also links to a few more resources if you're not up to speed with the concept in general.
+
+In summary, though, continuous delivery gets you out of the mode of shipping one, big, risky
+deployment to production, and instead breaks that risk up into many tiny parts – each with a
+fraction of the risk. Progressive Delivery takes this a step further by enabling you to
+[canary test code](https://docs.gitlab.com/ee/user/project/canary_deployments.html) in
+production with a small portion of your user base, use [feature flags](https://docs.gitlab.com/ee/operations/feature_flags.html)
+to manage rollout pacing, tie everything together with [tracing](https://docs.gitlab.com/ee/operations/tracing.html),
+and automate the further deployment or rollback of that code depending on how it performs.
+
+## How Review Apps can help enable Progressive Delivery
+
+Let me begin by explaining what GitLab Review Apps are:
+
+[GitLab Review Apps](https://docs.gitlab.com/ee/ci/review_apps/) are
+staging environments that are automatically created for every branch and/or merge request. They are a collaboration tool
+built into GitLab that helps take the hard work out of providing an environment to
+showcase or validate product changes. There are a lot of different ways to configure
+them, but the recommended way is to automatically create review app instances during your
+[merge request pipelines](https://docs.gitlab.com/ee/ci/merge_request_pipelines/). Doing this
+will ensure that any merge request that is being considered will have an application
+that developers can connect to to validate their changes.
+
+With GitLab, we go a step beyond simply creating the review environment: we make it accessible.
+
+Once configured, on your merge request page you'll now see a "view app" button that, as long as your
+[route maps](https://docs.gitlab.com/ee/ci/review_apps/#route-maps) are configured correctly, will allow your
+users to jump right to the changed content. Review apps do work even without the route maps – in that case
+they will take you to the home page of your app – but with them they almost feel like magic.
+
+![Review app](https://docs.gitlab.com/ee/ci/review_apps/img/review_apps_preview_in_mr.png "Review app"){: .shadow.medium.center}
+
+Review apps are a powerful tool on their own for enabling quick iteration, but if we think about
+them in the context of Progressive Delivery, a whole new set of possibilities opens up.
+
+## Review apps for progressive validation
+
+As mentioned above, a typical Progressive Delivery flow involves using targeted feature flags to validate
+changes as they flow to production environments. Review apps, if configured to point to production
+data/endpoints instead of ephemeral data, can serve as a merge request-based window into the changes
+that are being considered for release.
+
+Some of this will of course depend on your code, your testing procedures, and environments. You may
+point review apps at production endpoints from the moment they are spun up, or perhaps only later
+in your merge request pipeline after some initial validation.
+
+Since anyone can use these environments, you can point anyone with a stake in the success of the
+new feature to the review app, and they are able to see the live behavior, using their own real
+data, immediately in their own web browser. This is incredibly powerful for enabling rapid feedback
+and iteration. As a preview, we're also looking to improve this capability by adding an
+[easy-to-use review interface for collecting feedback](https://gitlab.com/gitlab-org/gitlab-ee/issues/10761)
+right into review apps directly.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+## Feature flags and tracing
+
+We can take this idea even one more step further. Using [per-environment feature flag behaviors](https://docs.gitlab.com/ee/operations/feature_flags.html#define-environment-specs), we
+can control the behavior of the review app environment in any way that the production environment can
+be controlled. This opens up the possibility of validating any combination.
+
+Finally, since review apps are built and deployed from GitLab CI/CD, all the predefined CI/CD environment
+variables are available to the deploy script. You could configure your application to use your
+merge request ID (`CI_MERGE_REQUEST_ID`) as its unique ID for transaction tracing, tying transactions
+in the system automatically to the appropriate GitLab merge request.
+
+## As you can see, there's a ton of potential for Progressive Delivery here
+
+Review apps don't replace
+the role of feature flags in a Progressive Delivery pipeline, but they provide an incredible
+supplement that enables segmented validation in a completely new way. All in all, it's such an exciting time for
+continuous delivery – there's so much innovation happening on the process and technology fronts, and I'm
+certain we're only scratching the surface of where we're headed.
+
+Review Apps is just one way [GitLab CI/CD](/features/continuous-integration/) enables Progressive Delivery. Join us for our webcast _Mastering continuous software development_ and learn how GitLab’s built-in CI/CD helps teams implement Progressive Delivery workflows, without the complicated integrations and plugin maintenance.
+
+[Watch the GitLab CI/CD webcast](/webcast/mastering-ci-cd/)
+{: .alert .alert-gitlab-purple .text-center}
+
+If you have more ideas on how to use review apps even more effectively, or where you see the technology
+evolving next, please share in the comments.
+
+Photo by [Helloquence](https://unsplash.com/photos/5fNmWej4tAA?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/)
+{: .note}

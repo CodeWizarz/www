@@ -1,0 +1,22 @@
+#!/usr/bin/env ruby
+# frozen_literal: true
+
+require_relative '../lib/lint/schema'
+
+schema, *files = ARGV
+
+linter = Lint::Schema.new(schema)
+
+files.each do |yaml_path|
+  errors = linter.lint_yaml(yaml_path)
+
+  if errors.any?
+    error_messages = errors.map { |err| "  - #{err}" }.join("\n")
+
+    puts "- BAD #{yaml_path}\n#{error_messages}"
+  else
+    puts "- OK! #{yaml_path}"
+  end
+rescue Psych::SyntaxError => exception
+  puts "- BAD #{yaml_path}\n  - #{exception}"
+end

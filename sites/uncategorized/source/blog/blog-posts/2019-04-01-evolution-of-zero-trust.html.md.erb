@@ -1,0 +1,188 @@
+---
+title: "The evolution of Zero Trust"
+window_title: "The History and Evolution of Zero Trust Network | GitLab"
+author: Mark Loveless
+author_gitlab: mloveless
+author_twitter: simplenomad
+categories: security
+image_title: '/images/blogimages/evolution-of-zero-trust.jpg'
+description: "Zero Trust may be one of the hottest topics in security today, but it's not exactly new. Here's a history."
+tags: inside GitLab, security, zero trust
+twitter_text: "Zero Trust may be one of the hottest topics in security today, but it's not exactly new. Here's a history."
+postType: content marketing
+---
+Update: This is part 1 of an ongoing [Zero Trust series](/blog/tags.html#zero-trust). See our next post: [Zero Trust at GitLab: Problems, goals, and coming challenges](/blog/2019/08/09/zero-trust-at-gitlab-problems-goals-challenges/).
+{: .alert .alert-info .note}
+
+I was not at the 2019 RSA Conference this year, so I asked my friends and colleagues what it was like and if they enjoyed themselves.
+Nearly every person mentioned the phrase "Zero Trust Networking" during their recounting of events, and the vast majority of them seemed worn down with the phrase by the end of the conference.
+Several mentioned it was the "hot topic" – the term ‘Zero Trust’ actually made the RSAC Buzzwords Top 3 list.
+I have a few thoughts on the subject, because it is a solid way to move forward in the security realm, but I also wanted to remind people that this is not some new thing that came up this year – this is a concept whose roots stretch back a few decades.
+I also wanted to point out that Zero Trust will not end attacks, as attacks never end.
+
+This is the first of a series of blog posts from the security team here at GitLab explaining Zero Trust and how we are tackling it.
+But for these discussions to make sense, we need to show some perspective, so first, a bit of a history lesson.
+There were three major shifts that brought about Zero Trust, all building upon each other.
+Let’s cover them, one by one.
+
+## First shift: Death of the perimeter
+
+Back in the early days of the internet, if you wanted to attack a target network, you would do a bit of reconnaissance and discover things like hostnames and IP ranges.
+You would probe, find the available services on these target hosts, then begin trying to compromise them.
+This was because the individual host systems were fairly wide open.
+System administrators needed a way to limit access to the servers and workstations under their control, while allowing legitimate access to users. Remote workers were rare, as the bulk of users were in an office building together.
+So the [network firewall](https://en.wikipedia.org/wiki/Firewall_(computing)) was born in the early 1990s, restricting access between an organization’s internal network and the internet.
+
+Attackers were accustomed to [port scanning](https://en.wikipedia.org/wiki/Port_scanner) the target, finding the various services, and taking their pick of which service to attack.
+To adapt to the newly installed firewall, attackers began to focus on the services that were allowed through the firewall. Back then, [organizations still controlled their own servers](https://en.wikipedia.org/wiki/DMZ_(computing)), running things like DNS, email, and web services.
+These types of common services required holes be punched in the firewall to allow legitimate traffic to them, and so the attackers simply came in with the legitimate traffic.
+
+At the same time, desktop operating systems and corporate applications began to move toward interacting and sharing information with each other, and as system administrators felt a level of control with the firewall, no one really pushed back very hard against these various operating systems and their noisy applications.
+In fact, using those same firewall rules, it was possible to allow customers, business partners, and vendors a bit more access to the precious internal network by creating large holes to allow the access.
+This meant if the attacker could figure out who your trusted partners were, they could compromise them and then come in through the large hole created for those same trusted partners.
+
+>This meant if the attacker could figure out who your trusted partners were, they could compromise them and then come in through the large hole created for those same trusted partners.
+
+It became common knowledge that once an attacker got a foothold into that internal network, it was usually quite easy to move about within the organization.
+The attackers adapted. The firewall lost a lot of its value, and to many attackers it became meaningless.
+
+I remember meeting [Bill Cheswick](https://en.wikipedia.org/wiki/William_Cheswick) (one of those early pioneers that helped bring about the firewall) at a security conference, and I was able to corner him and talk shop.
+Something both of us gravitated towards was this concept of how the infamous "network perimeter" was basically an illusion.
+It _could_ work, but not without changing a serious amount of tech to make it happen.
+How did each of us secure our respective home systems?
+[Hardening each system individually](https://en.wikipedia.org/wiki/Bastion_host), and just eliminating the concept of the perimeter.
+Sure, we both kept a perimeter, but it was maintained with a few router rules, and was more like a white picket fence than a castle wall. To us, the network perimeter was dead.
+
+>Sure, we kept a perimeter, but it was more like a white picket fence than a castle wall. To us, the network perimeter was dead.
+
+This was a common topic among security practitioners and network administrators at the time, all of us discussing and arguing the fine points the same way Cheswick and I did.
+We needed some way to deal with the attacker since the perimeter was dead or dying.
+The concept of Zero Trust networking was born.
+This started as rumblings during the early 2000s and came into an actual concept of sorts through the [Jericho Forums](https://en.wikipedia.org/wiki/Jericho_Forum) in 2004, and by 2010 or so it even had a name.
+But I am getting ahead of myself. Other things were happening.
+
+## Second shift: The cloud
+
+Getting [slashdotted](https://en.wikipedia.org/wiki/Slashdot_effect).
+[Distributed denial of service attacks](https://en.wikipedia.org/wiki/Denial-of-service_attack).
+Just not having the bandwidth on your internet-connected web server in your data center to handle the traffic.
+This internet thing was really taking off, and the World Wide Web was driving it.
+ A few companies figured out clever ways to provide server services for organizations all over the globe, and were known as [Content Distribution Networks](https://en.wikipedia.org/wiki/Content_delivery_network) (CDNs), and CDNs gave these organizations a way to upload web content to these servers.
+ Even though content might be replicated across the CDN’s dozens of data centers world wide, it was one single entity as far as a typical website visitor was concerned.
+
+Not only could you upload your corporate web server to the CDNs, after a while you could basically pay for virtual servers that you could use for any purpose.
+As web servers developed and web apps become more ambitious, some companies offered up their services to other companies, some even broke out of the "web app" mold and began to offer robust services that replaced desktop applications.
+
+### [The cloud](https://en.wikipedia.org/wiki/Cloud_computing) had arrived.
+
+Not everyone liked the cloud, in fact many organizations were quite resistant to it at first. Others immediately saw the value in it and moved everything to the cloud.
+
+Attackers did what they did best: they adapted. People new to the cloud would often get permissions wrong and expose sensitive data.
+Any bad coding practices they had before the cloud were just uploaded anyway as the cloud didn’t magically fix bugs.
+Moving poorly-coded services in the cloud meant even more holes in firewalls if old legacy data was still stored “on prem”.
+However, more often than not it meant these services and the insecure methods used to reach its data was simply moved up to the cloud, sometimes with even more exposure.
+Attackers got to know how these new technologies worked and understood the flaws that existed in the implementations and kept on compromising systems.
+
+While the cloud shift created its fair share of upheaval,  it certainly set the stage for the third major shift.
+
+## Third shift: Mobility
+
+Working remotely? We'd had dial up networking via modem at first, followed by the infamous VPN.
+As one might imagine, this was an obvious one that certainly bypassed a firewall on a network perimeter. Knowing usernames and passwords had always been a goal of attackers, and if they managed to obtain that information they could certainly plug it into a VPN for access.
+
+### To help protect the username and password, [Two Factor Authentication](https://en.wikipedia.org/wiki/Multi-factor_authentication) (2FA) came about.
+
+The infamous RSA token was technology I encountered ages ago, and it was certainly all the rage during the first decade of this century.
+My first encounter was when using a VPN in the late '90s.
+A decade later when I worked for MITRE, I carried no fewer than four RSA tokens (not unheard of at the time for many organizations!) for not just remote access, but for special access to projects funded by different government agencies.
+You were outside that perimeter and needed in, but as users and their passwords were considered a security risk for any number of reasons (poor password hygiene, easily-fooled help desk personnel responsible for resets, etc.), this direct and open exposure of the internal network via the VPN was too insecure.
+Something you know (the password) and something you have (that RSA token with its changing six-digit number) made it way more difficult for attackers to get in.
+
+Over 20 years ago, everyone had a desktop machine, but those road warriors that travelled for business would be issued a second system – a laptop.
+This shifted as it made sense to give all of the employees laptops, and the more expensive desktop systems were only issued by those doing specific jobs that required the extra desktop horsepower.
+
+The phone also helped push forward the mobility concept, as it expanded from a telephone with internet access to a small internet-connected computer loaded with cloud-based apps that also works as a telephone.
+
+### We became mobile.
+
+Either through SMS messaging, an "authentication app" that did TOTP, or a full-fledged 2FA app that supported push technology, the phone became the "something you have" and essentially killed the old RSA token.
+And of course something else happened with all this mobility, it increased the ability for one to work from anywhere.
+Most of those "Whatever as a Service" apps were using web-based protocols to communicate to their Cloud presence, and we'd figured out how to log a person in and do 2FA ages ago.
+There was no need for a perimeter for the basic end user in an organization.
+
+This was a slow build to a large upheaval in information security.
+But what really drove home the big security issues of this brave new world was an event.
+The culmination of our three major shifts – a teaching moment, as they say.
+
+## The big teaching moment
+
+What was the big teaching moment?
+
+### The obvious answer everyone talks about is [Operation Aurora](https://en.wikipedia.org/wiki/Operation_Aurora).
+
+This was the breach at Google that got them to take a look at this whole Zero Trust thing, build their version of it called [BeyondCorp](https://cloud.google.com/beyondcorp/), and begin to implement it internally.
+In 2014 Google began to publish information about it.
+
+Google had been targeted by [PLA Unit 61398](https://en.wikipedia.org/wiki/PLA_Unit_61398).
+I recognized PLA Unit 61398 from my defense contractor days as “Comment Crew,” as one of their backdoor programs that would make innocent-looking web queries to a Comment-Crew-controlled web server, and obfuscated comments in the HTML returned to the backdoor were actually commands for the backdoor to carry out.
+They targeted a lot of organizations from large corporations to defense contractors to U.S. government agencies.
+
+The press at the time had a lot of quotes from security experts pooh-poohing the whole [Advanced Persistent Threat](https://www.fireeye.com/current-threats/apt-groups.html) (APT) thing, claiming that APT attacks weren’t sophisticated as the "advanced" part of APT implied.
+However, most of these people had either never played offense, or they didn't deal with APT as a part of daily life.
+I distinctly remember the Google attack because during that same timeframe, Comment Crew’s attack was repeated against my employer and others. We were not breached in that case and we probably called it “a typical Tuesday,” but many naysayers in the security community finally had to admit that APT was in fact real.
+
+### But a _huge_ teaching moment was the [RSA hack in 2011](https://www.wired.com/2011/08/how-rsa-got-hacked/).
+
+Again, maybe not the most sophisticated of attacks to gain entry ([phishing](https://en.wikipedia.org/wiki/Phishing) email), but it was just enough to gain a foothold.
+Once inside, they pivoted and managed to compromise RSA in what was one of the worst ways possible.
+People argue about exactly what level of compromise they achieved, but in the end the attackers could program up their own tokens to allow bypass of RSA SecurID implementations at RSA customer locations.
+
+One important point to make here – 2FA was an extremely important protection mechanism for organizations like the U.S. Government and all of its many defense contractors.
+APT actors targeted things like documents pertaining to research, plans involving various defense technologies, and credentials for regaining access if their intrusion was discovered and the APT actors were shut out.
+Since those credentials were protected by 2FA via RSA SecurID tokens, complete panic ensued. _Millions_ of tokens had to be manufactured, provisioned, and deployed to customers who had to configure their systems and deploy them internally.
+During this time all organizations still had to function, and APT-sponsored attacks against targets that took advantage of the stolen RSA technology began to appear.
+
+The basic corporate network at the time was still mainly perimeter-based, even though their perimeter was full of holes, allowing everything from remote users to trusted vendors, partners, and customers.
+
+> The cloud was there, but many companies had their feet in both worlds.
+
+The cloud was there, but many companies had their feet in both worlds. They would often make architectural choices on technology based upon getting systems to just talk to each other and allow data access _without_ fully considering security issues.
+The user population was increasingly mobile and, by its very nature, was pushing solutions to the absolute limit.
+And now, the one thing that at least protected access to it all – a layered security approach to credentials – was compromised.
+
+## Enter Zero Trust
+
+BeyondCorp was Google’s answer to the threat they faced – a sophisticated adversary that took advantage of their employees and gained privileged access to sensitive assets.
+Google published a lot of the material they developed, thinking it would help others deal with the same situation.
+For those of us in the more threatened world of government agencies and government contractors, we didn’t give Google’s BeyondCorp a second thought.
+We had defenses, we’d learned how to deal with these type of attackers, we’d even dealt with Comment Crew ourselves and could keep them at bay.
+
+The RSA breach was a different scenario. An area of trust – 2FA – was completely compromised.
+RSA didn’t run out and build BeyondCorp, but it certainly inspired a large number of people to start looking for answers, and Zero Trust really began to check many of the boxes to add in the protections we needed.
+In essence, the RSA event gave us a reason to implement Zero Trust.
+We needed more than 2FA, more than inventory control, more than patch management, we needed to be able to establish a trusted environment and could not with the way things were.
+
+### Essentially, it boils down to this: Zero Trust assumes you do not trust the user nor the user’s device.
+
+The user has to prove that they are who they say they are and that they meet policy requirements to perform the actions they are wanting to perform.
+The device has to prove that it is what is says it is, including patch levels.
+Even automated processes such as systems that communicate between each other have to prove themselves as well.
+The transaction should be valid and the processes are allowed to perform the actions they are performing.
+This means any information in transition needs to be encrypted using secure algorithms, all transactions are signed and signatures validated, and there is a secure audit trail to ensure all parts of the operation can be examined.
+
+### Are we there yet with Zero Trust?
+
+No. In fact, the hard part isn’t so much the implementation of it, it is getting it implemented everywhere. Most Zero Trust solutions address a lot of the concerns of the past, but they are not perfect by any means.
+Many organizations will be living in “mixed” environments of old and new for quite a while.
+The applications that implement the raw components of Zero Trust need to be secure.
+There will be various policy decisions on how to act on various accesses and requests involving users, devices, services, and data that if not properly defined could result in the wrong employee gaining access to sensitive material.
+And of course we will always face a clever adversary trying to bypass, break, and compromise whatever security controls are put in place.
+
+At least with Zero Trust, we have a leg up. In the forthcoming [series of blog posts](/blog/tags.html#zero-trust), we’ll share GitLab’s story with Zero Trust.
+GitLab is a cloud native, all-remote company with employees from more than 50 countries.
+We also strive to be as open as we can be about how we work.
+
+We invite you to follow our journey and contribute your thoughts, questions and experiences around Zero Trust along the way.
+
+Photo by [Matthew Henry](https://unsplash.com/photos/fPxOowbR6ls?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/security?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

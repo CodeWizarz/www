@@ -1,0 +1,132 @@
+
+-# INITIALIZE VARIABLES
+
+- if defined? webcast
+  - localvar_form_id = parameter_form_id
+  - localvar_form_type = "webcasts"
+  - if webcast.date != "on-demand"
+    - localvar_webcast_has_recording = false
+    - if webcast.cta_title_register
+      - localvar_cta_title = webcast.cta_title_register
+    - else
+      - localvar_cta_title = "Register for the webcast"
+    - if webcast.success_message_register
+      - localvar_success_message = webcast.success_message_register
+    - elsif webcast.success_message
+      - localvar_success_message = webcast.success_message
+    - else
+      - localvar_success_message = "Thank you for registering. You will receive an email with additional webcast details."
+  - else
+    - localvar_webcast_has_recording = true
+    - if webcast.cta_title_watch
+      - localvar_cta_title = webcast.cta_title_watch
+    - else
+      - localvar_cta_title = "Watch the webcast"
+    - if webcast.success_message_watch
+      - localvar_success_message = webcast.success_message_watch
+    - elsif webcast.success_message
+      - localvar_success_message = webcast.success_message
+    - else
+      - localvar_success_message = "Thank you for registering. The on-demand webcast will appear on the left."
+- else
+  - localvar_form_id = current_page.data.form_id
+  - localvar_form_type = current_page.data.form_type
+  - localvar_cta_title = current_page.data.cta_title
+  - localvar_cta_date = current_page.data.cta_date
+  - localvar_cta_subtitle = current_page.data.cta_subtitle
+  - localvar_success_message = current_page.data.success_message
+
+.form-to-resource-content
+  .form-to-resource-content-section
+    .form-container
+      %h3.margin-top0 #{localvar_cta_title}
+      - if localvar_cta_date
+        %h4= localvar_cta_date
+      - if localvar_cta_subtitle
+        %p= localvar_cta_subtitle
+      .form
+        %script{src: "//page.gitlab.com/js/forms2/js/forms2.min.js"}
+        -# note in the base js files there is a function destyleMktoForm which is important.
+        %form{id: "mktoForm_#{localvar_form_id}"}
+        %script{"type": "text/javascript"}
+          :plain
+            var gatedFormAfterSuccessDo = function()
+            {
+              if($('.f2r-cta-subtitle').length){
+                $('.f2r-cta-subtitle').hide();
+              };
+              $('.confirmform').attr('style', 'visibility: visible');
+              $('.confirmform').attr('style', 'height: initial');
+              if ($('.webcast-video-container').length)
+              {
+                $('.webcast-video-container').css('display', 'block');
+              }
+              $('html, body').animate({scrollTop: parseInt($('#confirmform').offset().top-100)}, 500);
+              if(typeof callbackMktoFormOnSuccess !== "undefined")
+              {
+                callbackMktoFormOnSuccess();
+              };
+            };
+        :javascript
+          var consoleLogsEnable = new Boolean(false);
+          var formNumber = #{localvar_form_id || 'null'};
+          MktoForms2.setOptions(
+          {
+            formXDPath : "/rs/194-VVC-221/images/marketo-xdframe-relative.html"
+          });
+          MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", #{localvar_form_id}, function(form)
+          {
+            var destinationUrlId = $('#destination-url');
+            const oldDestinationUrl = destinationUrlId.attr('href');
+            var emailInput = $('.mktoForm .mktoEmailField');
+            if(typeof(Demandbase) === "object")
+            {
+              Demandbase.utils.loadFormModule();
+            };
+            emailInput.change(function()
+            {
+              var emailValue = emailInput.val();
+              if(oldDestinationUrl !== undefined)
+              {
+                var newDestinationUrl = oldDestinationUrl.replace('lb_email=', 'lb_email='+emailValue);
+                destinationUrlId.attr('href', newDestinationUrl);
+              }
+            });
+            //
+            var classnamesFromForValues;
+            var mktoFormLabels = document.getElementsByClassName('mktoLabel');
+            for ( var count = 0; count < mktoFormLabels.length; count++ ) 
+            {
+              if (mktoFormLabels[count].htmlFor != '') 
+              {
+                var labelValue = mktoFormLabels[count].htmlFor.toLowerCase();
+                mktoFormLabels[count].closest('.mktoFormRow').classList.add(labelValue);
+              };
+            };
+            //
+            form.onSuccess(function()
+            {
+              dataLayer.push(
+              {
+                'event' : '#{localvar_form_type}', 
+                'mktoFormId' : form.getId(),
+                'eventCallback' : function()
+                {
+                  if(consoleLogsEnable == true)
+                  {
+                    console.log(form.getId());
+                  };
+                  form.getFormElem().hide();
+                  gatedFormAfterSuccessDo();
+                }, 'eventTimeout' : 3000
+              });
+              return false;
+            });
+          });
+        -# Note : some sales forms, like public-sector, have extra code for ga cid. This might need to be added later with extended reuse of this component.
+        .confirmform#confirmform{style: "visibility:hidden;height:0;"}
+          .centered-form-info
+            - if current_page.data.destination_url
+              %h3
+                %a#destination-url.destination-url{href: "#{current_page.data.destination_url}", target: "_blank"} #{current_page.data.link_text}
+            %p= localvar_success_message

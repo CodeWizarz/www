@@ -1,0 +1,139 @@
+---
+title: "How GitLab protects your IP"
+author: Jordi Mon
+author_gitlab: jordi_mon
+author_twitter: mordodemaru
+categories: engineering
+image_title: '/images/blogimages/how-gitlab-protects-your-ip.jpg'
+description: "There are many ways in which hosting intellectual property in GitLab is not only secure but also flexible and invites collaboration."
+tags: security, collaboration
+twitter_text: "Intellectual property is a precious resource, learn how GitLab is built to protect IP while facilitating collaboration"
+featured: no
+postType: content marketing, Product Marketing
+merch_banner: merch_one
+---
+
+## How safe is your IP?
+
+One of the main assets of any company is stored in the shape of code. The originality of the code makes it intellectual property, and thus companies would like it to be protected. But storing it safely away from others will hinder the same effort that brought it to life: Collaboration. So how can companies keep their IP safe while allowing their employees to work on its maintenance and development?
+
+GitLab repos, whether hosted online or privately, store one of the most valuable things your company is able to create: The digital assets used to build software products and services. GitLab is designed to make versioning and the collaboration over those assets as seamless and productive as possible.
+
+Albeit that, is GitLab a safe place to store such valuable assets?
+
+Let's explore user access within GitLab and to what extent these users can access your company's IP.
+
+## Ways to access GitLab
+
+### LDAP, active directory, SAML, SSO
+
+For the self-managed solution, GitLab is able to connect to any Lightweight Direct Access Portal (LDAP) service that is already set up and validate which users have access permissions. Users that access GitLab instances with LDAP on will have access only to the groups and projects assigned to them. The same is applicable to active directory.
+
+If you are using GitLab.com, Security Assertion Markup Language (SAML) technology will mostly do the same described above. System for Cross-domain Identity Management (SCIM), the open standards running beneath SAML, is currently supported for Okta and and Azure but it will have broader support in the future. For example, check single sign-on (SSO) for enterprises or the general direction of this category.
+
+## How users are organized in GitLab
+
+Assigning roles with permissions is an easy way to know which user will be able to access and make changes to the IP.
+
+There are six roles:
+
+| Guest | Auditor | Developer | Reporter | Maintainer | Owner |
+|:--|:--|:--|:--|:--|:--|
+|  |  |  |  |  |  |
+
+By default all users have the following permissions in a project:
+
+* Create issues
+* Leave comments
+* Clone or download the project code
+
+But these are the specific definitions for each user role:
+
+1. **Guests** are not active contributors in private projects. They can only view, and leave comments on issues.
+1. **Auditors** are given read-only access to all projects, groups, and other resources on the GitLab instance.
+2. **Reporters** are read-only contributors: They can't write to the repository, but can write on issues.
+3. **Developers** are direct contributors, and have access to everything to go from idea to production, unless something has been explicitly restricted (e.g., through branch protection).
+4. **Maintainers** are super-developers: They can push to main (master) and deploy to production. This role is often held by maintainers and engineering managers.
+
+So what's happening at the project level? Well, the meat of it: Collecting requirements, defining user stories, prune and groom backlog, and merge requests are popping up like branches. It is at the project level where these four roles interact. But they don't do it only with the permissions their role provides them. There are other features at this level that can stop them or enable them to do certain things that will allow the project owners to parcel and control who's doing what to the IP hosted in the repo. Let's look at these features.
+
+## Where is my IP stored?
+
+Intellectual property is stored in repos, projects, and groups. Let's first step back and explain what the structure of these elements in GitLab looks like. Once we have a clear understanding of what and where information is stored, we can then jump to explaining who can access what information.
+
+### Repos
+
+A repo is a folder that lives either on your machine or on GitLab.com. It is what Git tracks every time you add and commit a change. It hosts your code and all the branches.
+
+### Projects
+
+Repos are the core part of every project. This is where GitLab's core [version control and collaboration](/topics/version-control/) capabilities shine. GitLab has project management features such as epics, subepics and issues, Wikis, GitLab pages, a Web IDE and many more features that make the repo the central part of a fully-featured source code workflow.
+
+### Groups
+
+Groups are a collection of projects. Members of groups with permissions will keep those permissions on every project included in the Group.
+
+5. Admin-only features can only be found in /admin. Outside of that, admins are the same as the highest possible permission (owner).
+6. Owners are essentially group-admins. They can give access to groups and have destructive capabilities.
+
+Watch the video below for a deep dive into repos, projects, and groups.
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/4TWfh1aKHHw" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## How is my IP protected?
+
+### Protected branches
+
+[Protected branches](https://docs.gitlab.com/ee/user/project/protected_branches.html) are a simple method to keep IP protected. But if copies can be made, protected branches control who has access to those copies and for what purpose those copies are created.
+
+* Protect branches (PB) prevents everybody except users with *maintainer* permission from creating them.
+* PB prevents pushes from everybody except users with *allowed* permission.
+* PB prevents anyone from force pushing to the branch.
+* PB prevents anyone from deleting the branch.
+
+These settings allow maintainers to forbid all pushes but allow incoming merges from developers. This forces every developer willing to make changes to the PB to open an MR. This exposes the changes he or she wants to commit and makes them subject to other security measures we will cover later, like push rules or MR approvals.
+
+Also, pipeline security is a consequence of protected branches and you can read more about it [here](https://docs.gitlab.com/ee/ci/pipelines/index.html#pipeline-security-on-protected-branches).
+
+### Protected tags
+
+Adding [protected tags](https://docs.gitlab.com/ee/user/project/protected_tags.html) to your repo is like bookmarking it in a way. The ability to label commits allows you to add details and context to what is happening at that point in time.
+If a tag becomes an important milestone for the project you might as well protect it, right? That's is why only *maintainers* are allowed to create tags and, if protected, no one apart from them will be able to delete or modify them.
+
+### Push rules
+
+We use [push rules](https://docs.gitlab.com/ee/push_rules/push_rules.html) at GitLab which prevents the majority of contributors from pushing directly to the main branch. We use GitLab Flow because we want to make small batch changes fast but also because we want to collaborate with our team members. A merge request flow like GitLab Flow does not push code to the main branch. This behavior, however, can be very common when working with Git.
+So, push rules will use regular expression to scan commit messages, branch names or file details to prevent pushes from happening. These rules are usually used to enforce consistency throughout pushes. They allow teams to stay compliant with naming conventions, for example, or keep pushes linked to specific requirements by parsing for issue numbers. Non-GPG signed pushes can be automatically rejected with this feature too.
+The possibilities are endless since push rules can be [customized](https://docs.gitlab.com/ee/development/changelog.html). Learn [here](https://docs.gitlab.com/ee/push_rules/push_rules.html#enabling-push-rules) what push rules are available on each tier.
+
+### Merge request approvals
+
+A merge request (MR) is a branch and the start to a conversation. When you open an MR you have effectively created a copy of the main branch hosted in the repo so you can make changes. Since the main branch is the IP's most valuable asset, all changes made in the opened MR [should require some extra sets of eyes on them](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/). When this feature is set it enforces code review. Does this imply that all changes will be reviewed by all team members? No, this feature can be customized in many ways.
+
+First, you can set approval rules that define how many approvals are required for the code change to be merged. You can even designate specific approvers, such as team lead. Designating approvers can be done in each MR or at the project level. If you know the MR may only affect the backend of the project, you might specify reviewer categories such as backend or database, QA and so on.
+
+One special category is security. GitLab considers the [DevSecOps](/topics/devsecops/) use case as one of the fundamental trends in software development and is committed to provide the best security capabilities to software engineering teams.
+Among other things, the ability to shift security checks left allows devs to run static code analysis at the rest level, and there is a [specific MR approval](/solutions/dev-sec-ops/) that will prevent any MR from moving forward if certain security criteria are not met.
+Typically, these SASTs will look for security vulnerabilities and license compliance violations. Security teams can address problems that otherwise would have compounded by setting approvals to trigger when vulnerabilities or license violations are detected. DevSecOps with GitLab will automate security and compliance workflows to create an adaptable process for your development and security teams to work faster and better together.
+
+### Code owners
+
+The code owners feature assigns ownership of files or paths to a certain group or user. Generally, this measure will allow the MR creator to determine who is the main stakeholder of certain files. Assigning code ownership fosters collaborative behaviors from users, such as asking for permission to merge or just requesting guidance. It becomes especially useful if the question for the code owner is unrelated to a code review or a MR approval.
+Code owners can become approvers of MRs if set to do so in an approval rule. Combining code ownership with protected branches is a good way to get more granular control over certain files and the changes applied on them.
+
+## How can I trace access and changes to my IP?
+
+### Audit events
+
+The final method for controlling the security of your IP is by monitoring user activity. As in any other project management tool, users can access information in GitLab in many different ways and can interact with that information on multiple levels. The admin should be able to control events and stop those that do not comply with corporate policy. Access control and audit trails can provide increased layers of security and traceability that will improve your IP storage compliance.
+
+## How does this all work out for me?
+
+Well, you can follow the example of Northwestern Mutual. They manage permissions as code by dedicating a complete repo to host and manage their groups, teams, and deploy keys. Meaning, when a team wants to create a project that requires new roles, new access permissions, protected branches, etc., they’ll create an MR in the repo and submit those changes to the code owner for approval. Remember, in GitLab a MR is more than just a branch, it's also the start to a conversation, or even a proposed code change. This proposal particularly would imply changes in a yaml file that contain all admin level permissions.
+
+Watch the Northwestern Mutual team describe this in detail at GitLab Commit Brooklyn 2019:
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/W1YMBc6kwUE" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+Cover image by [Jon Moore](https://unsplash.com/@thejmoore) on [Unsplash](https://unsplash.com/photos/bBavss4ZQcA)
+{: .note}

@@ -1,0 +1,70 @@
+---
+title: "GitLab Runner update required to use SAST in Auto DevOps"
+author: Fabio Busatto
+author_gitlab: bikebilly
+author_twitter:
+categories: engineering
+image_title: '/images/default-blog-image.png'
+description: "Make sure you upgrade GitLab Runner to 11.5+ to coninue using SAST in Auto DevOps."
+tags: CI, DevOps, features, releases, security
+ee_cta: false
+postType: product
+---
+
+We are introducing a major change for the [SAST] job definition for [Auto DevOps] with **GitLab 11.6**, shipping Dec. 22.
+As a result, SAST jobs will fail after the upgrade to GitLab 11.6 if they are picked up by a version of [GitLab Runner]
+prior to 11.5. The jobs will fail, but they will not block pipelines. However, you won't see results
+for SAST in the merge request or at the pipeline level anymore.
+
+The same change will happen for [Dependency Scanning], [Container Scanning], [DAST], and [License Management] in future releases.
+
+## Why did this happen?
+
+The [new job definition] uses the [`reports` syntax], which is necessary to show SAST results in the [Group Security Dashboard].
+Unfortunately, this syntax is not supported by GitLab Runner prior to 11.5.
+
+## Who is affected?
+
+You are affected by this change if you meet **all** the requirements in the following list:
+1. You are using Auto DevOps **AND**
+1. you have at least one GitLab Runner 11.4 or older set up for your projects **AND**
+1. you are interested in security reports.
+
+## Who is not affected?
+
+You are **not** affected by this change if you meet **at least one** of the requirements in the following list:
+1. You are not using Auto DevOps **OR**
+1. you are using only GitLab Runner 11.5 or newer **OR**
+1. you are using only shared runners on GitLab.com (we already upgraded them) **OR**
+1. you are not interested in security reports.
+
+## How to solve the problem
+
+If you are not affected by the change, you don't need to take any action.
+
+If you are affected, you should upgrade your GitLab Runners to version 11.5 or newer as soon as possible.
+If you don't, you will not have new SAST reports until you do upgrade. If you upgrade your runners later, SAST will
+start to work again correctly.
+
+## Which is the expected timeline?
+
+GitLab 11.6 will be released on **Dec. 22**.  This change may also be shipped in an early release
+candidate (RC) version.
+
+If you are using a **self-managed** GitLab instance, and you don't install RC versions, you will be affected when
+you'll upgrade to GitLab 11.6.
+
+If you are using **GitLab.com**, you will be affected as soon as the RC version with the change will be deployed.
+
+Feel free to reach out to us with any further questions!
+
+[SAST]: https://docs.gitlab.com/ee/user/application_security/sast/
+[Auto DevOps]: https://docs.gitlab.com/ee/topics/autodevops/
+[new job definition]: https://docs.gitlab.com/ee/user/application_security/sast/
+[`reports` syntax]: https://docs.gitlab.com/ee/ci/yaml/#artifactsreportssast-ultimate
+[Group Security Dashboard]: https://docs.gitlab.com/ee/user/application_security/security_dashboard/
+[GitLab Runner]: https://docs.gitlab.com/runner/
+[Dependency Scanning]: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/
+[Container Scanning]: https://docs.gitlab.com/ee/user/application_security/container_scanning/
+[DAST]: https://docs.gitlab.com/ee/user/application_security/dast/
+[License Management]: https://docs.gitlab.com/ee/user/compliance/license_compliance/index.html

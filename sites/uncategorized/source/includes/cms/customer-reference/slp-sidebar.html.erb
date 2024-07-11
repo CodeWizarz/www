@@ -1,0 +1,84 @@
+<nav
+    class="slp-sidebar slp-sticky slp-top-0 md:slp-relative slp-mb-64 md:slp-mb-132 slp-bg-white"
+  >
+  <div
+    class="slp-overflow-y-auto slp-hidden md:slp-block slp-bg-white slp-top-full slp-right-0 slp-w-screen md:slp-max-w-md lg:slp-max-w-lg slp-p-16 md:slp-fixed md:slp-transform-none md:slp-w-max md:slp-py-0"
+    style="top: 13rem !important; right: 0 !important"
+  >
+    <!-- TODO - make breadcrumbs smarter -->
+    <div class="slp-text-sm slp-leading-8 slp-mb-6 slp-flex slp-flex-wrap slp-justify-left">
+      <div class="slp-flex-initial">
+        <a href="/customers/" class="slp-text-ui-secondary slp-mr-2">Customers</a> 
+        <span class="slp-mr-2 slp-text-grayscale-333 slp-font-normal">/</span> 
+        <a href="#" class="slp-text-ui-secondary slp-mr-2"><%= customer.title %></a>
+      </div>
+    </div>
+    <img
+      src="<%= customer.customer_logo %>"
+      alt="<%= customer.title %> logo"
+      class="customer-logo <%= customer.customer_logo_css_class %>"
+    />
+    <!-- Each section copy of sidebar -->
+    <% if customer.customer_industry %>
+      <p class="slp-text-xxs slp-uppercase slp-mt-16">
+        Industry
+      </p>
+      <p class="slp-text-xl">
+        <%= customer.customer_industry %>
+      </p>
+    <% end %>
+    <% if customer.customer_employees %>
+      <p class="slp-text-xxs slp-uppercase slp-mt-16">
+        Employees
+      </p>
+      <p class="slp-text-xl">
+        <%= customer.customer_employees %>
+      </p>
+    <% end %>
+    <% if customer.customer_location %>
+      <p class="slp-text-xxs slp-uppercase slp-mt-16">
+        Location
+      </p>
+      <p class="slp-text-xl">
+        <%= customer.customer_location %>
+      </p>
+    <% end %>
+    <% if customer.customer_solution %>
+      <p class="slp-text-xxs slp-uppercase slp-mt-16">
+        Solution
+      </p>
+      <p class="slp-text-xl">
+        <%= customer.customer_solution %>
+      </p>
+    <% end %>
+
+    <!-- TODO: Set global CTA buttons instead of hardcoding -->
+    <%= partial "includes/cms/customer-reference/slp-sidebar-cta" %>
+
+    <slp-horizontal-rule class="slp-col-span-full slp-mt-24 slp-mb-24" />
+
+    <div class="slp-mb-6">
+      <!-- TODO - We might have this icon allready -->
+      <svg width="22" height="22" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg" class="slp-inline-block slp-mr-2"><path d="M17.82 18.876H12.628C12.144 18.876 11.748 18.48 11.748 17.996C11.748 17.512 12.144 17.116 12.628 17.116H17.82C18.304 17.116 18.7 16.72 18.7 16.236V2.64C18.7 2.156 18.304 1.76 17.82 1.76H4.18001C3.69601 1.76 3.30001 2.156 3.30001 2.64V16.236C3.30001 16.72 3.69601 17.116 4.18001 17.116H7.43601C7.92001 17.116 8.31601 17.512 8.31601 17.996C8.31601 18.48 7.92001 18.876 7.43601 18.876H4.18001C2.72801 18.876 1.54001 17.688 1.54001 16.236V2.64C1.54001 1.188 2.72801 0 4.18001 0H17.82C19.272 0 20.46 1.188 20.46 2.64V16.236C20.46 17.688 19.272 18.876 17.82 18.876Z"></path> <path d="M15.62 9.28405H6.38C5.896 9.28405 5.5 8.88805 5.5 8.40405V4.57604C5.5 4.09204 5.896 3.69604 6.38 3.69604H15.62C16.104 3.69604 16.5 4.09204 16.5 4.57604V8.40405C16.5 8.88805 16.104 9.28405 15.62 9.28405ZM7.26 7.52405H14.74V5.45604H7.26V7.52405Z"></path> <path d="M11.968 15.1799H6.38C5.896 15.1799 5.5 14.7839 5.5 14.2999C5.5 13.8159 5.896 13.4199 6.38 13.4199H11.968C12.452 13.4199 12.848 13.8159 12.848 14.2999C12.848 14.7839 12.452 15.1799 11.968 15.1799Z"></path> <path d="M15.62 12.2319H6.38C5.896 12.2319 5.5 11.8359 5.5 11.3519C5.5 10.8679 5.896 10.4719 6.38 10.4719H15.62C16.104 10.4719 16.5 10.8679 16.5 11.3519C16.5 11.8359 16.104 12.2319 15.62 12.2319Z"></path> <path d="M7.436 22C7.304 22 7.128 21.956 6.996 21.868C6.732 21.692 6.556 21.428 6.556 21.12V17.996C6.556 17.512 6.952 17.116 7.436 17.116C7.92 17.116 8.316 17.512 8.316 17.996V19.58L12.144 17.248C12.54 16.984 13.112 17.116 13.332 17.556C13.596 17.952 13.464 18.524 13.024 18.744L7.92 21.868C7.788 21.956 7.612 22 7.436 22Z"></path></svg>
+      <span class="slp-text-base slp-font-semibold">Related stories</span>
+    </div>
+    <% 
+      if customer.more_case_studies 
+        case_studies = customer.more_case_studies
+      else
+         case_studies = data.global_case_study_data.more_case_studies
+      end
+
+      case_studies.each do| link | 
+    %>
+      <div class="slp-mt-16 slp-pl-16">
+        <a href="<%= link.href %>" class="arrow-link-two slp-font-bold slp-text-sm slp-leading-6 hover:slp-underline group-hover:slp-text-ui-secondary slp-text-ui-secondary-dark"> 
+          <%= link.title %>
+          <svg width="9" height="6" xmlns="http://www.w3.org/2000/svg" class="slp-arrow hover:slp-visible slp-invisible slp-inline-block">
+            <path d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z" fill="none" class="slp-fill-current group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"></path>
+          </svg>
+        </a>
+      </div>
+    <% end %>
+  </div>
+</nav>

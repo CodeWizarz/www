@@ -1,0 +1,85 @@
+---
+title: "Updates and actions to address Log4j CVE 2021 44228 and CVE 2021 45046 in GitLab"
+author: gitlab
+author_gitlab: gitlab
+categories: security
+image_title: '/images/blogimages/security-cover.png'
+description: "Actions we’ve taken to investigate and mitigate the impact of Log4j, and actions our users can take."
+tags: security
+twitter_text: 'Updated 2022-01-25: Actions GitLab has taken to investigate and mitigate the impact of Log4j, and actions GitLab users can take.'
+featured: no
+postType: company
+---
+
+**Updated 6:00 PM UTC January 25, 2022**
+As of January 22, 2022, we have [updated the GitLab dependency scanning and SAST analyzers to use the latest version of log4j, 2.17.1](https://gitlab.com/groups/gitlab-org/-/epics/7321). Additionally, we have removed log4j as a dependency from our license scanning analyzer. At this point, we believe that all impacted GitLab components have been updated to the newest log4j version. Our teams continue to monitor and investigate this issue to ensure that our products and customers are secure.
+
+---
+
+**Updated 8:00 PM UTC January 05, 2022**
+
+TL;DR: We have investigated the new Log4j vulnerability, [CVE-2021-44832](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44832), and have determined that this is a low impact to the GitLab platform and our customers. We will continue to monitor this situation closely and will continue to keep you informed.
+
+On 2021-12-28, [version 2.17.1 of Apache Log4j was released](https://logging.apache.org/log4j/2.x/security.html#CVE-2021-44832), containing a fix for CVE-2021-44832. This vulnerability does not pose a significant risk to GitLab Self-managed or SaaS offerings. As mentioned in previous updates, we are planning on updating Log4j in SAST and Dependency Scanning analyzers GitLab 14.7 scheduled for January 22, 2022. We will now be targeting version Log4j 2.17.1 for these updates.
+
+---
+
+**Updated 10:45 PM UTC December 21, 2021**
+
+TL;DR: We have investigated the new Log4j denial of service vulnerability, [CVE-2021-45105](https://nvd.nist.gov/vuln/detail/CVE-2021-45105), and have determined that this is a low impact to the GitLab platform and our customers. We will continue to monitor this situation closely and will continue to keep you informed.
+
+Users with default configurations of SAST and Dependency scanning of GitLab Self-managed and SaaS are at very low risk for Log4j vulnerabilities. If you are not running default configurations, please read on for recommended actions.
+
+We’ve established that exploitation of this vulnerability in GitLab does not impact confidentiality, integrity, or availability of customer data. If exploited, an attacker would be able to crash the SAST or Dependency Scanning analyzer that’s currently running in a CI job only. Exploitation requires privileged access to the running CI job. Additionally, exploitation requires a specific set of Log4j configurations, and GitLab deploys Log4j in a default configuration during CI job operations that require it. 
+
+Due to the low level of risk involved here, we plan to update Log4j in SAST and Dependency Scanning analyzers to v2.17.1 in GitLab 14.7 scheduled for January 22, 2022. Should this situation change, we will update customers immediately.
+
+---
+
+**Updated 12:30 AM UTC December 18, 2021**
+
+On 2021-12-16 the Scala programming language announced that sbt [includes a Log4j dependency that is vulnerable to CVE-2021-44228](https://www.scala-lang.org/blog-detail/2021/12/16/state-of-log4j-in-scala-ecosystem.html), although it is not enabled by default. The Spotbugs SAST analyzer for Java, Scala, Groovy, and Kotlin code includes sbt. GitLab has updated the sbt version in this analyzer to version 1.5.7, which includes an updated version of Log4j. By default, this analyzer only runs when Java, Scala, Groovy, or Kotlin language code is detected, and sbt is only invoked when Scala code is found.
+
+For those running Spotbugs with default configurations for SAST, no action is needed.  
+
+### Action needed:
+* [For those users running older version of SAST, or using modified configurations](/blog/2021/12/15/updates-and-actions-to-address-logj-in-gitlab/#actions-recommended-for-customers-running-older-versions-of-sast-and-dependency-scanning-or-using-modified-configurations)
+* [For Self-Managed customers running an offline environment](/blog/2021/12/15/updates-and-actions-to-address-logj-in-gitlab/#actions-recommended-for-self-managed-customers-running-an-offline-environment)
+
+We’ve updated the contents of this blog post to reflect this new finding and fix. _2021-12-18 updates are in italics below._
+
+---
+
+We want to share the actions we’ve taken in response to the Log4j remote code execution vulnerabilities [CVE-2021-44228](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-44228) and [CVE-2021-45046](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-45046). Upon becoming aware of the vulnerabilities, we immediately mobilized our Security and Engineering teams to determine usage of this software component and its potential impact within our product, across our company, and within our third-party software landscape. Our teams have continued to investigate and monitor the situation over the past few days and it has since become known that the following third-party software dependencies used in our SAST and Dependency Scanning features include the vulnerable Log4j libraries:
+
+* PMD OSS (used in SAST)
+* Spotbugs (used in SAST) _(Updated again on 2021-12-17)_
+* Gemnasium-Maven (used in Dependency Scanning)
+
+At this time, no malicious activity, exploitation, or indicators of compromise have been identified on GitLab.com.
+
+## Actions we have taken to address the Log4j vulnerabilities
+* We have confirmed our DAST analyzer is not using a vulnerable version of Log4j.
+* We have removed Log4j from PMD OSS [v2.12.10](https://gitlab.com/gitlab-org/security-products/analyzers/pmd-apex/-/tags/v2.12.10).
+* We have upgraded Log4j to [version 2.16](https://logging.apache.org/log4j/2.x/security.html) in Spotbugs [v2.28.11+1](https://gitlab.com/gitlab-org/security-products/analyzers/spotbugs/-/tags/v2.28.11+1) and [v2.28.10+1](https://gitlab.com/gitlab-org/security-products/analyzers/spotbugs/-/tags/v2.28.10+1). _(Updated again on 2021-12-17 for SBT)_
+* We have upgraded Log4j to [version 2.16](https://logging.apache.org/log4j/2.x/security.html) in Gemnasium-Maven [v2.24.3](https://gitlab.com/gitlab-org/security-products/analyzers/gemnasium-maven/-/tags/v2.24.3).
+
+## Default configurations for SAST and Dependency Scanning are fully patched
+* GitLab.com and self-managed customers who are running the default configurations for [SAST](https://docs.gitlab.com/ee/user/application_security/sast/#configure-sast-in-your-cicd-yaml) and [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#configuration) are fully patched. **No action is required.**
+
+## Actions recommended for customers running older versions of SAST and Dependency Scanning, or using modified configurations
+* Upgrade your version of [SAST](https://docs.gitlab.com/ee/user/application_security/sast/#configure-sast-in-your-cicd-yaml) and [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#configuration) using our docs.
+* Visit this [forum post](https://forum.gitlab.com/t/actions-needed-for-customers-running-older-versions-of-sast-and-gemnasium-dependency-analyzer/62928) for alternative workarounds.
+
+## Actions recommended for Self-Managed customers running an offline environment
+* Visit our [instructions for running SAST in an offline environment](https://docs.gitlab.com/ee/user/application_security/sast/index.html#running-sast-in-an-offline-environment) or our [Dependency Scanning offline documentation](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/index.html#running-dependency-scanning-in-an-offline-environment) for details on how to update your SAST or Dependency Scanning analyzers.
+
+Our teams are continuing to investigate this issue to ensure that our products and customers are secure. We will provide further communication if additional risks are identified.
+
+## Questions and more information
+If you have questions, you can post them to this related [forum thread](https://forum.gitlab.com/t/actions-needed-for-customers-running-older-versions-of-sast-and-gemnasium-dependency-analyzer/62928). Customers with an active support contract can also open a [support ticket](https://support.gitlab.com/hc/en-us/requests/new). See our related blog post for information on [how to use GitLab security features to detect Log4j vulnerabilities](/blog/2021/12/15/use-gitlab-to-detect-vulnerabilities/).
+
+## Get the latest updates
+* [Subscribe to our security alerts mailing list](https://about.gitlab.com/company/preference-center/)(we'll send you emails like this one each time we make a new update).
+* Bookmark this blog post
+* Subscribe to the [RSS feed for the commit history](https://gitlab.com/gitlab-com/www-gitlab-com/-/commits/master/sites/uncategorized/source/blog/blog-posts/2021-12-15-updates-and-actions-to-address-logj-in-gitlab.html.md.erb?&format=atom) for this blog post.

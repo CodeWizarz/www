@@ -1,0 +1,27 @@
+features:
+  secondary:
+    - name: "Easily clean up unused LFS files"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/raketasks/cleanup.html#remove-unreferenced-lfs-files-from-filesystem'
+      reporter: fzimmer
+      stage: systems
+      categories:
+        - "Geo-replication"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/issues/36628'
+      description: |
+        GitLab supports [managing large binaries in projects via Git
+        LFS](https://docs.gitlab.com/ee/topics/git/lfs/index.html),
+        such as audio, video, or graphics files. These files can be removed
+        from LFS by [rewriting Git history](https://docs.gitlab.com/ee/user/project/repository/reducing_the_repo_size_using_git.html); however, unreferenced files
+        will still use up storage. Until now, the only way to remove these
+        unreferenced LFS objects was to delete the entire project, which is not
+        an option in many situations. Consequently, users may run up against
+        storage limits, and realize that they are using a lot of storage on LFS
+        objects they no longer want or need, without a clear path forward.
+
+        Fitting for the Spring season, we added two Rake tasks,
+        `gitlab:cleanup:orphan_lfs_file_references` and `gitlab:cleanup:orphan_lfs_files`,
+        that allow removing LFS files from individual projects.
+        The Rake tasks can be run on a project-by-project basis and scheduled
+        as needed. Happy Spring cleaning!

@@ -1,0 +1,74 @@
+---
+layout: markdown_page
+title: GitLab releases
+description: "On this page you can find information on official GitLab Releases. Learn more!"
+canonical_path: "/releases/"
+extra_css:
+  - releases.css
+---
+
+GitLab has been releasing every month for the last <%= count %> months straight!
+
+## Upcoming releases
+
+| Version | Release Date |
+|---------|--------------|
+<% releases_data[:upcoming_releases].reverse.each do |release| %>
+  <% release_date = Date.parse(release['date']) %>
+  <% readable_date = release_date.strftime("%B #{release_date.day.ordinalize}, %Y") %>
+  <% current = active_version['version'] == release['version'] %>
+  <% if current %>
+    | **<%= release['version'] %>** | **<%= readable_date %>** |
+  <% else %>
+    | <%= release['version'] %> | <%= readable_date %> |
+  <% end %>
+<% end %>
+
+## Historic releases
+
+<details><summary>Click to expand</summary>
+  <table>
+    <thead>
+      <tr>
+        <th>Version</th>
+        <th>Release Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% releases_data[:historic_releases].each do |release| %>
+        <% release_date = Date.parse(release['date']) %>
+        <% readable_date = release_date.strftime("%B #{release_date.day.ordinalize}, %Y") %>
+        <tr>
+          <td><%= release['version'] %></td>
+          <td><%= readable_date %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</details>
+
+## More information
+
+There are a number of ways you can find out about the latest releases and their features:
+
+- Go to the [GitLab project releases page](https://gitlab.com/gitlab-org/gitlab/-/releases) to learn about recent features in our official GitLab releases.
+- Visit the [releases blog](/releases/categories/releases/) to view release posts, including patch release posts.
+- Use the [What's new feature](https://docs.gitlab.com/ee/administration/whats-new.html) while you're using GitLab to discover new features.
+- Go to the [GitLab.com release page](/releases/gitlab-com/) for information about the features and current release on [GitLab.com](https://gitlab.com).
+- Check the changelogs:
+  - [GitLab Community Edition](https://gitlab.com/gitlab-org/gitlab-foss/blob/master/CHANGELOG.md)
+  - [GitLab Enterprise Edition](https://gitlab.com/gitlab-org/gitlab/blob/master/CHANGELOG.md)
+  - [GitLab Runner](https://gitlab.com/gitlab-org/gitlab-runner/blob/main/CHANGELOG.md)
+- Compare the feature changes between two different releases by using the [Release Feature & Deprecation Overview page](https://gitlab-com.gitlab.io/cs-tools/gitlab-cs-tools/what-is-new-since/). Due to the large number of improvements in each release, you can export the information to CSV.
+- [GitLab Quarterly Launch](/releases/gitlab-quarterly-launch/).
+
+To learn how to update your self-managed instance so you can take advantage of new features, see the [update documentation](https://docs.gitlab.com/ee/update/).
+
+Changes prior to GitLab 8.0 are available [in the archive](https://gitlab.com/gitlab-org/gitlab-ce/blob/master/changelogs/archive.md).
+
+Find out what we're planning to release in future by:
+
+- Viewing the most important features of upcoming releases on the [upcoming releases page](/upcoming-releases/).
+- Viewing [upcoming features by product tier](/direction/paid_tiers/).
+
+To learn more about how our releases work, see the [monthly release template](https://gitlab.com/gitlab-org/release-tools/blob/master/templates/monthly.md.erb) in the [release tools repository](https://gitlab.com/gitlab-org/release-tools/tree/master).

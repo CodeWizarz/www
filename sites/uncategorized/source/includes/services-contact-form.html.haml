@@ -1,0 +1,32 @@
+.services-form#contactform
+  .page-container.container.text-center
+    %h2 Interested in GitLab Professional Services? Get in touch.
+    .row
+      .col-md-4.col-md-offset-4
+        .form-container
+          %script{src: "//page.gitlab.com/js/forms2/js/forms2.min.js"}
+          %form#mktoForm_1476
+          :javascript
+            MktoForms2.setOptions(
+            {
+              formXDPath : "/rs/194-VVC-221/images/marketo-xdframe-relative.html"
+            });
+            MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", 1476, function(form) {
+              form.onSuccess(function(values, followUpUrl) {
+
+                dataLayer.push(
+                {
+                  'event' : 'services', 
+                  'mktoFormId' : form.getId(),
+                  'eventCallback' : function()
+                  {
+                    form.getFormElem().hide();
+                    $('#confirmform').attr('style', 'visibility: visible');
+                  }, 'eventTimeout' : 3000
+                });
+
+                return false;
+              });
+            });
+          #confirmform{style: "visibility:hidden;"}
+            %p Submission received! We'll be in contact shortly.

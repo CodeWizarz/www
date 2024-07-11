@@ -1,0 +1,63 @@
+---
+title: "Removing tags from our small SaaS runner on Linux"
+author: Gabriel Engel
+author_gitlab: gabrielengel_gl
+author_twitter: gitlab
+categories: news
+image_title: /images/blogimages/security-pipelines.jpg
+description: "With GitLab 17.0, we are removing most tags from our small SaaS runner on Linux. Find out if you are affected and the change you need to make."
+tags: CI/CD,GitLab,Product
+twitter_text: "With GitLab 17.0, we are removing most tags from our small SaaS runner on Linux. Change your tag to `saas-linux-small-amd64` to avoid being affected."
+featured: no
+---
+In GitLab 17.0, we are updating the tags of our [small SaaS runner on Linux](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html) to be consistent with our other Linux runners.
+
+## Who will be affected?
+If you are using the small SaaS runner on Linux with any tag other than `saas-linux-small-amd64`, you will be affected as all other tags such as `docker` or `linux` will be deprecated. Job configurations that use a deprecated tag will become stuck.
+
+An example job configuration that will be stuck could look like this:
+
+```yaml
+test-invalid-tag:
+  stage: test
+  tags:
+  - docker
+  - linux
+  script:
+    - echo "I'm affected and will be stuck after 17.0"
+```
+
+![Stuck Job](/images/blogimages/2023-08-02-removing-tags-from-our-small-saas-runner-on-linux/stuck-job.png)
+
+The small SaaS runner on Linux is configured to run untagged jobs; this remains unchanged.
+So, if you're using the small Linux runner but haven't specified a tag, the behavior of your job will not change.
+
+## How to avoid jobs getting stuck
+
+To avoid jobs getting stuck after the 17.0 release, you should change the tag in your `.gitlab-ci.yaml` file to `saas-linux-small-amd64`.
+
+An example job configuration that will work:
+
+```yaml
+test-correct-tag:
+  stage: test
+  tags:
+  - saas-linux-small-amd64
+  script:
+    - echo "I'm running as expected"
+```
+
+Another example that will work is to define no tag, so the runner will pick up an untagged job:
+
+```yaml
+test-untagged:
+  stage: test
+  script:
+    - echo "I'm running as expected"
+```
+
+## References
+
+- [What are SaaS runners?](https://docs.gitlab.com/ee/ci/runners/)
+- [SaaS runners on Linux documentation](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html)
+- [Tags - '.gitlab-ci.yml' Keyword Reference](https://docs.gitlab.com/ee/ci/yaml/#tags)

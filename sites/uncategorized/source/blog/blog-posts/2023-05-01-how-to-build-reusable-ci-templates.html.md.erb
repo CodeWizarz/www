@@ -1,0 +1,62 @@
+---
+title: "How to build more reusable CI/CD templates"
+author: Dov Hershkovitch
+author_gitlab: dhershkovitch
+author_twitter: dov0211
+categories: engineering
+image_title: '/images/blogimages/pexels-mathias-reding-4386148.jpg'
+description: "Users can now define inputs to any includable CI/CD templates. Learn how and see what other CI/CD pipeline developments are coming."
+tags: CI/CD, DevOps
+twitter_text: "Users can now define inputs to any includable file and build more robust and isolated CI/CD templates in @gitlab. Learn how."
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2023/03/23/ai-assisted-code-suggestions/"
+  - "/blog/2023/03/01/how-to-deploy-react-to-amazon-s3/"
+  - "/blog/2023/03/21/automating-a-twitter-bot-using-gitlab-cicd/"
+---
+
+There are exciting new developments to share about our CI/CD templates features, known for their ability to get users up and running quickly with [GitLab CI/CD](/topics/ci-cd/). Our goals for the immediate future are to evolve templates into CI/CD components (more details below) and, soon, to release a CI/CD components catalog to make the reusing and sharing of pipeline configurations easier and more efficient for developers, both inside of their organizations and with the wider developer community. The first step in our journey is to enable users to define inputs to any includable file, ultimately creating more powerful and reusable CI/CD templates.
+
+Here is a short walkthrough on this capability: 
+
+<figure class="video_container">
+<iframe width="1870" height="937" src="https://www.youtube.com/embed/4ZRdgBy1n5E" title="" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</figure>
+
+
+## Build more robust and isolated CI/CD templates
+In GitLab 15.11, we released, as Beta, the ability to define inputs to any includable file (any CI/CD file that you include in your pipeline). Until now, we've been leveraging environment variables to pass information. As an example, we used environment variables to pass information from an upstream pipeline to a downstream pipeline.
+
+Using environment variables for passing information is like declaring global variables in programming languages – it has an effect on your entire pipeline, which means that the more variables we declare, the more we risk variable conflicts and increased variable scope.
+
+Input parameters are similar to variables passed to the template but exist only inside a specific scope and don't affect other templates in your pipelines. There are several benefits of using inputs, including:
+1. Inputs are not inherited from upstream includes and must be passed explicitly, which means they will never affect your entire pipeline. 
+2. Inputs have full support for CI/CD interpolation, which means you have complete flexibility to "templatize" your pipeline and use `$[[ inputs.* ]]` across all keywords in your CI/CD configuration. 
+3. You can define mandatory and optional inputs to be used as part of your CI/CD templates.
+4. You can define a default value for inputs. 
+ 
+This paradigm allows users to build more robust and isolated templates (which will soon evolve into components) and enables users to declare and enforce contracts. 
+
+### Add your inputs and let us know what you think! 
+The ability to define inputs to a CI/CD configuration file is available right now and we'd love for users to dive in and begin adding inputs to templates. You can check out [the GitLab docs](https://docs.gitlab.com/ee/ci/yaml/includes.html#define-input-parameters-with-specinputs) and review [this example project](https://gitlab.com/grzesiek/ci-interpolation-example) to better understand how to use inputs as part of your daily workflow. If you use this feature and have feedback, please share it with us in this [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/407556).
+
+## What's next in CI/CD pipelines?
+In GitLab 16.0, we are planning to release an experimental version of a CI/CD pipeline component, which will be the first building block of our CI/CD catalog. A pipeline component is a reusable, single-purpose building block that abstracts a single pipeline configuration unit away. To learn more, please check out this [example project](https://gitlab.com/gitlab-test-ci-catalog/catalog/ruby). 
+
+### Why are we moving to components?
+Components are preconfigured CI/CD files that automate the process of building, testing, and deploying software applications. CI/CD components provide:
+* **Versioning**: Each component is tagged with a version number, so you can reference a specific version or always use the `~latest` version.
+* **Consistency**: CI/CD components ensure consistency in your CI/CD pipelines across different projects, teams, and environments. By using a standardized approach, developers can reduce errors and improve the quality of their code.
+* **Time-savings**: CI/CD components save time by automating repetitive tasks such as running tests, building artifacts, and deploying applications. This enables developers to focus on more important tasks, like writing code and fixing bugs.
+* **Reusability**: CI/CD components can be reused across multiple projects and teams, eliminating the need to create custom scripts for each project. This saves time and reduces the risk of errors.
+* **Scalability**: CI/CD components are scalable and can be used to manage pipeline processes of large and complex applications. This enables developers to easily manage their projects as they grow.
+* **Flexibility**: CI/CD components are highly customizable and can be adapted to suit the needs of different projects, teams, and environments. This allows developers to use the tools and processes that work best for them.
+
+TL;DR: Using CI/CD components can help streamline the development process, save time, reduce errors, and improve the quality of code.
+
+### On the horizon: A CI/CD component catalog
+To further streamline your development processes, improve the quality of your software delivery, and make it easier for developers to discover and use preconfigured components, we’ll be releasing the CI/CD component catalog, which will make using, creating, and sharing CI/CD components much more efficient and user-friendly, and we’re targeting release of this later this year. In the next months, we’ll be sharing more feature updates, blogs, docs, and demos to keep you posted on our journey toward CI/CD components and a CI/CD component catalog. We’re excited for you to test out the new capabilities as they drop, and we look forward to your feedback.  
+
+Cover image by [Mathias Reding](https://www.pexels.com/@matreding/) on [Pexels](https://www.pexels.com/photo/background-of-abstract-modern-architectural-pattern-4386148/).
+{: .note}

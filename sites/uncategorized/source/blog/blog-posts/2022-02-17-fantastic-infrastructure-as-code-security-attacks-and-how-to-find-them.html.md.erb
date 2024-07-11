@@ -1,0 +1,558 @@
+---
+title: Fantastic Infrastructure as Code security attacks and how to find them
+author: Michael Friedrich
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: insights
+image_title: '/images/blogimages/iac-security-scanning/cover-image-unsplash.jpg'
+description: 'Learn about possible attack scenarios in Infrastructure as Code and GitOps environments, evaluate tools and scanners with Terraform, Kubernetes, etc., and more.'
+tags: security, kubernetes, devops
+twitter_text: "Learn about possible attack scenarios in Infrastructure as Code and GitOps environments, evaluate tools and scanners with Terraform, Kubernetes, etc., and more." # optional
+featured: yes # reviewer should set
+postType: dev-evangelism # i.e.: content marketing, product, corporate
+merch_banner: merch_eight # https://about.gitlab.com/handbook/marketing/blog/#merch-banner
+merch_sidebar: merch_eight # gitops
+related_posts:
+  - "/blog/2021/04/21/devops-workflows-json-format-jq-ci-cd-lint/"
+  - "/blog/2021/10/19/top-10-gitlab-hacks/"
+  - "/releases/2021/11/22/gitlab-14-5-released/"
+---
+
+[Infrastructure as Code](/topics/gitops/infrastructure-as-code/)(IaC) has eaten the world. It helps manage and provision computer resources automatically and avoids manual work or UI form workflows. Lifecycle management with IaC started with declarative and idempotent configuration, package, and tool installation. In the era of cloud providers, IaC tools additionally help abstract cloud provisioning. They can create defined resources automatically (network, storage, databases, etc.) and apply the configuration (DNS entries, firewall rules, etc.).
+
+Like everything else, it has its flaws. IaC workflows have shifted left in the development lifecycle, making it more efficient. Developers and [DevOps](https://about.gitlab.com/topics/devops/) engineers need to learn new tools and best practices. Mistakes may result in leaked credentials or supply chain attacks. Existing security assessment tools might not be able to detect these new vulnerabilities.
+
+In this post, we will dive into these specific risks and focus on IaC management tools such as Terraform, cloud providers, and deployment platforms involving containers and Kubernetes.
+
+For each scenario, we will look into threats, tools, integrations, and best practices to reduce risk.
+
+You can read the blog post top-down or navigate into the chapters individually.
+
+- [Scan your own infrastructure - know what's important](#scan-your-infrastructure---know-what-is-important)
+    - [Thinking like an attacker](#thinking-like-an-attacker)
+- [Tools to detect Terraform vulnerabilities](#tools-to-detect-terraform-vulnerabilities)
+- [Develop more IaC scenarios](#develop-more-iac-scenarios)
+    - [Terraform Module Dependency Scans](#terraform-module-dependency-scans)
+    - [IaC Security Scanning for Containers](#iac-security-scanning-for-containers)
+    - [IaC Security Scanning with Kubernetes](#iac-security-scanning-with-kubernetes)
+- [Integrations into CI/CD and Merge Requests for Review](#integrations-into-cicd-and-merge-requests-for-review)
+    - [Reports in MRs as comment](#reports-in-mrs-as-comment)
+    - [MR Comments using GitLab IaC SAST reports as source](#mr-comments-using-gitlab-iac-sast-reports-as-source)
+- [What is the best integration strategy?](#what-is-the-best-integration-strategy)
+
+
+## Scan your infrastructure - know what is important
+
+Start with identifying the project/group responsible for managing the IAC tasks. An inventory search for specific IaC tools, file suffixes (Terraform uses `.tf`, for example), and languages can be helpful. The security scan tools discussed in this blog post will discover all supported types automatically. Once you have identified the projects, you can use one of the tools to run a scan and identify the detected possible vulnerabilities.
+
+There might not be any scan results because your infrastructure is secure at this time. Though, your processes may require you to create documentation, runbooks, and action items for eventually discovered vulnerabilities in the future. Creating a forecast on possible scenarios to defend is hard, so let us change roles from the defender to the attacker for a moment. Which security vulnerabilities are out there to exploit as a malicious attacker? Maybe it is possible to create vulnerable scenarios and simulate the attacker role by running a security scan.
+
+### Thinking like an attacker
+
+There can be noticeable potential vulnerabilities like plaintext passwords in the configuration. Other scenarios involve cases you would never think of or a chain of items causing a security issue.
+
+Let us create a scenario for an attacker by provisioning an S3 bucket in AWS with Terraform. We intend to store logs, database dumps, or credential vaults in this S3 bucket.
+
+The following example creates the `aws_s3_bucket` resource in Terraform using the AWS provider.
+
+```hcl
+# Create the bucket
+resource "aws_s3_bucket" "demobucket" {
+  bucket = "terraformdemobucket"
+  acl = "private"
+}
+```
+
+After provisioning the S3 bucket for the first time, someone decided to make the S3 bucket accessible by default. The example below grants public access to the bucket using `aws_s3_bucket_public_access_block`. `block_public_acls` and `block_public_policy` are set to `false` to allow any public access.
+
+```
+# Grant bucket access: public
+resource "aws_s3_bucket_public_access_block" "publicaccess" {
+  bucket = aws_s3_bucket.demobucket.id
+  block_public_acls = false
+  block_public_policy = false
+}
+```
+
+The S3 bucket is now publicly readable, and anyone who knows the URL or scans network ranges for open ports may find the S3 bucket and its data. Malicious actors can not only capture credentials but also may learn about your infrastructure, IP addresses, internal server FQDNs, etc. from the logs, backups, and database dumps being stored in the S3 bucket.
+
+We need ways to mitigate and detect this security problem. The following sections describe the different tools you can use. The full Terraform code is located in [this project](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/tree/main/terraform/aws) and allows you to test all tools described in this blog post.
+
+## Tools to detect Terraform vulnerabilities
+
+In the "not worst case" scenario, the Terraform code to manage your infrastructure is persisted at a central Git server and not hidden somewhere on a host or local desktop. Maybe you are using `terraform init, plan, apply` jobs in CI/CD pipelines already. Let us look into methods and tools that help detect the public S3 bucket vulnerability. Later, we will discuss CI/CD integrations and automating IaC security scanning.
+
+Before we dive into the tools, make sure to clone the demo project locally to follow the examples yourself.
+
+```shell
+$ cd /tmp
+$ git clone https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning.git && cd  infrastructure-as-code-scanning/
+```
+
+The tool installation steps in this blog post are illustrated with [Homebrew on macOS](https://brew.sh/). Please refer to the tools documentation for alternative installation methods and supported platforms.
+
+You can follow the tools for Terraform security scanning by reading top-down, or navigate into the tools sections directly:
+
+- [tfsec](#tfsec)
+- [kics](#kics)
+- [terrascan](#terrascan)
+- [semgrep](#semgrep)
+- [tflint](#tflint)
+
+### tfsec
+
+[tfsec](https://github.com/aquasecurity/tfsec) from Aqua Security can help detect Terraform vulnerabilities. There are [Docker images available](https://github.com/aquasecurity/tfsec#use-with-docker) to quickly test the scanner on the CLI, or binaries to [install tfsec](https://aquasecurity.github.io/tfsec/v1.1.4/getting-started/installation/). Run `tfsec` on the local project path `terraform/aws/` to get a list of vulnerabilities.
+
+```shell
+$ brew install tfsec
+$ tfsec terraform/aws/
+```
+
+The default scan provides a table overview on the CLI, which may need additional filters. Inspect `tfsec –help` to get a list of all available [parameters](https://aquasecurity.github.io/tfsec/v1.1.4/getting-started/usage/) and try generating JSON and JUnit output files to process further.
+
+```shell
+$ tfsec terraform/aws --format json --out tfsec-report.json
+1 file(s) written: tfsec-report.json
+$ tfsec terraform/aws --format junit --out tfsec-junit.xml
+1 file(s) written: tfsec-junit.xml
+```
+
+The full example is located in the [terraform/aws directory in this project](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/tree/main/terraform/aws).
+
+#### Parse tfsec JSON reports with jq
+
+In an earlier blog post, we shared [how to detect the JSON data structures and filter with chained jq commands](/blog/2021/04/21/devops-workflows-json-format-jq-ci-cd-lint/). The tfsec report is a good practice: Extract the `results` key, iterate through all array list items and filtered by `rule_service` being `s3`, and only print `severity`, `description` and `location.filename`.
+
+```shell
+$ jq < tfsec-report.json | jq -c '.["results"]' | jq -c '.[] | select (.rule_service == "s3") | [.severity, .description, .location.filename]'
+```
+
+![tfsec parser output example](/images/blogimages/iac-security-scanning/tfsec-json-jq-parser.png){: .shadow}
+
+### kics
+
+[kics](https://kics.io/) is another IaC scanner, providing support for many different tools (Ansible, Terraform, Kubernetes, Dockerfile, and cloud configuration APIs such as AWS CloudFormation, Azure Resource Manager, and Google Deployment Manager).
+
+Let's try it: [Install kics](https://docs.kics.io/latest/getting-started/) and run it on the vulnerable project. `--report-formats`, `--output-path` and `--output-name` allow you to create a JSON report which can be automatically parsed with additional tooling.
+
+```shell
+$ kics scan --path .
+$ kics scan --path . --report-formats json --output-path kics --output-name kics-report.json
+```
+
+Parsing the JSON report from `kics` with jq works the same way as the tfsec example above. Inspect the data structure and nested object, and filter by AWS as `cloud_provider`. The `files` entry is an array of dictionaries, which turned out to be a little tricky to extract with an additional `(.files[] | .file_name )` to add:
+
+```
+$ jq < kics/kics-report.json | jq -c '.["queries"]' | jq -c '.[] | select (.cloud_provider == "AWS") | [.severity, .description, (.files[] | .file_name ) ]'
+```
+
+![kics json jq parser](/images/blogimages/iac-security-scanning/kics-json-jq-parser.png){: .shadow}
+
+`kics` returns different [exit codes](https://docs.kics.io/latest/results/#exit_status_code) based on the number of different severities found. `50` indicates `HIGH` severities and causes your CI/CD pipeline to fail.
+
+
+### checkov
+
+[Checkov](https://checkov.io) supports Terraform (for AWS, GCP, Azure and OCI), CloudFormation, ARM, Severless framework, Helm charts, Kubernetes, and Docker.
+
+```shell
+$ brew install checkov
+$ checkov --directory .
+```
+
+### terrascan
+
+[Terrascan](https://runterrascan.io/docs/getting-started/) supports Terraform, and more [policies](https://runterrascan.io/docs/policies/) for cloud providers, Docker, and Kubernetes.
+
+```shell
+$ brew install terrascan
+$ terrascan scan .
+```
+
+### semgrep
+
+Semgrep is working on [Terraform support](https://semgrep.dev/docs/language-support/), currently in Beta. It also detects Dockerfile errors - for example invalid port ranges and multiple ranges, similar to kics.
+
+```shell
+$ brew install semgrep
+$ semgrep --config auto .
+```
+
+### tflint
+
+[tflint](https://github.com/terraform-linters/tflint) also is an alternative scanner.
+
+## Develop more IaC scenarios
+
+While testing IaC Security Scanners for the first time, I was looking for demo projects and examples. The [kics queries list for Terraform](https://docs.kics.io/latest/queries/terraform-queries/) provides an exhaustive list of all vulnerabilities and the documentation linked. From there, you can build and create potential attack vectors for demos and showcases without leaking your company code and workflows.
+
+[Terragoat](https://github.com/bridgecrewio/terragoat) also is a great learning resource to test various scanners and see real-life examples for vulnerabilities.
+
+```shell
+$ cd /tmp && git clone https://github.com/bridgecrewio/terragoat.git && cd terragoat
+
+$ tfsec .
+$ kics scan --path .
+$ checkov --directory .
+$ semgrep --config auto .
+$ terrascan scan .
+```
+
+It is also important to verify the reported vulnerabilities and create documentation for required actions for your teams. Not all detected vulnerabilities are necessarily equally critical in your environment. With the rapid development of IaC, [GitOps}(https://about.gitlab.com/topics/gitops/), and cloud-native environments, it can also be a good idea to use 2+ scanners to see if there are missing vulnerabilities on one or the other.
+
+The following sections discuss more scenarios in detail.
+
+- [Terraform Module Dependency Scans](#terraform-module-dependency-scans)
+- [IaC Security Scanning for Containers](#iac-security-scanning-for-containers)
+- [IaC Security Scanning with Kubernetes](#iac-security-scanning-with-kubernetes)
+
+### Terraform Module Dependency Scans
+
+Re-usable IaC workflows also can introduce security vulnerabilities you are not aware of. [This project](https://gitlab.com/gitlab-de/use-cases/iac-tf-vuln-module) provides the module files and package in the registry, which can be consumed by `main.tf` in the demo project.
+
+```hcl
+module "my_module_name" {
+  source = "gitlab.com/gitlab-de/iac-tf-vuln-module/aws"
+  version = "1.0.0"
+}
+```
+
+kics has [limited support for the official Terraform module registry](https://docs.kics.io/latest/platforms/#terraform_modules), `checkov` failed to download private modules, `terrascan` and `tfsec` work when `terraform init` is run before the scan. Depending on your requirements, running `kics` for everything and `tfsec` for module dependency checks can be a solution, suggestion added [here](https://gitlab.com/groups/gitlab-org/-/epics/6653#note_840447132).
+
+### IaC Security Scanning for Containers
+
+Security problems in containers can lead to application deployment vulnerabilities. The [kics query database](https://docs.kics.io/latest/queries/dockerfile-queries/) helps to reverse engineer more vulnerable examples: Using the latest tag, privilege escalations with invoking sudo in a container, ports out of range, and multiple entrypoints are just a few bad practices.
+
+The following [Dockerfile](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/blob/main/Dockerfile) implements example vulnerabilities for the scanners to detect:
+
+```
+# Create vulnerabilities based on kics queries in https://docs.kics.io/latest/queries/dockerfile-queries/
+FROM debian:latest
+
+# kics: Run Using Sudo
+# kics: Run Using apt
+RUN sudo apt install git
+
+# kics: UNIX Ports Out Of Range
+EXPOSE 99999
+
+# kics: Multiple ENTRYPOINT Instructions Listed
+ENTRYPOINT ["ex1"]
+ENTRYPOINT ["ex2"]
+```
+
+Kics, tfsec, and terrascan can detect `Dockerfile` vulnerabilities, similar to semgrep and checkov. As an example scanner, terrascan can detect the vulnerabilities using the `--iac-type docker` parameter that allows to filter the scan type.
+
+```shell
+$ terrascan scan --iac-type docker
+```
+
+![terrascan Docker IaC type scan result](/images/blogimages/iac-security-scanning/terrascan-docker-iac.png){: .shadow}
+
+You can run kics and tfsec as an exercise to verify the results.
+
+### IaC Security Scanning with Kubernetes
+
+Securing a Kubernetes cluster can be a challenging task. Open Policy Agent, Kyverno, RBAC, etc., and many different YAML configuration attributes require reviews and automated checks before the production deployments. [Cluster image scanning](https://docs.gitlab.com/ee/user/application_security/cluster_image_scanning/) is one way to mitigate security threats, next to [Container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/) for the applications being deployed. A suggested read is the book [“Hacking Kubernetes” book](https://www.oreilly.com/library/view/hacking-kubernetes/9781492081722/) by Andrew Martin and Michael Hausenblas if you want to dive deeper into Kubernetes security and attack vectors.
+
+It's possible to make mistakes when, for example, copying YAML example configuration and continue using it. I've created a deployment and service for a [Kubernetes monitoring workshop](/handbook/marketing/developer-relations/developer-evangelism/projects/#practical-kubernetes-monitoring-with-prometheus), which provides a practical example to learn but also uses some not so good practices.
+
+The following configuration in [ecc-demo-service.yml](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/blob/main/kubernetes/ecc-demo-service.yml) introduces vulnerabilities and potential production problems:
+
+```yaml
+---
+# A deployment for the ECC Prometheus demo service with 3 replicas.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ecc-demo-service
+  labels:
+    app: ecc-demo-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ecc-demo-service
+  template:
+    metadata:
+      labels:
+        app: ecc-demo-service
+    spec:
+      containers:
+      - name: ecc-demo-service
+        image: registry.gitlab.com/everyonecancontribute/observability/prometheus_demo_service:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - -listen-address=:80
+        ports:
+        - containerPort: 80
+---
+# A service that references the demo service deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ecc-demo-service
+  labels:
+    app: ecc-demo-service
+spec:
+  ports:
+  - port: 80
+    name: web
+  selector:
+    app: ecc-demo-service
+```
+
+Let's scan the Kubernetes manifest with kics and parse the results again with jq. A list of kics queries for Kubernetes can be found in the [kics documentation](https://docs.kics.io/latest/queries/kubernetes-queries/).
+
+```shell
+$ kics scan --path kubernetes --report-formats json --output-path kics --output-name kics-report.json
+
+$ jq < kics/kics-report.json | jq -c '.["queries"]' | jq -c '.[] | select (.platform == "Kubernetes") | [.severity, .description, (.files[] | .file_name ) ]'
+```
+
+![Kubernetes manifest scans and jq parser results with kics](/images/blogimages/iac-security-scanning/kics-kubernetes-jq-parser.png){: .shadow}
+
+[Checkov](https://www.checkov.io/) detects similar vulnerabilities with Kubernetes.
+
+```
+$ checkov --directory kubernetes/
+$ checkov --directory kubernetes -o json > checkov-report.json
+```
+
+[kube-linter](https://docs.kubelinter.io/#/?id=installing-kubelinter) analyzes Kubernetes YAML files and Helm charts for production readiness and security.
+
+```shell
+$ brew install kube-linter
+$ kube-linter lint kubernetes/ecc-demo-service.yml --format json > kube-linter-report.json
+```
+
+[kubesec](https://kubesec.io/) provides security risk analysis for Kubernetes resources. `kubesec` is also integrated into the [GitLab SAST scanners](https://docs.gitlab.com/ee/user/application_security/sast/#enabling-kubesec-analyzer).
+
+```shell
+$ docker run -i kubesec/kubesec:512c5e0 scan /dev/stdin < kubernetes/ecc-demo-service.yml
+```
+
+## Integrations into CI/CD and Merge Requests for Review
+
+There are many scanners out there, and most of them return the results in JSON which can be parsed and integrated into your CI/CD pipelines. You can learn more about the evaluation of GitLab IaC scanners in [this issue](https://gitlab.com/gitlab-org/gitlab/-/issues/39695). The table in the issue includes licenses, languages, outputs, and examples.
+
+`checkov` and `tfsec` provide JUnit XML reports as output format, which can be parsed and integrated into CI/CD. Vulnerability reports will need a different format though to not confuse them with unit test results for example. Integrating a SAST scanner in GitLab requires you to provide [artifacts:reports:sast](https://docs.gitlab.com/ee/ci/yaml/artifacts_reports.html#artifactsreportssast) as a specified output format and API. [This report](https://docs.gitlab.com/ee/user/application_security/iac_scanning/#reports-json-format) can then be consumed by GitLab integrations such as MR widgets and vulnerability dashboards, available in the Ultimate tier. The following screenshot shows adding a Kubernetes deployment and service with potential vulnerabilities in [this MR](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/merge_requests/3).
+
+![MR widget showing IaC vulnerabilities with Kubernetes](/images/blogimages/iac-security-scanning/gitlab-iac-mr-widget-kubernetes.png){: .shadow}
+
+### Reports in MRs as comment
+
+There are different ways to collect the JSON reports in your CI/CD pipelines or scheduled runs. One of the ideas can be creating a merge request comment with a Markdown table. It needs a bit more work with parsing the reports, formatting the comment text, and interacting with the GitLab REST API, shown in the following steps in a Python script. You can follow the implementation steps to re-create them in your preferred language for the scanner type and use [GitLab API clients](/partners/technology-partners/#api-clients).
+
+First, read the report in JSON format, and inspect whether `kics_version` is set to continue. Then extract the `queries` key, and prepare the `comment_body` with the markdown table header columns.
+
+```python
+FILE="kics/kics-report.json"
+
+f = open(FILE)
+report = json.load(f)
+
+# Parse the report: kics
+if "kics_version" in report:
+    print("Found kics '%s' in '%s'" % (report["kics_version"], FILE))
+    queries = report["queries"]
+else:
+    raise Exception("Unsupported report format")
+
+comment_body = """### kics vulnerabilities report
+
+| Severity | Description | Platform | Filename |
+|----------|-------------|----------|----------|
+"""
+```
+
+Next, we need to parse all queries in a loop, and collect all column values. They are collected into a new list, which then gets joined with the `|` character. The `files` key needs a nested collection, as this is a list of dictionaries where only the `file_name` is of interest for the demo.
+
+
+```python
+# Example query to parse: {'query_name': 'Service Does Not Target Pod', 'query_id': '3ca03a61-3249-4c16-8427-6f8e47dda729', 'query_url': 'https://kubernetes.io/docs/concepts/services-networking/service/', 'severity': 'LOW', 'platform': 'Kubernetes', 'category': 'Insecure Configurations', 'description': 'Service should Target a Pod', 'description_id': 'e7c26645', 'files': [{'file_name': 'kubernetes/ecc-demo-service.yml', 'similarity_id': '9da6166956ad0fcfb1dd533df17852342dcbcca02ac559becaf51f6efdc015e8', 'line': 38, 'issue_type': 'IncorrectValue', 'search_key': 'metadata.name={{ecc-demo-service}}.spec.ports.name={{web}}.targetPort', 'search_line': 0, 'search_value': '', 'expected_value': 'metadata.name={{ecc-demo-service}}.spec.ports={{web}}.targetPort has a Pod Port', 'actual_value': 'metadata.name={{ecc-demo-service}}.spec.ports={{web}}.targetPort does not have a Pod Port'}]}
+
+for q in queries:
+    #print(q) # DEBUG
+    l = []
+    l.append(q["severity"])
+    l.append(q["description"])
+    l.append(q["platform"])
+
+    if "files" in q:
+        l.append(",".join((f["file_name"] for f in q["files"])))
+
+    comment_body += "| " + " | ".join(l) + " |\n"
+
+f.close()
+```
+
+The markdown table has been prepared, so now it is time to communicate with the GitLab API. [python-gitlab](https://python-gitlab.readthedocs.io/en/stable/api-usage.html) provides a great abstraction layer with programmatic interfaces.
+
+The GitLab API needs a project/group access token with API permissions. The `CI_JOB_TOKEN` is not sufficient.
+
+![Set the Project Access Token as CI/CD variable, not protected](/images/blogimages/iac-security-scanning/gitlab-cicd-variable-project-access-token.png){: .shadow}
+
+Read the `GITLAB_TOKEN` from the environment, and instantiate a new `Gitlab` object.
+
+```python
+GITLAB_URL='https://gitlab.com'
+
+if 'GITLAB_TOKEN' in os.environ:
+    gl = gitlab.Gitlab(GITLAB_URL, private_token=os.environ['GITLAB_TOKEN'])
+else:
+    raise Exception('GITLAB_TOKEN variable not set. Please provide an API token to update the MR!')
+```
+
+Next, use the `CI_PROJECT_ID` CI/CD variable from the environment to select the [project object](https://python-gitlab.readthedocs.io/en/stable/gl_objects/projects.html) which contains the merge request we want to target.
+
+```python
+project = gl.projects.get(os.environ['CI_PROJECT_ID'])
+```
+
+The tricky part is to fetch the [merge request](https://python-gitlab.readthedocs.io/en/stable/gl_objects/merge_requests.html) ID from the CI/CD pipeline, it is not always available. A workaround can be to read the `CI_COMMIT_REF_NAME` variable and match it against all MRs in the project, looking if the `source_branch` matches.
+
+
+```python
+real_mr = None
+
+if 'CI_MERGE_REQUEST_ID' in os.environ:
+    mr_id = os.environ['CI_MERGE_REQUEST_ID']
+    real_mr = project.mergerequests.get(mr_id)
+
+# Note: This workaround can be very expensive in projects with many MRs
+if 'CI_COMMIT_REF_NAME' in os.environ:
+    commit_ref_name = os.environ['CI_COMMIT_REF_NAME']
+
+    mrs = project.mergerequests.list()
+
+    for mr in mrs:
+        if mr.source_branch in commit_ref_name:
+            real_mr = mr
+            # found the MR for this source branch
+            # print(mr) # DEBUG
+
+if not real_mr:
+    print("Pipeline not run in a merge request, no reports sent")
+    sys.exit(0)
+```
+
+Last but not least, use the MR object to [create a new note](https://python-gitlab.readthedocs.io/en/stable/gl_objects/notes.html) with the `comment_body` including the Markdown table created before.
+
+```python
+mr_note = real_mr.notes.create({'body': comment_body})
+```
+
+This workflow creates a new MR comment every time a new commit is pushed. Consider evaluating the script and refining the update frequency by yourself. The script can be integrated into CI/CD with running kics before generating the reports shown in the following example configuration for `.gitlab-ci.yml`:
+
+```yaml
+# Full RAW example for kics reports and scans
+kics-scan:
+  image: python:3.10.2-slim-bullseye
+  variables:
+    # Visit for new releases
+    # https://github.com/Checkmarx/kics/releases
+    KICS_VERSION: "1.5.1"
+  script:
+    - echo $CI_PIPELINE_SOURCE
+    - echo $CI_COMMIT_REF_NAME
+    - echo $CI_MERGE_REQUEST_ID
+    - echo $CI_MERGE_REQUEST_IID
+    - apt-get update && apt-get install wget tar --no-install-recommends
+    - set -ex; wget -q -c "https://github.com/Checkmarx/kics/releases/download/v${KICS_VERSION}/kics_${KICS_VERSION}_linux_x64.tar.gz" -O - | tar -xz --directory /usr/bin &>/dev/null
+    # local requirements
+    - pip install -r requirements.txt
+    - kics scan --no-progress -q /usr/bin/assets/queries -p $(pwd) -o $(pwd) --report-formats json --output-path kics --output-name kics-report.json || true
+    - python ./integrations/kics-scan-report-mr-update.py
+```
+
+You can find the [.gitlab-ci.yml configuration](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/blob/main/.gitlab-ci.yml) and the full script, including more inline comments and debug output [in this project](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning). You can see the implementation MR testing itself in [this comment](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/merge_requests/4#note_840472146).
+
+![MR comment with the kics report as Markdown table](/images/blogimages/iac-security-scanning/kics-python-gitlab-mr-update-table.png){: .shadow}
+
+### MR comments using GitLab IaC SAST reports as source
+
+The steps in the previous section show the raw `kics` command execution, including JSON report parsing that requires you to create your own parsing logic. Alternatively, you can rely on the [IaC scanner in GitLab](https://docs.gitlab.com/ee/user/application_security/iac_scanning/#making-iac-analyzers-available-to-all-gitlab-tiers) and parse the SAST JSON report as [a standardized format](https://docs.gitlab.com/ee/user/application_security/iac_scanning/#reports-json-format). This is available for all GitLab tiers.
+
+Download the [gl-sast-report.json example](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/blob/main/example-reports/gl-sast-report-kics-iac.json), save it as `gl-sast-report.json` in the same directory as the script, and parse the report in a similar way shown above.
+
+```python
+FILE="gl-sast-report.json"
+
+f = open(FILE)
+report = json.load(f)
+
+# Parse the report: kics
+if "scan" in report:
+    print("Found scanner '%s' in '%s'" % (report["scan"]["scanner"]["name"], FILE))
+    queries = report["vulnerabilities"]
+else:
+    raise Exception("Unsupported report format")
+```
+
+The parameters in the vulnerability report also include the CVE number. The `location` is using a nested dictionary and thus easier to parse.
+
+```python
+comment_body = """### IaC SAST vulnerabilities report
+
+| Severity | Description | Category | Location | CVE |
+|----------|-------------|----------|----------|-----|
+"""
+
+for q in queries:
+    #print(q) # DEBUG
+    l = []
+    l.append(q["severity"])
+    l.append(q["description"])
+    l.append(q["category"])
+    l.append(q["location"]["file"])
+    l.append(q["cve"])
+
+    comment_body += "| " + " | ".join(l) + " |\n"
+
+f.close()
+```
+
+The `comment_body` contains the Markdown table, and can use the same code to update the MR with a comment using the GitLab API Python bindings. An example run is shown in [this MR comment](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/merge_requests/8#note_841940319).
+
+You can integrate the script into your CI/CD workflows using the following steps: 1) Override the `kics-iac-sast` job `artifacts` created by the `Security/SAST-IaC.latest.gitlab-ci.yml` template and 2) Add a job `iac-sast-parse` which parses the JSON report and calls the script to send a MR comment.
+
+```yaml
+# GitLab integration with SAST reports spec
+include:
+- template: Security/SAST-IaC.latest.gitlab-ci.yml
+
+# Override the SAST report artifacts
+kics-iac-sast:
+  artifacts:
+    name: sast
+    paths:
+      - gl-sast-report.json
+    reports:
+      sast: gl-sast-report.json
+
+iac-sast-parse:
+  image: python:3.10.2-slim-bullseye
+  needs: ['kics-iac-sast']
+  script:
+    - echo "Parsing gl-sast-report.json"
+    - pip install -r requirements.txt
+    - python ./integrations/sast-iac-report-mr-update.py
+  artifacts:
+      paths:
+      - gl-sast-report.json
+```
+
+The CI/CD pipeline testing itself can be found in [this MR comment](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/merge_requests/9#note_841976761). Please review the [sast-iac-report-mr-update.py](https://gitlab.com/gitlab-de/use-cases/infrastructure-as-code-scanning/-/blob/main/integrations/sast-iac-report-mr-update.py) script and evaluate whether it is useful for your workflows.
+
+## What is the best integration strategy?
+
+One way to evaluate the scanners is to look at their extensibility. For example, [kics](https://docs.kics.io/latest/creating-queries/) calls them `queries`, [semgrep](https://semgrep.dev/docs/writing-rules/overview/) uses `rules`, [checkov](https://www.checkov.io/3.Custom%20Policies/Custom%20Policies%20Overview.html) says `policies`, [tfsec](https://aquasecurity.github.io/tfsec/v1.1.5/getting-started/configuration/custom-checks/) goes for `custom checks` as a name. These specifications allow you to create and contribute your own detection methods with extensive tutorial guides.
+
+Many of the shown scanners provide container images to use, or CI/CD integration documentation. Make sure to include this requirement in your evaluation. For a fully integrated and tested solution, use the [IaC Security Scanning feature in GitLab](https://docs.gitlab.com/ee/user/application_security/iac_scanning/), currently based on the `kics` scanner. If you already have experience with other scanners, or prefer your own custom integration, evaluate the alternatives for your solution. All scanners discussed in this blog post provide JSON as output format, which helps with programmatic parsing and automation.
+
+Maybe you'd like to [contribute a new IaC scanner](https://docs.gitlab.com/ee/user/application_security/iac_scanning/#contribute-your-scanner) or help improve the detection rules and functionality from the open source scanners :-)
+
+
+Cover image by [Sawyer Bengtson](https://unsplash.com/photos/tnv84LOjes4) on [Unsplash](https://unsplash.com)
+{: .note}

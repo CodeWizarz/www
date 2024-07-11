@@ -1,0 +1,133 @@
+---
+title: "Why Prometheus is for everyone"
+author: Lee Matos
+author_gitlab: lbot
+author_twitter: leematos
+categories: engineering
+image_title: '/images/blogimages/monitoring-cover.png'
+description: "You think you don't need Prometheus – I'm here to tell you why you're wrong. Learn why GitLab uses Prometheus, and why your organization should be using it too!"
+tags: features, inside GitLab, performance
+ee_cta: false # required only if you do not want to display the EE-trial banner
+twitter_text: "Why @PrometheusIO is for everyone"
+featured: yes
+---
+
+It's no secret that here at GitLab, we hitched our wagon to [Prometheus](https://docs.gitlab.com/ee/administration/monitoring/prometheus/index.html#doc-nav) long ago. We've been
+[shipping it with GitLab since 8.16](/releases/2017/01/22/gitlab-8-16-released/). Having said that,
+even within GitLab we weren't all using Prometheus. The Support Engineering team was
+very much in the camp of "We don't need this to troubleshoot customer problems." We were wrong;
+we needed Prometheus all along, and here's why your organization should be using it too.
+
+## What is Prometheus?
+
+For a short answer, Prometheus is software that stores event data in real-time. But more specifically…
+
+Prometheus is a powerful and free open-source software monitoring service that records real-time metrics and provides real-time alerts. It’s built with an HTTP pull model. Prometheus collects data performance metrics which you can view through an external dashboard tool (such as Grafana) or by directly connecting to Prometheus. 
+
+Soundcloud was the original developer of Prometheus but nowadays is continuously maintained by the Cloud Native Computing Foundation (CNCF). The cloud-native architecture of Prometheus has made it extremely popular as part of a modern technology stack. 
+
+## Prometheus is great, so why isn't everyone using it already?
+
+I think GitLab customers fall into a few categories: You have the customer who wants to use GitLab
+but can't or doesn't want to manage servers. They'll use [GitLab.com](/pricing/)! By making that choice they can
+leverage the hard work of our Production team and reap the benefits of what Prometheus has to offer.
+
+ <%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+Then you have the customer who is [running their own simple GitLab deployment](/pricing/#self-managed), but they may
+not know or appreciate the value of Prometheus metrics. The Support Engineering team was
+like this too! We thought, "We can use traditional tools. Just knowing about where logging is,
+knowing about the system, is enough to actually solve the problems that we see. Just having
+experience is enough." Not so.
+
+Then you have large, enterprise customers who are deploying GitLab clusters with multiple dozens of
+servers and a lot of moving parts. For them, Prometheus really shines because the complexity
+balloons, and once you move GitLab from a single server to three, or four, or 20, being able
+to see all of the metrics in one view makes a huge difference in time to resolving critical infrastructure issues.
+
+## How we saw the light about Prometheus
+
+A large GitLab customer was experiencing a really strange, catastrophic failure scenario, and
+the problem was proving evasive to the support team. Even after days of troubleshooting we couldn't
+find what we were looking for, so we called in [Jacob](/company/team/#jacobvosmaer) from our
+[Gitaly](/blog/2018/09/12/the-road-to-gitaly-1-0/) team because it looked like Gitaly was at the
+core of the problem. We had been using Gitaly on GitLab.com for about six months at that point
+and he had never seen it behave this way before. It looked like Gitaly was accessing Git data,
+but just _extremely slow_, and it would spread across the cluster one server at a time. Jacob
+and I speculated and made some Gitaly dashboards, and while that was a good moment of cross-team
+collaboration, he was stumped.
+
+Most of the time when we're debugging GitLab, it's clear to pinpoint the root of the problem.
+But in this case, it was a catastrophic failure across the entire cluster that was a ticking timebomb.
+When we'd see the indicators we'd effectively have 15-35 minutes before the entire fleet was down.
+This customer actually had Prometheus on their roadmap but hadn't deployed it yet, so when
+the failure happened it was top of our list of things to deploy:
+
+**Support**: We should focus on trying to understand why this host is affected.
+
+**Production**: If we get better observability with Prometheus we'll move faster.
+
+**Support**: I'm worried this is a distraction! We don't have much time.
+
+**Production**: Watch and learn. Watch and learn.
+
+_(Cue dramatic montage of hackers with GitLab stickers on their laptops feverishly typing under duress)_
+
+Once Prometheus was in place, we called in the Production team. They run one of the largest
+GitLab instances: GitLab.com. We exported their dashboard and gave it to the customer, so
+within minutes they had a GitLab production-scale dashboard that was all of the things that
+our production engineers use. Now, we could leverage the wealth of knowledge of our Prometheus
+experts, as it's a familiar interface and they know exactly what they're looking at.
+
+With that as a starting point we started querying and slicing data, and dashboards, which let
+us build a couple of different facets that let us view the data and come to some conclusions.
+"Okay, it looks like once a host becomes 'tainted,' all Git-level operations spike and _HALT_.
+Now we can finally ask the question, why?" And then, when we asked that, we saw that it was
+a problem with Amazon's EFS file system. We had hit some upper boundary of EFS access and,
+having identified it, we were able to fix it by moving those specific files out of EFS. After we
+made that change it was easy to use Prometheus and Grafana to verify that the state was sound
+and everything was working as expected afterwards, without even lifting a finger. We just looked
+at the dashboard in place. So while the customer had intended to deploy Prometheus later this
+year, now, in this emergency situation, Prometheus definitely saved the day and is a huge part
+of keeping their GitLab infrastructure healthy. Without it we wouldn't be nearly as confident
+or comfortable in our solution.
+
+## Prometheues has opened up a whole world of possibilities.
+
+We have another large client that's on an older version of GitLab without Prometheus. We're
+working to debug things there and while we're able to do it, it's slower going. It requires a lot
+more manual effort to coalesce the data and get it in a form we can use. It often takes about
+35-40 minutes to get the data, slicing with grep, AWK, and friends and at least one man page
+to look up syntax. Whereas, with Prometheus and Grafana, we'd be able to just access and view
+the data, query it, and affect it within minutes. We already have a lot of [built-in monitoring capabilities](https://docs.gitlab.com/ee/administration/monitoring/). GitLab is a complex
+system built of various open source sub-systems, and we're monitoring all of them with Prometheus.
+You can too.
+
+### Everyone should be using our GitLab.com dashboard
+
+As I said earlier, in our intense, catastrophic scenario we gave the customer our GitLab.com
+dashboard. Any customer can use this dashboard as a template! You literally can go to [dashboards.gitlab.com](https://dashboards.gitlab.com), click "export," get the dashboard, run your instance, then click "import." It will show up, and
+you just need to tweak the name so that it's not defaulting to our GitLab Production cluster.
+Then Prometheus just fills in the data.
+
+<iframe src="https://giphy.com/embed/12NUbkX6p4xOO4" width="480" height="440" frameBorder="0" class="giphy-embed" allowFullScreen></iframe>
+
+We're trying to standardize around using the dashboards here, so that while there are differences
+and nuances in the deployments etc., we're speaking a common language, and have a common
+meeting point for GitLab engineers across teams to monitor and talk GitLab performance.
+
+## Are you convinced about Prometheues yet?
+
+We're now actively training our support team on Prometheus. And it's likely that other organizations
+probably have the same thing happening – where another group could be impacting or helping,
+but they're not collaborating, so they can't see where or how they can help one another. We've
+seen the light! So, we're training our team on Prometheus, and it's something that we want
+to make sure that everybody can make use of.
+
+Many customers think they don't need Prometheus and are reluctant to use it because it adds
+overhead; you have to configure it and set it up, and it may require a bit of finessing. GitLab
+is trying to make that even easier, but right now when you're building a bespoke deployment,
+it requires a bit of time, and you may not think time invested is worth it. And I'm here to say,
+it is, get it now! In fact, it's already there. You just need to turn it on! I'm advocating that all
+large, customer deployments over 500 users have Prometheus running by 2019. Turn it on and
+then we'll all reap the rewards.

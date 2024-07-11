@@ -1,0 +1,14 @@
+features:
+  secondary:
+    - name: "Clean up corrupted Docker manifests during garbage collection"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/administration/packages/container_registry.html#container-registry-garbage-collection'
+      reporter: trizzi
+      stage: package
+      categories:
+        - "Container Registry"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/issues/37611'
+      description: |
+        When running [garbage collection](https://docs.gitlab.com/ee/administration/packages/container_registry.html#container-registry-garbage-collection) to remove old, unused images, users have frequently run into an issue in which the process fails due to corrupted Docker manifests. To resolve this issue, administrators have had to manually remove the corrupted files from object storage, which is slow and risky.
+
+        In 12.8, we are excited to announce that any corrupted manifests will now be deleted as part of the garbage collection process. If a bad link file (zero bytes in size or with an invalid checksum) is found during garbage collection, instead of stopping the garbage collector, it will log a warning message and ignore it. Blobs related with invalid link files will be deleted in the `sweep` stage if those blobs are not associated with another valid link file. This update makes the garbage collection process more reliable and efficient.

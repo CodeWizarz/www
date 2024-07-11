@@ -1,0 +1,662 @@
+features:
+# TOP FEATURE
+  top:
+    - name: GPG Commit Verification
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/repository/signed_commits/gpg.html'
+      documentation_text: "Learn how you can associate your GPG signed commits with Git and GitLab"
+      image_url: '/images/9_5/gpg_signed_commits.png'
+      description: |
+        When you commit a change in Git, you tell Git who the author is. This is not verified, meaning
+        a bad actor could create a commit that looks like it was made by the original author.
+
+        GPG signed commits solves this problem by allowing you to sign your commits, proving that you're
+        the original author (because only you have the private key that matches the public key).
+
+        GitLab 9.5 now supports GPG signed commits. In your user **Settings > GPG Keys** you can upload your
+        GPG public key. Signed commits will now show up as verified in GitLab (or unverified).
+
+        Thank you [Alexis Reigel](https://gitlab.com/koffeinfrei) for this amazing contribution!
+
+# PRIMARY FEATURES
+  primary:
+    - name: New Navigation Improvements
+      available_in: [core, starter, premium]
+      documentation_link: 'https://about.gitlab.com/blog/2017/07/17/redesigning-gitlabs-navigation/'
+      documentation_text: "Learn more about the Navigation Redesign"
+      image_url: '/images/9_5/collapsible_nav.png'
+      reporter: mydigitalself
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/32420'
+      description: |
+        In GitLab 9.4 we introduced a preview of our [new navigation](https://about.gitlab.com/releases/2017/07/22/gitlab-9-4-released/#new-navigation)
+        to make GitLab easier to navigate.
+
+        We'd love to thank our community for the great [feedback](https://gitlab.com/gitlab-org/gitlab-ce/issues/34917)
+        and in GitLab 9.5 we've introduced a [number of improvements](https://gitlab.com/groups/gitlab-org/issues?label_name%5B%5D=navigation&milestone_title=9.5&state=closed)
+        as a result of what we heard.
+
+        It's now possible to collapse the left menu, freeing up more screen space. We've also added a new hovering sub-menu
+        to improve navigation between menus, minimize clicks, and reduce page loads.
+
+        If you haven't tried out the new navigation, click on your profile image in the
+        top right corner and choose **Turn on new navigation**.
+
+        We still have a number of new improvements to make before switching over to the
+        new navigation next month, in GitLab 10.0, and would love to [hear more feedback](https://gitlab.com/gitlab-org/gitlab-ce/issues/34917) to help us
+        create a navigation experience that works for everyone.
+
+    - name: Project Templates
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/working_with_projects.html#project-templates'
+      documentation_text: "Read through the documentation on Project Templates"
+      image_url: '/images/9_5/project_templates.png'
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/32420'
+      description: |
+        Getting started with GitLab can be daunting. Learning all that GitLab has
+        to offer is even more so.
+        For these reasons, we added Project Templates to help you quickly create a new project
+        from a template that already has some working example code and pre-configured CI.
+
+        In GitLab 9.5 we're supporting some of the most common environments:
+        Ruby on Rails, Node Express, and Java Spring.
+
+    - name: Automatic Retry for Failed CI Jobs
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/ci/yaml/#retry'
+      image_url: '/images/9_5/ci_retry.png'
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/3442'
+      description: |
+        Sometimes pipelines fail because one job encountered unexpected transient problems that are not directly related to the code,
+        and often running the job again is enough to make it succeed after a few retries.
+
+        In order to automate this process, in GitLab 9.5 you can specify a `retry` keyword in your `.gitlab-ci.yml` file to make
+        [GitLab CI/CD](https://about.gitlab.com/features/continuous-integration/) retry a job for a specific number of times before marking it as failed.
+
+    - name: Automatically Monitor Auto Deployed Apps
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/topics/autodevops/stages.html#auto-monitoring'
+      documentation_text: "Read through the documentation on monitoring Auto Deployed apps"
+      image_url: '/images/9_5/auto_monitoring.png'
+      reporter: joshlambert
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/36236
+      description: |
+        As part of GitLab 9.4 we
+        [introduced Web Application Monitoring](/releases/2017/07/22/gitlab-9-4-released/#web-application-monitoring),
+        enabling users to monitor their apps within GitLab for critical response metrics:
+          throughput, latency, and error rate.
+
+        With the launch of GitLab 9.5, we have made it even easier to keep an eye
+        on these important metrics for [Auto Deployed](https://docs.gitlab.com/ee/topics/autodevops/stages.html)
+        apps. If you have deployed GitLab using our
+        [GitLab-Omnibus](https://docs.gitlab.com/charts/)
+        Helm chart, no configuration is required at all! For other installation methods, simply ensure
+        [NGINX ingress is monitored by Prometheus](https://docs.gitlab.com/ee/topics/autodevops/stages.html#configuring-auto-monitoring).
+
+# SECONDARY FEATURES
+  secondary:
+    - name: Postgres HA Automatic Failover (Beta)
+      available_in: [premium]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/postgresql/index.html'
+      documentation_text: "Read through the documentation on Postgres HA"
+      reporter: joshlambert
+      mr_url: https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/2329
+      description: |
+        For organizations with a large number of developers, or simply because GitLab is an
+        integral part of the software engineering process, it is important to ensure the
+        scalability, performance, and reliability of the GitLab service.
+
+        In GitLab 9.4 we released
+        [Postgres High Availability with manual failover](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/2329)
+        in beta, reducing the impact and time to recover from a database outage. In 9.5,
+        we have continued to improve our support and now provide
+        [automatic failover](https://docs.gitlab.com/ee/administration/postgresql/index.html)
+        of a database node. This means GitLab can transparently and without intervention recover
+        from a database server outage without impacting a company's SDLC process, reducing wake
+        up calls and disruption to developers. We will continue to innovate on our high
+        availability feature set in future releases.
+
+    - name: Merge Request Diff File Navigation
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/merge_requests/#merge-request-diff-file-navigation'
+      documentation_text: "Read through the documentation on merge requests"
+      image_url: '/images/9_5/merge_request_diff_file_navigation.png'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/29778
+      description: |
+        We've made it easier to navigate between different sections of the code diff quickly. In GitLab 9.5, we added a
+        helpful dropdown that you can use to easily jump to different files in a merge request.
+        This is especially useful for merge requests with a lot of files and a large
+        number of changes.
+
+    - name: CI_JOB_TOKEN Variable for Artifacts API
+      available_in: [premium]
+      documentation_link: 'https://docs.gitlab.com/ee/ci/triggers/#when-a-pipeline-depends-on-the-artifacts-of-another-pipeline'
+      documentation_text: "Read more about using CI_JOB_TOKEN to download artifacts"
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/2770'
+      description: |
+        With GitLab 9.3, we released features that allowed different projects to be connected through
+        [Multi-Project Pipelines](https://about.gitlab.com/releases/2017/06/22/gitlab-9-3-released/#multi-project-pipeline-graphs).
+        The introduction of these dependencies raised the need to access artifacts created by another related project in an easy way.
+
+        Now with GitLab 9.5 this can be done using the `$CI_JOB_TOKEN` variable, automatically available to any job,
+        using the following syntax in `.gitlab-ci.yml`:
+
+            curl --header "JOB-TOKEN: $CI_JOB_TOKEN" "https://gitlab.example.com/api/v4/projects/1/jobs/artifacts/master/download?job=test"
+          {:.language-shell}
+
+    - name: Variables support for Pipelines triggered with CI_JOB_TOKEN
+      available_in: [premium]
+      documentation_link: 'https://docs.gitlab.com/ee/ci/triggers/#ci-job-token'
+      documentation_text: "Read more about passing variables in pipeline triggers"
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/2772'
+      description: |
+        [Multi-Project Pipelines](https://about.gitlab.com/releases/2017/06/22/gitlab-9-3-released/#multi-project-pipeline-graphs),
+        introduced in GitLab 9.3, leverage the `$CI_JOB_TOKEN` variable to trigger pipelines in related projects,
+        but passing variables to those triggers, as you can do with regular triggers, was not supported.
+        GitLab 9.5 fills this gap and adds support for variables to pipeline triggers even if they're invoked using `$CI_JOB_TOKEN`.
+
+    - name: Group-level Secret Variables API
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/api/group_level_variables.html'
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/34519'
+      description: |
+        In GitLab 9.4, we introduced [Group-level Secret Variables](https://about.gitlab.com/releases/2017/07/22/gitlab-9-4-released/#group-level-secret-variables),
+        so you can define variables that apply to multiple projects in the same group.
+        GitLab 9.5 adds management of these variables using API calls, allowing easy access and integration with third-party tools and scripts:
+        with this feature you can list, show, create, update and remove group-level variables using a REST interface.
+
+    - name: Confidential Issue Toggle
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/issues/confidential_issues.html'
+      documentation_text: "Read through the documentation on Confidential Issues"
+      image_url: '/images/9_5/confidentiality_toggle_in_sidebar.png'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/33874
+      description: |
+        Toggling confidentiality on and off for issues now happens in the sidebar.
+        In the next release, we also plan to [push the "move issue" functionality](https://gitlab.com/gitlab-org/gitlab-ce/issues/34261)
+        to the sidebar as well. Together, this will free up the main area on the issue
+        page to focus on editing the title and description.
+
+    - name: Enhanced Security Checks for Pipelines on Protected Branches
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/new_ci_build_permissions_model.html'
+      documentation_text: "Read more about GitLab CI/CD security model"
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/30634'
+      description: |
+        In order to allow only authorized people to modify what is released to the public, all of the interactions with pipelines
+        run on protected branches (triggering pipelines manually, retry existing jobs, perform any manual action, etc)
+        are now limited to users that have permissions to modify those branches.
+
+    - name: Search Bar for Group Issues Page
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/search/#issues-and-merge-requests-per-group'
+      documentation_text: "Read through the documentation on Searching through GitLab"
+      image_url: '/images/9_5/group_issues_filter_search_bar.png'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/33575
+      description: |
+        We've taken the new filter search bar UI design for project issues and merge
+        requests, and applied it to the group issues page. Now you can use the
+        same powerful UI for finding and managing issues across multiple projects
+        in a group.
+
+    - name: MR Widget Links to Repository
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/merge_requests/'
+      documentation_text: "Read through the documentation on Merge Requests"
+      image_url: '/images/9_5/merge_request_branch_links_to_repository.gif'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/34243
+      description: |
+        Previously, the merge request (MR) source branch in the widget linked to the commits
+        page. Now it links to the file repository page (of that branch). This small
+        tweak is much more useful. You can now immediately explore the changes in
+        the branch thus far, and make further commits from the file explorer UI itself.
+        You can still easily access the commits of the source branch in the Commits
+        tab of the merge request itself.
+
+    - name: Group Milestones Quick Action
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/quick_actions.html'
+      documentation_text: "Read through the documentation on Quick Actions"
+      image_url: '/images/9_5/group_milestones_quick_action_and_system_note.gif'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/34778
+      description: |
+        In [GitLab 9.4](/releases/2017/07/22/gitlab-9-4-released/#group-milestones) we released
+        [Group Milestones](https://docs.gitlab.com/ee/user/project/milestones/#creating-a-group-milestone),
+        giving you a truly native way to manage issues together in a milestone
+        that stretches across all projects in a single group. In this release
+        we include the ability to assign a group milestone using a [quick action](https://docs.gitlab.com/ee/user/project/quick_actions.html)
+        and also include a system note to the thread when a group milestone is assigned or removed.
+        This is the same behavior as that of project milestones.
+
+    - name: Group Milestones API
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/api/group_milestones.html'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/34622
+      description: |
+        In this release, we've also added an API for Group Milestones. It allows you
+        to create and edit milestones, as well as get all issues and merge requests
+        associated with a milestone. This is similar to our existing
+        [project milestones API](https://docs.gitlab.com/ee/api/milestones.html).
+
+    - name: New Issue Based on Pre-selected Project
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/issues/create_issues.html#from-a-group'
+      documentation_text: "Read through the documentation on creating new issues"
+      image_url: '/images/9_5/new_issue_from_group_issues_page.png'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/34411
+      description: |
+        Previously, you could create a new issue from the group issues page. But
+        GitLab made you select a project as part of that flow. With this new change,
+        GitLab remembers the previous project you selected, so you can skip that step the next time.
+        This feature continues to make GitLab a team-based tool that focuses on [groups](https://docs.gitlab.com/ee/user/group/index.html).
+        Sometimes you don't care where an issue comes from. You just want to create
+        an issue scoped to a group. Now you can do so quickly on the group issues page.
+        And if you ever want to change your mind, you can always [move an issue to
+        another project](/blog/2016/04/20/feature-highlight-move-issues/)
+        after the fact.
+
+    - name: Streamline JIRA Integration
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/integration/jira/'
+      documentation_text: "Read through the documentation on JIRA Integration"
+      image_url: '/images/9_5/jira_integration.png'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/31129
+      description: |
+        Previously, the JIRA integration configuration required you to enter a JIRA
+        project key. This was unnecessarily confusing, since it implied that the
+        integration was one GitLab project to one JIRA project. Instead, the integration
+        has always been one GitLab project to one JIRA instance (and thus, all JIRA
+        projects in that instance). We have removed the JIRA project key from the
+        settings page to streamline this integration.
+
+    - name: '"Remove Source Branch" Disabled by Default'
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/merge_requests/'
+      documentation_text: "Read through the documentation on Merge Requests"
+      image_url: '/images/9_5/remove_source_branch_disabled_by_default.png'
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/32885
+      description: |
+        Many users follow a Git workflow whereby they remove the source
+        branch after a merge request has been merged. We have a useful feature to
+        automate this process with a simple checkbox setting in the merge request
+        widget. We've received overwhelming feedback that this setting should be
+        disabled by default, since it is a destructive action. With this release,
+        it is now disabled when you create a merge request. If you indeed do want
+        to enable it, simply check the checkbox at any time before merging.
+
+    - name: Pull Mirrored Repository over SSH
+      available_in: [starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/repository/repository_mirroring.html#ssh-authentication'
+      documentation_text: "Read through the documentation on SSH authentication for Repository Mirroring"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/98'
+      reporter: mydigitalself
+      description: |
+        [Repository mirroring](https://docs.gitlab.com/ee/user/project/repository/repository_mirroring.html)
+        is a great way to update all code, branches, tags and commits from an upstream repository.
+
+        In GitLab 9.5, you can now pull changes into your repositories using SSH,
+        allowing Deploy Keys to be used with repository mirroring.
+
+        This addition to mirroring makes for a more secure way to connect your repositories
+        and is great for automation as you won’t have any pesky issues if a password
+        gets changed.
+
+    - name: GitLab Mattermost 4.1
+      available_in: [core, starter, premium]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus/gitlab-mattermost/'
+      documentation_text: "Read through the documentation on GitLab Mattermost"
+      description: |
+        GitLab 9.5 includes [Mattermost 4.1](https://about.mattermost.com/mattermost-4-1/),
+        an [open source Slack-alternative](https://about.mattermost.com/) whose newest
+        release simplifies the securing of integrations with personal access tokens,
+        and much more.
+
+        This version includes
+        [security updates](http://about.mattermost.com/security-updates/)
+        and an upgrade is recommended.
+
+    - name: Return Resource URIs in API
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/api/projects.html'
+      documentation_text: "Read through the documentation on Projects API"
+      reporter: victorwu
+      issue_url: https://gitlab.com/gitlab-org/gitlab-ce/issues/22600
+      description: |
+        In GitLab 9.5 we’re taking a step towards improving our V4 API navigability.
+
+        We’re now returning related resources URIs as an addition to the requested resource data.
+        It means that, instead of requiring you to build the URI to a related resource on the client-side,
+        we provide these URIs directly in the API responses.
+
+        For now, [projects](https://docs.gitlab.com/ee/api/projects.html) and
+        [issues](https://docs.gitlab.com/ee/api/issues.html) endpoints received
+        the update, but we’re looking forward to introduce this information in
+        other endpoints in the next releases.
+
+    - name: GitLab Geo Improvements
+      available_in: [premium]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/'
+      documentation_text: "Read through the documentation on GitLab Geo"
+      reporter: stanhu
+      description: |
+        Notable changes:
+
+        - GitLab Geo now supports a [first iteration](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/2533)
+          of [selective replication](https://docs.gitlab.com/ee/administration/geo/replication/configuration.html#selective-synchronization),
+          which allows admins to choose which repositories should be cloned by secondary nodes.
+        - Project deletions are now supported via the Geo Log Cursor.
+        - [Structured JSON debug logs](https://docs.gitlab.com/ee/administration/geo/#log-files)
+          have been added to aid monitoring and debugging.
+        - In 10.0, system hooks [will be officially removed](https://gitlab.com/gitlab-org/gitlab-ee/issues/3110). Be
+          sure to [switch to SSH key lookups via the database](https://docs.gitlab.com/ee/administration/geo/replication/updating_the_geo_nodes.html).
+
+    - name: GitLab Runner 9.5
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/runner'
+      documentation_text: "Read through the documentation on GitLab Runner"
+      description: |
+        We're also releasing GitLab Runner 9.5 today!
+
+        ##### Most interesting changes:
+
+        * Add support for credentials store ([merge request](https://gitlab.com/gitlab-org/gitlab-ci-multi-runner/merge_requests/501))
+        * Add support for Docker sysctl option for Docker executor ([merge request](https://gitlab.com/gitlab-org/gitlab-ci-multi-runner/merge_requests/541))
+        * Reduce binary size with removing debugging symbols ([merge request](https://gitlab.com/gitlab-org/gitlab-ci-multi-runner/merge_requests/643))
+        * Fix read error from upload artifacts execution ([merge request](https://gitlab.com/gitlab-org/gitlab-ci-multi-runner/merge_requests/645))
+
+        List of all changes can be found in GitLab Runner's [CHANGELOG](https://gitlab.com/gitlab-org/gitlab-ci-multi-runner/blob/v9.5.0/CHANGELOG.md).
+
+    - name: Omnibus Improvements
+      available_in: [core, starter, premium]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus/'
+      documentation_text: "Read through the documentation on Omnibus GitLab"
+      reporter: # required
+      description: |
+        * Omnibus GitLab packages are now [GPG signed](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/2537)!
+        Information on [signed packages](https://docs.gitlab.com/omnibus/package-information/signed_packages.html) and activating [signature verification](https://docs.gitlab.com/omnibus/update/package_signatures.html) can be found in the documentation.
+        * Git has been [updated to 2.13.5](https://gitlab.com/gitlab-org/omnibus-gitlab/merge_requests/1847).
+        * OpenSSL has been [updated to 1.0.2l](https://gitlab.com/gitlab-org/omnibus-gitlab/merge_requests/1776).
+        * UDP log shipping is [now part of CE](https://gitlab.com/gitlab-org/omnibus-gitlab/merge_requests/1829).
+
+    - name: Technical Articles
+      available_in: [core, starter, premium]
+      documentation_link: 'https://docs.gitlab.com/ee/topics/index.html'
+      documentation_text: 'Read through our Technical Articles'
+      reporter: marcia
+      description: |
+        To make GitLab easier to onboard, use, and discover, we are constantly
+        improving our documentation and publishing new technical articles with
+        tutorials, guides, and technical overviews.
+
+        This month, we're glad to announce two new great tutorials:
+
+          - [How to deploy Maven projects to Artifactory with GitLab CI/CD](https://docs.gitlab.com/ee/ci/examples/README.md#contributed-examples), by our Senior Product Manager [Fabio Busatto](/company/team/#bikebilly).
+          - [Numerous _undo_ possibilities in Git](https://docs.gitlab.com/ee/topics/git/numerous_undo_possibilities_in_git/index.html), by the Community Writer [Crt Mori](https://gitlab.com/Letme).
+
+
+# EXTRAS
+extras:
+- title: "General Improvements"
+  description: |
+    GitLab 9.5 includes numerous
+    [performance improvements](https://gitlab.com/groups/gitlab-org/issues?scope=all&state=opened&utf8=%E2%9C%93&milestone_title=9.5&label_name%5B%5D=performance)
+    including faster display of projects and issues and improved caching.
+
+    Most noticeable will be the improvements we've made to the front-end rendering
+    through lazy image loading and deferred JavaScript loading, making pages render
+    up to 50% faster as you can see in the image below.
+
+    ![fe_performance](/images/9_5/fe_performance.png)
+
+- title: "Faster Pages"
+  description: |
+    **Faster Issues Pages:**
+    In GitLab 9.5 we [improved the response timings when viewing project
+    issue pages](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13278).
+    We also improved response timings when sorting these issues by the
+    creation time, update time or due date. For GitLab.com these changes
+    resulted in issues pages loading roughly 2 times faster.
+
+    **Faster Project Exploration Page:**
+    The "Explore Projects" page has been made faster [by adjusting the pagination
+    system](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13278).
+    For GitLab.com this change reduces loading times by up to 2 seconds.
+
+    **Faster Project Homepages:**
+    Loading times of project homepages have been improved as well. This has
+    been improved by applying various changes such as
+    [caching the number of forks](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13319),
+    [removing redundant SQL queries](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13319)
+    and caching the number of personal projects per user.
+
+    **Faster New Project pages:**
+    The time taken to create a new project in GitLab has been reduced as well.
+    On GitLab.com, some projects could take over a minute to be created. This
+    has now been reduced to under ten seconds, and further improvements are
+    expected in GitLab 10.0.
+
+    ![transaction times for creating new projects in GitLab.com](/images/9_5/new_project_transaction_timings.png)
+
+- title: "Caching of GitLab Appearance and Broadcast Messages"
+  description: |
+    GitLab stores appearance related configuration (e.g. the title) of an instance
+    in a table called "appearances". There is also a table used for storing
+    broadcast messages. Previously these tables were queried on every
+    single page. Starting with GitLab 9.5 we [cache the appearances data](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13433)
+    and [broadcast messages](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13429)
+    and refresh this whenever necessary.
+- title: "Faster Event Feeds"
+  description: |
+    [The loading times of global, project, and group activity feeds have
+    been improved significantly](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13429).
+    For example, on GitLab.com the response timings of the "Activity"
+    dashboard (showing the events of all projects you have access to) were
+    reduced from a 99th percentile of 8-9 seconds to a 99th percentile of
+    roughly 1.2 seconds. This can be seen in the following graph:
+
+    ![Event Loading Times](/images/9_5/events_transaction_timings.png)
+
+    Using a logarithmic scale (base 2) we can more clearly see the impact of
+    these improvements:
+
+    ![Event Loading Times Log Scale](/images/9_5/events_transaction_timings_log.png)
+
+    These improvements are only available for users running PostgreSQL 9.3
+    or newer, users using an older version of PostgreSQL or MySQL will not
+    benefit from these improvements.
+- title: "PostgreSQL Idle Transaction Timeout"
+  description: |
+    [GitLab 9.5 adds support for a setting introduced in PostgreSQL 9.6:
+    `idle_in_transaction_session_timeout`](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13429).
+    This setting can be used to set a timeout for "idle in transaction"
+    transactions. This setting is set to 60 seconds by default but can be
+    changed like any other setting if desired.
+
+# MVP
+mvp:
+  fullname: Alexis Reigel
+  gitlab: koffeinfrei
+  description: |
+    Alexis added support for [verifying signed commits](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/9546)
+    to GitLab! Now all commits that include a GPG signature will show their verification status next to the commit author.
+
+    It's amazing and we all love it! Thanks Alexis! 🙌
+
+# COVER IMAGE LICENCE
+cover_img:
+  image_url: 'https://www.pexels.com/photo/alpine-calm-clouds-cold-279315/'
+  licence: CC0
+  licence_url: 'https://www.pexels.com/photo-license/'
+
+# CTA BUTTONS
+cta:
+  - title: "Join us for an upcoming event"
+    link: '/events/'
+
+# UPGRADE BAROMETER
+barometer:
+  reporter: jivanvl
+  description: |
+    To upgrade to GitLab 9.5 from the latest 9.4 version,
+    no downtime is required. To upgrade without downtime,
+    please [consult the documentation on downtimeless upgrades](https://docs.gitlab.com/ee/update/#upgrading-without-downtime).
+
+    For this release we have migrations and post-deploy migrations.
+
+    GitLab.com migrations took approximately 25 minutes and post-deploy
+    migrations amounted for a total of around 9 minutes.
+
+    GitLab Geo users, please consult the documentation on
+    [upgrading Geo](https://docs.gitlab.com/ee/administration/geo/replication/updating_the_geo_nodes.html).
+
+    ### Migration Of Event Logs
+
+    Starting with GitLab 9.5 we will be migrating the database tables used for
+    storing event logs into a new format. This migration is performed to
+    significantly reduce the amount of space required by the event log and to allow
+    for much more efficient querying of the data. For GitLab.com we expect to reduce
+    the table size by 80% and to make certain queries using this data up to 66 times
+    faster.
+
+    This is a two-step process with the first step being performed in 9.5 and the
+    second step being performed in 10.0. The first step in this process involves
+    migrating the data from the old "events" table into a new table. This procedure
+    is performed using background migrations and for very large instances (e.g.
+    those the size of GitLab.com) the expected completion time is between 5 and 7
+    days. This time can be reduced by increasing the number of Sidekiq workers that
+    can process the "background_migration" queue.
+
+    In 10.0 we will perform a cleanup procedure that does not require downtime if
+    and only if you upgrade to 9.5 first _and_ your GitLab instance meets the
+    requirements for online upgrades as listed in ["Upgrading Without
+    Downtime"][upgrading-without-downtime].  You can not upgrade straight to 10.0
+    from an earlier version without downtime.
+
+    Because of these background migrations potentially taking a few days to complete
+    we recommend users to keep at least 7 days between upgrading to 9.5 and 10.0
+    (once 10.0 is released). Doing so should prevent you from having to take your
+    GitLab instance offline for hours to perform the mentioned cleanup procedure.
+
+    To summarise, to make this procedure as easy as possible users are advised to:
+
+    1. Set up their GitLab instance according to
+       ["Upgrading Without Downtime"][upgrading-without-downtime].
+    2. Upgrade to 9.5.0 as soon as possible.
+    3. Upgrade to 10.0 as soon as possible, but at least 7 days after upgrading to
+       9.5.0.
+
+    If you want to see the progress of the migration process you can do so by
+    running the following snippet of Ruby code in a Rails console:
+
+        Sidekiq::Queue.new('background_migration').size
+
+    This will return the number of remaining background migration jobs (this may
+    include jobs for other migrations). Once this returns 0 the migration process is
+    complete.
+
+    Alternatively you can go to /admin/background_jobs of your GitLab instance (you
+    will need to be logged in as an admin for this to work) and look at the queue
+    size of the "background_migration" queue in the "Queues" tab.
+
+    For more information see the merge request ["Use a separate table for storing
+    push events"](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/12463/).
+
+    ### Migration of Merge Request Diffs and Commits
+
+    GitLab 9.5 contains a second background migration, which uses the same
+    mechanism as described above for the event logs. This migration moves the
+    diffs and commits stored on old merge requests from a serialised column in
+    one table, to two separate tables. This does not lead to any immediate space
+    savings, but will enable space savings in future, as well as new
+    features. It also improves query performance when fetching pipelines for
+    large merge requests.
+
+    This migration is also expected to complete within seven days. It will not
+    have the same cleanup procedure as for the events migration in 10.0, but in
+    a later 10.X release.
+
+    The merge request that introduced this change was [merge request commits
+    background migration](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/12685).
+
+    [upgrading-without-downtime]: https://docs.gitlab.com/ee/update/#upgrading-without-downtime
+
+# DEPRECATIONS
+deprecations:
+  - feature_name: PostgreSQL 9.2 Support
+    due: September 22nd, 2017.
+    reporter: joshlambert
+    description: |
+      With the release of GitLab 10.0 on September 22nd, support for Postgres 9.2
+      will end and it will be removed from the package. Due to this change, upgrading
+      to GitLab 10.0 requires the Postgres database to already be running version 9.6.
+
+      If you are upgrading from at least GitLab 9.0, your database is already running
+      verison 9.6. If you are running a version older than 9.0, please
+      [upgrade your database](https://docs.gitlab.com/omnibus/settings/database.html#upgrade-packaged-postgresql-server)
+      to prepare for GitLab 10.
+
+      PostgreSQL 9.2 is [end of life](https://www.postgresql.org/support/versioning/) in September,
+      five years after it was first released.
+
+  - feature_name: TLSv1 no Longer Accepted by Default
+    due: September 22nd, 2017.
+    reporter: joshlambert
+    description: |
+      GitLab 10 will no longer accept TLSv1 by default. If you would like to
+      continue to accept TLSv1 connections, it can be added back to the list of
+      supported protocols by editing the `nginx['ssl_protocols']` field in `gitlab.rb`.
+
+  - feature_name: GitLab Git HTTP Server Configuration Support Removed
+    due: September 22nd, 2017.
+    reporter: joshlambert
+    description: |
+      Since GitLab 8.2, we have used [gitlab-workhorse](https://gitlab.com/gitlab-org/gitlab-workhorse)
+      to process Git HTTP traffic. Earlier versions of GitLab used
+      [gitlab-git-http-server](https://gitlab.com/gitlab-org/gitlab-git-http-server), and configuration
+      entries for it have been ignored. With GitLab 10, we will be removing the code to recognize the
+      long deprecated configuration parameters for gitlab-git-http-server. In the event your `gitlab.rb`
+      configuration file contains these entries, they should be removed or GitLab configuration will fail.
+
+  - feature_name: Drop Support of Legacy Git Storage Configuration
+    due: March 22nd, 2018.
+    reporter: joshlambert
+    description: |
+      With the release of GitLab 9.0, we changed how to
+      [configure an alternate Git storage directory](https://gitlab.com/gitlab-org/omnibus-gitlab/merge_requests/1363)
+      in order to support multiple directories. Backwards compatibility was maintained for the
+      older formats to ease the upgrade process. In a future release of GitLab, we will no longer support the
+      older configuration parameter, and users should modify their `gitlab.rb` to support the
+      current [`git_data_dirs` format](https://docs.gitlab.com/omnibus/settings/configuration.html#storing-git-data-in-an-alternative-directory).
+
+      For example if your `gitlab.rb` contains `git_data_dirs({ "default" => "/var/opt/gitlab/git-data" })`
+      it should be changed to `git_data_dirs({ "default" => { "path" => "/var/opt/gitlab/git-data" } })`.
+
+  - feature_name: GitLab CI API v1, GitLab Runner 1.11.x
+    due: September 22nd, 2017.
+    description:
+      In 9.0 we released a new version of GitLab Runner that is based on the new API v4 instead of the old CI API v1.
+      We are still supporting the old version of the API in GitLab, so users that are still using
+      GitLab Runners 1.11.x can take their time for the migration process.
+
+      With GitLab 10.0, planned to be shipped on September 22nd, we are going to remove the old CI API from GitLab,
+      making GitLab Runner 1.11.x unable to communicate with the system.
+
+      If you are using old GitLab Runner (<9.0), or any tools that are using GitLab CI API v1, an upgrade will be required.

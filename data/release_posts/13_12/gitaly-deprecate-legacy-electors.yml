@@ -1,0 +1,12 @@
+deprecations:
+- feature_name: "Deprecate legacy Gitaly Cluster primary electors"
+  due: June 22, 2021
+  reporter: mjwood
+  description: |
+    Now that Praefect supports a [`per_repository` primary election strategy](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#repository-specific-primary-nodes) to elect a primary for each repository,
+    we will be deprecating the legacy strategies in GitLab 13.12 so we can remove them in GitLab 14.0.
+
+    - The `local` elector is not supported in production, so should not impact production instances.
+    - The `sql` elector is incompatible with the [variable replication factor](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#configure-replication-factor) functionality.
+
+    For anyone using `local` or `sql` primary electors, we recommend you update to the `per_repository` election strategy as soon as possible. See the [migration documentation](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#migrate-to-repository-specific-primary-gitaly-nodes).

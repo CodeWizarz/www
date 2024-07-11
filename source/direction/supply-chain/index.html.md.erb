@@ -1,0 +1,196 @@
+---
+layout: markdown_page
+title: "Software Supply Chain Security Direction"
+description: "Software needs to be developed in a way that properly protects it from supply chain attacks. This page highlights GitLab's direction."
+canonical_path: "/direction/supply-chain/"
+---
+
+- TOC
+{:toc}
+
+We would appreciate your feedback on this direction page. Please [email Sam White](mailto:swhite@gitlab.com) or [propose an MR](https://gitlab.com/gitlab-com/www-gitlab-com/-/edit/master/source/direction/supply-chain/index.html.md.erb) to this page!
+
+The Sec Section maintains GitLab&apos;s vision for [Software Supply Chain Security (SSCS)](/solutions/supply-chain/) and leads coordination across the many stages that are involved in delivering a comprehensive, quality secure supply chain experience at GitLab. These include, but are not necessarily limited to the following:
+
+- [Manage](/direction/dev/#manage)
+- [Create](/direction/dev/#create)
+- [Verify](/direction/verify/verify)
+- [Package](/direction/package/)
+- [Deploy](/direction/delivery/)
+- [Secure](/direction/secure/)
+- [Govern](/direction/govern/)
+
+This direction page is intended to help facilitate cross-stage collaboration as well as to provide a single reference describing our vision for the product capabilities that comprise our SSCS solution. The end goal is to deliver a single tool that gives users confidence in the integrity and security of their software supply chain.
+
+Because this page represents our long-term vision, it extends beyond our current product roadmap to describe the ideal future state of GitLab.  Please reference the individual epics/issues in GitLab to track progress toward accomplishing this vision.
+
+## Overview
+
+An emerging concern in the software development space is being able to document the entire supply chain and development progress by creating a chain of custody starting from code creation, build, test, package, and going through deployment. One important element of this chain of custody is commonly referred to as a Software Bill of Materials [SBOM](https://www.ntia.gov/SBOM). There are also frameworks, such as [SLSA](https://slsa.dev/) which collect additional elements about the process. Together these documents are becoming critical components to satisfying regulated industry requirements.
+
+Software Supply Chain Security includes everything needed to securely deliver and run software with a high degree of confidence that not only your software, but also its surrounding cloud native infrastructure has not been compromised. GitLab has put together a framework describing the various aspects that are required to accomplish this based on feedback from customers, inspiration from common standards (such as SLSA), as well as thought leadership from industry analysts. Please note however, that this framework is not necessarily representative of any other entity&apos;s opinion or perspective on the SSCS space.
+
+![GitLab Software Supply Chain Security Framework](/images/direction/supply-chain/SSCS_framework.png)
+
+We believe that there are five main aspects to consider when providing for a secure end-to-end software supply chain.
+1. **Source** - includes the controls needed to be confident that both internal and external source code is safe from vulnerabilities and has not been compromised in any way.
+1. **Build** - includes rigorous requirements for the security and isolation of build environments as well as the automatic generation of provenance.
+1. **Consumption** - includes the ability to validate authenticity and source of any executed binaries. Supports requirements for securing the underlying host infrastructure itself.
+1. **Management Process** - this component spans across all other aspects of SSCS and includes both the tools and processes necessary to provide for ongoing visibility into compliance SSCS requirements.
+1. **Tool Security** - this component spans across all other aspects of SSCS and includes the adoption of best practices for managing the security of the underlying tools themselves.
+
+## Current Position and Vision
+
+The state of GitLab product capabilities required to address each of the five aspects of SSCS currently spans the spectrum from vision items to complete features:
+
+### Source
+
+The approach for protecting code sources can be subdivided by thinking about protection for Internal Sources separately from protection for External Sources.
+
+**Status Legend / Key**
+
+| Icon | Meaning |
+| ------ | ------ |
+| ✅ | Feature is considered complete |
+| 🔨 | Feature exists and still has areas for improvement |
+| ⌛ | Feature is part of the vision and has not yet been built inside GitLab |
+
+#### Internal Sources
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------ | ------ | ------ | ------ |--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Version control and code history | ✅ | `Create:Source Code` | [Version control](https://about.gitlab.com/topics/version-control/how-implement-version-control/) and code history retention is fully supported in GitLab as part of Git. |                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Developer identity verification | ✅ | `Create:Source Code` | [GPG key signing](https://docs.gitlab.com/ee/user/project/repository/signed_commits/gpg.html) is fully supported by GitLab. Additionally, [push rules](https://docs.gitlab.com/ee/push_rules/push_rules.html) can be configured to reject commits that are not GPG key signed. | To further mature in this area, we are [considering using GitSign](https://gitlab.com/gitlab-org/gitlab/-/issues/364428) to sign all commits that are made in the GitLab UI by using the user&apos;s GitLab OIDC identity.                                                                                                                                                                                                     |
+| Enforced two-person code review and security review for vulnerabilities | ✅ | `Create:Code Review` | GitLab has a [robust approval system](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/) capable of requiring two-person review, including from an approver who is also not the code owner. | Although this feature is generally considered to be complete, improvements are ongoing. A few of our many current initiatives to improve this area can be referenced in the following Epics and Issues: [#207525](https://gitlab.com/gitlab-org/gitlab/-/issues/207525), [&amp;4367](https://gitlab.com/groups/gitlab-org/-/epics/4367), [#335316](https://gitlab.com/gitlab-org/gitlab/-/issues/335316)                       |
+| Branch protection rules and vulnerability approval rules | ✅ | `Create:Source Code` and `Govern:Security Policies` | GitLab fully supports the ability to create [branch protection rules](https://docs.gitlab.com/ee/push_rules/push_rules.html#enabling-push-rules) and [approval rules](https://docs.gitlab.com/ee/user/application_security/#security-approvals-in-merge-requests) |                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Dependency protection rules | ⌛  | `Package:Package` |  | The vision is to empower users to create [container image](https://gitlab.com/gitlab-org/gitlab/-/issues/18984) and [package](https://gitlab.com/groups/gitlab-org/-/epics/5574) protection rules to further restrict who can update your critical dependencies.                                                                                                                                                               |
+| Ability to restrict merge access by defining project maintainers | ✅ | `Manage:Access` | GitLab fully [supports this requirement](https://docs.gitlab.com/ee/user/project/members/). |                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| Multiple types of code scanning: Secret Detection, SAST, DAST, API Fuzzing, Coverage Guided Fuzzing | ✅ | `Secure` | Users can run a wide variety of scanners natively through GitLab. They can manage the results and require approval for merge requests where new vulnerabilities are identified. | Although this feature is generally considered to be complete for the purposes of SSCS, improvements are ongoing. Among other things, GitLab strives to continually expand the coverage, accuracy, and language support of our scanners.                                                                                                                                                                                        |
+| Controlled development environments | ⌛ | `Create:IDE` | Currently GitLab has integrations with tools such as [GitPod](https://docs.gitlab.com/ee/integration/gitpod.html) that allow software engineers to do their development in a remote environment. | The [future vision](https://about.gitlab.com/direction/create/ide/remote_development/) is for GitLab to host a remote development environment that is tightly integrated with GitLab and that can be managed and updated centrally. Centrally managing this environment reduces the number of tools that need to be installed on individual development environments and can help to protect against malware and code tampering. |
+
+#### External Sources
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| SCA scanning | ✅ | `Secure:Composition Analysis` | Users can scan both their application dependencies and their system dependencies for vulnerabilities. They can manage the results of these scans within GitLab and can require approval for merge requests where new vulnerabilities are identified. | Although this feature is generally considered to be complete for the purposes of SSCS, improvements are ongoing. Among other things, GitLab strives to continually expand the coverage, accuracy, and language support of our scanners. |
+| Dependency graph | ⌛ | `Secure:Composition Analysis` | | GitLab has plans to add a [dependency tree visualization](https://gitlab.com/groups/gitlab-org/-/epics/3843) feature into GitLab for easier visualization of the dependencies that exist between external sources. |
+| Binary scanning of dependencies | ⌛ | `Secure:Composition Analysis` | | Basic SCA scanning compares installed package names and versions to a database of known vulnerabilities. Binary scanning takes this one step further by inspecting the contents of the binary itself using static analysis tools to detect potential vulnerabilities. |
+| Behavioral analysis of dependencies | ⌛ | `Secure:Composition Analysis` | | The vision is for users to be able to analyze the behavior of their dependencies using GitLab. Observing key events such as system calls, network connectivity, and file reads during the test stage of the CI pipeline can provide insights into whether or not an upstream dependency has potentially become compromised in some way. |
+| Verification of provenance | ⌛ | `Secure:Composition Analysis` | | The vision is to allow users to verify and validate published attestation or provenance for upstream dependencies (if it exists) as part of the CI pipeline and alert on any dependencies that do not meet established criteria. |
+| Dependency firewall | ⌛ | `Package:Package` | | The vision is to [build a dependency firewall into GitLab](https://gitlab.com/groups/gitlab-org/-/epics/5133). This would allow users to configure rules to prevent use of dependencies that do not match established rules. This can help protect against typosquatting attacks and can block packages that have concerning characteristics. |
+
+### Build
+
+#### Build Execution
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| Support for scripted builds from code | ✅ | `Verify` | GitLab supports the ability to run [CI/CD pipelines](https://docs.gitlab.com/ee/ci/) and both execute and deploy scripted builds from code. | |
+| Secure, ephemeral, and isolated build environment | ✅ | `Verify:Runner` | This is supported as long as the runners are [properly secured](https://docs.gitlab.com/runner/security/). Use of non-privileged Docker executors is recommended. | |
+| Support for hermetic builds | ✅ | `Verify:Runner` | GitLab supports the ability to [limit network access to runners](https://docs.gitlab.com/runner/security/#network-segmentation). Runners do require connectivity to the GitLab server. | |
+| Machine identity verification for all sources | ⌛ | `Verify` | Users who desire this feature would currently need to build/script this verification themselves. | The vision for this is to include some additional verification checks to be confident that all sources are coming from trusted, verified locations. |
+
+#### Provenance and Signing
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| Build output signing | ⌛ | `Verify:Runner` | Currently users can leverage external tools which integrate with GitLab to sign their builds. | A native integration with [CoSign](https://github.com/sigstore/cosign#registry-support) is [being considered](https://gitlab.com/gitlab-org/gitlab/-/issues/338682) to make it easy for users to sign their builds within GitLab. |
+| Provenance/Attestation generation for build outputs | 🔨 | `Verify:Runner` | Currently GitLab can be used to [generate an attestation or provenance document](https://about.gitlab.com/releases/2022/06/22/gitlab-15-1-released/#slsa-2-attestation-included-for-build-artifacts) for all build artifacts.  Additionally, users can leverage external tools which integrate with GitLab to sign their builds. | GitLab has [plans to sign](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/29063) both the build artifact and the attestation file by default by automatically generating a short-lived private signing key using [Fulcio](https://github.com/sigstore/fulcio). |
+| Release evidence generation | 🔨 | `Release:Release` | Generation and publication of [release evidence](https://docs.gitlab.com/ee/user/project/releases/#release-evidence) is currently supported. | Release evidence will ideally be expanded to include an SBOM of all dependencies as well as the provenance/attestation that was generated at the time the build was created. |
+| Release evidence publishing on a shared platform for authenticity verification | ⌛ | `Release:Release` | | GitLab has an opportunity to become a centralized, trusted authority capable of attesting to the authenticity of certain builds. |
+| SBOM generation and management | 🔨 | `Secure:Composition Analysis` and `Govern:Dependency Management` | GitLab is currently able to generate a SBOM of application and system dependencies. This is displayed on the Dependency List page where users can easily view all the included packages along with their version and any vulnerabilities that have been detected. Additionally, a JSON CycloneDX formatted artifact can be produced in the CI pipeline. | In the future, GitLab plans to add support for [exporting the dependency list](https://gitlab.com/groups/gitlab-org/-/epics/858) in SPDX and Cyclone DX formats. Eventually this SBOM is envisioned to be signed and included in any generated provenance/attestation documents that are produced. |
+
+### Consumption
+
+#### Binary Acceptance
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| Binary authorization enforcement to validate and verify provenance | ⌛ | `Configure:Configure` | | GitLab already supports continuous deployment through the GitLab Kubernetes Agent. Ideally this will be extended to validate and verify the provenance/attestation for container images prior to deploying them in production. In addition, regular scans might be done to verify on an ongoing basis that Binary Authorization has been set up within the production environment and to further validate and confirm that all running deployments meet established policies. One tool that might be used for this in the future is [Kritis](https://github.com/grafeas/kritis) |
+| Validation and verification of source machine identities | ✅ | `Configure:Configure` | This requirement is met by default for users who deploy to production using GitLab for continuous deployment. The [GitLab Kubernetes Agent](https://docs.gitlab.com/ee/user/clusters/agent/) automatically verifies and validates the authenticity of the GitLab server certificate that it connects to. | |
+
+#### Continuous Workload Protection
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| Least access network firewalling | ⌛ | TBD | Users are able to store Network Policies as code for open source cloud-native tools such as [Cilium](https://cilium.io/) in their [cluster management project](https://docs.gitlab.com/ee/user/clusters/management_project_template.html). They can then use GitLab&apos;s [secure CI/CD tunnel](https://docs.gitlab.com/ee/user/clusters/agent/repository.html#run-kubectl-commands-using-the-cicd-tunnel) to deploy those policies automatically in production. | To be determined |
+| Intrusion detection and prevention | ⌛ | TBD | Users are able to store policies as code for open source cloud-native monitoring tools such as [Falco](https://github.com/falcosecurity/falco) in their [cluster management project](https://docs.gitlab.com/ee/user/clusters/management_project_template.html). They can then use GitLab&apos;s [secure CI/CD tunnel](https://docs.gitlab.com/ee/user/clusters/agent/repository.html#run-kubectl-commands-using-the-cicd-tunnel) to deploy those policies automatically in production. | To be determined |
+| Workload scanning | 🔨 | `Secure` | Using an Experiment feature in GitLab, users can [scan their production container images](https://docs.gitlab.com/ee/user/application_security/cluster_image_scanning/) on a regular candence. | The vision is to make our cluster image scanning capability generally available and to also expand the number and types of scans that can be run against production workloads. |
+| Host environment scanning and hardening | ⌛ | TBD | | The vision is to allow users to scan their production infrastructure for weak configurations and to enforce their production security configuration standards through GitLab. |
+| Stringent access control policies and audit logs | ⌛ | TBD | | To be determined |
+
+### Management Process
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| Reporting on adherence to compliance standards | 🔨 | `Govern:Compliance` | Some [compliance reports](https://docs.gitlab.com/ee/user/compliance/compliance_report) are available natively in GitLab and other data can be collected through the API. | Work on a centralized dashboard showing compliance with [SLSA](https://slsa.dev/) and other similar standards is part of GitLab&apos;s vision. |
+| Enforcement of secure settings | 🔨 | `Govern:Security Policies` | Security and compliance teams can currently enforce a wide variety of controls, including requiring scans to be run, enforcing security-related configuration settings, and maintaining requirements related to merge request approvals. | The vision is for Security and Compliance teams to be able to enforce **all** aspects of SSCS in a way that other users are unable to disable or change those settings. |
+| Credential management | 🔨 | `Manage:Authentication and Authorization` | Self managed users are currently able to enforce requirements related to [SSH keys](https://docs.gitlab.com/ee/security/ssh_keys_restrictions.html), [SSH access](https://docs.gitlab.com/ee/administration/settings/account_and_limit_settings.html#limit-the-lifetime-of-ssh-keys), and [Personal Access Tokens (PAT)](https://docs.gitlab.com/ee/administration/settings/account_and_limit_settings.html#limit-the-lifetime-of-personal-access-tokens). | The vision is to provide SaaS users with feature parity for managing SSH keys, SSH access, and PAT access policies. |
+
+### Tool Security
+
+| Key Requirements | Status | GitLab Group | Current Capabilities | Future Vision |
+| ------ | ------ | ------ | ------ | ------ |
+| Audit logs | 🔨 | `Govern:Compliance` | GitLab has a robust [audit logging system](https://docs.gitlab.com/ee/administration/audit_events.html) in place today. | Additional audit events are regularly being added into GitLab. |
+| Access controls | 🔨 | `Manage:Access` | GitLab supports multiple [authentication and authorization](https://docs.gitlab.com/ee/administration/auth/) options today. | GitLab can increase its security by supporting full RBAC to allow administrators to give users the least amount of access that is required to do their job. |
+| Threat detection | ⌛ | `Manage:Access` and `Govern:Compliance` | Users can integrate external systems with GitLab to analyze suspicious behavior. | GitLab has an opportunity to leverage anomaly detection and machine learning to detect and stop threats. This can be used to analyze user behavior as well as activity on the GitLab server itself. |
+
+## Strategy
+
+In the long-term, our strategy is to become a complete provider for all aspects of software supply chain security. Providing all of these aspects within a single application not only supports GitLab&apos;s broader [Single Application Strategy](/handbook/source/handbook/product/single-application) but also provides numerous tangible benefits for users.
+
+Among other things, using a single application:
+* minimizes the number of different tools that need to be hardened and monitored.
+* reduces the number of potential points of security failure as data is transferred between various tools.
+* enables seamless interoperability.
+* simplifies visibility and traceability for audits.
+
+## Highlighted epics and issues
+
+There are a few epics and important issues you can check out to see where we&apos;re headed. More will be added here as we develop this vision further.
+
+- [Dependency Management Vision](https://gitlab.com/groups/gitlab-org/-/epics/8226)
+- [Artifact Data Store](https://gitlab.com/groups/gitlab-org/-/epics/6207)
+- [Release Evidence Viability](https://gitlab.com/groups/gitlab-org/-/epics/5135)
+
+## What&apos;s next & why
+
+In GitLab 15.1, the GitLab Runner Core team added the ability for GitLab to be able to [generate a SLSA 2 compliant provenance/attestation artifact file](https://about.gitlab.com/releases/2022/06/22/gitlab-15-1-released/#slsa-2-attestation-included-for-build-artifacts) for build artifacts.
+
+We plan to expand on this by [signing](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/29063) both the attestation file and the build artifacts.  Once that is done, we plan to make the attestation file compliant with SLSA levels 3 and 4.
+
+Alongside this effort, GitLab now supports creating [JSON CycloneDX-formatted Software Bill of Materials (SBOM) artifact files](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#cyclonedx-software-bill-of-materials).  We plan to further extend on this by [ingesting these artifact files into our database](https://gitlab.com/groups/gitlab-org/-/epics/7886) and then allowing users to download a single SBOM file for their project.  Eventually we plan to include the information from the SBOM in the attestation file that is produced by the GitLab Runner.
+
+## Competitive landscape
+
+There have been indications that Tekton and Sigstore are tools representing a leader in software supply chain security. One example of how this has been used in practice can be found in this [blog](https://dlorenc.medium.com/zero-trust-supply-chain-security-e3fb8b6973b8).
+
+[CoSign](https://github.com/sigstore/cosign#registry-support) is an open source tool that can be used for container signing.
+
+[Grafeas](https://grafeas.io/) is an open-source artifact metadata datastore tool which offers flexible, universal artifact metadata storage - a key foundation for software supply chain security.
+
+## Frameworks
+
+**Supply chain Levels for Software Artifacts (SLSA)**
+
+The [SLSA framework](https://slsa.dev/) is an open source specification that is primarily focused on preventing artifacts from being tampered with as they are coded, developed, and published.  Our vision for SSCS includes adding native support for SLSA with the objective of eventually fully supporting all the way up to SLSA level 4.  GitLab already supports users who want to attain some levels of SLSA compliance as [outlined on this solution page](https://about.gitlab.com/solutions/supply-chain/).  GitLab is currently exploring ways to natively generate the required provenance data for SLSA as part of its Runner that does the build.  For more details on SLSA, view the [SLSA requirements](https://slsa.dev/spec/v0.1/requirements).
+
+**The Update Framework (TUF)**
+
+[The Update Framework (TUF)](https://github.com/theupdateframework/specification/blob/master/tuf-spec.md#the-update-framework-specification) is an open source specification for that provides instructions on how to organize, sign, and interact with metadata to secure package managers. Our vision for SSCS includes adding native support for TUF in the future by including the required metadata in the software provenance that we plan to generate and by validating signatures at each step of the software lifecycle. TUF leverages a Kritis store to manage metadata from in-toto. TUF recommends the use of an OCI image-spec container registry, aligned with our Container Registry's [documentation](https://docs.gitlab.com/ee/architecture/blueprints/container_registry_metadata_database/#new-features-and-breaking-changes). Some gaps to consider for GitLab are the rotation of secrets and key management, which is a part of [Secrets Management direction](/direction/verify/secrets_management/).
+TUF also recommends the [verification of deployments](/direction/delivery/deployment_management/).
+For more details on TUF, view the [CNCF TUF specifications](https://project.linuxfoundation.org/hubfs/CNCF_SSCP_v1.pdf).
+
+## North Stars
+
+A FY23 theme for the [Verify Stage](/direction/verify/verify) is to support pipeline safety throughout the software development lifecycle to automatically ensure compliance and security. This is complimented by Software Composition Analysis Group&apos;s [Dependency Scanning direction](/direction/secure/composition-analysis/dependency-scanning/) on SBOM.
+
+We aim to make a seamless experience for verifying trust at every step in the software chain.
+
+## Analyst Landscape
+
+Gartner has published some information on this topic in a paper titled [How Software Engineering Leaders Can Mitigate Software Supply Chain Security Risks](https://www.gartner.com/en/documents/4003625-how-software-engineering-leaders-can-mitigate-software-supply-chain-security-risks). Gartner has also published a market guide for [Compliance Automation Tools in DevOps](https://www.gartner.com/en/documents/3986057/market-guide-for-compliance-automation-tools-in-devops).
+
+Last Reviewed: 2023-01-04
+
+Last Updated: 2023-01-04

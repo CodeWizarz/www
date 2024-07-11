@@ -1,0 +1,80 @@
+---
+title: "How we’re creating a threat model framework that works for GitLab"
+author: "Mark Loveless"
+author_gitlab: mloveless
+author_twitter: simplenomad
+categories: security
+image_title: '/images/blogimages/pexels-nathan-j-hilton.jpeg' 
+description: "As usual, we’re creating our own path in how we handle our threat modeling, approaching development both iteratively and collaboratively, and seriously shifting left with our framework and processes."
+tags: security, inside GitLab, security research
+twitter_text: "Here’s how we chose, and adapted, a #threatmodeling framework to fit @gitlab." # optional;  If no text is provided it will use post's title.
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/05/27/deep-dive-investigation-of-gitlab-packages/"
+  - "/blog/2020/08/31/how-to-configure-dast-full-scans-for-complex-web-applications/"
+  - "/blog/2020/04/10/open-source-security/"
+---
+
+This is the first in a series of three blog posts where we discuss [threat modeling](/handbook/security/threat_modeling/) and how we’re [using it at GitLab](/handbook/security/threat_modeling/howto.html) to help secure our product, our company, and most importantly our customer’s data. As usual, [we’re doing things a bit differently](https://gitlab.com/gitlab-com/gl-security/security-research/threat-modeling-template), but when you hear why it will make a lot of sense.
+
+## Threat modeling
+
+Let’s start with the basics, what is threat modeling?
+
+Threat modeling is the process of risk assessment for a particular project, asset, procedure, or product. While it can apply to nearly any established or new procedure, it seems to most often get applied to software. For GitLab, this would mainly apply to our source code.
+
+As assessing risk has historically been the domain of the security department of most organizations, the threat modeling process has been nearly exclusively handled by the [security department](/handbook/security/#security-department) here at GitLab. This does make a lot of sense on many levels, and many threat modeling scenarios are exclusively managed by those within the security department.
+
+## How does it work? In theory and in practice?
+
+The general process of developing a threat model does vary, but it typically breaks down as follows:
+
+* Scope out what is to be included in the threat model process.
+* Define the potential attackers or situations that could create a security problem.
+* Assess the associated risks with the process or procedure.
+* Fix all the problems identified.
+
+This sounds fine, but there are a few things that cause problems for a lot of organizations, especially bleeding edge companies that push boundaries. Here are a few:
+* In spite of the attempts to “shift left” it is often that most security departments look at the new code or new project towards the end of the project. In lucky cases, they are involved in the middle; but ideally they should be included in the beginning phases.
+* In large organizations with many projects, there are not enough security team members to handle the workload; especially in a shop that is constantly developing and releasing code. Depending on the project, it could take hours to simply get a security team member up to speed, assuming everyone had the free time to spend doing so. Basically, it doesn’t scale as there are simply not enough personnel to get all of the work done.
+* The models used for this are extremely thorough but also extremely complex. They can involve intricate diagrams, require input from multiple parties that may not fully understand what the other parties are doing, and use language to describe their layered steps that can be confusing and, well, quite boring.
+* No one, and I mean **no one** seems to enjoy creating a threat model.
+
+## Finding a framework we could adapt
+
+First off, we had to decide on a few things up front. We wanted to come up with some type of framework that allowed us to easily adopt a threat modeling process into our existing processes. Our existing processes work quite well, and we knew that if we were going to introduce something into that process, it would have to be simple.
+
+We had to address all of the concerns that we had identified as a part of the overall threat model process and either reduce their impact or eliminate them entirely. **The threat modeling had to scale and fit into the existing development processes, not the other way around.**
+
+Asking a group of developers to learn some new process such as the process of creating elaborate diagrams that define data classification, authentication zones, permissions, and many other detailed items just didn’t make any sense. Sure, you can get a sense of part of the information being modeled, but does one have to learn some complex diagramming software package in the process?
+
+GitLab is 100% remote and 100% spread out all over the planet, and we manage to work asynchronously. Whatever process for threat modeling we were going to use was going to require the ability to work asynchronously while doing it.
+
+After choosing our general framework, we had to strip it down and make it fit with our existing processes, develop a “plan” on how to use it, test it, and then introduce it into the usual steps. This took a bit of time, but we came up with something.
+
+## PASTA as a base
+We use the [PASTA](https://www.wiley.com/en-us/Risk+Centric+Threat+Modeling%3A+Process+for+Attack+Simulation+and+Threat+Analysis-p-9780470500965#) framework as a base, and with all of the adjustments we’ve made to fit GitLab’s unique environment and processes, we are already seeing positive results from our own framework. Here are some of the features:
+* It is easy to understand.
+* It scales.
+* It enhances DevSecOps with minimal overhead.
+* It is based off of an existing framework with an established track record.
+* It works nicely with existing processes within our Security department.
+* It doesn’t just apply to coding projects; it can apply to any project, including those in Infrastructure, Marketing, Sales, and other departments.
+
+The advantages of our adoption and modification of the PASTA framework allows us to have a common language with those outside of the weird security world, and other departments within GitLab can also understand it. This well-known framework even allows us to have discussions with partners, customers, and contributors about security and risk and threat and not worry about whether they’ll be able to understand us.
+
+But the biggest change we’ve made is not “how” but “where” and “who.” While our Security team owns the framework, we don’t “run” it. It is run by the people who are running the project. *Let me explain...*
+
+Let’s say we have a department in Engineering that is getting ready to start a new or existing project. They have a list of steps they need to run by the Security team as a part of the procedure they would normally follow. One of those steps is for that Engineering department to perform their *own* threat model. We’re available for questions, but as they know the project far better than we do, they come up with a really good model. The idea is that they will uncover a few gotchas and will fix problems either before or during the coding process. And they do!
+
+The main tool we have available for this is a [threat modeling process that includes a template](/handbook/security/security-engineering/application-security/runbooks/threat-modeling.html), and they use this to create a markdown file (something everyone at GitLab does all the time) to record the basic steps taken during threat modeling. This way when it is time for the Security team review, which is usually near the end of the project, we can review what they’ve done. Of course there are going to be times when we will still send things back for a fix, but the vast majority of everything is already corrected!
+
+We not only get through the threat modeling process, but the code being developed is more secure, the time to complete this added process is minimal, and it scales. It is **efficient**. It is **effective**. It is the [best kind of boring](/handbook/values/#boring-solutions).
+
+## What's next
+In the next blog post in this series, we will take a deeper dive into the framework, including how in some cases we can use a “subset” of a full PASTA framework, and how we reached some of the decisions on our “modifications.”
+
+Photo by [Nathan J Hilton](https://www.pexels.com/@radmondo?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels) on [Pexels](https://www.pexels.com/photo/steel-frame-building-in-modern-style-5261943/?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels)
+
+{: .note}

@@ -1,0 +1,134 @@
+---
+title: "How to integrate Azure DevOps repositories with GitLab"
+author: Itzik Gan-Baruch
+author_gitlab: iganbaruch
+author_twitter: itzikgb
+categories: engineering
+image_title: '/images/blogimages/ado_and_gitlab/aleksey-kuprikov.jpg'
+description: "How to keep your code in an Azure DevOps repository and run CI/CD with GitLab pipelines."
+tags: CI/CD, pipeline, tutorial
+postType: content marketing, Technical Marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+Recently we’ve been asked by several people if it is possible to integrate between Azure DevOps/VSTS (Visual Studio Team Services) source code management and GitLab. They are looking for a modern [CI/CD solution](/topics/ci-cd/) like GitLab, but as part of a gradual transition they still need to keep managing their code in Azure DevOps/VSTS. 
+
+## Does Azure DevOps integrate with GitLab?
+
+Yes, Azure DevOps Services does integrate with GitLab.
+
+Although we of course recommend using GitLab CI/CD together with our built-in GitLab SCM, this integration of Azure DevOps source code management and GitLab makes it possible to migrate slowly from Azure DevOps by leaving your code in the Azure [DevOps](/topics/devops/) repository while you adopt GitLab CI/CD. This integration is possible with both the self-managed and SaaS versions of GitLab. The integration works only with Azure DevOps/VSTS git version control. TFVC (Team Foundation Version Control) isn’t supported. 
+
+### In GitLab, there are two features that enable this integration:  
+
+[GitLab CI/CD for external repositories](https://docs.gitlab.com/ee/ci/ci_cd_for_external_repos/) 
+
+[Remote repository mirroring](https://docs.gitlab.com/ee/user/project/repository/repository_mirroring.html)
+
+What is a repository in DevOps?
+
+Code repositories in tools like GitLab and Azure exist to house all source code. Sometimes these repositories are referenced as a DevOps “repo” or a source repository. Whatever the title, code repositories provide a place where developers can work to ensure high code quality. 
+GitLab uses a [git-based repository](/stages-devops-lifecycle/source-code-management/) for source code management with [version control](https://about.gitlab.com/topics/version-control/). It lets GitLab users perform code reviews and easily solve developer issues.
+
+## What is the difference between GitLab and Azure DevOps?
+
+Azure DevOps has a range of services for managing the development lifecycle. Some of its main features include agile planning boards, private git repos for source code management, and Azure pipelines.
+
+GitLab is a single platform for the entire [DevSecOps lifecycle](https://about.gitlab.com/stages-devops-lifecycle/) and includes the following:
+
+- Planning and collaboration
+- Source code management
+- Code reviews
+- CI/CD pipelines
+- Constant security scanning and monitoring
+- Advanced deployments
+- Vulnerability management
+
+GitLab can help manage the entire DevSecOps lifecycle to deliver software quickly and efficiently while bolstering security and compliance.
+
+## How do I connect to Azure from GitLab?
+
+It may take some time to fully move over from Azure to GitLab for source code management. To smooth the transition, there are simple steps to connect to the Azure integration from GitLab.
+
+1. Create a new project in GitLab by clicking the New Project button  ![Create new project ](/images/blogimages/ado_and_gitlab/ado1.png){: .large.center}
+
+2. Choose the ‘CI/CD for external repo’ tab, and click on Repo by URL.  ![CI/CD for external repo](/images/blogimages/ado_and_gitlab/ado2.png){: .large.center}
+
+3. Open your repository in Azure DevOps and click Clone  ![Getting clone url ](/images/blogimages/ado_and_gitlab/ado3.png){: .large.center}
+
+4. Copy the URL. If your repository is private, you will need to generate Git credentials – just click this button and copy the username and password.  ![Credentials](/images/blogimages/ado_and_gitlab/ado4.png){: .large.center}
+
+5. Paste the URL in GitLab under the Git repository URL, give it a name, set the visibility level, and click create project. Add the username and password in case your Azure DevOps repository is private. Note: The repository must be accessible over http://, https:// or git://. When using the http:// or https:// protocols, please provide the exact URL to the repository. HTTP redirects will not be followed.  ![Create project form](/images/blogimages/ado_and_gitlab/ado5.png){: .large.center}
+
+6. Your project is now successfully Mirrored to GitLab. Now branches, tags, and commits will be synced automatically to GitLab. 
+
+7. To configure a CI/CD pipeline there are two options:
+
+Before pushing your first commit, open the CI/CD settings in GitLab and enable Auto DevOps.  It will set the CI/CD configuration, so each commit in Azure Repos will trigger a CI/CD  pipeline in GitLab which will build, test, and deploy your app.  ![Auto DevOps settings](/images/blogimages/ado_and_gitlab/ado6.png){: .shadow.large.center}
+ 
+Alternatively, in case you want to define the pipeline configuration yourself instead of using the Auto DevOps, add [.gitlab-ci.yml](https://docs.gitlab.com/ee/ci/yaml/) file to  your repository root directory. The Yaml code should include your [CI/CD definitions](/blog/2019/07/12/guide-to-ci-cd-pipelines/). Once this file is included in the root directory a CI/CD pipeline will be triggered for each commit. If you are not familiar with .gitlab-ci.yml, start by creating a file with the name .gitlab-ci.yml and paste the below code to it. This code includes build and test stages, and a job that displays text to the console in each stage. Later on you can add additional scripts to each job, and also add additional jobs and stages. To create more complex pipelines, you can [use the pipeline templates](https://docs.gitlab.com/ee/ci/yaml/#includetemplate) that are [shipped with GitLab](https://gitlab.com/gitlab-org/gitlab/tree/master/lib/gitlab/ci/templates) instead of starting it from scracth.
+
+```
+stages:
+  - build
+  - test 
+  
+build:
+  stage: build
+  script:
+    - echo "Build job"
+
+test:
+  stage: test
+  script:
+    - echo "Test job"
+```
+
+That’s it, you are all set! 
+
+## Suggested development flow 
+
+![Development flow diagram](/images/blogimages/ado_and_gitlab/ado_7_2.png){: .shadow.large.center}
+
+1. CODE (Developer IDE of choice) Developer uses the favorite IDE to develop code, clones the repo to the workstation and creates a branch.  ![Visual Studio Code](/images/blogimages/ado_and_gitlab/ado8.png){: .shadow.large.center}
+
+2. COMMIT (GIT) After the feature is developed/the bug is fixed, the developer pushes the work to the Azure Repository server.  ![Azure DevOps Repos](/images/blogimages/ado_and_gitlab/ado9.png){: .shadow.large.center}
+
+3. BUILD (GitLab) The branch with the commit history will be mirrored to GitLab. The CI/CD pipeline will be triggered. The pipeline will build the code.  ![GitLab pipeline graph](/images/blogimages/ado_and_gitlab/ado10.png){: .shadow.large.center}
+
+    Artifacts will be created, and be available for download.  ![Artifacts](/images/blogimages/ado_and_gitlab/ado11.png){: .shadow.large.center}
+
+    If Auto DevOps is enabled, a container image will be created and be pushed to the built-in Container Registry.  ![GitLab Container Registry](/images/blogimages/ado_and_gitlab/ado12.png){: .shadow.large.center}
+
+    In case a package registry is enabled in the project, packages will be published to the designated package manager.  ![GitLab Package Registry](/images/blogimages/ado_and_gitlab/ado13.png){: .shadow.large.center}
+
+4. TEST (GitLab) Security scans, license scans, and other tests are executed as part of the CI pipeline.  ![GitLab scans](/images/blogimages/ado_and_gitlab/ado14.png){: .shadow.large.center}
+
+5. REVIEW & PULL REQUEST (GitLab & Azure DevOps repos) Review pipeline results in GitLab and if the pipeline passed without errors, and the new change hasn’t introduced new vulnerabilities, the developer creates a pull request in Azure DevOps. A code review is started and the developer might need to make a few changes before merging to master. Each commit will trigger a CI/CD pipeline in GitLab.  ![Azure DevOps pull request](/images/blogimages/ado_and_gitlab/ado15.png){: .shadow.large.center}
+
+6. MERGE (Azure DevOps Repos and GitLab) The Azure DevOps pull request is approved and the branch will be merged to the master branch in the Azure DevOps Repository.
+
+Depending on your pipeline configuration, this merge to the master branch will trigger the CI/CD pipeline in GitLab to validate the merge results, build new packages and container images, and then deploy them.  ![GitLab CI/CD pipeline graph](/images/blogimages/ado_and_gitlab/ado16.png){: .shadow.large.center}
+
+## Development workflow demonstration 
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/HfpP2pEmkoM" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+## A solution worth trying 
+
+GitLab offers a leading source code management and CI/CD solution in one application which many [GitLab customers](/customers/) use together because of the power of this combination. However, we know that sometimes there are constraints that do not allow teams to migrate their repository to GitLab SCM, at least not right away. For these situations, even if it is only temporary, we offer the capability of GitLab CI/CD for external repositories illustrated here. 
+
+
+**Read more about GitLab CI/CD:**
+
+[Forrester report compares between leading CI/CD tools](https://about.gitlab.com/analysts/forrester-cloudci19/)
+
+[Autoscale GitLab CI with AWS Fargate](/blog/2020/05/11/introducing-autoscaling-gitlab-runners-on-aws-fargate/)
+
+[Case Study - how Goldman Sachs improved from 1 build every two weeks to over a thousand per day](https://about.gitlab.com/customers/goldman-sachs/)
+
+Cover image by [Aleksey Kuprikov](https://unsplash.com/@alekskuprfilmz) on [Unsplash](https://unsplash.com/)
+{: .note}
+
+

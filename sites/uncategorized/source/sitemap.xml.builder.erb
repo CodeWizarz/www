@@ -1,0 +1,21 @@
+<%# This template builds the top-level sitemap index which refers to the other child sitemaps containing individual page links %>
+xml.instruct!
+xml.sitemapindex 'xmlns' => 'http://www.sitemaps.org/schemas/sitemap/0.9' do
+  <%# Add all uncategorized site partial build child sitemaps to sitemap index %>
+  <% Dir[File.expand_path('sitemaps', __dir__) + '/sitemap_*'].each do |child_sitemap_file| %>
+    <% sitemap_base_xml_filename = child_sitemap_file.split('/').last.gsub('.builder.erb','') %>
+    xml.sitemap do
+      xml.loc '<%= "https://about.gitlab.com/sitemaps/#{sitemap_base_xml_filename}" %>'
+    end
+  <% end %>
+
+  <%# Add handbook site child sitemap to sitemap index %>
+  xml.sitemap do
+    xml.loc 'https://about.gitlab.com/handbook/sitemap_handbook.xml'
+  end
+
+  <%# Add buyer experience sitemap to sitemap index %>
+  xml.sitemap do
+    xml.loc 'https://about.gitlab.com/buyer-experience/sitemap.xml'
+  end
+end

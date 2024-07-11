@@ -1,0 +1,126 @@
+---
+title: "What you need to know about Kubernetes RBAC"
+author: Abubakar Siddiq Ango
+author_gitlab: abuango
+author_twitter: sarki247
+categories: engineering
+image_title: '/images/blogimages/understanding-kubernetes-rbac-post-cover.jpg'
+description: "Role-based access control is now default, and expected in most Kubernetes deployments. Here's the What, Why and How of RBAC."
+tags: kubernetes, cloud native
+ee_cta: false # required only if you do not want to display the EE-trial banner
+---
+
+Managing access to resources is an essential part of ensuring the reliability, security, and efficiency of any infrastructure, but can quickly get complicated to manage. With Kubernetes, attribute-based access control (ABAC) is very powerful but complex, while role-based access control (RBAC) makes it easier to manage permissions using kubectl and the Kubernetes API directly. This post shares how to get started with RBAC and some best practices to adopt.
+
+## RBAC vs ABAC
+
+RBAC made beta [release with Kubernetes 1.6](https://kubernetes.io/blog/2017/04/rbac-support-in-kubernetes/) and general availability [with 1.8](https://kubernetes.io/blog/2017/10/using-rbac-generally-available-18/). A fundamental building block of Kubernetes, RBAC is an authorization mechanism for controlling how the Kubernetes API is accessed using permissions.
+
+RBAC is now preferred over ABAC, which is difficult to manage and understand. ABAC also requires SSH and root access to make authorization policy changes.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+Resource management can be delegated using RBAC without giving away SSH access to the Cluster Master VM and permission policies can be configured using kubectl or the Kubernetes API itself.
+
+## RBAC resources
+
+Using RBAC, Authorizations can be given using a set of permissions that can be limited within a namespace or the entire cluster. To do this, you can define A set of permission is called a Role, which is defined within a namespace. If you want A role that is cluster-wide, this is defined as a ClusterRole.
+
+Below, you can see an example of a role definition:
+
+### Role
+
+```
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: default
+  name: pod-reader
+rules:
+- apiGroups: [""] # "" indicates the core API group
+  resources: ["pods"]
+  verbs: ["get", "watch", "list"]
+```
+
+Like other Kubernetes resources, a role definition contains kind, apiVersion, and metadata, but with the addition of rules.
+
+For the rules key, you will define how your permissions will work. You can specify what resources within apiGroup(s) are permitted and how they can be accessed using verbs (including `create`, `delete`, `deletecollection`, `get`, `list`, `patch`, `update`, and `watch`). The apiGroups key defines the location in the API where the resources are found. If you provide an empty value in this list, it means the core API group.
+
+### ClusterRole
+```
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  # "namespace" omitted since ClusterRoles are not namespaced
+  name: secret-reader
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "watch", "list"]
+```
+
+The major difference in the definition for a `ClusterRole` is the absence of a namespace, because the permissions defined here are cluster-scoped. However, when referenced by a `RoleBinding`, a `ClusterRole` can be used to grant permissions to namespaced resources defined in the `ClusterRole` role within the `RoleBinding`’s namespace.
+
+### RoleBinding and ClusterRoleBinding
+
+A RoleBinding allows you to associate a Role with a user or list of users. This grants the Role permissions to the users. The user(s) are defined under subjects, and the Role association under role references (roleRef). For example:
+
+#### RoleBinding:
+
+```
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: User
+  name: abu
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+#### ClusterRoleBinding:
+
+```
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-secrets-global
+subjects:
+- kind: Group
+  name: manager
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: secret-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+## Best practices
+
+Applying the principle of [least privileges](https://medium.com/@haim_50405/establish-least-privileged-best-practice-for-your-kubernetes-clusters-f0785e1aee39) is crucial, as it reduces exposure and vulnerability. A few of the essential best practices include:
+
+- Be specific with the resources you are granting access to and the verbs being used; avoid wild cards
+- Use Roles instead of Cluster Roles where possible
+- Only give permissions required for the specific tasks to be performed by a user and nothing more
+- Create and use service accounts for processes and services like [Tiller](https://docs.helm.sh/rbac#tiller-and-role-based-access-control) that require permission instead of using the default service accounts
+
+## GitLab + RBAC
+
+Currently, integrating GitLab with a Kubernetes cluster with RBAC enabled is not supported. You will need to enable and use the legacy ABAC mechanism ([see the documentation here](https://docs.gitlab.com/ee/user/project/clusters/index.html#security-implications)). RBAC will be supported in [a future release](https://gitlab.com/gitlab-org/gitlab-ce/issues/29398). This affects GitLab.com and all self-managed versions of GitLab.
+
+## Learn more
+
+- [Controlling access](https://kubernetes.io/docs/reference/access-authn-authz/controlling-access/)
+- [Authorization](https://kubernetes.io/docs/reference/access-authn-authz/authorization/)
+- [RBAC](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)
+- [RBAC and TLS certificates](https://sysdig.com/blog/kubernetes-security-rbac-tls/)
+
+----
+
+[Cover image](https://unsplash.com/photos/maaWpQVgi00) by Cristina Gottardi on [Unsplash](https://unsplash.com/@cristina_gottardi)
+{: .note}

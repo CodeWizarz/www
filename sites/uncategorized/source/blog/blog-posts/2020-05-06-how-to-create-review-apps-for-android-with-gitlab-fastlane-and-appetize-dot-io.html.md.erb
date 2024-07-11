@@ -1,0 +1,346 @@
+---
+title: "How to create Review Apps for Android with GitLab, fastlane, and Appetize.io"
+author: Andrew Fontaine
+author_gitlab: afontaine
+author_twitter: afontaine_ca
+categories: unfiltered
+image_title: "/images/blogimages/gitlab-values-cover.png"
+description: "See how GitLab and Appetize.io can bring Review Apps to your Android project"
+tags: CI/CD, integrations, features, tutorial
+---
+
+{::options parse_block_html="true" /}
+
+
+
+In a [previous look at GitLab and _fastlane_], we discussed how _fastlane_ now
+automatically publishes the Gitter Android app to the Google Play Store, but at
+GitLab, we live on [review apps], and review apps for Android applications didn't
+really exist... until [Appetize.io] came to our attention.
+
+Just a simple extension of our existing `.gitlab-ci.yml`, we can utilize
+Appetize.io to spin up review apps of our Android application.
+
+If you'd rather just skip to the end, you can see
+[my MR to the Gitter Android project].
+
+## Setting up Fastlane
+
+Fortunately for us, _fastlane_ has integrated support for Appetize.io, so all
+that's needed to hit Appetize is the addition of a new `lane`:
+
+```diff
+diff --git a/fastlane/Fastfile b/fastlane/Fastfile
+index eb47819..f013a86 100644
+--- a/fastlane/Fastfile
++++ b/fastlane/Fastfile
+@@ -32,6 +32,13 @@ platform :android do
+     gradle(task: "test")
+   end
+
++  desc 'Pushes the app to Appetize and updates a review app'
++  lane :review do
++    appetize(api_token: ENV['APPETIZE_TOKEN'],
++             path: 'app/build/outputs/apk/debug/app-debug.apk',
++             platform: 'android')
++  end
++
+   desc "Submit a new Internal Build to Play Store"
+   lane :internal do
+     upload_to_play_store(track: 'internal', apk: 'app/build/outputs/apk/release/app-release.apk')
+```
+
+`APPETIZE_TOKEN` is an Appetize.io API token that can be generated on the
+[Appetize API docs] after signing up for an account. Once we add a new job and
+stage to our `.gitlab-ci.yml`, we will be able to deploy our APK to Appetize and
+run them in the browser!
+
+```diff
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+index d9863d7..e4d0ce3 100644
+--- a/.gitlab-ci.yml
++++ b/.gitlab-ci.yml
+@@ -5,6 +5,7 @@ stages:
+   - environment
+   - build
+   - test
++  - review
+   - internal
+   - alpha
+   - beta
+@@ -81,6 +82,16 @@ buildRelease:
+   environment:
+     name: production
+
++deployReview:
++  stage: review
++  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
++  script:
++    - bundle exec fastlane review
++  only:
++    - branches
++  except:
++    - master
++
+ testDebug:
+   image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+   stage: test
+```
+
+Great! Review apps will be deployed when branches other than `master` build.
+Unfortunately, there is no `environment` block, so there's nothing linking these
+deployed review apps to GitLab. Let's fix that next.
+
+## Dynamic Environment URLs
+
+Previously, GitLab only liked environment URLs that used pre-existing CI
+variables (like `$CI_COMMT_REF_NAME`) in their definition. Since 12.9, however,
+a [new way of defining environment urls with alternative variables exists].
+
+By creating a `dotenv` file and submitting it as an `artifact` in our build, we
+can define custom variables to use in our environment's URL. As all Appetize.io
+app URLs take the pattern of `https://appetize.io.app/$PUBLIC_KEY`, where
+`$PUBLIC_KEY` is randomly generated when the app is created, we need to get the
+public key from the Appetize response in our `Fastfile`, and put it in a
+`dotenv` file.
+
+```diff
+diff --git a/fastlane/Fastfile b/fastlane/Fastfile
+index 7b5f9d1..ae3867c 100644
+--- a/fastlane/Fastfile
++++ b/fastlane/Fastfile
+@@ -13,6 +13,13 @@
+ # Uncomment the line if you want fastlane to automatically update itself
+ # update_fastlane
+
++
++def update_deployment_url(pub_key)
++  File.open('../deploy.env', 'w') do |f|
++    f.write("APPETIZE_PUBLIC_KEY=#{pub_key}")
++  end
++end
++
+ default_platform(:android)
+
+ platform :android do
+@@ -37,6 +44,7 @@ platform :android do
+     appetize(api_token: ENV['APPETIZE_TOKEN'],
+              path: 'app/build/outputs/apk/debug/app-debug.apk',
+              platform: 'android')
++    update_deployment_url(lane_context[SharedValues::APPETIZE_PUBLIC_KEY])
+   end
+
+   desc "Submit a new Internal Build to Play Store"
+```
+
+We also need to add an `environment` block to our `.gitlab-ci.yml` to capture an
+environment name and URL.
+
+```diff
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+index f5a8648..c834077 100644
+--- a/.gitlab-ci.yml
++++ b/.gitlab-ci.yml
+@@ -85,12 +85,18 @@ buildCreateReleaseNotes:
+ deployReview:
+   stage: review
+   image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
++  environment:
++    name: review/$CI_COMMIT_REF_NAME
++    url: https://appetize.io/app/$APPETIZE_PUBLIC_KEY
+   script:
+     - bundle exec fastlane review
+   only:
+     - branches
+   except:
+     - master
++  artifacts:
++    reports:
++      dotenv: deploy.env
+
+ testDebug:
+   image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+```
+
+Once committed, pushed, and a pipeline runs, we should see our environment
+deployed!
+
+![Our first review environment][first-review-app]
+
+## Optimizing Updates
+
+After running with this for a bit, we realized that we were accidentally
+creating a new app on Appetize.io with every new build! Their docs
+[specify how to update existing apps], so we went about seeing if we could
+smartly update existing environments.
+
+Spoiler alert: We could.
+
+First, we need to save the public key granted to us by Appetize.io somewhere. We
+decided to put it in a JSON file and save that as an artifact of the build.
+Fortunately, the `Fastfile` is just ruby, which allows us to quickly write it
+out to a file with a few lines of code, as well as attempt to fetch the artifact
+for the last build of the current branch.
+
+```diff
+diff --git a/fastlane/Fastfile b/fastlane/Fastfile
+index ae3867c..61e9226 100644
+--- a/fastlane/Fastfile
++++ b/fastlane/Fastfile
+@@ -13,8 +13,32 @@
+ # Uncomment the line if you want fastlane to automatically update itself
+ # update_fastlane
+
++require 'net/http'
++require 'json'
++
++GITLAB_TOKEN = ENV['PRIVATE_TOKEN']
++PROJECT_ID = ENV['CI_PROJECT_ID']
++REF = ENV['CI_COMMIT_REF_NAME']
++JOB = ENV['CI_JOB_NAME']
++API_ROOT = ENV['CI_API_V4_URL']
++
++def public_key
++  uri = URI("#{API_ROOT}/projects/#{PROJECT_ID}/jobs/artifacts/#{REF}/raw/appetize-information.json?job=#{JOB}")
++  http = Net::HTTP.new(uri.host, uri.port)
++  http.use_ssl = true
++  req = Net::HTTP::Get.new(uri)
++  req['PRIVATE-TOKEN'] = GITLAB_TOKEN
++  response = http.request(req)
++  return '' if response.code.equal?('404')
++
++  appetize_info = JSON.parse(response.body)
++  appetize_info['publicKey']
++end
+
+ def update_deployment_url(pub_key)
++  File.open('../appetize-information.json', 'w') do |f|
++    f.write(JSON.generate(publicKey: pub_key))
++  end
+   File.open('../deploy.env', 'w') do |f|
+     f.write("APPETIZE_PUBLIC_KEY=#{pub_key}")
+   end
+@@ -42,6 +66,7 @@ platform :android do
+   desc 'Pushes the app to Appetize and updates a review app'
+   lane :review do
+     appetize(api_token: ENV['APPETIZE_TOKEN'],
++             public_key: public_key,
+              path: 'app/build/outputs/apk/debug/app-debug.apk',
+              platform: 'android')
+     update_deployment_url(lane_context[SharedValues::APPETIZE_PUBLIC_KEY])
+```
+
+When we go to deploy our app to Appetize, we hit the [Jobs API] to see if we
+have a public key for this branch. If the API returns a `404`, we know we are
+building a fresh branch and return an empty string, else we parse the JSON and
+return our public key. The [Fastlane docs] state the `appetize` action can take
+a `public_key` to update an existing app. Here, `''` is considered the same as
+_not_ providing a public key, so a new application is still deployed as we expect.
+
+**NOTE:** If you've read the `diff` closely, you'll notice the usage of an
+environment variable called `PRIVATE_TOKEN`. This is a GitLab private token
+created with the `read_api` scope and injected into our build as an environment
+variable. This is required to authenticate with the GitLab API and fetch
+artifacts.
+
+Once we update `.gitlab-ci.yml` to save the new `appetize-information.json` file
+as an artifact, later builds on the same branch will be smart and update the
+existing Appetize app!
+
+```diff
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+index c834077..54cf3f6 100644
+--- a/.gitlab-ci.yml
++++ b/.gitlab-ci.yml
+@@ -95,6 +95,8 @@ deployReview:
+   except:
+     - master
+   artifacts:
++    paths:
++      - appetize-information.json
+     reports:
+       dotenv: deploy.env
+```
+
+## Cleaning up
+
+All that's left is to delete old apps from Appetize once we don't need them
+anymore. We can do that by leveraging `on_stop` and creating a `stop` job that
+will delete our app from Appetize.io
+
+```diff
+diff --git a/.gitlab-ci.yml b/.gitlab-ci.yml
+index 54cf3f6..f6ecf7e 100644
+--- a/.gitlab-ci.yml
++++ b/.gitlab-ci.yml
+@@ -10,6 +10,7 @@ stages:
+   - alpha
+   - beta
+   - production
++  - stop
+
+
+ .updateContainerJob:
+@@ -88,6 +89,7 @@ deployReview:
+   environment:
+     name: review/$CI_COMMIT_REF_NAME
+     url: https://appetize.io/app/$APPETIZE_PUBLIC_KEY
++    on_stop: stopReview
+   script:
+     - bundle exec fastlane review
+   only:
+@@ -100,6 +102,22 @@ deployReview:
+     reports:
+       dotenv: deploy.env
+
++stopReview:
++  stage: stop
++  environment:
++    name: review/$CI_COMMIT_REF_NAME
++    action: stop
++  variables:
++    GIT_STRATEGY: none
++  when: manual
++  only:
++    - branches
++  except:
++    - master
++  script:
++    - apt-get -y update && apt-get -y upgrade && apt-get -y install jq curl
++    - curl --request DELETE https://$APPETIZE_TOKEN@api.appetize.io/v1/apps/`jq -r '.publicKey' < appetize-information.json`
++
+ testDebug:
+   image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+   stage: test
+```
+
+Once your MR is merged and your branch is deleted, the `stopReview` job runs,
+calling the [`DELETE` endpoint of the Appetize.io API] with the public key that
+is contained in `appetize-information.json`. We don't need to fetch
+`appetize-information.json` because the artifact is already present in our build
+context. This is because the `stop` stage happens _after_ the `review` stage.
+
+![A merge request with a deployed review app][merge-request-with-review-app]
+
+## Conclusion
+
+Thanks to some integration with _fastlane_ and the addition of a couple
+environment variables, having the ability to create review apps for an Android
+project was surpsingly simple. GitLab's review apps are not _just_ for web-based
+projects, even though it may take a little tinkering to get working. Appetize.io
+also supports iOS applications, so all mobile native applications can be turned
+into review apps. I would love to see this strategy be applied to a React Native
+project as well!
+
+[previous look at gitlab and _fastlane_]: /blog/2019/01/28/android-publishing-with-gitlab-and-fastlane/
+[my mr to the gitter android project]: https://gitlab.com/gitlab-org/gitter/gitter-android-app/-/merge_requests/167
+[review apps]: https://docs.gitlab.com/ee/ci/review_apps/#review-apps
+[appetize.io]: https://appetize.io
+[appetize api docs]: https://appetize.io/docs#request-api-token
+[new way of defining environment urls with alternative variables exists]: https://docs.gitlab.com/ee/ci/environments/index.html#set-dynamic-environment-urls-after-a-job-finishes
+[first-review-app]: /images/blogimages/how-to-create-review-apps-for-android-with-gitlab-fastlane-and-appetize-dot-io/first-review-app.png
+[specify how to update existing apps]: https://appetize.io/docs#updating-apps
+[jobs api]: https://docs.gitlab.com/ee/api/jobs.html#download-a-single-artifact-file-from-specific-tag-or-branch
+[fastlane docs]: https://docs.fastlane.tools/actions/appetize/
+[`delete` endpoint of the appetize.io api]: https://appetize.io/docs#deleting-apps
+[merge-request-with-review-app]: /images/blogimages/how-to-create-review-apps-for-android-with-gitlab-fastlane-and-appetize-dot-io/merge-request-with-review-app.png

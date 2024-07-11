@@ -1,0 +1,51 @@
+---
+title: "Introducing the GitLab Helm Package Registry"
+author: William Chia
+author_gitlab: williamchia
+author_twitter: thewilliamchia
+categories: news
+description: "Develop and deploy cloud native applications with a built-in Helm registry."
+tags: collaboration, DevOps, features, kubernetes
+featured: yes
+postType: product
+twitter_text: "Introducing the GitLab Helm Package Registry"
+related_posts:
+  - "/releases/2021/07/22/gitlab-14-1-released/"
+  - "/blog/2020/03/31/conan-c-cpp-package-management-integration/"
+  - "/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/"
+merch_banner: merch_five
+---
+
+Cloud native application architectures use containerization, microservices, and Kubernetes to run reliably at cloud-scale. With a built-in container registry and Kubernetes integration, GitLab is the best way to develop and deploy cloud native applications. [GitLab version 14.1](/releases/2021/07/22/gitlab-14-1-released/) also includes a Helm registry, which allows users to publish, install, and share Helm charts and packages from within our single application for the entire DevOps lifecycle.
+
+### What is Helm?
+
+Helm is a package manager for Kubernetes. A Chart is a Helm package that contains the resource definitions required to run an application inside a Kubernetes cluster. Helm allows you to manage complex applications by storing the application definition in a chart that can be versioned, shared, and collaborated on.
+
+### The differences between Helm Registry and Git
+
+Why not simply store your Helm charts in a Git repository? After all, charts are YAML files that can be stored, versioned, and collaborated on like code.
+
+For small projects and simple applications, it can be convenient to store the Helm chart in the same Git repository as the application code. However, this method starts to become unruly as the code scales. Applying this model with microservices architecture means you'd have many different charts spread out across many different repositories. Cluster-wide upgrades would certainly be a challenge. And sharing charts with other teams would require you to also grant permission to the code repository.
+
+### Comparing Helm registry and container registry
+
+Another option for storing Helm charts is to use an OCI registry, like the GitLab Container Registry. However, this feature is new to Helm 3 and requires running Helm in experimental mode. Many organizations, especially those in highly regulated environments, prefer not to expose themselves to the additional risk of an experimental feature.
+
+### A built-in, dedicated Helm registry
+
+A Helm registry offers a centralized repository to store and share charts so large organizations can manage many complex applications in a controlled manner. The main benefits of having a dedicated registry are the security, efficiency, and reliability.
+
+When it comes to security, having all of the charts in one central location means they can be [systematically scanned for vulnerabilities](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks). This is much more difficult to manage if your charts are stored in multiple locations. Similarly, user account and permission management is much easier to manage from a single location.
+
+A central registry also makes it much easier to distribute charts throughout your organization. Large organizations will often have a center of excellence that is responsible for creating, maintaining, and distributing charts to many different teams throughout the organization. Enabling a safe way to share charts and control access is critical.
+
+GitLab users can host all Helm charts from one central project, allowing users to control user access with SSO/SAML and authorization with deploy tokens, job tokens, or personal access tokens. Not to mention, the GitLab.com Package stage is 99.95% available.
+
+### How to get started
+
+The new Helm Registry is currently at "viable" maturity. We do not recommended using it for production but it can be used for testing and planning. Visit the [Helm Repository docs](https://docs.gitlab.com/ee/user/packages/helm_repository/) for step-by-step commands to authenticate the registry and publish and install packages.
+
+### Contribute to the Helm Registry
+
+The first iteration of the Helm registry was contributed to GitLab by community member [Mathieu Parent](https://gitlab.com/sathieu). We'd love your input and feedback and we continue to improve and mature the Helm registry capabilities. This [GitLab Epic outlines the path to make the Helm chart registry complete](https://gitlab.com/groups/gitlab-org/-/epics/6366). Comment in the epic and associated issues with your thoughts and feedback. As always, [code contributions](/community/contribute/development/) are welcome.

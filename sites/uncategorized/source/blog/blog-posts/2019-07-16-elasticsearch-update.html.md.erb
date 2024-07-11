@@ -1,0 +1,145 @@
+---
+title: "Update: The challenge of enabling Elasticsearch on GitLab.com"
+author: Nick Thomas
+author_gitlab: nick.thomas
+author_twitter: gitlab
+categories: engineering
+image_title: "/images/blogimages/enable-global-search-elasticsearch.jpg"
+description: "How we got started with enabling Elasticsearch on the largest GitLab instance, GitLab.com."
+tags: features, integrations, inside GitLab
+ee_cta: false
+featured: yes
+twitter_text: "The challenge of enabling Elasticsearch on GitLab.com"
+postType: content marketing
+---
+
+Back in March, [Mario](/company/team/#mdelaossa) shared some of the [lessons we'd learned from our last attempt to enable
+Elasticsearch](/blog/2019/03/20/enabling-global-search-elasticsearch-gitlab-com/) on GitLab.com, an integration that would unlock both [Advanced Global Search](https://docs.gitlab.com/ee/user/search/advanced_search.html)
+and [Advanced Syntax Search](https://docs.gitlab.com/ee/user/search/advanced_search.html). Since then, we've been working hard to address problems with the integration and prepare for [another attempt](https://gitlab.com/groups/gitlab-org/-/epics/853).
+
+## Selective indexing
+
+At the heart of our dilemma was a classic "chicken and egg" problem. We needed
+to gather more information about [Elasticsearch](https://docs.gitlab.com/ee/integration/elasticsearch.html) to make improvements to the total
+index size, but without an active deployment, that information was very hard to
+gather. Customer feedback and small-scale testing in development environments
+all help, but [dogfooding](/handbook/values/#dogfooding)
+the integration is the best way to get the information we require.
+
+To resolve this, we prioritized changes to enable Elasticsearch integration on
+GitLab.com. Since the index size was a hard problem, this meant some kind of
+selective indexing was necessary, so we've added
+[per-project and per-group controls](https://docs.gitlab.com/ee/integration/elasticsearch.html#limiting-namespaces-and-projects).
+
+On Jun. 24, 2019, we enabled the integration for the `gitlab-org` group on
+GitLab.com. Now, any searches at the group or project level will make use of the
+Elasticsearch index, and the advanced features the integration unlocks will be available.
+We figured, why not [give it a try](https://gitlab.com/search?search=gitlab-org+%28gitaly+%7C+ee%29&group_id=9970)?
+
+The total index size for this group – which includes about 500 projects – is around 2.2
+million documents and 15GB of data, which is really easy to manage from the point of view of
+Elasticsearch administration. The indexing operation itself didn't [go as smoothly as we hoped](https://gitlab.com/gitlab-com/gl-infra/production/issues/800), however!
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+## Bug fixes
+
+Another advantage to having selective Elasticsearch indexing enabled on GitLab.com
+is that our engineers need confidence that the feature is performant,
+that it won't threaten the overall stability of GitLab.com, and that it is
+substantially bug-free. So we went through a [Production Readiness Review](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/64)
+before enabling it. The review uncovered a number of pre-existing bugs and new regressions, which have all been fixed in the
+[12.0 release](/releases/2019/06/22/gitlab-12-0-released/). Some of the bugs included:
+
+* [Elasticsearch was sometimes used for searches, even when disabled](https://gitlab.com/gitlab-org/gitlab-ee/issues/11795)
+* [Performance regression indexing database content](https://gitlab.com/gitlab-org/gitlab-ee/issues/11595)
+* [Regression searching for some projects at group level](https://gitlab.com/gitlab-org/gitlab-ee/issues/12091)
+* [Regression visiting page 2 of search results](https://gitlab.com/gitlab-org/gitlab-ee/issues/12254)
+* [Wiki indexing still relied on a shared filesystem](https://gitlab.com/gitlab-org/gitlab-ee/issues/11269)
+* [Searching snippets with Elasticsearch enabled still queries the database, not Elasticsearch](https://gitlab.com/gitlab-org/gitlab-ee/issues/10548)
+
+We still can't claim to be bug-free, of course, but the picture is a lot rosier than if we'd attempted to roll out this feature without first using it ourselves.
+
+We'd tested the new indexing code on our staging environment, but this was last
+refreshed more than a year ago, and was significantly smaller than the group on
+GitLab.com, containing around 150 projects. As a result, some bugs and
+scalability issues were uncovered for the first time in production. We're
+addressing them with high priority in the 12.1 and 12.2 releases. The scaling issues include:
+
+* [Project imports unconditionally enqueue an ElasticCommitIndexerWorker](https://gitlab.com/gitlab-org/gitlab-ee/issues/12362)
+* [Allow maximum bulk request size to be configured](https://gitlab.com/gitlab-org/gitlab-ee/issues/12375)
+* [Intelligently retry bulk-insert failures when indexing](https://gitlab.com/gitlab-org/gitlab-ee/issues/12372)
+* [Note bulk indexing often fails due to statement timeout](https://gitlab.com/gitlab-org/gitlab-ee/issues/12402)
+* [Cannot index large snippets](https://gitlab.com/gitlab-org/gitlab-ee/issues/12111)
+* [Removing documents from the index can fail with a conflict error](https://gitlab.com/gitlab-org/gitlab-ee/issues/12114)
+
+Once these issues are addressed, indexing at scale should be quick, easy, and
+reliable. Indexing at scale is invaluable from the point of view of an engineer trying out
+changes to reduce total index size.
+
+## Administration
+
+Another area for improvement is administering the indexing process
+itself. Although GitLab automatically creates, updates, and removes documents
+from the index when changes are made, backfilling existing data required manual
+intervention, running a set of complicated (and slow) rake tasks to get the
+pre-existing data into the Elasticsearch index. Unless these instructions were
+followed correctly, search results would be incomplete. There was also no way
+to configure a number of important parameters for the indexes created by GitLab.
+
+When using the selective indexing feature, GitLab now automatically enqueues
+"backfill" tasks for groups and projects as they are added, and removes the
+relevant records from the index when they are supposed to be removed. We've also made it possible to
+[configure the number of shards and replicas](https://docs.gitlab.com/ee/integration/elasticsearch.html#enabling-elasticsearch)
+for the Elasticsearch index directly in the admin panel, so when GitLab creates
+the index for you, there's no need to manually change the parameters afterwards.
+
+Personal snippets are the one type of document that won't be respected in the
+selective-indexing case. To ensure they show up in search results, you'll still
+need to run the [`gitlab:elastic:index_snippets`](https://docs.gitlab.com/ee/integration/elasticsearch.html#gitlab-elasticsearch-rake-tasks) rake task [for now](https://gitlab.com/gitlab-org/gitlab-ee/issues/12333).
+
+There are also improvements if you're not using selective indexing – the admin
+area now has a "Start indexing" button. Right now, this only makes sense if
+starting from an empty index, and doesn't index personal snippets either, but
+we're hopeful we can [remove the rake tasks entirely](https://gitlab.com/gitlab-org/gitlab-ee/issues/11206)
+in the future.
+
+## What next?
+
+We're really happy to have Elasticsearch enabled for the `gitlab-org` group, but
+the eventual goal is to have it [enabled on all of GitLab.com](https://gitlab.com/groups/gitlab-org/-/epics/153).
+We'll be rolling it out to more groups in the future.
+
+To get there, we'll need to continue to improve the
+[administration experience](https://gitlab.com/groups/gitlab-org/-/epics/428) using Elasticsearch.
+For instance, it's still difficult to see the indexing status of a group or
+project at a glance, a function that would be really useful for our support team to answer
+queries like "Why isn't this search term returning the expected results?"
+
+### Managing the Elasticsearch schema is also a challenge
+
+Currently, we take the easy route of reindexing everything if we need to change some aspect of the
+schema, which doesn't scale well as the index gets larger. [Some
+work on this is ongoing](https://gitlab.com/gitlab-org/gitlab-ee/issues/328),
+and the eventual goal is for GitLab to automatically manage changes to the
+Elasticsearch index in the same way it does for the database.
+
+[Reducing the index size](https://gitlab.com/groups/gitlab-org/-/epics/429) is
+still a huge priority, and we hope to make progress on this now that we
+have an Elasticsearch deployment to iterate against.
+
+### We'd also like to improve the quality of search results
+
+For example, we have
+reports of code search [failing to find certain identifiers](https://gitlab.com/gitlab-org/gitlab-ee/issues/10693) and we'd like to use the Elasticsearch index in more contexts, such as for
+[filtered search](https://gitlab.com/gitlab-org/gitlab-ee/issues/12082).
+
+The Elasticsearch integration is progressing. Finally, responsibility for the Elasticsearch integration has been passed from
+the [Plan stage](/handbook/product/categories/#plan-stage)
+to the [Editor group of the Create stage](/handbook/product/categories/#editor-group).
+I hope you'll join Mario and me in wishing [Kai](/company/team/#phikai),
+[Darva](/company/team/#DarvaSatcher), and the rest of the team the best of luck in tackling the remaining challenges for Elasticsearch. An up-to-date overview of their plans can always be found on
+the [search strategy](/direction/global-search/) page.
+
+Photo by [Benjamin Elliott](https://unsplash.com/photos/vc9u77c0LO4) on [Unsplash](https://unsplash.com/)
+{: .note}

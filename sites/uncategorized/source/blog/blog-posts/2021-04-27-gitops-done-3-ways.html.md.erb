@@ -1,0 +1,85 @@
+---
+title: "3 Ways to approach GitOps"
+author: Saumya Upadhyaya
+author_gitlab: supadhyaya
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/gitops-cover.jpg'
+description: "Learn about how GitLab users can employ GitOps to cover both Kubernetes and non-Kubernetes environments"
+tags: GitOps, CD, Kubernetes, cloud native
+twitter_text: "3 Ways to approach GitOps"
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/"
+  - "/blog/2020/04/17/why-gitops-should-be-workflow-of-choice/"
+  - "/blog/2019/10/28/optimize-gitops-workflow/"
+merch_banner: merch_eight
+---
+
+The term ["GitOps"](/topics/gitops/) first emerged in the Kubernetes community as a way for organizations to enable Ops teams move at the pace of application development. With improved automation and less risk, GitOps is quickly becoming the workflow of choice for infrastructure automation.
+
+At GitLab, the approach to GitOps goes beyond Kubernetes. Before the buzz around GitOps picked up in the DevOps community, GitLab users and customers were applying GitOps principles to all types of infrastructure, including physical servers, virtual machines, containers, and Kubernetes clusters ([multicloud](/topics/multicloud/) and on-premise).
+
+## What is GitOps?
+
+There are two main [approaches to GitOps](https://www.gitops.tech/), a push-based approach and a pull-based approach.
+
+- *Push-based approach*: A CI/CD tool pushes the changes to the environment. Applying GitOps via push is consistent with the approach used for application deployment. In this case, deployment targets for a push-based approach are not limited to Kubernetes.
+![push based deployment](/images/blogimages/gitops-push.png){: .shadow.medium.center}
+How the push-based approach works for GitOps.
+{: .note.text-center}
+
+- *Pull-based approach*: An agent installed in a cluster pulls changes whenever there is a deviation from the desired configuration. In the pull-based approach, deployment targets are limited to Kubernetes and an agent must be installed in each Kubernetes cluster.
+![pull based deployment](/images/blogimages/gitops-pull.png){: .shadow.medium.center}
+How the pull-based approach works for GitOps.
+{: .note.text-center}
+
+## How to employ GitOps principles using GitLab
+
+GitLab supports both of the approaches mentioned above, which can be used with and without a Kubernetes agent. Along with the [recently introduced Kubernetes agent](/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/), GitLab supports GitOps principles by supporting a three types of deployment targets and environments: The single application for infrastructure code; configurations using CI/CD for automation; and merge requests for collaboration and controls.
+
+Below we unpack three methods for applying GitOps principles using GitLab technology.
+
+### Push using manually configured CI/CD release targets
+
+The infrastructure configurations are stored in git. The user sets up the [supported deployment targets](/stages-devops-lifecycle/deploy-targets/) and uses the standard CI/CD workflow to push infrastructure changes. To ensure the desired state in the repository is consistent with the environment, CI/CD will need to run on a regular schedule to identify drift and reconcile as required. Manual intervention may be required at times to cater to failed pipelines. Many GitLab users have been using this approach to push infrastructure changes to their test, staging, and production environments.
+
+The manual push approach is ideal for both Kubernetes and supported non-Kubernetes environments, such as embedded systems, on-premise servers, mainframes, virtual machines, or FaaS offerings.
+
+### Push using Terraform
+
+In this approach, an out-of-the box [integration with Terraform](https://docs.gitlab.com/ee/user/infrastructure/) helps Terraform users seamlessly implement GitOps workflows using GitLab. Terraform manifests are stored in the Git repository where users can collaborate on changes within the merge requests. The Terraform plan reports can be displayed within the merge requests and the Terraform state can be stored using the GitLab-managed Terraform state backend. Everything is integrated into GitLab, which spares users from performing these tasks via third-party tools or integrations.
+
+The push approach is ideal for both Kubernetes and non-Kubernetes deployment targets that are supported by Terraform.
+
+### Pull using a Kubernetes agent
+
+In fall 2020, GitLab [introduced a Kubernetes agent](/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/) that initiates a secure web-socket connection from a Kubernetes cluster to a GitLab instance. There is a GitLab server component that polls for any repository changes on the server and informs the agent when there is a deviation between the desired state and the cluster environment. This process helps minimize the load on the cluster and network. Whenever a drift is detected the agent pulls the latest configurations from the git repository and updates the environment accordingly. This GitOps approach requires the Kubernetes agent to be installed on every Kubernetes cluster, which can be done with ease as the GitLab Agent for Kubernetes uses GitOps principles to install and update the agent as required. This GitOps method is ideal for Kubernetes environments only.
+
+![kubernetes agent](/images/blogimages/gitops-agent.png){: .shadow.medium.center}
+Inside the pull-based approach using a Kubernetes agent.
+{: .note.text-center}
+
+### Up next: Push using a Kubernetes agent
+
+GitLab also aims to support GitOps is by using a push approach with a Kubernetes agent. The push based approach using manually configured Kubernetes target attaches a Kubernetes cluster to GitLab through a certificate exchange. This approach leverages the CI/CD workflow for infrastructure automation and is fairly straightforward, but it also introduces risk by opening up a firewall and using cluster admin rights for cluster integration. To overcome these challenges while leveraging the CI/CD workflow - the [push-based approach using the Kubernetes agent](https://gitlab.com/groups/gitlab-org/-/epics/5528) aims to reuse the web-socket interface to establish a secure connection between GitLab and the Kubernetes cluster and allows GitLab CI/CD to securely push changes using this interface. When available, this approach would also provide a migration path for users who are currently setting up the Kubernetes integration using a certificate exchange.
+
+The third approach is ideal for Kubernetes environments only. When available, it can be used in conjuction with the pull-based approach to optimize the GitOps workflow.
+
+## Accelerate the SDLC with GitOps principles
+
+Whether you are using physical, virtual, containers, Kubernetes - on-prem or cloud-based infrastructures – GitLab uses GitOps principles a variety of ways to meet your team wherever it's at. GitLab supports many different options because we understand the typical organization has a mixed IT landscape, with various heterogeneous technologies in a number of different environments.
+
+***What’s your preferred approach to GitOps?*** Drop us a comment.
+
+## Learn more about GitOps at GitLab
+
+Read on to explore how GitLab works with different technologies to deliver a GitOps solution for every company at every stage.
+
+* ***Blog***: [A new era of Kubernetes integrations on GitLab.com](/blog/2021/02/22/gitlab-kubernetes-agent-on-gitlab-com/)
+* ***Webcast***: [GitLab and HashiCorp - A holistic guide to GitOps and the Cloud Operating Model](/webcast/gitlab-hashicorp-gitops/)
+* ***Testimonial***: [Shaping a financial service’s cloud strategy using GitLab and Terraform](https://www.youtube.com/watch?v=2LF3eOoGV_o&list=PLFGfElNsQthb4FD4y1UyEzi2ktSeIzLxj&index=6)
+
+Cover image by [Rodolfo Cuadros](https://unsplash.com/@rocua18) on [Unsplash](https://unsplash.com/photos/JKzgp6vhJ8M)
+{: .note}

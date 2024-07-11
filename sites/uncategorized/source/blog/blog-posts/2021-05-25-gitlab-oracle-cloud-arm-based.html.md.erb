@@ -1,0 +1,56 @@
+---
+title: How to use GitLab with OCI ARM-based compute instances
+author: Abubakar Siddiq Ango
+author_gitlab: abuango
+author_twitter: sarki247
+categories: news
+tags: news, CI, CD
+description: We explain two ways to set up GitLab on Oracle ARM-based instances.
+image_title: /images/blogimages/library/ci-cd.png
+featured: no
+---
+
+[ARM-based processors](https://en.wikipedia.org/wiki/ARM_architecture) have gained popularity due to their energy-saving capabilities and performance as shown in the recent adoptions by Apple. Previously a mainstay for mobile, edge, or small devices, ARM-based chips are now used for almost all types of systems, including servers. 
+
+This surge in the use of ARM-based systems means development toolchains have to support building for the ARM architecture reliably and efficiently. It is here where the GitLab Runner shines, allowing users to run CI/CD jobs on ARM servers. Coupling the GitLab Runner with the Oracle Cloud Infrastructure (OCI) offerings of ARM-based compute instances lets development teams have best in class CI/CD infrastructure to target both ARM and x86 architecture.
+ 
+The recommended method of installing GitLab is using the automated deployment options for OCI by clicking the "[Deploy to Oracle Cloud](https://console.us-phoenix-1.oraclecloud.com/resourcemanager/stacks/create?region=home&zipUrl=https://gitlab.com/gitlab-com/alliances/oracle/sandbox-projects/gitlab-terraform-oci/-/jobs/artifacts/main/raw/oci-gitlab-orm.zip?job=package_repo)" button, which takes advantage of full-tested scripts for single click deployment through the OCI console.s.
+
+If you will be deploying manually on virtual machines on OCI, there are certain caveats users need to be aware of when setting up GitLab Runner and GitLab on an OCI ARM-based instance.
+
+## How to set up GitLab CI/CD on ARM instances
+
+The core feature of [GitLab CI/CD](/topics/ci-cd/) is the runner – it executes all the instructions to accomplish the jobs in the CI/CD pipelines. One of its strengths is the support for the diverse architecture and operating systems, including Oracle Linux server distribution running on ARM-based systems. This functionality allows users to maintain diverse runners targeting different architectures for the various workloads of development teams. 
+
+Installing the GitLab Runner on ARM-based instances is straightforward: After adding the official GitLab package repository, install the runner. However, if you are running Oracle Linux Server release 8.x (ol/8), you will need to manually set up the package repository, because  ol/8 by PackageCloud, which GitLab uses to host packages, is not supported. 
+
+To set up the repository manually use the following commands:
+
+```
+curl https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh > script.sh
+chmod +x script.sh
+os=el dist=8 ./script.sh
+```
+
+## How to set up GitLab EE/Core on ARM instances
+
+Similar to the Runner, you will need to manually set up GitLab's package repository if you are running ol/8. The commands are similar, aside from the package URL as shown below: 
+
+```
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.rpm.sh > script.sh
+chmod +x script.sh
+os=el dist=8 ./script.sh
+EXTERNAL_URL="[GITLAB-INSTANCE-URL]" dnf install -y gitlab-ee
+```
+
+One caveat to deploying to recent versions of GitLab using Omnibus is the [ARM64 cow bug affecting Redis](https://github.com/redis/redis/pull/8405), which is bundled with GitLab Omnibus installations. This bug only affects GitLab versions from 13.9 – which was the version in which the bundled Redis was upgraded to 6.0.10. You can install pre-13.9 versions of GitLab manually. For example, to install version 13.8use the command: `yum install gitlab-ee-13.8.6-ee.0.el8.aarch64`.
+
+The fix for the bug is pulled into the [6.0 branch of the Redis upstream project](https://github.com/redis/redis/commit/dcf409f8e72dcd6bbf2f31d2ecc8f6f797c303c2) and will make its way to future GitLab releases. The bug only affects Redis on ARM64 architecture (aarch64) and is not specific to GitLab or the Oracle Linux server. You can [disable the bundled Redis instance and configure](https://docs.gitlab.com/omnibus/settings/redis.html) a separate local Redis instance or an external service.
+## Watch and learn
+Watch the video to see how to set up a Runner on an OCI ARM64 instance running the Oracle Linux server.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/Q2o0JYdQAWE" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->

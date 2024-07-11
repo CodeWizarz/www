@@ -1,0 +1,164 @@
+---
+title: "How to fuzz Go code with go-fuzz continuously"
+author: "Yevgeny Pats"
+author_gitlab:  ypats
+author_twitter: yevgenypats
+categories: unfiltered
+image_title: '/images/blogimages/gitlab-values-cover.png'
+tags: inside GitLab, security, fuzzing
+description: "Learn how (and why!) to fuzz Go code"
+---
+
+{::options parse_block_html="true" /}
+
+
+
+## What is fuzzing?
+
+Fuzzing or fuzz testing is an automated software technique that involves providing semi-random data as
+input to the test program in order to uncover bugs and crashes.
+
+## Why fuzz Go Code?
+
+[Golang](https://golang.org/) is a safe language and memory corruption issues are a thing of the past so we don’t need to fuzz our code,
+right? Wrong 😃. Any code, and especially code where stability, quality, and coverage are important, is worth fuzzing.
+Fuzzing can uncover logical bugs and denial-of-service  in critical components can lead to security issues as well.
+
+As a reference to almost infinite amount of bugs found with go-fuzz (only the documented one) you can look [here](https://github.com/dvyukov/go-fuzz#trophies)
+
+## Enter go-fuzz
+
+[go-fuzz](https://github.com/dvyukov/go-fuzz) is the current de-facto standard fuzzer for go and was initially developed by [Dmitry Vyukov](https://twitter.com/dvyukov).
+It is a coverage guided fuzzer which means it uses coverage instrumentation and feedback to generate test-cases which proved to be very successful both by go-fuzz and originally by fuzzers like AFL.
+
+go-fuzz algorithm and in general coverage guided fuzzers works as follows:
+
+```
+// pseudo code
+Instrument program for code coverage
+for {
+  Choose random input from corpus
+  Mutate input
+  Execute input and collect coverage
+  If new coverage/paths are hit add it to corpus (corpus - directory with test-cases)
+}
+```
+
+## Building & Running
+If you are already familiar with this part you can skip to "Running go-fuzz from GitLab-CI" section.
+we will use [go-fuzzing-example](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example) as a simple example.
+For the sake of the example we have a simple [function](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/-/blob/master/parse_complex.go) with an off-by-one bug:
+
+```go
+package parser
+
+func ParseComplex(data [] byte) bool {
+	if len(data) == 5 {
+		if data[0] == 'F' && data[1] == 'U' && data[2] == 'Z' && data[3] == 'Z' && data[4] == 'I' && data[5] == 'T' {
+			return true
+		}
+	}
+	return false
+}
+```
+
+Our fuzz [function](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/-/blob/master/parse_complex_fuzz.go) will look like this and will be called by go-fuzz in a infinite loop with the generated data according to the coverage-guided algorithm
+
+```
+// +build gofuzz
+
+package parser
+
+func Fuzz(data []byte) int {
+	ParseComplex(data)
+	return 0
+}
+```
+
+To run the fuzzer we need to build an instrumented version of the code together with the fuzz function.
+This is done with the following simple steps:
+
+```
+docker run -it golang /bin/bash
+
+# Download this example
+go get gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example
+cd /go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example
+
+# download go-fuzz and clang (libfuzzer)
+go get -u github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
+apt update && apt install -y clang
+
+# building instrumented version of the code together with libFuzzer integration
+go-fuzz-build -libfuzzer -o parse-complex.a .
+clang -fsanitize=fuzzer parse-complex.a -o parse-complex
+
+./parse-complex
+
+#490479 NEW    ft: 11 corp: 7/37b lim: 477 exec/s: 11962 rss: 25Mb L: 6/6 MS: 1 ChangeByte-
+#524288 pulse  ft: 11 corp: 7/37b lim: 509 exec/s: 11915 rss: 25Mb
+#1048576        pulse  ft: 11 corp: 7/37b lim: 1030 exec/s: 11915 rss: 25Mb
+panic: runtime error: index out of range [6] with length 6
+
+goroutine 17 [running, locked to thread]:
+gitlab.com/fuzzing-examples/example-go.ParseComplex.func6(...)
+        /go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse_complex.go:5
+gitlab.com/fuzzing-examples/example-go.ParseComplex(0x36f1cd0, 0x6, 0x6, 0x7ffeaa0d1f80)
+        /go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse_complex.go:5 +0x1b8
+gitlab.com/fuzzing-examples/example-go.Fuzz(...)
+        /go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse_complex_fuzz.go:6
+main.LLVMFuzzerTestOneInput(0x36f1cd0, 0x6, 0x18)
+        gitlab.com/fuzzing-examples/example-go/go.fuzz.main/main.go:35 +0x85
+main._cgoexpwrap_98ba7f745c88_LLVMFuzzerTestOneInput(0x36f1cd0, 0x6, 0x5a4d80)
+        _cgo_gotypes.go:64 +0x37
+==1664== ERROR: libFuzzer: deadly signal
+    #0 0x450ddf in __sanitizer_print_stack_trace (/go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse-complex+0x450ddf)
+    #1 0x430f4b in fuzzer::PrintStackTrace() (/go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse-complex+0x430f4b)
+    #2 0x414b7b in fuzzer::Fuzzer::CrashCallback() (/go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse-complex+0x414b7b)
+    #3 0x414b3f in fuzzer::Fuzzer::StaticCrashSignalCallback() (/go/src/gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/go-fuzzing-example/parse-complex+0x414b3f)
+    #4 0x7f57c561d72f  (/lib/x86_64-linux-gnu/libpthread.so.0+0x1272f)
+    #5 0x4b3a00 in runtime.raise runtime/sys_linux_amd64.s:164
+
+NOTE: libFuzzer has rudimentary signal handlers.
+      Combine libFuzzer with AddressSanitizer or similar for better crash reports.
+SUMMARY: libFuzzer: deadly signal
+MS: 1 ChangeByte-; base unit: eef4acc7500228bd0f65760be21896f230e0e39f
+0x46,0x55,0x5a,0x5a,0x49,0x4e,
+FUZZIN
+artifact_prefix='./'; Test unit written to ./crash-14b5f09dd74fe15430d803af773ba09a0524670d
+Base64: RlVaWklO
+```
+
+This finds the bug in a few seconds, prints the “FUZZI” string that triggers the vulnerability, and saves the crash to a file.
+
+## Running go-fuzz from Gitlab-CI
+The best way to integrate go-fuzz fuzzing with Gitlab CI/CD is by adding additional stage & step to your `.gitlab-ci.yml`.
+It is straightforward and [fully documented](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/#configuration).
+
+```
+include:
+  - template: Coverage-Fuzzing.gitlab-ci.yml
+
+fuzz_test_parse_complex:
+    extends: .fuzz_base
+    image: golang
+    script:
+        - go get -u github.com/dvyukov/go-fuzz/go-fuzz github.com/dvyukov/go-fuzz/go-fuzz-build
+        - apt update && apt install -y clang
+        - go-fuzz-build -libfuzzer -o parse-complex.a .
+        - clang -fsanitize=fuzzer parse-complex.a -o parse-complex
+        - ./gl-fuzz run --regression=$REGRESSION -- ./parse-complex
+
+```
+
+For each fuzz target you will will have to create a step which extends the `.fuzz_base` template that runs the following:
+
+- Builds the fuzz target.
+- Runs the fuzz target via gl-fuzz CLI.
+- For `$CI_DEFAULT_BRANCH` (can be override by `$COV_FUZZING_BRANCH`) will run fully fledged fuzzing sessions.
+For everything else including MRs will run fuzzing regression with the accumlated corpus and fixed crashes.
+
+This will run your fuzz tests in a blocking manner inside your pipeline. There is also a possability to run longer fuzz sessions asynchronously described in the [docs](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/#continuous-fuzzing-long-running-async-fuzzing-jobs)
+
+Check out our [full documentation](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/) and the [example repo](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/rust-fuzzing-example)
+and try adding fuzz testing to your own repos!

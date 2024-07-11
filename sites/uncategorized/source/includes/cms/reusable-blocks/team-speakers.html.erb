@@ -1,0 +1,69 @@
+<section class="slpEventSpeakers slp-commit-grid slp-relative slp-mb-64">
+  <div class="slp-col-span-full slp-flex slp-flex-wrap slp-justify-between">
+    <% speakers_block.speakers.each_with_index do |speaker, index| %>
+      <figure class="slp-w-6/12 md:slp-w-3/10  slp-mb-64" data-speaker-index="<%= index %>" <%= index >= 9 ? 'style="display: none;"' : '' %>>
+        <% if speaker.headshot %>
+          <div class="slp-relative slp-w-11/12">
+              <img src="<%= speaker.headshot %>" alt="<%= speaker.name %> headshot" class="slp-rounded slp-mb-28 slp-w-full" />
+          </div>
+        <% end %>
+        <figcaption class="speakercard">
+          <p class="slp-text-grayscale-333 slp-font-semibold slp-text-lg md:slp-text-xl md:slp-leading-tight slp-mb-12">
+            <%= speaker.name %>
+          </p>
+          <% if speaker.title %>
+            <p class="slp-text-grayscale-333 slp-font-normal slp-text-sm md:slp-text-base">
+              <%= speaker.title %>
+            </p>
+          <% end %>
+          <% if speaker.locality %>
+            <% if speaker.locality %>
+              <p class="slp-text-grayscale-333 slp-font-normal slp-text-sm md:slp-text-base">
+                <%= speaker.locality %>
+              </p>
+            <% end %>
+          <% end %>
+          <% if speaker.story %>
+            <% if speaker.story %>
+              <a data-custom-open="modal-<%= speaker.gitlab %>" class="slp-mt-auto slp-font-bold slp-text-sm md:slp-text-base slp-leading-6 hover:slp-underline group-hover:slp-text-ui-secondary slp-text-ui-secondary-dark">
+                Learn More
+                <svg width="9" height="6" xmlns="http://www.w3.org/2000/svg" class="slp-inline-block"><path d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z" fill="none" class="slp-fill-current group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"></path></svg>
+              </a>
+              <!-- [1] -->
+              <div class="modal micromodal-slide" id="modal-<%= speaker.gitlab %>" aria-hidden="true">
+                <div class="modal__overlay" tabindex="-1" data-micromodal-close data-custom-close>
+                  <div class="modal__container" role="dialog" aria-modal="true" aria-labelledby="modal-<%= speaker.gitlab %>-title">
+                    <header class="modal__header">
+                      <h2 class="slp-text-grayscale-333 slp-font-semibold slp-text-md" id="modal-<%= speaker.gitlab %>-title">
+                        <%= speaker.name %> <br/>
+                      </h2>
+                      <button class="modal__close" aria-label="Close modal" data-micromodal-close data-custom-close aria-label="Close this dialog window"></button>
+                    </header>
+                    <main class="modal__content" id="modal-<%= speaker.gitlab %>-content">
+                      <% if speaker.title %>
+                        <p class="slp-text-grayscale-333 slp-font-normal slp-text-sm">
+                          <strong>Title:</strong> <%= speaker.title %>
+                        </p>
+                      <% end %>
+                      <% if speaker.locality %>
+                        <p class="slp-text-grayscale-333 slp-font-normal slp-text-sm">
+                          <strong>Location:</strong> <%= speaker.locality %>
+                        </p>
+                      <% end %>
+                      <%= kramdown(speaker.story) %>
+                    </main>
+                    <footer class="modal__footer">
+                      <button class="slp-btn slp-btn--outline slp-outline-button" data-micromodal-close data-custom-close aria-label="Close this dialog window" style="margin: 0.8rem 0.8rem 0.4rem 0px !important; border: 1px solid #333 !important;">Close</button>
+                    </footer>
+                  </div>
+                </div>
+              </div>
+            <% end %>
+           <% end %>
+        </figcaption>  
+      </figure>
+    <% end %>
+  </div>
+</section>
+
+

@@ -1,0 +1,88 @@
+---
+title: How to migrate data to GitLab using main importers
+author: Itzik Gan-Baruch 
+author_gitlab: iganbaruch
+author_twitter: itzikgb
+categories: engineering
+image_title: '/images/blogimages/migration-data.jpg'
+description: "Learn about the capabilities of main importers, which are used to import data from external tools and from other GitLab instances."
+tags: tutorial, DevOps, performance
+featured: yes
+twitter_text: "GitLab provides several importers to import data from external tools and from other GitLab instances. Get to know the main importers and their capabilities."
+---
+
+A typical organization looking to adopt GitLab already uses many other tools. Artifacts such as code, build pipelines, issues, and epics will already exist and be changed daily. A seamless transition of work in progress is, therefore, critically important when importing data. GitLab importers aim to make this process easy and reliable, ensuring data is imported quickly and with maximum care.
+
+At GitLab, a dedicated development team, named group:import, creates a seamless experience when importing data into GitLab or from one GitLab instance to another. This team continuously develops and improves the importing experience and keeps our importers up to date with new features and capabilities.
+
+## Migrate groups by direct transfer
+
+Using group migration, you can import groups from one GitLab instance to another instance. The most common use case is to import groups from self-managed GitLab instances to GitLab.com (GitLab SaaS). With the group migration, you can migrate many groups in a single click.
+
+### Which items are imported?
+
+The group migration imports the entire group structure, including all the sub groups and projects in them. Currently, to import projects as part of the group migration on self-managed GitLab, the administrator needs to enable the feature flag named `bulk_import_projects`. On GitLab.com, our SaaS offering, migration of both groups and projects is available. More information can be found in our [documentation](https://docs.gitlab.com/ee/user/group/import/#migrate-groups-by-direct-transfer-recommended).
+
+The team continuously adds objects to the migration, but not all group items are imported. The docs cover the [items that are imported](https://docs.gitlab.com/ee/user/group/import/#migrated-group-items). 
+
+### How can groups be imported?
+
+It is very simple to import groups between two instances. Here are the steps: 
+
+- Create a new group or subgroup in the designated instance 
+- Select "Import group" 
+- Connect to the remote instance with your [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html)
+- Select the source groups you want to import 
+- Click "Import xyz groups"
+
+![bulk_imports_v14_1](/images/blogimages/2022-11-15-gitlab-importers/bulk_imports_v14_1.png)
+
+## File-based import/export (the previously used method)
+
+Group migration is the preferred method to migrate content from one GitLab instance to another, as it automates the process and you can import many groups in a single click. However, for some use cases, such as air-gapped networks when you don't have network connection between the two instances, or when you have environments with limited connectivity, the group migration won't help because it requires connection between the two instances. File-based export/import for [groups](https://docs.gitlab.com/ee/user/group/settings/import_export.html) and [projects](https://docs.gitlab.com/ee/user/project/settings/import_export.html) can be used when there is no connectivity between the instances. 
+
+File-based export/import is a manual process and requires a few steps in order to migrate each group or project. The file-based import/export is available from the UI and in the API. The team plans to disable it by a feature flag soon to encourage users to use group migration. However, you will be able to enable the feature flag in your instance if your use case requires the file-based import/export. More info can be found in this [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/363406).
+
+## Import projects from external tools  
+
+GitLab has built-in support for import projects from [a variety of tools](https://docs.gitlab.com/ee/user/project/import/).
+
+The GitHub importer is the most common importer and, therefore, the team invests a lot of effort to add more migrated components. GitLab and GitHub have different structure and architecture, so sometimes it is tricky to import objects from GitHub when the migrated components are implemented differently in GitLab. So the team needs to find creative ways to map some of the features or configurations. This is an example [epic](https://gitlab.com/groups/gitlab-org/-/epics/8585 ) with a proposal to map rules for protected branches when migrating GitHub protected rules. 
+
+
+### What can be imported from GitHub to GitLab?
+
+- Repository description
+- Git repository data
+- Branch protection rules
+- Issues
+- Pull requests
+- Wiki pages
+- Milestones
+- Labels
+- Pull request review comments
+- Regular issue and pull request comments
+- Attachments for
+    - Release notes
+    - Comments and notes
+    - Issue description
+    - Merge Request description
+- Git Large File Storage (LFS) objects
+- Pull request reviews 
+- Pull request “merged by” information 
+- Pull request comments replies in discussions 
+- Diff notes suggestions 
+- Release note descriptions
+
+Here is a [full list of imported data](https://docs.gitlab.com/ee/user/project/import/github.html#imported-data).
+
+Read what's next in our [GitHub Epic](https://gitlab.com/groups/gitlab-org/-/epics/2984). 
+
+### Repository by URL
+
+An alternative way to import external projects is the Repository by URL option. You can import any Git repository through HTTP from the *Import Project* page, by choosing "Repository by URL".
+
+To learn more about the Importer direction, roadmap, etc., refer to [Category Direction - Importers](/direction/manage/import_and_integrate/importers/).
+
+_Cover image by [Conny Schneider](https://unsplash.com/@choys_?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyTex) on [Unsplash](https://unsplash.com/s/photos/data-migration?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)_
+  

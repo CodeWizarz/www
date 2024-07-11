@@ -1,0 +1,177 @@
+---
+title: "How we are closing the gap on replicating *everything* in GitLab Geo"
+author: Michael Kozono # if name includes special characters use double quotes "First Last"
+author_gitlab: mkozono # ex: johndoe
+author_twitter: gitlab # ex: johndoe
+categories: unfiltered # please choose one category from list below
+image_title: '/images/blogimages/library/engineering.png' # optional – just remove this line if you don't want to use a cover image. See below for more info
+description: "Developing an internal framework to enable other teams to add Geo support for their features"
+tags: agile, collaboration, design, features, inside GitLab, remote work, workflow
+related_posts:
+  - "/blog/2020/04/16/geo-is-available-on-staging-for-gitlab-com/"
+  - "/blog/2019/05/02/gitlab-journey-from-azure-to-gcp/"
+  - "/blog/2018/09/14/how-we-built-gitlab-geo/"
+merch_banner: merch_six
+merch_sidebar: merch_six
+---
+
+{::options parse_block_html="true" /}
+
+
+
+In early 2020, it took 3.5 months of solid work to implement replication of a new data type in Geo. One year later, support can be added within a month -- including development and all required reviews. How did we do it? First, let me introduce you to Geo.
+
+## What is Geo?
+
+[GitLab Geo](https://about.gitlab.com/solutions/geo/) is the solution for widely distributed development teams and for providing a warm-standby as part of a disaster recovery strategy. Geo replicates your GitLab instance to one or more local, read-only instances.
+
+## What are data types?
+
+[GitLab Geo was released in June 2016 with GitLab 8.9](https://about.gitlab.com/releases/2016/06/22/gitlab-8-9-released/#gitlab-geo-new-product) with the ability to replicate project repositories to a read-only secondary GitLab site. Developers located near secondary sites could fetch project repositories as quickly as if they were near the primary.
+
+But what about wiki repositories? What about LFS objects or CI job artifacts? In GitLab, each of these things is represented by different Ruby classes, database tables, and storage configurations. In Geo, we call these data types.
+
+## Is it really that hard to copy data?
+
+When we say a new data type is supported by Geo, this is what we mean:
+
+* Backfill existing data to Geo secondary sites
+* As fast as possible, replicate new or updated data to Geo secondary sites
+* As fast as possible, replicate deletions to Geo secondary sites
+* Retry replication if it fails, for example due to a transient network failure
+* Eventually recover missing or inconsistent data, for example if Sidekiq jobs are lost, or if infrastructure fails
+* Exclude data according to [selective sync settings](https://docs.gitlab.com/ee/administration/geo/replication/configuration.html#selective-synchronization) on each Geo secondary site
+* Exclude remote stored data unless [Allow this secondary node to replicate content on Object Storage](https://docs.gitlab.com/ee/administration/geo/replication/object_storage.html#enabling-gitlab-managed-object-storage-replication) is enabled on a Geo secondary site
+* Verify data integrity against the primary data, after replication
+* Re-verify data integrity at regular intervals
+* Report metrics to Prometheus
+* Report metrics in the Admin UI
+* View replication and verification status of any individual record in the Admin UI
+* Replication and verification job concurrency is configurable in Admin UI
+* Retry replication if data mismatch is detected ([coming soon to all data types using the framework](https://gitlab.com/gitlab-org/gitlab/-/issues/301244))
+* Allow manual re-replication and re-verification in the Admin UI ([coming soon to all data types using the framework](https://gitlab.com/gitlab-org/gitlab/-/issues/216100))
+* And more
+
+## How to iterate yourself into a problem
+
+[Iteration is a core value](https://about.gitlab.com/handbook/values/#iteration) at GitLab. In the case of Geo, by [GitLab 12.3](https://about.gitlab.com/releases/2019/09/22/gitlab-12-3-released/#geo-natively-supports-docker-registry-replication) we had added replication support for the most important data types, for example:
+
+* Project Git repositories
+* Project wiki Git repositories
+* Issue/MR/Epic attachments
+* LFS objects
+* CI job artifacts
+* Container/Docker registry
+
+And we had added a slew of features around these data types. But suddenly it was clear we had a problem. **We were falling behind in the race to replicate and verify all of GitLab's data.**
+
+* A new data type was being added by other teams, every few months. It was painful to prioritize 3 months of development time only to add replication to one data type. And even if we caught up, the latest features would always be unsupported by Geo for 3 months.
+* Automatic verification of Project and Wiki repositories was implemented, but adding it to a single data type was going to take 3 months.
+* Maintenance and other new features were increasing in effort due to the amount of code duplication.
+* Our event architecture needed too much boilerplate and overhead to add new events
+
+## How to iterate yourself out of a problem
+
+Just because it's possible to iterate yourself into a problem doesn't mean iteration failed you. Yes, ideally we would have seen this coming earlier. But consider that fast and small iteration has likely saved many hours of upfront work on features that have been quickly validated, and have since been changed or removed. It's also possible to [DRY up](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) code too soon into bad abstractions, which can be painful to tear apart.
+
+But we reached a point where everyone agreed that the most efficient way forward required consolidating existing code.
+
+### Do the design work
+
+[Fabian](https://gitlab.com/fzimmer), our esteemed product manager, [proposed an epic](https://gitlab.com/groups/gitlab-org/-/epics/2161):
+
+> to build a new geo replication and verification framework with the explicit goal of enabling teams across GitLab to add new data types in a way that supports geo replication out of the box
+
+Most of the logic listed above in [Is it really that hard to copy data?](#is-it-really-that-hard-to-copy-data) is exactly the same for all data types. An internal framework could be used to significantly reduce duplication, which could deliver huge benefits:
+
+* Bugs in the framework only have to be fixed once, increasing reliability and maintainability.
+* New features could be added to the framework for all data types at once, increasing velocity and consistency.
+* Implementation details would be better hidden. Changes outside the framework become safer and easier.
+
+The proposal went further than making it easy for *ourselves* to add Geo support to new data types. The goal was to make it easy for *non-Geo engineers* to do so. To achieve this goal, the framework must be easy to use, easy to understand, and well-documented. Besides the usual benefits of reducing duplication, this higher standard would help:
+
+* Minimize the effort to implement Geo support of new features, whether it's done by a Geo engineer or not.
+* Minimize lag time to add Geo support. If it's easy to do, and anyone can do it, then it's easy to prioritize.
+* Increase awareness in other teams that new features may require Geo support.
+* Influence the planning of new features. There are ways to make it more difficult to add Geo support. This is much easier to avoid during initial planning.
+
+As a first step, Fabian [proposed creating a proof of concept of a framework](https://gitlab.com/gitlab-org/gitlab/-/issues/35540) leveraging lessons learned and incorporating improvements we already wanted to make to the existing architecture. The issue stimulated lots of design discussion in the team, as well as multiple POCs riffing off one another.
+
+The biggest change was the introduction of a `Replicator` class which could be subclassed for every data type. The subclasses would contain the vast majority of the specifics to each data type.
+
+In order to further reduce duplication, we also introduced the concept of a `Replicator strategy`. Most data types in GitLab could be categorized as blobs (simple files) or Git repositories. Within these categories, there was relatively little logic that needed to be specific to each data type. So we could encapsulate the logic specific to these categories in strategies.
+
+Another significant decision was to make the event system more flexible and lightweight. We wanted to be able to quickly implement new kinds of events for a `Replicator`. We decided to do this without rewriting the entire event processing layer, by packaging and transmitting `Replicator` events within a single, generic event leveraging the existing heavyweight event system. We could then leave the old system behind, and after migrating all data types to the framework, we could easily replace it.
+
+Once a vision is chosen, it can be difficult to see how to get there with small iterations. But there are often many ways to go about it.
+
+### Code
+
+#### High-level approach
+
+At a high-level, we could have achieved our goal by taking two data types that were already supported, DRYing up their code, and refactoring toward the desired architecture. This is a proven, safe, and effective method.
+
+But to me it felt more palatable overall to deliver customer value along the way, by adding support for a brand-new data type while developing the reusable framework. We already had practice implementing many data types, so there was little risk that we would, for example, take too long or use suboptimal abstractions. So we decided to do this with [Package registry](https://docs.gitlab.com/ee/user/packages/).
+
+#### Lay the foundation
+
+Our POCs already answered the biggest open questions about the shape of the architecture. The next step was to get enough of a skeleton merged, as quickly as possible, so that we could unlock further parallel work. To ensure correctness, we aimed to get something working end-to-end. We decided to implement "replication of newly created Package files". Much was left out, for example:
+
+* Replication of changes. (Most Blob types, including Package files, are immutable anyway)
+* Replication of deletes
+* Backfill of existing files
+* Verification was left out entirely from the scope of the first epic, since we already knew replication alone provides most of the value to users.
+
+Since the work still required many specific design decisions, we decided to [pair program](https://en.wikipedia.org/wiki/Pair_programming). [Gabriel Mazetto](https://gitlab.com/brodock) and I used [Zoom](https://zoom.us/) and [Visual Studio Live Share](https://visualstudio.microsoft.com/services/live-share/), which worked well for us, though there are many options available. [See a recording of our first call](https://www.youtube.com/watch?v=2XedCiU634s).
+
+[The spike](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/23447) was merged and we thought ourselves safe under the feature flag. Looking back on this particular merge request, we did make a couple mistakes:
+
+1. An [autoloading bug was discovered](https://gitlab.com/gitlab-org/gitlab/-/issues/202044). The merge request was reverted, fixed, and remerged. Thanks to [CI](https://docs.gitlab.com/ee/ci/) and end-to-end QA tests using actual builds, the impact was limited.
+1. The size of the spike was unnecessarily large and difficult to review for a single merge request. As it grew, we should have used it as a "reference" merge request from which we could break out smaller merge requests. Since then, GitLab policies have further emphasized [smaller iterations](https://about.gitlab.com/handbook/product/product-principles/#iteration).
+
+#### Build on the foundation
+
+With the skeleton of the framework in the main branch, we could implement multiple features without excessive conflicts or coordination. The feature flag was enabled on [GitLab's staging environment](https://about.gitlab.com/handbook/engineering/development/enablement/systems/geo/staging.html), and each additional slice of functionality was tested as it was merged. And new issues for bugs and missing features were opened.
+
+We built up the [developer documentation](https://docs.gitlab.com/ee/development/geo/framework.html) as we went along. In particular, we documented specific instructions to implement a new data type, aimed at developers with no prior knowledge of Geo. These instructions have since been moved to issue templates. For example, [this is the template for adding support to a new Git repository type](https://gitlab.com/gitlab-org/gitlab/-/blob/master/.gitlab/issue_templates/Geo%20Replicate%20a%20new%20Git%20repository%20type.md). This caught a lot of would-be pain points for users of the framework.
+
+Finally, we released [Geo supports replicating GitLab Package Registries in GitLab 13.2](https://about.gitlab.com/releases/2020/07/22/gitlab-13-2-released/#geo-supports-replicating-gitlab-package-registries)!
+
+## Reaping the benefits
+
+Following the release of Geo support for Package Registries, we added support for many new data types in quick succession. Automatic verification was added to the framework. This recently culminated in a non-Geo engineer implementing replication *and verification* for a new data type, within one month!
+
+* In GitLab 13.5, [Geo replicates external merge request diffs and Terraform state files](https://about.gitlab.com/releases/2020/10/22/gitlab-13-5-released/#geo-replicates-external-merge-request-diffs-and-terraform-state-files). These were added by Geo engineers who had been less involved in building the framework. Many refinements to the framework, and especially to the documentation, came out of this.
+* In GitLab 13.7, [Geo supports replicating Versioned Snippets](https://about.gitlab.com/releases/2020/12/22/gitlab-13-7-released/#geo-supports-replicating-versioned-snippets). This was also added by a Geo engineer, and it was the first Git repository type in the framework, so it required more work than adding new Blob types.
+* In GitLab 13.10:
+  * [Geo supports replicating Group wikis](https://about.gitlab.com/releases/2021/03/22/gitlab-13-10-released/#geo-supports-replicating-group-wikis) was implemented by a non-Geo engineer.
+  * [Geo verifies replicated package files](https://about.gitlab.com/releases/2021/03/22/gitlab-13-10-released/#geo-verifies-replicated-package-files). This was a big new feature in the framework, adding automatic verification to any data type that can be checksummed.
+* GitLab 13.11:
+  * [Geo supports Pipeline Artifacts](https://about.gitlab.com/releases/2021/04/22/gitlab-13-11-released/#geo-supports-pipeline-artifacts) was implemented by a non-Geo engineer.
+  * [Geo verifies replicated Versioned Snippets](https://about.gitlab.com/releases/2021/04/22/gitlab-13-11-released/#geo-verifies-replicated-versioned-snippets).
+* GitLab 13.12:
+  * [An already supported data type, LFS objects, is migrated to the framework under feature flag](https://gitlab.com/gitlab-org/gitlab/-/issues/276696). Following this will be the migration of "Uploads" and "CI Job artifacts", and then **deleting thousands of lines of code**. This should improve both reliability and velocity, for example, verification will be added to these data types.
+
+In aggregate:
+
+* In GitLab 12.9, we replicated ~56% of all data types (13 out of 23 in total) and verified ~22%.
+* In GitLab 13.11, we replicate ~86% of all data types (25 out of 29 in total) and verify ~45%.
+* **In the last year, GitLab released six new features that needed Geo support. We replicate 100% of those new features and verify ~57%.**
+
+## What did it cost?
+
+For comparison, it took around 3.5 months to [implement replication of Design repositories](https://gitlab.com/groups/gitlab-org/-/epics/1633). It took around 6 months to [implement the framework for replication of Package files](https://gitlab.com/groups/gitlab-org/-/epics/2346). So the cost to produce the framework for replication was roughly 2.5 months of work.
+
+We don't really have a comparable for [implementation of verification](https://gitlab.com/groups/gitlab-org/-/epics/1817), but it looked like it would take about 3 months to implement for a single data type, while it took about 4 months total to implement for Package files and simultaneously add to the framework, for a cost of about 1 month.
+
+Given that new data types now take about 1 month to implement replication *and verification*, the work to produce the framework **paid for itself with the implementation of a single data type**. All the rest of the benefits and time saved are more icing on the cake.
+
+My only regret is that we should have done it sooner. I intend to be more cognizant of this kind of opportunity in the future.
+
+## What to expect in the future
+
+* [Already supported data types will be migrated into the framework](https://gitlab.com/groups/gitlab-org/-/epics/3588)
+* New features will be added more quickly, for example, verification will be rolled out for all [Blob](https://gitlab.com/groups/gitlab-org/-/epics/5285) and [Git repository](https://gitlab.com/groups/gitlab-org/-/epics/5286) data types
+* Duplication will be further reduced, for example, by [leveraging Rails generators](https://gitlab.com/gitlab-org/gitlab/-/issues/326842)
+
+Huge thanks to everyone who contributed to closing the gap on replicating *everything* in Geo!

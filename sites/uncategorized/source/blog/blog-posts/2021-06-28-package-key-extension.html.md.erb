@@ -1,0 +1,37 @@
+---
+title: "GitLab extends Omnibus package signing key expiration date from 2021 to 2022"
+author: "Gerard Hickey"
+author_gitlab: ghickey
+author_twitter: wt0f
+categories: news
+image_title: "/images/default-blog-image.png"
+description: "Our GPG key will now expire on July 1, 2022. Here's what you need to know."
+tags: security, security releases, workflow
+twitter_text: "Why GitLab is extending the package signing key expiration by one year"
+postType: product
+---
+
+GitLab uses a GPG key to sign all Omnibus packages created within the CI pipelines to insure that the packages have not been tampered with. This key is seperate from the repository metadata signing key used by package managers and the GPG signing key for the GitLab Runner. The Omnibus package signing key is set to expire on July 1, 2021 and will be extended to expire on July 1, 2022 instead.
+
+## Why are we extending the deadline?
+
+The Omnibus package signing key's expiration is extended each year to comply with GitLab security policies and to limit the exposure should the key become compromised. The key's expiration is extended instead of rotating to a new key to be less disruptive for users that do verify package integrity checks prior to installing the package.
+
+## What do I need to do?
+
+The only action that needs to be taken is to update your copy of the package signing key _if_ you validate the signatures on the Omnibus packages that GitLab distributes.
+
+The package signing key is not the key that signs the repository metadata used by the OS package managers like `apt` or `yum.` Unless you are specifically verifying the package signatures or have configured your package manager to verify the package signatures, there is no action needed on your part to continue installing Omnibus packages.
+
+More information concerning [verification of the package signatures](https://docs.gitlab.com/omnibus/update/package_signatures#package-signatures)
+is available in the Omnibus documentation. If you just need to refresh a copy
+of the public key, then you can find it on any of the GPG keyservers by
+searching for support@gitlab.com or using the key ID of
+`DBEF 8977 4DDB 9EB3 7D9F  C3A0 3CFC F9BA F27E AB47.` Alternatively you could
+download it directly from packages.gitlab.com using the URL:
+
+    https://packages.gitlab.com/gitlab/nightly-builds/gpgkey/gitlab-nightly-builds-3D645A26AB9FBD22.pub.gpg
+
+## What do I do if I still have problems?
+
+Please open an issue in the [omnibus-gitlab issue tracker](https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/new?issue&issuable_template=Bug).

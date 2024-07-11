@@ -1,0 +1,273 @@
+---
+title: "Git 2.41 release - Here are five of our contributions in detail"
+author: John Cai
+author_gitlab: jcaigitlab
+categories: git
+tags: git, news, open source, community
+description: "Find out how GitLab's Git team helped improve the latest version of Git."
+image_title: /images/blogimages/git-241.jpg
+featured: yes
+twitter_text: "Dive deep into five ways that the GitLab team contributed to Git 2.41."
+---
+
+[Git 2.41](https://gitlab.com/gitlab-org/git/-/raw/master/Documentation/RelNotes/2.41.0.txt)
+was officially released on June 1, 2023, and included some improvements from GitLab's Git team. Git is the foundation of
+repository data at GitLab. GitLab's Git team works on everything from new
+features, performance improvements, documentation improvements, and growing the Git
+community. Often our contributions to Git have a lot to do with the way we integrate Git into
+our services at GitLab. Here are some highlights from this latest Git release,
+and a window into how we use Git on the server side at GitLab.
+
+## 1. Machine-parseable fetch output
+When `git-fetch` is run, the output is a familiar for users of Git and looks
+something like this:
+
+```
+> git fetch
+remote: Enumerating objects: 296, done.
+remote: Counting objects: 100% (189/189), done.
+remote: Compressing objects: 100% (103/103), done.
+remote: Total 296 (delta 132), reused 84 (delta 84), pack-reused 107
+Receiving objects: 100% (296/296), 184.46 KiB | 11.53 MiB/s, done.
+Resolving deltas: 100% (173/173), completed with 42 local objects.
+From https://gitlab.com/gitlab-org/gitaly
+   cfd146b4d..a69cf20ce  master                                                                             -> origin/master
+   3a877b8f3..854f25045  15-11-stable                                                                       -> origin/15-11-stable
+ * [new branch]          5316-check-metrics-and-decide-if-need-to-context-cancel-the-running-git-process-in -> origin/5316-check-metrics-and-decide-if-need-to-context-cancel-the-running-git-process-in
+ + bdd3c05a2...0bcf6f9d4 blanet_default_branch_opt                                                          -> origin/blanet_default_branch_opt  (forced update)
+ * [new branch]          jt-object-pool-disconnect-refactor                                                 -> origin/jt-object-pool-disconnect-refactor
+ + f2447981c...34e06e106 jt-replicate-repository-alternates                                                 -> origin/jt-replicate-repository-alternates  (forced update)
+ * [new branch]          kn-logrus-update                                                                   -> origin/kn-logrus-update
+ + 05cea76f3...258543674 kn-smarthttp-docs                                                                  -> origin/kn-smarthttp-docs  (forced update)
+ * [new branch]          pks-git-pseudorevision-validation                                                  -> origin/pks-git-pseudorevision-validation
+ + 2e8d0ccd5...bf4ed8a52 pks-storage-repository                                                             -> origin/pks-storage-repository  (forced update)
+ * [new branch]          qmnguyen0711/expose-another-port-for-pack-rpcs                                     -> origin/qmnguyen0711/expose-another-port-for-pack-rpcs
+ + 82473046f...8e23e474c use_head_reference
+```
+
+The problem with this output is that it's not meant for machines to parse.
+
+But why would it be useful to make this output parseable by machines? To understand
+this, we need to back up a little bit and talk about Gitaly Cluster. [Gitaly Cluster](https://docs.gitlab.com/ee/administration/gitaly/#gitaly-cluster)
+is a service at GitLab that provides high availability of Git repositories by
+replicating repository writes to replica nodes. Each time a write comes in which
+changes a Git repository (for example, a push that updates a reference) the write goes to
+the primary node, and to all replica nodes before the write can succeed. A
+voting mechanism takes place where the nodes vote on what its updated
+value for the reference would be. This vote succeeds when a quorum of replica
+nodes have successfully written the ref, and the write succeeds.
+
+One of our remote procedure calls (RPCs) in Gitaly runs `git-fetch(1)` for repository mirroring. By
+default, when `git-fetch(1)` is run, it will update any references that are able
+to be fast-forwarded and fail on any reference that has since diverged will not
+be updated.
+
+As mentioned above, whenever there is an operation that modifies a repository, there
+is a voting mechanism that ensures the same modification is made to all replica nodes.
+To dive in even a little deeper, our voting mechanism leverages Git's reference transaction hook,
+which runs an executable once per reference transaction. `git-fetch(1)` by default will
+start a reference transaction per reference it updates. A fetch that updates hundreds or
+even thousand of references would thus vote once per reference that gets updated.
+
+In the following sequence diagram, we are only showing one Gitaly node, but for a Gitaly Cluster
+with, let's say, three nodes, what happens with the Gitaly primary also happens in
+the replicas.
+
+```mermaid
+sequenceDiagram
+    actor user
+    participant Gitlab UI
+    participant p as Praefect
+    participant g0 as Gitaly (primary)
+    participant git as Git
+    user->>Gitlab UI: mirror my repository
+    Gitlab UI->>p: FetchRemote
+    activate p
+    p->>g0: FetchRemote
+    activate git
+    g0->>git: fetch-remote
+    git->>g0: vote on refs/heads/branch1 update
+    g0->>p: vote on refs/heads/branch1 update
+    git->>g0: vote on refs/heads/branch2 update
+    g0->>p: vote on refs/heads/branch2 update
+    git->>g0: vote on refs/heads/branch3 update
+    g0->>p: vote on refs/heads/branch3 update
+    deactivate git
+    note over p: vote succeeds
+    p->>Gitlab UI: success
+    deactivate p
+```
+
+This is inefficient. Ideally we would want to vote once per batch of references
+updated from one `git-fetch(1)` call. There is an option `--atomic` in
+`git-fetch(1)` that will open one reference transaction for all references
+updated by `git-fetch(1)`. However, when `--atomic` is used, a `git-fetch` call
+will fail if any references have since diverged. This is not how we want
+repository mirroring to work. We actually want `git-fetch` to update whichever
+refs it can.
+
+So, that means we cannot use the `--atomic` flag and are thus stuck voting per
+reference we update.
+
+### Solution: Handle the reference update ourselves
+The way we are solving this inefficiency is to handle the reference update
+ourselves. Instead of relying on `git-fetch(1)` to both fetch the objects and
+update all the references, we can use the `--dry-run` option of `git-fetch(1)`
+to first fetch the objects into a quarantine directory. Then if we can know
+which references *would* be updated, we can start a reference transaction
+ourselves with `git-update-ref(1)` and update all the refs in one transaction,
+hence triggering a single vote only.
+
+```mermaid
+sequenceDiagram
+    actor user
+    participant Gitlab UI
+    participant p as Praefect
+    participant g0 as Gitaly (primary)
+    participant git as Git
+    user->>Gitlab UI: mirror my repository
+    Gitlab UI->>p: FetchRemote
+    activate p
+    p->>g0: FetchRemote
+    g0->>git: fetch-remote --dry-run --porcelain
+    activate git
+    note over git: objects are fetched into a quarantine directory
+    git->>g0: branch1, branch2, branch3 will be updated
+    deactivate git
+    g0->>git: update-ref
+    activate git
+    note over git: update branch1, branch2, branch3 in a single transaction
+    git->>g0: reference transaction hook
+    deactivate git
+    g0->>p: vote on ref updates
+    note over p: vote succeeds
+    p->>Gitlab UI: success
+    deactivate p
+```
+
+A requirement for this however, is that we would be able to parse the output of
+`git-fetch(1)` to tell which refs will be updated and to what values. Currently
+in `--dry-run`, `git-fetch(1)`'s output cannot be parsed by a machine.
+
+[Patrick Steinhardt](https://gitlab.com/pks-gitlab), Staff Backend Engineer, Gitaly, added a  `--porcelain` [option to git-fetch](https://git-scm.com/docs/git-fetch#Documentation/git-fetch.txt---porcelain)
+that causes `git-fetch(1)` to gives its output in a machine-parseable format.
+
+```
+> git fetch --porcelain --dry-run --quiet
+* cd7ec0e2505463855d04f0a685d53af604079bdf 023a4cca58ac713090df15015a2efeadc73be522 refs/remotes/origin/master
+* 0000000000000000000000000000000000000000 b4a007671bd331f1c6f5857aa9a6ab95d500b412 refs/remotes/origin/alejguer-improve-readabiliy-geo
+  2314938437eb962dadd6a88f45d463f8ed2c7cec 3d3e36fa40e9b87b90ef31f80c63c767d0ef3638 refs/remotes/origin/ali/document-keyless-container-signing
++ c8107330f8d5a938f6349743310db030ca5159e6 e155670196e4974659304c79e670b238192bce08 refs/remotes/origin/fc-add-failed-jobs-in-mr-part-2
++ 9ec873de405b3c5078ad1c073711a222e7734337 eb7947e37d05460a94c988bf1f408f96228dd50d refs/remotes/origin/fc-mvc-details-page
+* 0000000000000000000000000000000000000000 36d214774f39d3c3d0569df8befd2b46d22ea94b refs/remotes/origin/group-runner-docs
++ b357bfdec53b96e76582ac5dd64deb2d35dbe697 7b85d775b1a46ea94e0b241aa0b6aa37ae2e0b69 refs/remotes/origin/jwanjohi-add-abuse-training-data-table
++ c9beb0b9c0b933903c12393acaa2c4447bb9035f fd13eda262c67a48495a0695659fea10b32e7e02 refs/remotes/origin/jy-permissions-blueprint
++ 9ecf5a7fb7ca39a6a4296e569af0ddff1058a830 3341369e650c931c46d9880f3b781dc1e21c9f75 refs/remotes/origin/kassio/spike-pages-review-apps
+```
+
+This change allows us to be much more efficient when mirroring repositories.
+
+Details of the patch series, including discussions can be found [here](https://lore.kernel.org/git/cover.1683721293.git.ps@pks.im/).
+
+## 2. A new way to read Git attribute files
+[Git attribute](https://docs.gitlab.com/ee/user/project/git_attributes.html) is
+a way to define attributes in a Git repository such as syntax highlighting. Until now, Git only read `.gitattribute` files in the wokrtree or the
+`.git/info/attributes` files. On Gitaly servers, we store repositories on disk
+as [bare
+repositories](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---bare).
+This means that on the server we don't keep worktrees around. To
+support gitattributes on GitLab then, we use a workaround whereby when the user
+changes attributes on the default branch, we copy the contents of the blob
+`HEAD:.gitattribute` to the `info/attributes` file.
+
+```mermaid
+flowchart TD
+    A[User A] -->|edit HEAD:.gitattributes<br/>git push| B[Gitaly]
+    B --> |copy HEAD:.gitattributes<br/>to info/attributes|C[info/attributes file]
+    D[GitLab UI] --> |Display code with syntax highlighting|B
+    B -.how should I do syntax highlighting?<br/> Read info/attributes file.->C
+```
+
+### Solution: New git option to read attribute files directly
+To get rid of this extra step of copying a blob to `info/attributes`,
+I added a new git
+[option](https://git-scm.com/docs/git#Documentation/git.txt---attr-sourcelttree-ishgt)
+`--attr-source=<tree>` whereby a caller can pass in a tree from which Git will
+read the attributes file directly. This way Git can read the attributes blob directly
+without a worktree and without having to copy the contents to `info/attributes` each time it changes.
+
+```mermaid
+flowchart TD
+    A[User A] -->|edit HEAD:.gitattributes<br/>git push| B[Gitaly]
+    D[GitLab UI] --> |Display code with syntax highlighting|B
+    B --> |Directly read the HEAD:.gitattributes blob|B
+```
+
+Having this feature in Git allows us to simplify this process a lot. We no longer
+have to manually copy over the contents to a separate file. Internally, this
+allows us to delete two RPCs, reducing complexity and improving performance.
+
+Details of this patch series, including discussions can be found [here](https://lore.kernel.org/git/pull.1470.v6.git.git.1683346530487.gitgitgadget@gmail.com/).
+
+## 3. Bug fix in commit-graph generation numbers
+A regression for truncated commit-graph generation numbers is a bug that we have been hitting for
+specific repositories, corrupting the commit-graph. The [commit
+graph](https://git-scm.com/docs/commit-graph) is an important Git optimization
+that speeds up commit graph walks. Commit graph walks happen whenever Git has to
+walk through commit history. Any time we display commit history in the UI, for
+instance, it  will trigger a commit graph walk. Keeping these fast is crucial to a
+snappy browsing experience.
+
+### Solution: A patch series to fix the bug
+Patrick submitted a patch series to fix the regression for truncated commit-graph generation numbers bug 
+Details of this patch series, including discussions can be found [here](https://lore.kernel.org/git/f8a0a869e8b0882f05cac49d78f49ba3553d3c44.1679904401.git.ps@pks.im/).
+
+## 4. Fix for stale lockfiles in `git-receive-pack`
+`git-receive-pack(1)` is a Git command that handles the server-side of pushes. When `git push` is run
+against a GitLab server, Gitaly will handle the `ssh` or `http` request and
+spawn a `git-receive-pack(1)` process behind the scenes to handle the push.
+
+`git-receive-pack(1)` will write a lockfile when processing packfiles in order
+to prevent a race condition where a concurrent garbage-collecting process tries
+to delete the new packfile that is not yet being referenced by anything.
+
+When the `git-receive-pack(1)` process dies prematurely for whatever reason, this
+lockfile was being left around instead of being cleaned up. Busy repositories
+that received many pushes a day could grow in size quickly due to the
+accumulation of these lockfiles.
+
+### Solution: A patch series to clean up unused lockfiles
+Patrick fixed this by submitting a
+patch series that allows `git-receive-pack(1)` to clean up its unused lockfiles. This allows GitLab to save space on its servers from having to keep useless
+lockfiles around.
+
+Details of this patch series, including discussions can be found [here](https://lore.kernel.org/git/e1ee1d8026a361bc58d16bc741e2b347ada7a53e.1678431076.git.ps@pks.im/).
+
+## 5. Fixed geometric repacking with alternate object databases
+[Geometric repacking](https://git-scm.com/docs/git-repack#Documentation/git-repack.txt---geometricltfactorgt)
+is a repacking strategy where instead of packing everything into on giant pack
+each time, several packs are kept around according to a geometric progression
+based on object size.
+
+This is useful for large and very busy repositories so that housekeeping doesn't
+have to pack all of its objects into a giant pack each time.
+
+Unfortunately, geometric repacking had various corner case bugs when an
+alternate object database was involved. At GitLab, we leverage the Git
+alternates mechanism to save space in the case of forks. A fork of a repository
+shares most files. Instead of keeping a second copy of all the data, when we
+create a fork, we can deduplicate this data by having both the source
+repository, as well as the fork repository share objects by pointing to a third
+repository. This means that only one copy of a blob needs to be kept around
+rather than two.
+
+Geometric repacking bugs prevented it from working in an object database that
+was connected to an alternate object database.
+
+### Solution: A patch series
+These bugs have been fixed via a patch series from Patrick. This
+helps us as we improve our implementation of object pools in Gitaly.
+
+Details of this patch series, including discussions can be found [here](https://lore.kernel.org/git/cover.1681452028.git.ps@pks.im/).
+
+

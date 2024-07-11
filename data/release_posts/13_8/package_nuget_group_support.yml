@@ -1,0 +1,34 @@
+features:
+  secondary:
+    - name: "Install NuGet packages from your group or subgroup"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/packages/nuget_repository/#use-the-gitlab-endpoint-for-nuget-packages'
+      reporter: trizzi
+      stage: package
+      categories:
+        - 'Package Registry'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/36423'
+      description: |
+        You can use your project's Package Registry to publish and install NuGet packages. You simply add your project as a source using the NuGet CLI, Visual Studio, or the .NET CLI. For example, using the NuGet CLI you can run: 
+
+        ```
+        nuget source Add -Name <source_name>
+         -Source "https://gitlab.example.com
+        /api/v4/projects/<your_project_id>/packages/nuget/index.json"
+         -UserName <gitlab_username or deploy_token_username>
+         -Password <gitlab_personal_access_token or deploy_token>
+        ```
+
+        This works great if you have a small number of projects. But if you have multiple projects nested within a group, you might quickly find yourself adding dozens or even hundreds of different sources. For large organizations with many teams, it's common for a team to publish packages to their project's Package Registry alongside the source code and pipelines. But, they also need to be able to easily install dependencies from other projects within their organization. 
+        
+        Moving forward, you can install packages from your group so you don't have to remember which package lives in which project. Simply add your group as a source for NuGet packages and you can install any of the group's packages. 
+
+        ```
+        nuget source Add -Name <source_name>
+        -Source "https://gitlab.example.com
+        /api/v4/groups/<your_group_id>/-/packages/nuget/index.json" 
+        -UserName <gitlab_username or deploy_token_username>
+        -Password <gitlab_personal_access_token or deploy_token>
+        ```
+
+        We hope this feature makes sharing dependencies between projects a little bit easier.

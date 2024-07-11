@@ -1,0 +1,201 @@
+#!/usr/bin/env ruby
+#
+# Validate release post items conform to the proper format
+#
+# Examples:
+#   bin/validate-release-post-item
+#   bin/validate-release-post-item [filename/dir]
+
+require_relative '../lib/lint/schema'
+
+require 'pathname'
+
+STAGES_PATH = File.expand_path('../data/stages.yml', __dir__)
+CATEGORIES_PATH = File.expand_path('../data/categories.yml', __dir__)
+
+module ReleasePostHelpers
+  Abort = Class.new(StandardError)
+  Exception = Class.new(StandardError)
+  Done = Class.new(StandardError)
+
+  def fail_with(message)
+    raise Exception, "\e[31merror\e[0m #{message}"
+  end
+
+  def abort_with(message)
+    raise Abort, "\e[31merror\e[0m #{message}"
+  end
+
+  def warn_with(message)
+    puts "\e[33mwarning\e[0m #{message}"
+  end
+end
+
+class ReleasePostEntry
+  include ReleasePostHelpers
+
+  def initialize(file_path, linter)
+    @file_path = file_path
+    @linter = linter
+
+    unless File.fnmatch?("**.{yaml,yml}", file_path, File::FNM_EXTGLOB)
+      fail_with "#{file_path} does not have a valid YAML extension"
+    end
+
+    f = File.open(file_path).read
+    begin
+      @item = YAML.safe_load(f)
+    rescue StandardError
+      fail_with "#{file_path}: invalid YAML"
+    end
+  end
+
+  def execute
+    assert_validates_schema
+
+    if feature?
+      assert_stage_key feature['stage']
+
+      names = Array(feature['categories'])
+      names.each { |n| assert_category_name n }
+
+      assert_image
+      puts "\e[32mpass\e[0m #{@file_path}"
+    elsif mvp? || deprecation? || removal? || upgrades? || extras? || cta?
+      puts "\e[32mpass\e[0m #{@file_path}"
+    else
+      fail_with "#{@file_path} is missing the features key"
+    end
+  end
+
+  def feature?
+    @item.has_key? 'features'
+  end
+
+  def mvp?
+    @item.has_key? 'mvp'
+  end
+
+  def deprecation?
+    @item.has_key? 'deprecation'
+  end
+
+  def removal?
+    @item.has_key? 'removal'
+  end
+
+  def upgrades?
+    @item.has_key? 'upgrades'
+  end
+
+  def extras?
+    @item.has_key? 'extras'
+  end
+
+  def cta?
+    @item.has_key? 'cta'
+  end
+
+  def feature
+    (@item['features']['top'] || @item['features']['primary'] || @item['features']['secondary'])[0]
+  end
+
+  def release
+    Pathname(@file_path).each_filename.to_a[-2]
+  end
+
+  def assert_validates_schema
+    errors = @linter.lint(@item)
+
+    fail_with "#{@file_path}: #{errors}" if errors.any?
+  end
+
+  def assert_stage_key(key)
+    return if key.nil?
+
+    stages = YAML.load_file(STAGES_PATH)['stages'].map { |key, value| [key, value['display_name']] }.to_h
+    stage_keys = stages.keys
+
+    return if stage_keys.include? key
+
+    message = "#{@file_path}: invalid stage, key '#{key}' not found in #{STAGES_PATH}"
+
+    # Check for common mistakes
+    suggested_key = key.downcase.tr(' ', '_') if stage_keys.include?(key.downcase.tr(' ', '_') || '')
+    message << "\n  Did you mean '#{suggested_key}'?" if suggested_key
+
+    fail_with message
+  end
+
+  def assert_category_name(name)
+    return if name.nil?
+
+    categories = YAML.load_file(CATEGORIES_PATH).map { |key, value| [key, value['name']] }.to_h
+    category_names = categories.values
+
+    return if category_names.include? name
+
+    message = "#{@file_path}: invalid category, name '#{name}' name not found in #{CATEGORIES_PATH}"
+
+    # Check for common mistakes
+    suggested_category =
+      categories[name] ||
+      categories[name.downcase.tr('-', '_')] ||
+      categories[name.downcase.tr(' ', '_')]
+    message << "\n  Did you mean '#{suggested_category}'?" if suggested_category
+
+    fail_with message
+  end
+
+  def assert_image
+    return unless feature['image_url']
+
+    unless feature['image_url'].start_with?("/images/#{release}/")
+      fail_with "#{@file_path}: image_url should start with /images/#{release}/"
+    end
+
+    img = File.join('source', feature['image_url'])
+    fail_with "#{@file_path}: image #{img} not found" unless File.exist?(img)
+
+    max_size = 150 * 1000
+    size = File.size(img)
+    return unless size > max_size
+
+    fail_with "#{@file_path}: image #{img} is too large #{size}B. Max size is #{max_size}B."
+  end
+end
+
+def items
+  search_path = ARGV.shift || 'data/release_posts/unreleased'
+
+  return [search_path] if File.file?(search_path)
+
+  unless File.directory?(search_path)
+    raise StandardError, "#{search_path} does not exist."
+  end
+
+  Dir.glob(File.join(search_path, '*')).reject { |f| File.directory?(f) }
+end
+
+if $PROGRAM_NAME == __FILE__
+  exit_code = 0
+
+  linter = Lint::Schema.new(File.expand_path('../data/schemas/releasepost.schema.json', __dir__))
+
+  items.each do |i|
+    begin
+      ReleasePostEntry.new(i, linter).execute
+    rescue ReleasePostHelpers::Exception => ex
+      puts ex.message
+      exit_code = 1
+    rescue ReleasePostHelpers::Abort => ex
+      puts ex.message
+      exit_code = 1
+    rescue StandardError => ex
+      puts ex.message
+      exit_code = 1
+    end
+  end
+
+  exit exit_code
+end

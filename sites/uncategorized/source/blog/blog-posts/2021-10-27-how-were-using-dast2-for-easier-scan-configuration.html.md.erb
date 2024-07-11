@@ -1,0 +1,112 @@
+---
+title: "How we’re using DAST 2 for easier scan configuration and reduced noise"
+author: Nikhil George
+author_gitlab: ngeorge1
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/pexels-chernaya-575.jpeg'
+description: "Our security team upgraded to GitLab’s DAST 2. Here’s how and why we did it."
+tags: security
+twitter_text: "Our security team upgraded to @GitLab’s DAST 2 for identifying security vulnerabilities in our application. Here’s how and why we did it."
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2020/08/31/how-to-configure-dast-full-scans-for-complex-web-applications/"
+  - "/blog/2021/07/23/announcing-package-hunter/"
+  - "/blog/2021/10/11/threat-modeling-kubernetes-agent/"
+---
+
+At GitLab, [dogfooding](/handbook/values/#dogfooding) is part of our core value of [results](/handbook/values/#results). Inspired by this principle, we use all GitLab [security scanning tools available as part of our product](https://docs.gitlab.com/ee/user/application_security/) within our organization to identify security vulnerabilities early in the development phase. One such scanning tool is the [Dynamic Application Security Testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/index.html) scanner, which helps identify security vulnerabilities in web application deployments. The DAST scanner is a black-box testing tool that interacts with a web application like a user and tests for security vulnerabilities. 
+
+We’ve since updated GitLab’s DAST CI job configuration to make use of the latest DAST analyzer features offered in [DAST 2](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/69054). This blog post details how we configured DAST version 1 to work for our needs, our move to DAST 2 (along with details on our configs) and the benefits we’re seeing so far. _Hint: Big wins in efficiency!_ 
+
+## How we made DAST 1 work for us
+
+My teammate [Dennis Appelt](/company/team/#dappelt) blogged previously about how [we configured DAST scans](/blog/2020/08/31/how-to-configure-dast-full-scans-for-complex-web-applications/) in our [pipeline](https://gitlab.com/gitlab-org/gitlab/-/blob/master/.gitlab/ci/dast.gitlab-ci.yml) to scan the GitLab web application periodically using DAST 1. As detailed in that blog, running a DAST scan on a complex web application like GitLab from the CI pipeline requires a bit of planning to optimize the scan time and prevent CI job [timeouts](https://docs.gitlab.com/ee/ci/pipelines/settings.html#set-a-limit-for-how-long-jobs-can-run). With DAST 1, our approach was to split the DAST scan into multiple, parallel CI jobs and exclude irrelevant scan rules to achieve optimization and prevent job timeouts. 
+
+When configuring a parallel DAST scan, each DAST job is set to execute a mutually exclusive list of scan rules. These scan rules are selected such that they will finish execution within the set CI job timeout.
+
+_note: In the GitLab DAST pipeline line, the [`DAST_EXCLUDE_RULES`](https://docs.gitlab.com/ee/user/application_security/dast/#enable-or-disable-rules) CI/CD variable was used to disable specific scan rules as `DAST_ONLY_INCLUDE_RULES` was not available until [DAST v1.53.0](https://gitlab.com/gitlab-org/security-products/dast/-/blob/main/CHANGELOG.md#v1530)._ 
+
+### Addressing challenges with job timeouts
+
+Using an exclusion list, the go-to option for disabling scan rules until DAST v1.53.0, works fine until there’s a new version of DAST analyzer, which comes with a new scan rule. By default, DAST auto-update is turned on and all newly-introduced scan rules get executed in all the DAST jobs. As a result, the DAST jobs could face timeout issues if the addition of a new scan rule increases the scan duration beyond the configured CI job timeout duration. In addition, the default execution of the newly-added scan rules in all the DAST jobs, results in duplicate scans -- a waste of CI cycles.  
+
+### Test, verify and check auto-update status
+
+To prevent default execution of the newly-added scan rules while using a DAST version earlier than 1.53, enable new scan rules in a single DAST job. This single DAST job should be tested to verify that it runs within the set CI job timeout; this is a repetitive and manual effort. A short-term workaround employed by our team in this case was to disable DAST auto-update by pinning the DAST analyzer to a specific release version by mentioning the version number in `DAST_VERSION` CI/CD variable.
+
+## DAST 2 improvements
+
+DAST 2 was released with [GitLab 14.0](/releases/2021/06/22/gitlab-14-0-released/) in June 2021 and introduced a bunch of [interesting features and config options](https://gitlab.com/gitlab-org/security-products/dast/-/blob/main/CHANGELOG.md#v200) that made DAST configuration and vulnerability management much easier. 
+
+As we had disabled DAST auto-update in the GitLab pipeline, we were missing out on all the new features and bug fixes that came with different minor and major version updates. You can see the [configuration changes we performed to upgrade the DAST pipeline from version 1.22.1 to 2](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/69054).
+
+### Streamlining vulnerability triage
+
+One new feature of DAST 2 that we’re finding especially valuable on GitLab is the [aggregation of vulnerabilities](https://gitlab.com/gitlab-org/gitlab/-/issues/254043). During a DAST scan of a web application, there are many vulnerabilities that are common to multiple web requests. For instance, the [X-Frame-Options Header Not Set](https://www.zaproxy.org/docs/alerts/10020/) plugin checks if `X-Frame-Options` HTTP headers are present in each response and reports a vulnerability for every applicable request. This resulted in creation of multiple, duplicate, true-positive vulnerabilities in the vulnerability dashboard. The new vulnerability aggregation feature groups vulnerabilities created from plugins like this into a single vulnerability, irrespective of the number of times it is detected in the scan. This makes vulnerability triage much faster as only one vulnerability is now reported for plugins like this. 
+
+Other benefits include:
+- [upgraded versions](https://gitlab.com/gitlab-org/security-products/dast/-/merge_requests/520) of a browser-based crawler;
+- bug fixes; and
+- availability of [better configuration option](https://gitlab.com/gitlab-org/security-products/dast/-/blob/main/CHANGELOG.md#v203) for the browser-based scans.
+
+Take a peek at the [change log](https://gitlab.com/gitlab-org/security-products/dast/-/blob/main/CHANGELOG.md) to see everything that’s new!
+
+## How we updated GitLab’s DAST CI job 
+
+Our move to DAST version 2 and updating GitLab's DAST CI job included three steps:
+1. Move to `DAST_ONLY_INCLUDE_RULES`.
+1. Update DAST analyzer to version 2 and enable auto-update.
+1. Remove deprecated DAST configurations.
+
+### Move to `DAST_ONLY_INCLUDE_RULES` 
+
+The introduction of the `DAST_ONLY_INCLUDE_RULES` CI/CD variable provided a quick way to select ZAP scan rules for execution. Instead of listing out all the rules that need to be excluded from the scan using `DAST_EXCLUDE_RULES`, selected rules for execution could be specified as the value of `DAST_ONLY_INCLUDE_RULES`. This made the job configuration easier because, in our case, the exclusion list was long and dynamic (and kept changing from DAST version to version) but the include list is static and small, making the manual effort involved in scanning more efficient.
+
+For example, to run two selected scan rules, namely `10020` and `10021` in a DAST CI job, one would have to disable all the other rules using `DAST_EXCLUDE_RULES`, as illustrated below:
+```yaml
+DAST-fullscan:
+  extends:
+    - .dast_conf
+  variables:
+    DAST_USERNAME: "user1"
+    DAST_EXCLUDE_RULES: “10019,10037,10054….(all rules except 10020,10021)
+  script:
+     - /analyze -t $DAST_WEBSITE -d
+```
+However, using `DAST_ONLY_INCLUDE_RULES`, the long list of exclude rules could be replaced by a short include list:
+```yaml
+DAST-fullscan:
+  extends:
+    - .dast_conf
+  variables:
+    DAST_USERNAME: "user1"
+    DAST_ONLY_INCLUDE_RULES: “10020,10021”
+  script:
+     - /analyze -t $DAST_WEBSITE -d
+```
+Also, using `DAST_ONLY_INCLUDE_RULES` ensures there won’t be an unexpected timeout on any DAST job due to the execution of new scan rules that come with the new DAST analyzer versions. 
+
+### Update DAST analyzer to version 2 and enable auto-update
+
+As I mentioned above, the version of the DAST analyzer in [gitlab-org/gitlab’s](https://gitlab.com/gitlab-org/gitlab) CI/CD pipeline was pinned to `1.22.1` as a workaround for preventing job timeouts. Now, with the introduction of the `DAST_ONLY_INCLUDE_RULES` CI/CD variable, DAST auto-update could be turned on and version upgrade from 1 to 2 could be carried out in the pipeline without any worry of job failures from timeout.  Both of these were achieved by updating the value of `DAST_VERSION` CI/CD variable to `2`. You can read more about [configuring the DAST version](https://docs.gitlab.com/ee/user/application_security/dast/#include-the-dast-template) in our docs. 
+
+### Remove deprecated DAST configurations
+
+In DAST 2.0, [multiple DAST config CI variables were removed](https://gitlab.com/gitlab-org/security-products/dast/-/merge_requests/460), so any use of them in our pipeline also needed to be removed. One such variable was `DAST_AUTH_EXCLUDE_URLS`, which was previously used to specify the URLs to skip during the authenticated scan. This was replaced with `DAST_EXCLUDE_URLS`.
+
+## Dogfooding for the win
+
+In addition to being able to reduce CI job complexity in GitLab’s DAST pipeline with the upgrade to version 2, our GitLab Security team was able to identify areas for improvement, including the addition of [a misconfiguration detection feature](https://gitlab.com/gitlab-org/gitlab/-/issues/340814) and a [reusable configuration section in DAST template](https://gitlab.com/gitlab-org/gitlab/-/issues/340420), as well as the identification of a [bug causing long URLs in the evidence section not to wrap](https://gitlab.com/gitlab-org/gitlab/-/issues/341050).
+
+## Our next steps for DAST
+Our next goal is to start dogfooding the DAST API scan and beta features like [browser-based scans](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html) to identify pain points from a user perspective and remediate them. 
+
+To stay on top of new DAST releases and cool features that come with them, head over to the [DAST release page](https://gitlab.com/gitlab-org/security-products/dast/-/releases).
+
+Also, are you looking to try out DAST 2, but feeling baffled by the configurations mentioned here? Well, don't be! GitLab also provides quick and easy ways to [enable automatic DAST scan](https://docs.gitlab.com/ee/user/application_security/dast/#enable-automatic-dast-run) with minimal manual configuration.
+
+We’d love to hear your experience configuring DAST scans and feedback on ways to improve the user experience. Drop us a comment below! 
+
+Cover image by [Ksenia Chernaya](https://www.pexels.com/@kseniachernaya) on [Pexels](https://www.pexels.com/photo/modern-professional-equipment-for-checking-eyesight-5752269/).

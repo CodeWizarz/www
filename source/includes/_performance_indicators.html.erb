@@ -1,0 +1,92 @@
+<% if key_performance_indicators.any? %>
+## Executive Summary
+
+<% if org == 'Sales' %>
+Also see [Sales KPIs](/company/kpis#sales-kpis).
+<% end %>
+
+<table>
+  <colgroup>
+    <col span="1" style="width: 20%;">
+    <col span="1" style="width: 17%;">
+    <col span="1" style="width: 63%;">
+  </colgroup>
+  <thead>
+    <tr>
+      <th>KPI</th>
+      <th>Health</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% key_performance_indicators.each do |kpi| %>
+      <% kpi_hash = kpi.name.gsub("/",'').gsub(/[!@%&"()$%^*,:;.]/, '').gsub(" ","-").downcase %>
+      <tr>
+        <td><a href="#<%= kpi_hash %>"><%= kpi.name %></a></td>
+        <td><%= color_code_health kpi.health.level %></td>
+        <td><ul><% kpi.health.reasons.each do |reason| %>
+          <li><%= reason %></li>
+        <% end %></ul></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>
+<% end %>
+
+<% if regular_performance_indicators.any? && regular_performance_indicators.first.org.include?("Section") %>
+## Section PI Overview
+
+
+
+
+<table>
+  <thead>
+    <tr>
+     <th>Stage/Group</th>
+      <th>PI Type</th>
+      <th>PI</th>
+      <th>Health</th>
+      <th>SaaS / SM</th>
+      <th>Implementation Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% regular_performance_indicators.each do |kpi| %>
+      <% if kpi.is_primary == true %>
+        <% name_parts = kpi.name.split(' - ') %>
+        <tr>
+          <td> <%= name_parts[0] %> </td>
+          <td> <%= name_parts[1] %> </td>
+          <td><a href="#<%= kpi.name.gsub("/",'').gsub(/[!@%&"()$%^*,:;.]/, '').gsub(" ","-").downcase %>"><%= name_parts[2]%></a></td>
+          <td><%= color_code_health kpi.health.level %></td>
+          <td><%= kpi.product_analytics_type %></td>
+          <td>
+            <% if kpi.implementation %>
+              <%= kpi.implementation.status %>
+            <% end %>
+          </td>
+        </tr>
+      <% end %>
+    <% end %>
+  </tbody>
+</table>
+<% end %>
+
+
+<% if key_performance_indicators.any? %>
+## Key Performance Indicators
+
+<% key_performance_indicators.each do |kpi| %>
+<%= partial 'includes/performance_indicator', locals: { performance_indicator: kpi } %>
+<% end %>
+<% end %>
+
+<% if regular_performance_indicators.any? %>
+## Regular Performance Indicators
+
+<% regular_performance_indicators.each do |rpi| %>
+<%= partial 'includes/performance_indicator', locals: { performance_indicator: rpi } %>
+<% end %>
+<% end %>
+
+<%= partial 'includes/performance_indicator_footer' %>

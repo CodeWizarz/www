@@ -1,0 +1,36 @@
+---
+title: "Bug found and resolved in Dependency Scanning"
+author: Nicole Schwartz
+author_gitlab: nicoleschwartz
+author_twitter: gitlab
+categories: unfiltered
+description: "Some customers will need to take specific action to manually update their Dependency Scanning image to receive a bug fix."
+tags: features, security, bug
+twitter_text: ""
+---
+
+{::options parse_block_html="true" /}
+
+
+
+Dependency Scanning relies on the GitLab [Vulnerability Database](https://about.gitlab.com/direction/secure/vulnerability-research/advisory-database/) (called [gemnasium-db](https://gitlab.com/gitlab-org/security-products/gemnasium-db)) to provide it with the latest advisory data (i.e. CVEs). Dependency Scanning docker images are built and released with the latest version of the database and in addition, the analyzers update this database to the latest version at the time of a scan. 
+
+However, starting with version 2.8.1 of the Dependency Scanning analyzer called gemnasium, the vulnerability database was [not updating itself at scan time](https://gitlab.com/gitlab-org/gitlab/-/issues/294296). Versions between v2.8.1 (released 2020-03-30) and v2.28.0 (released 2021-02-03) are affected by this bug. As a result, since the introduction of the bug, scan results would only be able to identify advisories published on or before the analyzer image release date. In some cases this meant that the advisories' Dependency Scanning analyzers were outdated by several weeks (relying only on the database checked out at image build time).
+
+We are concerned that this bug made it out to customers and are performing a [root cause analysis](https://gitlab.com/gitlab-org/gitlab/-/issues/321315).
+
+Most customers will receive the bug fix automatically and will have the latest advisory database the next time their Dependency Scanning jobs run. But customers with their own copy of the GitLab container registry or dedicated runners with a docker pull-policy other than always, must take the manual action to pull or update your pin to the latest image (or at least one that is not impacted by this bug). Users that must take this manual action are:
+
+- Customers with an edited Dependency Scanning template that pins their analyzers to a non-major-only tag (for example gemnasium:2.27.0 rather than gemnasium:2)
+- Customers running in an [Offline Environment](https://docs.gitlab.com/ee/user/application_security/offline_deployments/) with their own container registry mirroring GitLab's
+- Self-managed customers or customers with their own docker runners using a pull policy other than `always`
+
+The three analyzer types that are affected are the gemnasium analyzer, the gemnasium-python and gemnasium-maven analyzer. The affected versions of each are:
+
+- gemnasium v2.8.1 to v2.28.0: update to v2.28.1 or above
+- gemnasium-python v2.11.0 to v2.17.2: update to v2.17.3 or above
+- gemnasium-maven v2.13.0 to v2.20.3: update to v2.20.4 or above
+
+TL;DR - If you are using Dependency Scanning analyzers and are not always pulling their docker images from GitLab's docker container registry, please update your analyzers' docker images promptly in order to sync the analyzers with the latest available advisories.
+
+{: .note}

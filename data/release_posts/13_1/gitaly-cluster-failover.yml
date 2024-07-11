@@ -1,0 +1,28 @@
+---
+features:
+  secondary:
+  - name: Gitaly Cluster automatic failover enabled by default
+    available_in:
+    - core
+    - starter
+    - premium
+    - ultimate
+    gitlab_com: false
+    documentation_link: https://docs.gitlab.com/ee/administration/gitaly/praefect.html#automatic-failover-and-leader-election
+    reporter: jramsay
+    stage: create
+    categories:
+    - Gitaly
+    issue_url: https://gitlab.com/gitlab-org/gitaly/-/issues/2682
+    description: |
+      Gitaly Cluster improves fault tolerance of Git storage in GitLab by removing single points of failure, detecting
+      outages, and automatically switching to a replica. From GitLab 13.1, when Gitaly Cluster is configured, SQL leader
+      election and automatic failover are enabled by default.
+
+      If unreplicated write operations are detected during failover, the cluster is put into read only mode to prevent
+      a [split brain](https://en.wikipedia.org/wiki/Split-brain_(computing)). In the future,
+      [strong consistency](https://gitlab.com/groups/gitlab-org/-/epics/1189) will require that write operations succeed
+      on multiple Gitaly nodes before responding with a success signal, preventing this problem and the need to mark the
+      cluster read only.
+
+      Previously in GitLab 13.0, in memory leader election was default instead of automatic failover.

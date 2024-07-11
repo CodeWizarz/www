@@ -1,0 +1,2732 @@
+---
+title: "How to benchmark security tools: a case study using WebGoat"
+author: Isaac Dawson 
+author_gitlab: idawson 
+author_twitter: gitlab 
+categories: security
+image_title: '/images/blogimages/2020-security-tool-benchmarking/benchmarking.jpg'
+description: "When tasked to compare security tools, it's critical to understand what's a fair benchmark. We take you step by step through WebGoat's lessons and compare them to SAST and DAST results."
+tags: security, security research, testing
+twitter_text: "Need to benchmark security tools? @gitlab explores WebGoat in detail and ranks its results against what might be expected from SAST and DAST" 
+featured: no 
+postType: content marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+As your organization grows, the necessity for having automated security tools be a component of your development pipeline will increase. According to the latest [BSIMM10 study](https://www.bsimm.com/about.html), full-time security members represented just 1.37% of the number of developers. That's one security team member for every 73 developers. Without automated tooling assisting security teams, vulnerabilities may more easily find their way into production.
+
+When tasked to compare security tools, having the knowledge to judge a fair benchmark is paramount for success. We're going to take a very in-depth look at WebGoat's lessons in this blog post.
+
+## Running a fair benchmark
+
+There are many factors that need to be taken into consideration when comparing various security tools.
+
+1. Is the tool I am testing right for my organization?
+2. Do the applications I chose to run the tools against reflect what my organization uses?
+3. Do the applications contain real security issues in real world scenarios, or are they synthetic?
+4. Are the results consistent across runs? Are they actionable? 
+
+### Choosing the right tool
+
+Some tools are developer focused, while others may be tailored to security teams. Highly technical tools built for security teams may give better results, but if it requires domain expertise and significant tuning, it may end up being a worse choice for your organization. 
+
+Your organization may also be more concerned about a tool which can run relatively quickly within your development pipeline. If your developers need results immediately, a SAST or DAST tool which takes hours or days to complete may be next to worthless.
+
+### Choosing applications
+
+It's important when comparing tools that they are run against applications that have been developed in-house or closely mirror what your development teams are creating. A SAST tool that's excellent at finding Java security issues will not necessarily translate to one that's great at finding actionable issues in a NodeJS application. If your organization has a diverse set of languages you should run each tool against applications that reflect those environments.
+
+### Real world flaws
+
+Applications like [WebGoat](https://owasp.org/www-project-webgoat/) or [OWASP's Java Benchmark](https://github.com/OWASP/Benchmark) do not represent real world applications. Most vulnerabilities have been purposely injected into very simple data and code flows. The majority of flaws in WebGoat exist in the same Java class where the source of user input is defined. In reality, a large number of security issues will be hidden in nested layers of abstraction or multiple function or method calls. You'll want to ensure your test suite of applications includes real world applications and the tools can traverse these complex flows to find potential flaws.
+
+Even if a tool is excellent at finding language specific issues, it may or may not support the development team's choice in frameworks. Most SAST tools need to add support for specific frameworks. If the tool supports the language of choice but does not support the particular framework, there will be a higher chance for poor results.
+
+### Are results consistent and useful?
+
+Analysis of applications should be run multiple times – DAST tools in particular have a difficult time with consistency due to the dynamic nature of testing live applications. Ensure each tool is run the same number of times to gather enough data points to make a clear decision.
+
+Security tools tend to over report issues and this can end up causing alert fatigue and reduce the value of the tool. It's important to tune the tools to reduce the number of non-actionable results. Just pay attention to how much time is required to maintain this tuning effort and be sure to include this in the final decision. 
+
+## WebGoat as a benchmarking target
+
+WebGoat is a known vulnerable application that was built to help developers and people interested in web application security understand various flaws and risks to applications. Over the years it has seen numerous contributions to the lessons and became a de facto standard for learning about web application security.
+
+Due to the increase in popularity of this project, customers have chosen to rely on using it as a benchmark when assessing the capabilities of various SAST and DAST tools. The purpose of this post is to outline some potential pitfalls when using WebGoat as a target for analysis.
+
+WebGoat was built as a learning aid, not for benchmarking purposes. Certain methods chosen to demonstrate vulnerability do not actually result in real flaws being implemented in WebGoat. To a human attempting to exercise certain flaws, it may look like they've succeeded in finding an issue. In reality, the WebGoat application just makes it appear like they've discovered a flaw. 
+
+This can cause confusion when an automated tool is run against WebGoat. To a human, they expect the tool to find a flaw at a particular location. Since a number of lessons include synthetic flaws, the tools will fail to report them. 
+
+For this post, GitLab's Vulnerability Research Team used the v8.1.0 release of WebGoat, however a number of the issues identified will be applicable to older versions as well.
+
+## WebGoat's architecture
+
+The focus of this post is on WebGoat and in particular as a target for benchmarking. The WebGoat repository has grown in size over the years and now includes multiple sub-projects:
+
+- webgoat-container - This project holds the static content as well as the [Spring Boot](https://spring.io/projects/spring-boot) Framework's lesson scaffolding. The frontend is built using [Backbone.js](https://backbonejs.org/).
+- webgoat-images - Contains a Vagrant file for training purposes.
+- webgoat-integration-tests - Contains test files
+- webgoat-lessons - Contains the source and resources for the lessons.
+- webgoat-server - The primary entry point for the SpringBootApplication.
+- webwolf - An entirely separate project for assisting users in exploiting various lessons.
+
+When building the WebGoat target application, the webgoat-container, webgoat-server and webgoat-lessons are all included into a single SpringBoot server packaged as a JAR artifact. 
+
+For the most part, lessons that contain legitimate flaws exist in a single class file. Certain SAST tools which implement extensive taint tracking capabilities may not be fully exercised. The end result being, SAST tools with limited capabilities will find just as many flaws as more advanced tools that can handle intra-procedural taint flows. It would be better to benchmark these tools against relatively complex applications versus comparing them with WebGoat's simplistic flaws.
+
+## Analysis methodology 
+
+Only the webgoat-container, webgoat-server and webgoat-lessons projects are included in our analysis of WebGoat for SAST/DAST tools. The other projects webgoat-images, webgoat-integration-tests and webwolf are not included. 
+
+Our analysis follows the lessons and attempts to identify in the source where the flaws, if any, exist. If a lesson is a description or does not process user input, it is not included in the flaw category listing below. 
+
+Each lesson is broken down to cover the following:
+
+- Flaw category
+- Lesson with title
+- Link as viewable from a browser
+- Source
+- Lesson's purpose 
+- Relevant source code
+- Whether DAST/SAST would be able to find and the probability level
+    - Possible: A DAST/SAST tool should be able to find the flaw with little to no configuration changes or custom settings
+    - Probable: A DAST/SAST tool could find the flaw with some configuration changes or custom settings
+    - Improbable: A DAST/SAST tool most likely will not be able to find the flaw, due to either hardcoded values or other conditions that are not realistic
+    - Impossible: A DAST/SAST tool would not be able to find any flaw due to it being completely synthetic or other unrealistic circumstances
+- Reasoning why it can or can't be found with a SAST or DAST tool
+- Example attack where applicable.
+
+In many places there are additional flaws that exist in the code but are not part of the lesson; we will highlight some of these but not exhaustively.
+
+Please note this post contains spoilers, if you are new to WebGoat as a learning tool and wish to use it for study, it is recommended to do that first before reading our analysis.
+
+## (A1) Injection
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A1) Injection > SQL Injection (intro) > What is SQL?
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/1
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson2.java
+
+**Lesson:**
+
+This lesson is for practicing raw SQL queries – it allows anyone to run full SQL queries without parameterized statements.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson2.java#L55-65 
+
+public AttackResult completed(@RequestParam String query) {
+    return injectableQuery(query);
+}
+
+protected AttackResult injectableQuery(String query) {
+    try (var connection = dataSource.getConnection()) {
+        Statement statement = connection.createStatement(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY);
+        ResultSet results = statement.executeQuery(query);
+        StringBuffer output = new StringBuffer();
+
+        results.first();
+        ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+It should be relatively straightforward for a SAST tool to identify that the query comes from a known source (line 55) and is used in a statement's executeQuery method.
+
+**DAST Reasoning:**
+
+While it should not be difficult for a DAST tool to find such a vulnerability, most DAST tools are not built with attack strings that attempt direct SQL queries. DAST SQL Injection tests are almost always trying to inject into the middle of an already existing SQL query. There is a good chance most DAST tools will not find the `/SqlInjection/attack2` endpoint's query parameter vulnerable.
+
+**Example Attack:** 
+- `query=(SELECT repeat('a',50000000) from information_schema.tables)` will take ~3 seconds to complete.
+
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Data Manipulation Language (DML)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/2
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson3.java
+
+**Lesson:**
+
+This lesson is for practicing raw SQL queries – it allows anyone to run UPDATE/INSERT SQL queries without parameterized statements.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson3.java#L56-65
+
+public AttackResult completed(@RequestParam String query) {
+    return injectableQuery(query);
+}
+
+protected AttackResult injectableQuery(String query) {
+    try (Connection connection = dataSource.getConnection()) {
+        try (Statement statement = connection.createStatement(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY)) {
+            Statement checkStatement = connection.createStatement(TYPE_SCROLL_INSENSITIVE,
+                    CONCUR_READ_ONLY);
+            statement.executeUpdate(query);
+        ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+It should be relatively straightforward for a SAST tool to identify that the query comes from a known source on line 56 and is used in a statement's executeUpdate method.
+
+**DAST Reasoning:**
+
+While it should not be difficult for a DAST tool to find such a vulnerability, most DAST tools are not built with attack strings that attempt direct SQL queries. DAST SQL Injection tests are almost always trying to inject into the middle of an already existing SQL query. There is a good chance most DAST tools will not find the `/SqlInjection/attack3` endpoint's query parameter vulnerable.
+
+**Example Attack:** 
+- `query=insert into employees (first_name) (SELECT repeat('a', 50000000) from employees)` will take ~2 seconds to error out (where `repeat('a', 5)` takes 200ms).
+
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Data Definition Language (DDL)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/3
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson4.java
+
+**Lesson:**
+
+This lesson is for practicing raw SQL queries – it allows anyone to create tables via SQL queries without parameterized statements.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson4.java#L52-59
+
+public AttackResult completed(@RequestParam String query) {
+    return injectableQuery(query);
+}
+
+protected AttackResult injectableQuery(String query) {
+    try (Connection connection = dataSource.getConnection()) {
+        try (Statement statement = connection.createStatement(TYPE_SCROLL_INSENSITIVE, CONCUR_READ_ONLY)) {
+            statement.executeUpdate(query);
+        ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+It should be relatively straightforward for a SAST tool to identify that the query comes from a known source on line 53 and is used in a statement's executeUpdate method.
+
+**DAST Reasoning:**
+
+While it should not be difficult for a DAST tool to find such a vulnerability, most DAST tools are not built with attack strings that attempt direct SQL injection queries. DAST SQL Injection tests are almost always trying to inject into the middle of an already existing SQL query. There is a good chance most DAST tools will not find the /SqlInjection/attack4 endpoint's query parameter vulnerable to sql injection.
+
+**Example Attack:** 
+- `query=insert into employees (first_name) (SELECT repeat('a', 50000000) from information_schema.tables)` will take ~2 seconds to error out (where `repeat('a', 5)` takes 200ms).
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Data Control Language (DCL)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/4
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5.java
+
+**Lesson:**
+
+This lesson is for practicing raw SQL queries – it pretends to allow users to run grant/alter on tables via SQL queries. However, it is not calling any SQL functionality.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5.java#46-51
+
+String regex = "(?i)^(grant alter table to [']?unauthorizedUser[']?)(?:[;]?)$";
+StringBuffer output = new StringBuffer();
+
+// user completes lesson if the query is correct
+if (query.matches(regex)) {
+    output.append("<span class='feedback-positive'>" + query + "</span>");
+```
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+This is a synthetic vulnerability that does not actually call any database functionality.
+
+**DAST Reasoning:**
+
+This is a synthetic vulnerability that does not actually call any database functionality.
+
+---
+
+### (A1) Injection > SQL Injection (intro) > What is SQL injection?
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/5
+
+**Source:** 
+- Static content only
+
+**Lesson:**
+
+This lesson is for practicing SQL Injection query string generation, but does not call any server side functionality.
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+This lesson does not actually call any server side functionality.
+
+**DAST Reasoning:**
+
+This lesson does not actually call any server side functionality.
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Try It! String SQL injection
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/8
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5a.java
+
+**Lesson:**
+
+This lesson provides a form for testing out SQL Injection against database functionality with the goal of returning all results from a table.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5a.java#L53-L54
+
+public AttackResult completed(@RequestParam String account, @RequestParam String operator, @RequestParam String injection) {
+    return injectableQuery(account + " " + operator + " " + injection);
+...
+
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5a.java#L57-62
+
+protected AttackResult injectableQuery(String accountName) {
+    String query = "";
+    try (Connection connection = dataSource.getConnection()) {
+        query = "SELECT * FROM user_data WHERE first_name = 'John' and last_name = '" + accountName + "'";
+        try (Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE)) {
+            ResultSet results = statement.executeQuery(query);
+    ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The `executeQuery` method is called from a dynamically concatenated string containing user input.
+
+**DAST Reasoning:**
+
+The three inputs `account`, `operator` and `injection` are all concatenated together and each parameter could technically be used as an attack vector. In this case a DAST tool will most likely suffer from over reporting duplicate flaws, as the three input vectors all end up being used in the same resultant query string.
+
+**Example Attack(s):**
+- `account=Smith' or 1%3d1--&operator=&injection=`
+- `account=&operator=Smith' or 1%3d1--&injection=`
+- `account=&operator=&injection=Smith' or 1%3d1--`
+
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Try It! Numeric SQL injection
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/9
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5b.java
+
+**Lesson:**
+
+This lesson provides a form for testing out SQL Injection when the column type is restricted to numerical values. The goal is to return all results from a table. While the resultant query does make use of prepared statements, it incorrectly concatenates user input for the `userid` column.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson5b.java#L56-71
+
+String queryString = "SELECT * From user_data WHERE Login_Count = ? and userid= " + accountName;
+try (Connection connection = dataSource.getConnection()) {
+        PreparedStatement query = connection.prepareStatement(queryString, ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ...
+        ResultSet results = query.executeQuery();
+        ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+While the query is correctly used in a PreparedStatement only the `Login_Count` is parameterized, the `accountName` is still dynamically assigned, leading to SQL Injection.
+
+**DAST Reasoning:**
+
+DAST tools should attempt to inject into both parameters, and provided the correct attack string is used, should successfully identify that the `userid` parameter is vulnerable to SQL Injection.
+
+**Example Attack:**
+- `login_count=1&userid=1+or+1%3D1`
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Compromising confidentiality with String SQL injection
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/10
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson8.java
+
+**Lesson:**
+
+This lesson provides a form for testing out SQL Injection where the goal is to return all results from a table. 
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson8.java#L59-65
+
+String query = "SELECT * FROM employees WHERE last_name = '" + name + "' AND auth_tan = '" + auth_tan + "'";
+
+try (Connection connection = dataSource.getConnection()) {
+    try {
+        Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_UPDATABLE);
+        log(connection, query);
+        ResultSet results = statement.executeQuery(query);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The `name` and `auth_tan` user supplied values are dynamically assigned to a query string, leading to SQL Injection.
+
+**DAST Reasoning:**
+
+DAST tools should attempt to inject into both parameters which are valid attack vectors leading to exploitable SQL Injection.
+
+**Example Attack:**
+- `name=&auth_tan=1'+or+1%3D1--`
+- `name=1'+or+1%3D1--&auth_tan=`
+
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Compromising Integrity with Query chaining
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/11
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson9.java
+
+**Lesson:**
+
+This lesson provides a form for testing out SQL Injection where the goal is to modify a users salary. 
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson9.java#L61-66
+
+String query = "SELECT * FROM employees WHERE last_name = '" + name + "' AND auth_tan = '" + auth_tan + "'";
+try (Connection connection = dataSource.getConnection()) {
+    try {
+        Statement statement = connection.createStatement(TYPE_SCROLL_SENSITIVE, CONCUR_UPDATABLE);
+        SqlInjectionLesson8.log(connection, query);
+        ResultSet results = statement.executeQuery(query);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The `name` and `auth_tan` user supplied values are dynamically assigned to a query string, leading to SQL Injection.
+
+**DAST Reasoning:**
+
+DAST tools should attempt to inject into both parameters `name` and `auth_tan` which are valid attack vectors leading to exploitable SQL Injection.
+
+**Example Attack:**
+- `name=&auth_tan=1'+or+1%3D1--`
+- `name=1'+or+1%3D1--&auth_tan=`
+
+
+---
+
+### (A1) Injection > SQL Injection (intro) > Compromising Availability
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjection.lesson/12
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson10.java
+
+**Lesson:**
+
+This lesson provides a form for testing SQL Injection where the goal is remove evidence of attacks.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/introduction/SqlInjectionLesson10.java#L58-63
+
+String query = "SELECT * FROM access_log WHERE action LIKE '%" + action + "%'";
+
+        try (Connection connection = dataSource.getConnection()) {
+            try {
+                Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                ResultSet results = statement.executeQuery(query);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The action user supplied values are dynamically concatenated to a query string, leading to SQL Injection.
+
+**DAST Reasoning:**
+
+DAST tools should attempt to inject into the action_string parameter, leading to exploitable SQL Injection.
+
+**Example Attack:**
+- `action_string=1'+or+1%3D1--`
+
+---
+
+### (A1) Injection > SQL Injection (advanced) > Try It! Pulling data from other tables
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjectionAdvanced.lesson/2
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java
+
+**Lesson:**
+
+This lesson is to demonstrate how to extract data from tables other than the one the query was defined to execute against.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java#L60-67
+
+query = "SELECT * FROM user_data WHERE last_name = '" + accountName + "'";
+//Check if Union is used
+if (!accountName.matches("(?i)(^[^-/*;)]*)(\\s*)UNION(.*$)")) {
+    usedUnion = false;
+}
+try (Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+        ResultSet.CONCUR_READ_ONLY)) {
+    ResultSet results = statement.executeQuery(query);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The `accountName` user supplied value is dynamically assigned to a query string, leading to SQL Injection.
+
+**DAST Reasoning:**
+
+DAST tools should attempt to inject into the `userid_6a` parameter, leading to exploitable SQL Injection.
+
+**Example Attack:**
+- `userid_6a=1'+or+1%3D1--`
+
+---
+
+### (A1) Injection > SQL Injection (advanced) > (no title)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjectionAdvanced.lesson/4
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionChallenge.java
+
+**Lesson:**
+
+This lesson is a challenge to attempt to extract data from the database that leads to the attacker being able to login as a different user by executing SQL Injection attacks.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionChallenge.java#L63-65
+
+String checkUserQuery = "select userid from sql_challenge_users where userid = '" + username_reg + "'";
+Statement statement = connection.createStatement();
+ResultSet resultSet = statement.executeQuery(checkUserQuery);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The `username_reg` user supplied value is dynamically assigned to a query string, leading to SQL Injection.
+
+**DAST Reasoning:**
+
+DAST tools should attempt to inject into the `username_reg` parameter with a timing or blind sql injection based attack string, leading to exploitable SQL Injection.
+
+**Example Attack:**
+- `username_reg='%2b(select+repeat('a', 50000000)+from+information_schema.tables)%2b'&email_reg=asdf&password_reg=asdf&confirm_password_reg=asdf`
+
+
+---
+
+### (A1) Injection > SQL Injection (mitigation) > Input validation alone is not enough!! (Lesson 9)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjectionMitigations.lesson/8
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/mitigation/SqlOnlyInputValidation.java
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java
+
+**Lesson:** 
+
+This lesson demonstrates filtering of user input not being sufficient for protecting against SQL injection attacks. This particular case looks to see if the input string contains a space and returns an error if it does. 
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/mitigation/SqlOnlyInputValidation.java#L48-L52
+
+public AttackResult attack(@RequestParam("userid_sql_only_input_validation") String userId) {
+if (userId.contains(" ")) {
+    return failed(this).feedback("SqlOnlyInputValidation-failed").build();
+}
+AttackResult attackResult = lesson6a.injectableQuery(userId);
+...
+
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java#56-67
+
+public AttackResult injectableQuery(String accountName) {
+    String query = "";
+    try (Connection connection = dataSource.getConnection()) {
+        boolean usedUnion = true;
+        query = "SELECT * FROM user_data WHERE last_name = '" + accountName + "'";
+        //Check if Union is used
+        if (!accountName.matches("(?i)(^[^-/*;)]*)(\\s*)UNION(.*$)")) {
+            usedUnion = false;
+        }
+        try (Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY)) {
+            ResultSet results = statement.executeQuery(query);
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+SAST tools would most likely be flag this as a flaw existing under the `webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java` class. The `SqlOnlyInputValidation.java` file is calling the same method, but the vulnerability exists in `SqlInjectionLesson6a.java`. Where the flaw is reported depends on how the SAST tool was designed. For example if the SAST tool is capable of tracking taint across intra-procedural calls it may flag the call to `lesson6a.injectableQuery(userId)` on line 52. If the SAST tool was designed to only parse the Abstract Syntax Tree (AST) it may only report the flaw in `SqlInjectionLesson6a.java` on line 67.
+
+**DAST Reasoning:**
+
+Any input filtering done on potential attack vectors makes it more difficult for DAST tools to identify exploitable issues. There is a chance some DAST tools would not find the `userid_sql_only_input_validation` parameter vulnerable to SQL Injection.
+
+**Example Attack:**
+- `userid_sql_only_input_validation='%2b(SELECT/**/repeat(char(60),50000000)from/**/information_schema.tables)%2b'`
+
+---
+
+### (A1) Injection > SQL Injection (mitigation) > Input validation alone is not enough!! (Lesson 10)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjectionMitigations.lesson/9
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/mitigation/SqlOnlyInputValidationOnKeywords.java
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java
+
+**Lesson:** 
+
+This lesson demonstrates filtering of user input not being sufficient for protecting against SQL Injection attacks. This particular case looks to see if the input string contains `SELECT` or `FROM` keywords and replaces them with empty strings, it additionally checks if the input contains a space and returns an error if it does. 
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/mitigation/SqlOnlyInputValidationOnKeywords.java#L48-L53
+
+public AttackResult attack(@RequestParam("userid_sql_only_input_validation_on_keywords") String userId) {
+    userId = userId.toUpperCase().replace("FROM", "").replace("SELECT", "");
+    if (userId.contains(" ")) {
+        return failed(this).feedback("SqlOnlyInputValidationOnKeywords-failed").build();
+    }
+    AttackResult attackResult = lesson6a.injectableQuery(userId);
+    ...
+
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java#56-67
+
+public AttackResult injectableQuery(String accountName) {
+    String query = "";
+    try (Connection connection = dataSource.getConnection()) {
+        boolean usedUnion = true;
+        query = "SELECT * FROM user_data WHERE last_name = '" + accountName + "'";
+        //Check if Union is used
+        if (!accountName.matches("(?i)(^[^-/*;)]*)(\\s*)UNION(.*$)")) {
+            usedUnion = false;
+        }
+        try (Statement statement = connection.createStatement(ResultSet.TYPE_SCROLL_INSENSITIVE,
+                ResultSet.CONCUR_READ_ONLY)) {
+            ResultSet results = statement.executeQuery(query);
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+SAST tools would most likely flag this as a flaw existing under the `webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/advanced/SqlInjectionLesson6a.java` class. The `SqlOnlyInputValidationOnKeywords.java` file is calling the same method, but the vulnerability exists in `SqlInjectionLesson6a.java`. Where the flaw is reported depends on how the SAST tool was designed. For example if the SAST tool is capable of tracking taint across intra-procedural calls it may flag the call to `lesson6a.injectableQuery(userId)` on line 53. If the SAST tool was designed to only parse the Abstract Syntax Tree (AST) it may only report the flaw in `SqlInjectionLesson6a.java` on line 67.
+
+**DAST Reasoning:**
+
+Any input filtering done on potential attack vectors makes it much more difficult for DAST tools to identify exploitable issues. There is a good chance most DAST tools would not find the `userid_sql_only_input_validation_on_keywords` parameter vulnerable.
+
+**Example Attack:**
+- `userid_sql_only_input_validation_on_keywords='%2b(SELselectECT/**/repeat(char(60),50000000)FRfromOM/**/information_schema.tables)%2b'`
+
+---
+
+### (A1) Injection > SQL Injection (mitigation) > (no title) (Lesson 12)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SqlInjectionMitigations.lesson/11
+
+**Source:** 
+- webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/mitigation/Servers.java
+
+**Lesson:** 
+
+This lesson includes a SQL Injection vulnerability in a column field of a SQL query, which can not be specified by a parameter in a parameterized query. As such, it uses a dynamically generated query string with user input for specifying the column name.
+
+```
+webgoat-lessons/sql-injection/src/main/java/org/owasp/webgoat/sql_injection/mitigation/Servers.java#L69-L74
+
+ public List<Server> sort(@RequestParam String column) throws Exception {
+    List<Server> servers = new ArrayList<>();
+
+    try (Connection connection = dataSource.getConnection();
+            PreparedStatement preparedStatement = connection.prepareStatement("select id, hostname, ip, mac, status, description from servers  where status <> 'out of order' order by " + column)) {
+        ResultSet rs = preparedStatement.executeQuery();
+        ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+While the SQL query is a prepared statement, the column field can not be specified as a `parameter` in a parameterized query. A SAST tool should identify that the query string is concatenated with user input on line 73.
+
+**DAST Reasoning:**
+
+A DAST tool, if it is able to find the `/WebGoat/SqlInjectionMitigations/servers` endpoint, should be able to exploit the column based SQL injection issue.
+
+**Example Attack:**
+- `/WebGoat/SqlInjectionMitigations/servers?column=(select+repeat('a',50000000)+from+information_schema.tables)`
+
+---
+
+### (A1) Injection > Path traversal > Path traversal while uploading files
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/PathTraversal.lesson/1
+
+**Source:** 
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUpload.java
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java
+
+**Lesson:** 
+
+This lesson's goal is to upload a file to overwrite a system file. It uses a common insecure pattern of using user input to generate a file path and supplying the file contents to create a new file.
+
+```
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUpload.java#L31-L32
+
+public AttackResult uploadFileHandler(@RequestParam("uploadedFile") MultipartFile file, @RequestParam(value = "fullName", required = false) String fullName) {
+    return super.execute(file, fullName);
+}
+
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java#L41-43
+
+var uploadedFile = new File(uploadDirectory, fullName);
+uploadedFile.createNewFile();
+FileCopyUtils.copy(file.getBytes(), uploadedFile);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool should be able to identify that the `new File` call's second parameter is tainted from the `uploadFileHandler` `fullName` parameter. 
+
+**DAST Reasoning:**
+
+DAST tools have difficulties identifying insecure file upload path traversal attacks. As the attack is a two-step process, the tool most likely will not be able to identify where the uploaded file ultimately resides on the file system. The first step is uploading the file, while the second is for identifying where the uploaded file exists and attempting to access it. 
+
+In this lesson there is no way to retrieve a non `.jpg` suffixed file. The `var catPicture = new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");` limits what can be retrieved. Additionally, the only way to attempt to access uploaded files is through a completely unrelated web page. A DAST tool would not understand the relationship between the upload endpoint and the retrieval endpoint. 
+
+While it is possible to attempt null byte attacks if the string contains `path-traversal-secret.jpg` the `FileCopyUtils` method uses `java.io.File.toPath` which disallows null bytes. For example attempting the attack: `/WebGoat/PathTraversal/random-picture?id=%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd%00path-traversal-secret.jpg%00` will fail with the error: `java.nio.file.InvalidPathException: Nul character not allowed`.
+
+Given the above, while it is possible to upload arbitrary files, it is not possible to access them, hence a DAST tool would be unable to identify this as a flaw. A human of course could use various techniques to attempt to overwrite system files, but a DAST tool is not built for such activities. 
+
+---
+
+### (A1) Injection > Path traversal > Path traversal while uploading files (lesson 3)
+
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/PathTraversal.lesson/2
+
+**Source:** 
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadFix.java
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java
+
+**Lesson:** 
+
+This lesson's goal is to upload a file to overwrite a system file. It uses a common insecure pattern of using user input to generate a file path and supply the file contents to create a new file. In this lesson filtering is done on user input, replacing `../` with an empty string.
+
+```
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadFix.java#L24-L28
+
+    public AttackResult uploadFileHandler(
+            @RequestParam("uploadedFileFix") MultipartFile file,
+            @RequestParam(value = "fullNameFix", required = false) String fullName) {
+        return super.execute(file, fullName != null ? fullName.replace("../", "") : "");
+    }
+
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java#L41-43
+
+var uploadedFile = new File(uploadDirectory, fullName);
+uploadedFile.createNewFile();
+FileCopyUtils.copy(file.getBytes(), uploadedFile);
+```
+
+**Can SAST Find?** 
+- Yes
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool should be able to identify that the `new File` call's second parameter is tainted from the `uploadFileHandler` `fullName` parameter. 
+
+**DAST Reasoning:**
+
+DAST tools have difficulties identifying insecure file upload path traversal attacks. As the attack is a two-step process, the tool most likely will not be able to identify where the uploaded file ultimately resides on the file system. The first step is uploading the file, while the second is for identifying where the uploaded file exists and attempting to access it. 
+
+In this lesson there is no way to retrieve a non `.jpg` suffixed file. The `var catPicture = new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");` limits what can be retrieved. Additionally, the only way to attempt to access uploaded files is through a completely unrelated web page. A DAST tool would not understand the relationship between the upload endpoint and the retrieval endpoint. 
+
+While it is possible to attempt null byte attacks if the string contains `path-traversal-secret.jpg` the `FileCopyUtils` method uses `java.io.File.toPath` which disallows null bytes. For example attempting the attack: `/WebGoat/PathTraversal/random-picture?id=%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd%00path-traversal-secret.jpg%00` will fail with the error: `java.nio.file.InvalidPathException: Nul character not allowed`.
+
+Given the above, while it is possible to upload arbitrary files, it is not possible to access them, hence a DAST tool would be unable to identify this as a flaw. A human of course could use various techniques to attempt to overwrite system files, but a DAST tool is not built for such activities. 
+
+---
+
+### (A1) Injection > Path traversal > Path traversal while uploading files (lesson 4)
+
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/PathTraversal.lesson/3
+
+**Source:** 
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadRemoveUserInput.java
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java
+
+**Lesson:** 
+
+This lessons goal is to upload a file to overwrite a system file. It uses a common insecure pattern of using user input to generate a file path and supplying the file contents to create a new file. In this lesson the filename is taken from the `MultipartFile.getOriginalFilename()` which is still user input, as it is possible to modify the filename part of a Multipart upload:
+```
+Content-Disposition: form-data; name="uploadedFileRemoveUserInput"; filename="../../test.html"
+```
+
+```
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadRemoveUserInput.java#L24-L28
+
+public AttackResult uploadFileHandler(
+        @RequestParam("uploadedFileFix") MultipartFile file,
+        @RequestParam(value = "fullNameFix", required = false) String fullName) {
+    return super.execute(file, fullName != null ? fullName.replace("../", "") : "");
+}
+
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java#L41-43
+
+var uploadedFile = new File(uploadDirectory, fullName);
+uploadedFile.createNewFile();
+FileCopyUtils.copy(file.getBytes(), uploadedFile);
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool should be able to identify that the `new File` call's second parameter is tainted from the uploadFileHandler fullName parameter, which originates from the `MultipartFile.getOriginalFilename()` from `ProfileUploadRemoveUserInput.java`. 
+
+**DAST Reasoning:**
+
+DAST tools have difficulties identifying insecure file upload path traversal attacks. As the attack is a two-step process, the tool most likely will not be able to identify where the uploaded file ultimately resides on the file system. The first step is uploading the file, while the second is for identifying where the uploaded file exists and attempting to access it. 
+
+In this lesson there is no way to retrieve a non `.jpg` suffixed file. The `var catPicture = new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");` limits what can be retrieved. Additionally, the only way to attempt to access uploaded files is through a completely unrelated web page. A DAST tool would not understand the relationship between the upload endpoint and the retrieval endpoint. 
+
+While it is possible to attempt null byte attacks if the string contains `path-traversal-secret.jpg` the `FileCopyUtils` method uses `java.io.File.toPath` which disallows null bytes. For example attempting the attack: `/WebGoat/PathTraversal/random-picture?id=%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd%00path-traversal-secret.jpg%00` will fail with the error: `java.nio.file.InvalidPathException: Nul character not allowed`.
+
+Given the above, while it is possible to upload arbitrary files, it is not possible to access them, hence a DAST tool would be unable to identify this as a flaw. A human of course could use various techniques to attempt to overwrite system files, but a DAST tool is not built for such activities. 
+
+---
+
+### (A1) Injection > Path traversal > Retrieving other files with a path traversal
+
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/PathTraversal.lesson/4
+
+**Source:** 
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadRemoveUserInput.java
+ - webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadBase.java
+
+**Lesson:** 
+
+This lesson's goal is to retrieve a particular file from the file system. It uses a rather uncommon method of validating the entire query string via `request.getQueryString()` to see if it contains `..` or `/`. While technically the call to `new File` is vulnerable to path traversal attacks, it is not actually an exploitable arbitrary local file inclusion vulnerability. It can only return files which are jpg's, and null-byte attacks are not possible due to calls to FileCopyUtils which validates that the path does not contain null bytes.
+
+```
+webgoat-lessons/path-traversal/src/main/java/org/owasp/webgoat/path_traversal/ProfileUploadRemoveUserInput.java#L75-94
+
+public ResponseEntity<?> getProfilePicture(HttpServletRequest request) {
+    var queryParams = request.getQueryString();
+    if (queryParams != null && (queryParams.contains("..") || queryParams.contains("/"))) {
+        return ResponseEntity.badRequest().body("Illegal characters are not allowed in the query params");
+    }
+    try {
+        var id = request.getParameter("id");
+        var catPicture = new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");
+
+        if (catPicture.getName().toLowerCase().contains("path-traversal-secret.jpg")) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(MediaType.IMAGE_JPEG_VALUE))
+                    .body(FileCopyUtils.copyToByteArray(catPicture));
+        }
+        if (catPicture.exists()) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(MediaType.IMAGE_JPEG_VALUE))
+                    .location(new URI("/PathTraversal/random-picture?id=" + catPicture.getName()))
+                    .body(Base64.getEncoder().encode(FileCopyUtils.copyToByteArray(catPicture)));
+        }
+    ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool should be able to identify that the `new File` call's second parameter is tainted. However, the File object is only used in calls to either `getName()` or `FileCopyUtils` which validates that the filename does not contain null bytes. So while it's technically vulnerable, it is not exploitable for arbitrary file access.
+
+**DAST Reasoning:**
+
+DAST tools have difficulties identifying insecure file upload path traversal attacks. As the attack is a two-step process, the tool most likely will not be able to identify where the uploaded file ultimately resides on the file system. The first step is uploading the file, while the second is for identifying where the uploaded file exists and attempting to access it. 
+
+In this lesson there is no way to retrieve a non `.jpg` suffixed file. The `var catPicture = new File(catPicturesDirectory, (id == null ? RandomUtils.nextInt(1, 11) : id) + ".jpg");` limits what can be retrieved. 
+
+While it is possible to attempt null byte attacks if the string contains `path-traversal-secret.jpg` the `FileCopyUtils` method uses `java.io.File.toPath`, which disallows null bytes. For example attempting the attack: `/WebGoat/PathTraversal/random-picture?id=%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2f%2e%2e%2fetc%2fpasswd%00path-traversal-secret.jpg%00` will fail with the error: `java.nio.file.InvalidPathException: Nul character not allowed`.
+
+Given the above, a DAST tool would most likely be unable to identify this as a flaw. Most DAST tools use hardcoded filepaths such as `/etc/passwd` or `c:/windows/win.ini` when attempting to access arbitrary files.
+
+---
+
+</details>
+
+## (A2) Broken Authentication
+
+---
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A2) Broken Authentication > Authentication Bypasses > 2FA Password Reset
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/AuthBypass.lesson/1
+
+**Source:** 
+- webgoat-lessons/auth-bypass/src/main/java/org/owasp/webgoat/auth_bypass/AuthBypass.java
+- webgoat-lessons/auth-bypass/src/main/java/org/owasp/webgoat/auth_bypass/AccountVerificationHelper.java
+
+**Lesson:**
+This lesson is for bypassing 2FA password reset by removing POST parameters.
+
+```
+webgoat-lessons/auth-bypass/src/main/java/org/owasp/webgoat/auth_bypass/AccountVerificationHelper.java#L69-86
+
+public boolean verifyAccount(Integer userId, HashMap<String, String> submittedQuestions) {
+    //short circuit if no questions are submitted
+    if (submittedQuestions.entrySet().size() != secQuestionStore.get(verifyUserId).size()) {
+        return false;
+    }
+
+    if (submittedQuestions.containsKey("secQuestion0") && !submittedQuestions.get("secQuestion0").equals(secQuestionStore.get(verifyUserId).get("secQuestion0"))) {
+        return false;
+    }
+
+    if (submittedQuestions.containsKey("secQuestion1") && !submittedQuestions.get("secQuestion1").equals(secQuestionStore.get(verifyUserId).get("secQuestion1"))) {
+        return false;
+    }
+
+    // else
+    return true;
+
+}
+
+```
+
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+This lesson is a hypothetical case where it 'fails open.' In other words by not submitting the validated parameters, the checks are never executed and the verifyAccount method returns true.
+
+SAST tools can not determine 'reasoning' of a methods purpose. This method is not wired into any obvious framework or method that would hint for the SAST tool to know it's for authentication purposes.
+
+**DAST Reasoning:**
+
+Much like above, this is a hypothetical case. There is no context around the lesson that could assist a DAST tool in knowing it's testing a password reset function. 
+
+---
+
+### (A2) Broken Authentication > JWT tokens > JWT signing
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/JWT.lesson/3
+
+**Source:** 
+- webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTVotesEndpoint.java
+
+**Lesson:**
+This lesson is for modifying JWT claims to impersonate or elevate privileges. It is a multi-step process. First to get a JWT value you need to use the fake 'login' `/JWT/votings/login?user=` endpoint, which sets it in an HTTP cookie. Next, the goal is to bypass authorization checks and reset the votes by issuing a POST request to the `/JWT/votings` with a modified token. The modifications require setting the alg to None and changing the admin parameter to true. 
+
+```
+webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTVotesEndpoint.java#L163-165
+
+Jwt jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parse(accessToken);
+Claims claims = (Claims) jwt.getBody();
+boolean isAdmin = Boolean.valueOf((String) claims.get("admin"));
+```
+
+**Can SAST Find?** 
+- Probable
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+A SAST tool would need to be used in conjunction with a dependency scanning solution that looked for vulnerable libraries. This vulnerability exists due to the dependency on `io.jsonwebtoken` version 0.7.0. Using static analysis alone would be difficult for a SAST tool to identify that the `setSigningKey` would be ignored if the algorithm was set to `None`. Additionally, authorization issues are usually difficult for SAST to identify in terms of simple conditional statements.  
+
+**DAST Reasoning:**
+
+Vulnerabilities that require multiple steps are usually difficult for DAST tools to identify. If the JWT was used in an authentication endpoint, it may be possible for a DAST tool to identify a vulnerability. It would attempt to modify the JWT and determine if it was able to successfully login. A DAST tool would be unable to determine that the secondary `/JWT/votings` endpoint suffers from verification flaw.
+
+---
+
+### (A2) Broken Authentication > JWT tokens > JWT cracking
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/JWT.lesson/4
+
+**Source:** 
+- webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTSecretKeyEndpoint.java
+
+**Lesson:**
+This lesson is for cracking a JWT value which uses an insecure cryptographic algorithm. `HS256` JWT values include a signature which can generated and compared by brute forcing tools. 
+
+```
+webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTSecretKeyEndpoint.java#L57-68
+
+public String getSecretToken() {
+    return Jwts.builder()
+            .setIssuer("WebGoat Token Builder")
+            .setAudience("webgoat.org")
+            .setIssuedAt(Calendar.getInstance().getTime())
+            .setExpiration(Date.from(Instant.now().plusSeconds(60)))
+            .setSubject("tom@webgoat.org")
+            .claim("username", "Tom")
+            .claim("Email", "tom@webgoat.org")
+            .claim("Role", new String[]{"Manager", "Project Administrator"})
+            .signWith(SignatureAlgorithm.HS256, JWT_SECRET).compact();
+    }
+
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+A SAST tool that included this particular `Jwts` library signatures would be able to identify that the `signWith` method is a potential sink and the first parameter determines if a vulnerability exists, depending on the argument's value.
+
+**DAST Reasoning:**
+
+A DAST tool with builtin JWT cracking functionality would be able to extract JWT values encountered during crawling and attempt to brute force the signature. Note the ability to actually determine vulnerability would be dependent on the weakness of the JWT key used for signing.
+
+---
+
+### (A2) Broken Authentication > JWT tokens > Refreshing a token (incomplete lesson)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/JWT.lesson/6
+
+**Source:** 
+- webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTRefreshEndpoint.java
+
+**Lesson:**
+
+This lesson as of v8.1.0 is still incomplete, as the lesson page details do not give enough information to solve. Only by looking at the source and getting the username/password can one solve this challenge. The underlying flaw is that the application does not properly associate refresh tokens with access tokens, allowing one who has captured a leaked refresh token to update someone else's access token.
+
+```
+webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTRefreshEndpoint.java#L116-122
+
+try {
+    Jwt<Header, Claims> jwt = Jwts.parser().setSigningKey(JWT_PASSWORD).parse(token.replace("Bearer ", ""));
+    user = (String) jwt.getBody().get("user");
+    refreshToken = (String) json.get("refresh_token");
+} catch (ExpiredJwtException e) {
+    user = (String) e.getClaims().get("user");
+    refreshToken = (String) json.get("refresh_token");
+}
+...
+```
+
+**Can SAST Find?** 
+- Improbable
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+A SAST tool would not be able to reason the logic behind requiring the access token and refresh token to be linked unless this logic was built into the JWT library. It could be possible with a very strictly defined set of a rule sets to find this flaw, but it is highly improbable. 
+
+**DAST Reasoning:**
+
+A DAST tool could be configured to contain two user accounts and authorize to get both tokens. It could then attempt to switch one user's refresh token with the secondary user and determine if the server responded with a new access token. 
+
+---
+
+### (A2) Broken Authentication > JWT tokens > Final challenges
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/JWT.lesson/7
+
+**Source:** 
+- webgoat-lessons/jwt/src/main/java/org/owasp/webgoat/jwt/JWTFinalEndpoint.java
+
+
+**Lesson:**
+This lesson is a highly improbable series of events that could lead to overwriting a signing key stored in a database. The underlying vulnerability here is actually SQL injection that is exploitable by modifying the `kid` JWT field. 
+
+```
+L162-176
+Jwt jwt = Jwts.parser().setSigningKeyResolver(new SigningKeyResolverAdapter() {
+    @Override
+    public byte[] resolveSigningKeyBytes(JwsHeader header, Claims claims) {
+        final String kid = (String) header.get("kid");
+        try (var connection = dataSource.getConnection()) {
+            ResultSet rs = connection.createStatement().executeQuery("SELECT key FROM jwt_keys WHERE id = '" + kid + "'");
+            while (rs.next()) {
+                return TextCodec.BASE64.decode(rs.getString(1));
+            }
+        } catch (SQLException e) {
+            errorMessage[0] = e.getMessage();
+        }
+        return null;
+    }
+}).parseClaimsJws(token);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+A SAST tool would flag this particular issue as a SQL injection flaw. SAST tools with taint tracking capabilities, or one that has added signatures for sources and sinks of this JWT library, could follow that the token was decoded and the `kid` came from user input. It would then identify on line 167 user supplied input was used in generation of a dynamically generated SQL query. SAST tools which take a more grep like approach, would most likely flag line 167 as the vulnerability since string concatenation used in a SQL query.
+
+**DAST Reasoning:**
+
+A DAST tool could be configured to decode JWT claims and attempt SQL injection in the various fields.
+
+**Example Attack:**
+- Decode JWT
+- Modify the JWT header
+```
+{
+  "typ": "JWT",
+  "kid": "'+(select repeat('a',50000000) from INFORMATION_SCHEMA.tables)+'",
+  "alg": "HS256"
+}
+```
+- Re-encode the token
+- Send request during a timing attack verification phase.
+
+---
+
+### (A2) Broken Authentication > Password reset > Security questions
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/PasswordReset.lesson/3
+
+**Source:** 
+- webgoat-lessons/password-reset/src/main/java/org/owasp/webgoat/password_reset/QuestionsAssignment.java
+
+**Lesson:**
+
+This lesson is to demonstrate the ability of guessing or brute forcing security questions. The users and security questions are hardcoded. The goal is to guess one of them.
+
+
+```
+webgoat-lessons/password-reset/src/main/java/org/owasp/webgoat/password_reset/QuestionsAssignment.java#L45-51
+
+static {
+    COLORS.put("admin", "green");
+    COLORS.put("jerry", "orange");
+    ...
+}
+
+webgoat-lessons/password-reset/src/main/java/org/owasp/webgoat/password_reset/QuestionsAssignment.java#L63-68
+
+String validAnswer = COLORS.get(username.toLowerCase());
+if (validAnswer == null) {
+    return failed(this).feedback("password-questions-unknown-user").feedbackArgs(username).build();
+} else if (validAnswer.equals(securityQuestion)) {
+    return success(this).build();
+}
+```
+
+
+**Can SAST Find?**
+- Impossible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool would be unable to determine that this lesson has any relation to login logic as it's doing a simple existence check of inputs against a map value.
+
+**DAST Reasoning:**
+
+A DAST tool would need to be configured to treat this form as a login form for it to detect any potential discrepancy between a valid and invalid security question answer.
+
+---
+
+### (A2) Broken Authentication > Password reset > Creating the password reset link
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/PasswordReset.lesson/5
+
+**Source:** 
+- webgoat-lessons/password-reset/src/main/java/org/owasp/webgoat/password_reset/ResetLinkAssignmentForgotPassword.java
+- webgoat-lessons/password-reset/src/main/java/org/owasp/webgoat/password_reset/ResetLinkAssignment.java
+
+**Lesson:**
+
+This lesson is to demonstrate incorrect usage of user supplied data (taken from the host header) in constructing a link. The goal is to abuse this to get a hypothetical user to click on a password reset link that points to the wrong host.
+
+```
+webgoat-lessons/password-reset/src/main/java/org/owasp/webgoat/password_reset/ResetLinkAssignmentForgotPassword.java#L60-74
+
+String resetLink = UUID.randomUUID().toString();
+ResetLinkAssignment.resetLinks.add(resetLink);
+String host = request.getHeader("host");
+if (hasText(email)) {
+    if (email.equals(ResetLinkAssignment.TOM_EMAIL) && (host.contains("9090")||host.contains("webwolf"))) { //User indeed changed the host header.
+        ResetLinkAssignment.userToTomResetLink.put(getWebSession().getUserName(), resetLink);
+        fakeClickingLinkEmail(host, resetLink);
+    } else {
+        try {
+            sendMailToUser(email, host, resetLink);
+        } catch (Exception e) {
+            return failed(this).output("E-mail can't be send. please try again.").build();
+        }
+    }
+}
+```
+
+
+**Can SAST Find?** 
+- Improbable
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+This is a hypothetical issue that most likely would not occur in the wild. There is no real way of a SAST tool to know that the extracted host header was incorrectly used in constructing a link.
+
+**DAST Reasoning:**
+
+A DAST tool would first need to be configured to treat this form as a login or password reset form. It would then also need to know that the conditions for getting a response required the host header to contain port 9090 or the string `webwolf`. This is a highly improbable set of conditions a DAST tool (or even a human without source) would need to know to have the flaw triggered. Additionally, this flaw requires a form of user interaction (although it's faked on line 66) which a DAST tool would not be able to do.
+
+---
+</details>
+
+## (A3) > Sensitive Data Exposure
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+---
+
+### (A3) > Sensitive Data Exposure > Insecure Login > Let's try
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/InsecureLogin.lesson/1
+
+**Source:** 
+- webgoat-lessons/insecure-login/src/main/java/org/owasp/webgoat/insecure_login/InsecureLoginTask.java
+
+**Lesson:**
+
+This lesson is to demonstrate sending credentials over plain text communications. It does not contain any real flaws.
+
+```
+webgoat-lessons/insecure-login/src/main/java/org/owasp/webgoat/insecure_login/InsecureLoginTask.java#L35-37
+
+if (username.toString().equals("CaptainJack") && password.toString().equals("BlackPearl")) {
+    return success(this).build();
+}
+```
+
+
+**Can SAST Find?** 
+- Possible (different issue)
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The source is only doing a simple equality test between user input and two constant values. There is a chance, depending on the SAST tool, that it would flag the password equality check as a hardcoded password. 
+
+**DAST Reasoning:**
+
+If this page were configured as a login page and it were accessed over HTTP, there is a chance a DAST tool would report this as credentials being sent over a plain text transport.
+
+---
+</details>
+
+## (A4) XML External Entities (XXE)
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A4) XML External Entities (XXE) > XXE > Let’s try
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/XXE.lesson/3
+
+**Source:** 
+- webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/SimpleXXE.java
+- webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/Comments.java
+
+Class: Injection
+
+**Lesson:**
+
+This lesson's goal is to exploit an XXE parser to have it return the contents of the OS root path. The target XML parser `JAXB` will decode the `SYSTEM` entity and return the contents of the specified entity.
+
+```
+webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/Comments.java#L87-94
+
+protected Comment parseXml(String xml) throws JAXBException, XMLStreamException {
+    var jc = JAXBContext.newInstance(Comment.class);
+    var xif = XMLInputFactory.newInstance();
+    var xsr = xif.createXMLStreamReader(new StringReader(xml));
+
+    var unmarshaller = jc.createUnmarshaller();
+    return (Comment) unmarshaller.unmarshal(xsr);
+}
+```
+
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+SAST tools should have signatures for common XML parsers like `JAXB` and determine if they do or do not disable entity and DTD resolution prior to processing user input.
+
+**DAST Reasoning:**
+
+Most DAST tools should be able to find this issue even though the attack request's response does not immediately contain the result. A DAST tool should be configured to handle callback related attacks and attempt to force the XML parser to use a URL instead of reading a system file. If the parser is vulnerable, and no egress filtering is in place, the parser will end up initiating a request to the specified URL.
+
+**Example Attack:**
+- `<?xml version="1.0"?><!DOCTYPE text [<!ENTITY xxe SYSTEM "http://callbackserver:9090/test">]><comment><text>&xxe;</text></comment>`
+
+---
+
+### (A4) XML External Entities (XXE) > XXE > Modern REST framework
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/XXE.lesson/6
+
+**Source:** 
+- webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/ContentTypeAssignment.java
+- webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/Comments.java
+
+**Lesson:**
+
+This lesson's goal is to exploit an XXE parser to have it return the contents of the OS root path, much like `http://localhost:8080/WebGoat/start.mvc#lesson/XXE.lesson/3`. The only difference is the `/WebGoat/xxe/content-type` endpoint accepts both JSON and XML. This is more of a hypothetical situation due to unrealistic conditional statements used to only allow valid responses if they are met. The same underlying `parseXml` is called for both of these lessons.
+
+```
+webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/ContentTypeAssignment.java#L56-64
+
+if (APPLICATION_JSON_VALUE.equals(contentType)) {
+            comments.parseJson(commentStr).ifPresent(c -> comments.addComment(c, true));
+            attackResult = failed(this).feedback("xxe.content.type.feedback.json").build();
+        }
+
+        if (null != contentType && contentType.contains(MediaType.APPLICATION_XML_VALUE)) {
+            String error = "";
+            try {
+                Comment comment = comments.parseXml(commentStr);
+...
+
+webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/Comments.java#L87-94
+
+protected Comment parseXml(String xml) throws JAXBException, XMLStreamException {
+    var jc = JAXBContext.newInstance(Comment.class);
+    var xif = XMLInputFactory.newInstance();
+    var xsr = xif.createXMLStreamReader(new StringReader(xml));
+
+    var unmarshaller = jc.createUnmarshaller();
+    return (Comment) unmarshaller.unmarshal(xsr);
+}
+```
+
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool will most likely disregard the conditional checks necessary to call the `comments.parseXml` on line 64 of `ContentTypeAssignment`. It should determine that the input string is parsed by an XML parser in `Comments.java` that did not disable entity or DTD resolution.
+
+**DAST Reasoning:**
+
+Most DAST tools will attempt to inject into parameter names and values, not transform the entire method from one to the other. The conditional checks in `ContentTypeAssignment` lines 56 and 61 are not realistic and would most likely block legitimate attack cases.
+
+
+---
+
+### (A4) XML External Entities (XXE) > XXE > Blind XXE assignment
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/XXE.lesson/10
+
+
+**Source:** 
+- webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/BlindSendFileAssignment.java
+- webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/Comments.java
+
+**Lesson:**
+
+This lesson's goal is to exploit an XXE parser to have it post the contents of a file to a callback server. The same underlying `parseXml` is called for this lesson as well.
+
+```
+webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/BlindSendFileAssignment.java#L56-64
+
+ public AttackResult addComment(@RequestBody String commentStr) {
+        //Solution is posted as a separate comment
+        if (commentStr.contains(CONTENTS)) {
+            return success(this).build();
+        }
+
+        try {
+            Comment comment = comments.parseXml(commentStr);
+            comments.addComment(comment, false);
+        } catch (Exception e) {
+            return failed(this).output(e.toString()).build();
+        }
+        return failed(this).build();
+    }
+...
+
+webgoat-lessons/xxe/src/main/java/org/owasp/webgoat/xxe/Comments.java#L87-94
+
+protected Comment parseXml(String xml) throws JAXBException, XMLStreamException {
+    var jc = JAXBContext.newInstance(Comment.class);
+    var xif = XMLInputFactory.newInstance();
+    var xsr = xif.createXMLStreamReader(new StringReader(xml));
+
+    var unmarshaller = jc.createUnmarshaller();
+    return (Comment) unmarshaller.unmarshal(xsr);
+}
+```
+
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+This flaw is the same as `(A4) XML External Entities (XXE) > XXE > Let’s try`
+
+**DAST Reasoning:**
+
+This flaw is the same as `(A4) XML External Entities (XXE) > XXE > Let’s try`
+
+---
+
+
+</details>
+
+## (A5) Broken Access Control
+
+--- 
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A5) Broken Access Control > Insecure Direct Object References > Authenticate First, Abuse Authorization Later
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/IDOR.lesson/1
+
+**Source:** 
+- webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORLogin.java
+
+**Lesson:**
+
+This lesson is for assigning the current session to a user profile for subsequent lessons – it is not supposed to contain any vulnerabilities.
+
+```
+webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORLogin.java#L59-74
+
+public AttackResult completed(@RequestParam String username, @RequestParam String password) {
+        initIDORInfo();
+        UserSessionData userSessionData = getUserSessionData();
+
+        if (idorUserInfo.containsKey(username)) {
+            if ("tom".equals(username) && idorUserInfo.get("tom").get("password").equals(password)) {
+                userSessionData.setValue("idor-authenticated-as", username);
+                userSessionData.setValue("idor-authenticated-user-id", idorUserInfo.get(username).get("id"));
+                return success(this).feedback("idor.login.success").feedbackArgs(username).build();
+            } else {
+                return failed(this).feedback("idor.login.failure").build();
+            }
+        } else {
+            return failed(this).feedback("idor.login.failure").build();
+        }
+    }
+```
+
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+There is nothing to find as it's only adding server side session data.
+
+**DAST Reasoning:**
+
+There is nothing to find as it's only adding server side session data.
+
+---
+
+### (A5) Broken Access Control > Insecure Direct Object References > Observing Differences & Behaviors
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/IDOR.lesson/2
+
+**Source:** 
+- webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORDiffAttributes.java
+
+**Lesson:**
+
+This lesson demonstrates hidden authorization properties and does not contain any real flaws.
+
+```
+webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORDiffAttributes.java#L36-48
+
+public AttackResult completed(@RequestParam String attributes) {
+    attributes = attributes.trim();
+    String[] diffAttribs = attributes.split(",");
+    if (diffAttribs.length < 2) {
+        return failed(this).feedback("idor.diff.attributes.missing").build();
+    }
+    if (diffAttribs[0].toLowerCase().trim().equals("userid") && diffAttribs[1].toLowerCase().trim().equals("role")
+            || diffAttribs[1].toLowerCase().trim().equals("userid") && diffAttribs[0].toLowerCase().trim().equals("role")) {
+        return success(this).feedback("idor.diff.success").build();
+    } else {
+        return failed(this).feedback("idor.diff.failure").build();
+    }
+}
+```
+
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+There is nothing to find, as it's only doing a comparison between inputs and expected values.
+
+**DAST Reasoning:**
+
+There is nothing to find, as it's only doing a comparison between inputs and expected values.
+
+---
+
+### (A5) Broken Access Control > Insecure Direct Object References > Guessing & Predicting Patterns
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/IDOR.lesson/3
+
+**Source:** 
+- webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORViewOwnProfileAltUrl.java
+
+**Lesson:**
+
+This lesson demonstrates accessing your own profile by using a direct object reference (userid). This lesson requires that you are already logged in via the hypothetical login endpoint `/WebGoat/IDOR/login`.
+
+```
+webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORViewOwnProfileAltUrl.java#L42-62
+
+public AttackResult completed(@RequestParam String url) {
+        try {
+            if (userSessionData.getValue("idor-authenticated-as").equals("tom")) {
+                //going to use session auth to view this one
+                String authUserId = (String) userSessionData.getValue("idor-authenticated-user-id");
+                //don't care about http://localhost:8080 ... just want WebGoat/
+                String[] urlParts = url.split("/");
+                if (urlParts[0].equals("WebGoat") && urlParts[1].equals("IDOR") && urlParts[2].equals("profile") && urlParts[3].equals(authUserId)) {
+                    UserProfile userProfile = new UserProfile(authUserId);
+                    return success(this).feedback("idor.view.own.profile.success").output(userProfile.profileToMap().toString()).build();
+                } else {
+                    return failed(this).feedback("idor.view.own.profile.failure1").build();
+                }
+
+            } else {
+                return failed(this).feedback("idor.view.own.profile.failure2").build();
+            }
+        } catch (Exception ex) {
+            return failed(this).feedback("an error occurred with your request").build();
+        }
+    }
+```
+
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+There is nothing to find, as it's only doing a comparison between inputs and expected values.
+
+**DAST Reasoning:**
+
+There is nothing to find, as it's only doing a comparison between inputs and expected values. Additionally, the DAST tool would need to be configured to treat the `/WebGoat/IDOR/login` page as a login form to be able to successfully set the additional server side session data. However, a DAST tool must already be configured to login to the `/WebGoat/` end point and most DAST tools don't support logging in multiple times to different endpoints for the same scan.
+
+---
+
+### (A5) Broken Access Control > Insecure Direct Object References > Playing with the Patterns
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/IDOR.lesson/4
+
+**Source:** 
+- webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORViewOtherProfile.java
+- webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDOREditOtherProfiile.java
+
+**Lesson:**
+
+This lesson demonstrates accessing a mock users profile by using a direct object reference (userid). This lesson requires that you are already logged in via the hypothetical login endpoint `/WebGoat/IDOR/login`. 
+
+```
+webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDORViewOtherProfile.java#L48-67
+
+public AttackResult completed(@PathVariable("userId") String userId, HttpServletResponse resp) {
+        Map<String, Object> details = new HashMap<>();
+
+        if (userSessionData.getValue("idor-authenticated-as").equals("tom")) {
+            //going to use session auth to view this one
+            String authUserId = (String) userSessionData.getValue("idor-authenticated-user-id");
+            if (userId != null && !userId.equals(authUserId)) {
+                //on the right track
+                UserProfile requestedProfile = new UserProfile(userId);
+                // secure code would ensure there was a horizontal access control check prior to dishing up the requested profile
+                if (requestedProfile.getUserId().equals("2342388")) {
+                    return success(this).feedback("idor.view.profile.success").output(requestedProfile.profileToMap().toString()).build();
+                } else {
+                    return failed(this).feedback("idor.view.profile.close1").build();
+                }
+            } else {
+                return failed(this).feedback("idor.view.profile.close2").build();
+            }
+        }
+        return failed(this).build();
+
+
+webgoat-lessons/idor/src/main/java/org/owasp/webgoat/idor/IDOREditOtherProfiile.java#L41-88
+public AttackResult completed(@PathVariable("userId") String userId, @RequestBody UserProfile userSubmittedProfile) {
+
+    String authUserId = (String) userSessionData.getValue("idor-authenticated-user-id");
+    // this is where it starts ... accepting the user submitted ID and assuming it will be the same as the logged in userId and not checking for proper authorization
+    // Certain roles can sometimes edit others' profiles, but we shouldn't just assume that and let everyone, right?
+    // Except that this is a vulnerable app ... so we will
+    UserProfile currentUserProfile = new UserProfile(userId);
+    if (userSubmittedProfile.getUserId() != null && !userSubmittedProfile.getUserId().equals(authUserId)) {
+        // let's get this started ...
+        currentUserProfile.setColor(userSubmittedProfile.getColor());
+        currentUserProfile.setRole(userSubmittedProfile.getRole());
+        // we will persist in the session object for now in case we want to refer back or use it later
+        userSessionData.setValue("idor-updated-other-profile", currentUserProfile);
+        if (currentUserProfile.getRole() <= 1 && currentUserProfile.getColor().toLowerCase().equals("red")) {
+            return success(this)
+                    .feedback("idor.edit.profile.success1")
+                    .output(currentUserProfile.profileToMap().toString())
+                    .build();
+        }
+...
+```
+
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+SAST tools have difficulties determining authorization checks unless custom rule sets are configured.
+
+**DAST Reasoning:**
+
+IDOR-based attacks can be difficult for DAST tools to detect. The DAST tool would need to be configured to treat the `/WebGoat/IDOR/login` page as a login form to be able to successfully set the additional server side session data. After which it would somehow need to determine that the edit and view profile endpoint at `/WebGoat/IDOR/profile/{user}` should have the `{user}` field replaced with the userid of the same user, and then replaced as a different user to trigger the flaw. 
+
+---
+
+</details>
+
+## (A7) Cross-Site Scripting (XSS)
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A7) Cross-Site Scripting (XSS) > Cross Site Scripting > Try It! Reflected XSS
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CrossSiteScripting.lesson/6
+
+**Source:** 
+- webgoat-lessons/cross-site-scripting/src/main/java/org/owasp/webgoat/xss/CrossSiteScriptingLesson5a.java
+- webgoat-container/src/main/resources/static/js/goatApp/view/LessonContentView.js 
+
+**Lesson:**
+
+This lesson demonstrates a self-reflected XSS vulnerability. The goal is to inject XSS into the `field1` parameter.
+
+```
+webgoat-lessons/cross-site-scripting/src/main/java/org/owasp/webgoat/xss/CrossSiteScriptingLesson5a.java#L56-79
+
+cart.append("Thank you for shopping at WebGoat. <br />You're support is appreciated<hr />");
+cart.append("<p>We have charged credit card:" + field1 + "<br />");
+cart.append("                             ------------------- <br />");
+cart.append("                               $" + totalSale);
+
+//init state
+if (userSessionData.getValue("xss-reflected1-complete") == null) {
+    userSessionData.setValue("xss-reflected1-complete", (Object) "false");
+}
+
+if (field1.toLowerCase().matches("<script>.*(console\\.log\\(.*\\)|alert\\(.*\\))<\\/script>")) {
+    //return )
+    userSessionData.setValue("xss-reflected-5a-complete", "true");
+    if (field1.toLowerCase().contains("console.log")) {
+        return success(this).feedback("xss-reflected-5a-success-console").output(cart.toString()).build();
+    } else {
+        return success(this).feedback("xss-reflected-5a-success-alert").output(cart.toString()).build();
+    }
+} else {
+    userSessionData.setValue("xss-reflected1-complete", "false");
+    return success(this)
+            .feedback("xss-reflected-5a-failure")
+            .output(cart.toString())
+            .build();
+}
+...
+
+webgoat-container/src/main/resources/static/js/goatApp/view/LessonContentView.js#L183-185
+
+renderOutput: function (output) {
+    var s = this.removeSlashesFromJSON(output);
+    this.$curOutput.html(polyglot.t(s) || "");
+    ...
+```
+
+**Can SAST Find?** 
+- Probable
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+The `field1` parameter comes directly from user input and is output in the response on lines 70, 72 and 78. The user input is inserted into the cart `StringBuffer` on line 57. However the response for this endpoint is JSON and the reason this is exploitable is due to how the frontend renders the `output` JSON field in `LessonContentView.js`. A SAST tool would need to be able to scan JavaScript and possibly Java to detect this as a Cross-Site Scripting flaw.
+
+
+**DAST Reasoning:**
+
+This is a straightforward XSS attack. A DAST tool would most likely attempt various XSS attack strings in each parameter value.
+
+**Example Attack:**
+- `/WebGoat/CrossSiteScripting/attack5a?QTY1=1&QTY2=1&QTY3=1&QTY4=1&field2=12345&field1=%3cimg%20src%3dx+onerror%3dalert(1)%3e`
+
+---
+
+### (A7) Cross-Site Scripting (XSS) > Cross Site Scripting > Identify potential for DOM-Based XSS
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CrossSiteScripting.lesson/9
+
+**Source:** 
+- webgoat-lessons/cross-site-scripting/src/main/java/org/owasp/webgoat/xss/CrossSiteScriptingLesson6a.java
+
+**Lesson:**
+
+This lesson does not contain any vulnerabilities. The goal is to simply identify that `start.mvc#test` is the hidden route.
+
+```
+webgoat-lessons/cross-site-scripting/src/main/java/org/owasp/webgoat/xss/CrossSiteScriptingLesson6a.java#L42-50
+
+public AttackResult completed(@RequestParam String DOMTestRoute) {
+
+    if (DOMTestRoute.matches("start\\.mvc#test(\\/|)")) {
+        //return )
+        return success(this).feedback("xss-reflected-6a-success").build();
+    } else {
+        return failed(this).feedback("xss-reflected-6a-failure").build();
+    }
+}
+```
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+There is nothing to find, as it's only doing a comparison between inputs and expected values.
+
+**DAST Reasoning:**
+
+There is nothing to find, as it's only doing a comparison between inputs and expected values.
+
+---
+
+### (A7) Cross-Site Scripting (XSS) > Cross Site Scripting > Try It! DOM-Based XSS
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CrossSiteScripting.lesson/10
+
+**Source:** 
+- webgoat-container/src/main/resources/static/js/goatApp/view/GoatRouter.js
+- webgoat-container/src/main/resources/static/js/goatApp/controller/LessonController.js
+- webgoat-container/src/main/resources/static/js/goatApp/view/LessonContentView.js
+
+**Lesson:**
+
+This lesson is a client side DOM-XSS vulnerability that exists in a different java project `webgoat-container`. The underlying vulnerability is in an insecure call to the `jQuery.html` method.
+
+```
+webgoat-container/src/main/resources/static/js/goatApp/view/GoatRouter.js#L46-117
+
+var GoatAppRouter = Backbone.Router.extend({
+
+    routes: {
+        'welcome': 'welcomeRoute',
+        'lesson/:name': 'lessonRoute',
+        'lesson/:name/:pageNum': 'lessonPageRoute',
+        'test/:param': 'testRoute',
+        'reportCard': 'reportCard'
+    },
+...
+testRoute: function (param) {
+            this.lessonController.testHandler(param);
+            //this.menuController.updateMenu(name);
+        },
+...
+
+webgoat-container/src/main/resources/static/js/goatApp/controller/LessonController.js#156-159
+
+this.testHandler = function(param) {
+    console.log('test handler');
+    this.lessonContentView.showTestParam(param);
+};
+...
+
+webgoat-container/src/main/resources/static/js/goatApp/view/LessonContentView.js#L220-222
+
+showTestParam: function (param) {
+    this.$el.find('.lesson-content').html('test:' + param);
+},
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+A SAST tool that does intra-procedural taint tracking would need to have signatures for the Backbone javascript framework. It would need to follow taint down to the final vulnerability on line 221 of `LessonContentView.js`. A non-intra-procedural taint tracking SAST tool may simply look for any `html()` method calls and flag it as a potential sink for XSS.
+
+**DAST Reasoning:**
+
+A DAST tool would most likely need to have some form of SAST-like capabilities to know that the target application not only uses Backbone, but is able to extract the routes from the `Backbone.router`. It could then potentially attack all URL Fragment based route links. Since the `#test/` route is technically never referenced anywhere, it is unlikely that a DAST tool would be able to find this vulnerable route.
+
+Also, since this is a client-side vulnerability, the DAST tool must be instrumenting a real browser, otherwise it would be nearly impossible to trigger the flaw since it is dynamically rewriting the DOM.
+
+**Example Attack:**
+- `http://localhost:8080/WebGoat/start.mvc#test/%3Cimg%20src=x%20onerror=alert(1)%3E`
+
+---
+</details>
+
+## (A8)  Insecure Deserialization
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A8)  Insecure Deserialization > Insecure Deserialization > Let’s try
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/InsecureDeserialization.lesson/4
+
+**Source:** 
+- webgoat-lessons/insecure-deserialization/src/main/java/org/owasp/webgoat/deserialization/InsecureDeserializationTask.java
+- webgoat-lessons/insecure-deserialization/src/main/java/org/dummy/insecure/framework/VulnerableTaskHolder.java
+
+**Lesson:**
+
+This lesson demonstrates how object deserialization attacks can be exploited to run arbitrary code. In particular this lesson deals with java deserialization attacks.
+
+```
+webgoat-lessons/insecure-deserialization/src/main/java/org/owasp/webgoat/deserialization/InsecureDeserializationTask.java#L54-56
+
+try (ObjectInputStream ois = new ObjectInputStream(new ByteArrayInputStream(Base64.getDecoder().decode(b64token)))) {
+    before = System.currentTimeMillis();
+    Object o = ois.readObject();
+...
+
+
+webgoat-lessons/insecure-deserialization/src/main/java/org/dummy/insecure/framework/VulnerableTaskHolder.java#L38-59
+
+private void readObject( ObjectInputStream stream ) throws Exception {
+    //unserialize data so taskName and taskAction are available
+    stream.defaultReadObject();
+    
+    //do something with the data
+    log.info("restoring task: {}", taskName);
+    log.info("restoring time: {}", requestedExecutionTime);
+    
+    if (requestedExecutionTime!=null && 
+            (requestedExecutionTime.isBefore(LocalDateTime.now().minusMinutes(10))
+            || requestedExecutionTime.isAfter(LocalDateTime.now()))) {
+        //do nothing is the time is not within 10 minutes after the object has been created
+        log.debug(this.toString());
+        throw new IllegalArgumentException("outdated");
+    }
+    
+    //condition is here to prevent you from destroying the goat altogether
+    if ((taskAction.startsWith("sleep")||taskAction.startsWith("ping"))
+            && taskAction.length() < 22) {
+    log.info("about to execute: {}", taskAction);
+    try {
+        Process p = Runtime.getRuntime().exec(taskAction);
+...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+A SAST tool should be able to identify the `Object o = ois.readObject();` call on line 56 of `InsecureDeserializationTask.java` and flag as a potential Deserialization issue. SAST tools would most likely also flag the `Runetime.getRuntime().exec(taskAction)` call on line 59 as a potential for OS command injection.
+
+**DAST Reasoning:**
+
+DAST tools usually work off of intercepting requests and analyzing parameter values to determine what to inject. The `/WebGoat/InsecureDeserialization/task` endpoint is never triggered with a valid object, only a reference to what is expected exists in the HTML output. Due to this, there is no way for a DAST tool to know that this endpoint expects a serialized java object, and hence would not be able to attack it. 
+
+---
+
+</details>
+
+## (A9) Vulnerable Components
+
+---
+
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A9) Vulnerable Components > Vulnerable Components > The exploit is not always in "your" code
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/VulnerableComponents.lesson/4
+
+**Source:** 
+- webgoat-lessons/vulnerable-components/src/main/resources/html/VulnerableComponents.html
+
+**Lesson:**
+
+This lesson demonstrates a vulnerable and non-vulnerable version of jquery-ui. The attack is built in to the source HTML form. 
+
+```
+L45-57
+        <td><input id="closetext" value="OK<script>alert('XSS')</script>" type="TEXT" /><input
+            name="SUBMIT" value="Go!" type="SUBMIT" onclick="webgoat.customjs.vuln_jquery_ui()" /></td>
+        <td></td>
+    </tr>
+</table>
+<script th:inline="javascript">
+/*<![CDATA[*/
+webgoat.customjs.vuln_jquery_ui = function()
+{
+    webgoat.customjs.jqueryVuln('#dialog').dialog({ closeText: webgoat.customjs.jquery('#closetext').val() });
+};
+/*]]>*/
+    </script>
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+Most likely the SAST tool would *not* trigger on the exact line, but would be used in combination with a dependency scanning tool to identify the outdated version of jquery-ui.
+
+**DAST Reasoning:**
+
+A DAST tool would most likely click the form submission and inject it's own XSS value to trigger the flaw.
+
+**Example Attack:**
+- `OK<script>alert('XSS')</script>`
+
+---
+
+### (A9) Vulnerable Components > Vulnerable Components > Exploiting CVE-2013-7285 (XStream)
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/VulnerableComponents.lesson/11
+
+**Source:** 
+- webgoat-lessons/vulnerable-components/src/main/java/org/owasp/webgoat/vulnerable_components/VulnerableComponentsLesson.java
+
+**Lesson:**
+
+This lesson demonstrates a vulnerable version of `Xstream` that allows for XXE attacks.  
+
+```
+webgoat-lessons/vulnerable-components/src/main/java/org/owasp/webgoat/vulnerable_components/VulnerableComponentsLesson.java#L37-68
+
+AttackResult completed(@RequestParam String payload) {
+        XStream xstream = new XStream(new DomDriver());
+        xstream.setClassLoader(Contact.class.getClassLoader());
+
+        xstream.processAnnotations(Contact.class);
+...
+
+        try {
+//        	System.out.println("Payload:" + payload);
+            Contact expl = (Contact) xstream.fromXML(payload);
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+Most likely the SAST tool would *not* trigger on the exact line, but would be used in combination with a dependency scanning tool to identify the vulnerable `Xstream` component. It may also model the `Xstream` library to determine if XXE injection attacks are possible.
+
+**DAST Reasoning:**
+
+A DAST tool may not attempt XML attacks since the form gives no hint that the expected form should POST as XML; the default content-type is `application/x-www-form-urlencoded; charset=UTF-8` with the parameter name of `payload`. However some DAST tools may attempt XXE attacks in all parameter value types, regardless of content-type.
+
+**Example Attack:** 
+- `payload=<?xml version="1.0"?><!DOCTYPE text [<!ENTITY xxe SYSTEM "http://192.168.2.249:9090/test">]><comment><text>&xxe;</text></comment>`
+
+---
+
+</details>
+
+## (A8:2013) Request Forgeries
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### (A8:2013) Request Forgeries > Cross-Site Request Forgeries > Basic Get CSRF Exercise
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CSRF.lesson/2
+
+**Source:** 
+- webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFConfirmFlag1.java
+- webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFGetFlag.java
+- webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java
+ 
+
+**Lesson:**
+
+This lesson demonstrates exploiting a form that is not protected by anti-CSRF measures.
+
+```
+webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFGetFlag.java#L49-51
+
+@RequestMapping(path = "/csrf/basic-get-flag", produces = {"application/json"}, method = RequestMethod.POST)
+@ResponseBody
+public Map<String, Object> invoke(HttpServletRequest req) {
+    ...
+
+webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFConfirmFlag1.java#L45-47
+
+@PostMapping(path = "/csrf/confirm-flag-1", produces = {"application/json"})
+@ResponseBody
+public AttackResult completed(String confirmFlagVal) {
+...
+
+webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java#L72
+    ...
+    security.and().csrf().disable();
+    ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+Provided the target web framework has been modeled, it should contain signatures to determine that the service has been configured with anti-CSRF protections enabled. Depending on the framework, it may also look at each individual request mapping to determine vulnerability. In this case the `WebSecurityConfig.java` explicitly disabled CSRF protections. 
+
+**DAST Reasoning:**
+
+DAST tools usually look at the `<form>` tag definition and try to identify any "CSRF like" tokens exist in parameters. Some DAST tools may also inspect the request itself to identify anti-CSRF tokens. Most DAST tools will likely flag both the `/WebGoat/csrf/basic-get-flag` and `/WebGoat/csrf/confirm-flag-1` as being vulnerable.
+
+---
+
+### (A8:2013) Request Forgeries > Cross-Site Request Forgeries > Post a review on someone else’s behalf
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CSRF.lesson/3
+
+**Source:** 
+- webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/ForgedReviews.java
+- webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java
+
+**Lesson:**
+
+This lesson demonstrates exploiting a form that includes a weak form of anti-CSRF measures, as the CSRF token is a hardcoded value. 
+
+```
+webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/ForgedReviews.java#L78-102
+
+public AttackResult createNewReview(String reviewText, Integer stars, String validateReq, HttpServletRequest request) {
+    final String host = (request.getHeader("host") == null) ? "NULL" : request.getHeader("host");
+    final String referer = (request.getHeader("referer") == null) ? "NULL" : request.getHeader("referer");
+    final String[] refererArr = referer.split("/");
+
+    Review review = new Review();
+    review.setText(reviewText);
+    review.setDateTime(DateTime.now().toString(fmt));
+    review.setUser(webSession.getUserName());
+    review.setStars(stars);
+    var reviews = userReviews.getOrDefault(webSession.getUserName(), new ArrayList<>());
+    reviews.add(review);
+    userReviews.put(webSession.getUserName(), reviews);
+    //short-circuit
+    if (validateReq == null || !validateReq.equals(weakAntiCSRF)) {
+        return failed(this).feedback("csrf-you-forgot-something").build();
+    }
+    //we have the spoofed files
+    if (referer != "NULL" && refererArr[2].equals(host)) {
+        return failed(this).feedback("csrf-same-host").build();
+    } else {
+        return success(this).feedback("csrf-review.success").build(); //feedback("xss-stored-comment-failure")
+    }
+}
+
+webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java#L72
+    ...
+    security.and().csrf().disable();
+    ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Probable
+
+**SAST Reasoning:**
+
+Provided the target web framework has been modeled it should contain signatures to determine that the service has been configured with anti-CSRF protections enabled. Depending on the framework it may also look at each individual request mapping to determine vulnerability. In this case the `WebSecurityConfig.java` explicitly disabled CSRF protections. Most likely a SAST tool will completely ignore the hard coded value check.
+
+**DAST Reasoning:**
+
+DAST tools usually look at the `<form>` tag definition and try to identify any "CSRF like" tokens exist in parameters. Some DAST tools may also inspect the request itself to identify anti-CSRF tokens. In this case a DAST tool may be confused by the seemingly configured CSRF token, when in reality the value is hard coded. A DAST tool will need to do an active request and compare the results to see if the CSRF token is ever updated/changed.
+
+---
+
+### (A8:2013) Request Forgeries > Cross-Site Request Forgeries > CSRF and content-type
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CSRF.lesson/6
+
+**Source:** 
+- webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFFeedback.java
+- webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java
+
+**Lesson:**
+
+This lesson demonstrates exploiting a CSRF vulnerable form that calls an endpoint which doesn't validate the content-type properly. Newer browsers will append a `=` to the end of `text/plain` forms where only the name value exists. This form is still vulnerable to CSRF if attackers use `XMLHttpRequest` or `navigator.sendBeacon`.
+
+```
+webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFFeedback.java#L57-74
+
+public AttackResult completed(HttpServletRequest request, @RequestBody String feedback) {
+        try {
+            objectMapper.enable(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES);
+            objectMapper.enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES);
+            objectMapper.enable(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS);
+            objectMapper.enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY);
+            objectMapper.enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES);
+            objectMapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+            objectMapper.readValue(feedback.getBytes(), Map.class);
+        } catch (IOException e) {
+            return failed(this).feedback(ExceptionUtils.getStackTrace(e)).build();
+        }
+        boolean correctCSRF = requestContainsWebGoatCookie(request.getCookies()) && request.getContentType().contains(MediaType.TEXT_PLAIN_VALUE);
+        correctCSRF &= hostOrRefererDifferentHost(request);
+        if (correctCSRF) {
+            String flag = UUID.randomUUID().toString();
+            userSessionData.setValue("csrf-feedback", flag);
+            return success(this).feedback("csrf-feedback-success").feedbackArgs(flag).build();
+    ...
+
+webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java#L72
+    ...
+    security.and().csrf().disable();
+    ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+Provided the target web framework has been modeled it should contain signatures to determine that the service has been configured with anti-CSRF protections enabled. Depending on the framework it may also look at each individual request mapping to determine vulnerability. In this case the `WebSecurityConfig.java` explicitly disabled CSRF protections. 
+
+**DAST Reasoning:**
+
+DAST tools usually look at the `<form>` tag definition and try to identify any "CSRF like" tokens exist in parameters. Some DAST tools may also inspect the request itself to identify anti-CSRF tokens. In this case a DAST tool would treat this form the same as any other and flag it as vulnerable to CSRF regardless of content-type.
+
+
+---
+
+### (A8:2013) Request Forgeries > Cross-Site Request Forgeries > Login CSRF attack
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/CSRF.lesson/7
+
+**Source:** 
+- webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFLogin.java
+- webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java
+
+**Lesson:**
+
+This lesson demonstrates exploiting a CSRF vulnerable form to force a victim to login under the attackers account.
+
+```
+webgoat-lessons/csrf/src/main/java/org/owasp/webgoat/csrf/CSRFLogin.java#50-57
+
+public AttackResult completed(HttpServletRequest request) {
+    String userName = request.getUserPrincipal().getName();
+    if (userName.startsWith("csrf")) {
+        markAssignmentSolvedWithRealUser(userName.substring("csrf-".length()));
+        return success(this).feedback("csrf-login-success").build();
+    }
+    return failed(this).feedback("csrf-login-failed").feedbackArgs(userName).build();
+}
+
+webgoat-container/src/main/java/org/owasp/webgoat/WebSecurityConfig.java#L72
+    ...
+    security.and().csrf().disable();
+    ...
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Possible
+
+**SAST Reasoning:**
+
+Provided the target web framework has been modeled it should contain signatures to determine that the service has been configured with anti-CSRF protections enabled. Depending on the framework it may also look at each individual request mapping to determine vulnerability. In this case the `WebSecurityConfig.java` explicitly disabled CSRF protections. 
+
+**DAST Reasoning:**
+
+DAST tools usually look at the `<form>` tag definition and try to identify any "CSRF like" tokens exist in parameters. Some DAST tools may also inspect the request itself to identify anti-CSRF tokens. In this case a DAST tool would treat this form the same as any other and flag it as vulnerable to CSRF.
+
+
+---
+
+### (A8:2013) Request Forgeries > Server-Side Request Forgery > Change the URL to display Jerry
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SSRF.lesson/1
+
+**Source:** 
+- webgoat-lessons/ssrf/src/main/java/org/owasp/webgoat/ssrf/SSRFTask1.java
+
+**Lesson:**
+
+This lesson does not contain a real vulnerability, it is only for demonstration purposes for modifying parameters.
+
+```
+webgoat-lessons/ssrf/src/main/java/org/owasp/webgoat/ssrf/SSRFTask1.java#44-66
+
+protected AttackResult stealTheCheese(String url) {
+    try {
+        StringBuffer html = new StringBuffer();
+
+        if (url.matches("images/tom.png")) {
+            html.append("<img class=\"image\" alt=\"Tom\" src=\"images/tom.png\" width=\"25%\" height=\"25%\">");
+            return failed(this)
+                    .feedback("ssrf.tom")
+                    .output(html.toString())
+                    .build();
+        } else if (url.matches("images/jerry.png")) {
+            html.append("<img class=\"image\" alt=\"Jerry\" src=\"images/jerry.png\" width=\"25%\" height=\"25%\">");
+            return success(this)
+                    .feedback("ssrf.success")
+                    .output(html.toString())
+                    .build();
+        } else {
+            html.append("<img class=\"image\" alt=\"Silly Cat\" src=\"images/cat.jpg\">");
+            return failed(this)
+                    .feedback("ssrf.failure")
+                    .output(html.toString())
+                    .build();
+        }
+```
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+This endpoint does not contain any SSRF issues, it simply does a string match and returns different results.
+
+**DAST Reasoning:**
+
+This endpoint does not contain any SSRF issues.
+
+---
+
+### (A8:2013) Request Forgeries > Server-Side Request Forgery > 
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/SSRF.lesson/2
+
+**Source:** 
+- webgoat-lessons/ssrf/src/main/java/org/owasp/webgoat/ssrf/SSRFTask2.java
+
+**Lesson:**
+
+This lesson is for exploiting SSRF but limits the user to a single URL that must exactly match `http://ifconfig.pro`.
+
+```
+webgoat-lessons/ssrf/src/main/java/org/owasp/webgoat/ssrf/SSRFTask2.java#L49-74
+
+protected AttackResult furBall(String url) {
+        try {
+            StringBuffer html = new StringBuffer();
+
+            if (url.matches("http://ifconfig.pro")) {
+                URL u = new URL(url);
+                URLConnection urlConnection = u.openConnection();
+                BufferedReader in = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
+                String inputLine;
+
+                while ((inputLine = in.readLine()) != null) {
+                    html.append(inputLine);
+                }
+                in.close();
+
+                return success(this)
+                        .feedback("ssrf.success")
+                        .output(html.toString())
+                        .build();
+            } else {
+                html.append("<img class=\"image\" alt=\"image post\" src=\"images/cat.jpg\">");
+                return failed(this)
+                        .feedback("ssrf.failure")
+                        .output(html.toString())
+                        .build();
+            }
+
+```
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+A SAST tool may report that this endpoint is vulnerable due to the user provided `url` parameter being used in a `URLConnection.openConnection()` call. In reality, this is not an exploitable flaw since the URL must exactly match `http://ifconfig.pro`
+
+**DAST Reasoning:**
+
+A DAST tool attempting SSRF injection attacks will most likely use a callback server to receive a forced request from the target application. Since the value is technically hardcoded, there is no way for a DAST tool to know if the endpoint is using a user provided value in construction of the `URLConnection.openConnection()` call.
+
+---
+</details>
+
+
+## Client side
+
+---
+
+These lessons are just demonstrations of bypassing client side restrictions – since there is no real business logic to exploit they do not contain any real exploitable flaws. 
+
+---
+
+## Challenges
+
+---
+
+<details>
+<summary markdown="span">Findings</summary>
+
+### Challenges > Admin lost password
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/Challenge1.lesson/1
+
+**Source:** 
+- webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge1/Assignment1.java
+- webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge1/ImageServlet.java
+- webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/SolutionConstants.java
+
+
+**Challenge:**
+
+The purpose of this challenge is to find the hidden pin code embedded in the logo and replace the hardcoded password's 1234 with the value. 
+
+```
+
+webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge1/ImageServlet.java#L23-37
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+    
+    byte[] in = new ClassPathResource("images/webgoat2.png").getInputStream().readAllBytes();
+    
+    String pincode = String.format("%04d", PINCODE);
+    
+    in[81216]=(byte) pincode.charAt(0);
+    in[81217]=(byte) pincode.charAt(1);
+    in[81218]=(byte) pincode.charAt(2);
+    in[81219]=(byte) pincode.charAt(3);
+    
+    response.setContentType(MediaType.IMAGE_PNG_VALUE);
+    FileCopyUtils.copy(in, response.getOutputStream());
+}
+
+webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/SolutionConstants.java#L34-36
+
+String PASSWORD = "!!webgoat_admin_1234!!";
+String PASSWORD_TOM = "thisisasecretfortomonly";
+String ADMIN_PASSWORD_LINK = "375afe1104f4a487a73823c50a9292a2";
+```
+
+
+**Can SAST Find?** 
+- Possible (different issue)
+
+**Can DAST Find?**
+- Impossible
+
+**SAST Reasoning:**
+
+There is no real vulnerability here for a SAST tool to alert on that would match the purpose of the assignment. However, SAST tools will most likely flag hardcoded credentials in `SolutionConstants.java`.
+
+**DAST Reasoning:**
+
+There is no real vulnerability here for a DAST tool to alert on that would match the purpose of the assignment. 
+
+
+---
+
+### Challenges > Without password
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/Challenge5.lesson
+
+**Source:** 
+- webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge5/Assignment5.java
+
+**Challenge:**
+
+The purpose of this challenge is to login as `Larry` without knowing his password. This can be achieved by exploiting a SQL Injection vulnerability. 
+
+```
+
+webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge5/Assignment5.java#L51-68
+
+public AttackResult login(@RequestParam String username_login, @RequestParam String password_login) throws Exception {
+        if (!StringUtils.hasText(username_login) || !StringUtils.hasText(password_login)) {
+            return failed(this).feedback("required4").build();
+        }
+        if (!"Larry".equals(username_login)) {
+            return failed(this).feedback("user.not.larry").feedbackArgs(username_login).build();
+        }
+        try (var connection = dataSource.getConnection()) {
+            PreparedStatement statement = connection.prepareStatement("select password from challenge_users where userid = '" + username_login + "' and password = '" + password_login + "'");
+            ResultSet resultSet = statement.executeQuery();
+
+            if (resultSet.next()) {
+                return success(this).feedback("challenge.solved").feedbackArgs(Flag.FLAGS.get(5)).build();
+            } else {
+                return failed(this).feedback("challenge.close").build();
+            }
+        }
+    }
+```
+
+
+**Can SAST Find?** 
+- Possible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+While the SQL query is a prepared statement, `username_login` and `password_login` fields are dynamically inserted into the query statement. A SAST tool should identify that the query string is concatenated with user input on line 59.
+
+**DAST Reasoning:**
+
+A DAST tool would most likely not find this vulnerability due to the username being checked against the hardcoded `Larry` value. A DAST tool would need to be configured for this particular page to use the `Larry` username, and then attempt SQL Injection.
+
+---
+
+### Challenges > Admin password reset
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/Challenge7.lesson
+
+**Source:** 
+- webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge7/Assignment7.java
+
+
+**Challenge:**
+
+The purpose of this challenge is to find the synthetic `.git` repository accessible at the `/WebGoat/challenge/7/.git` endpoint. Then extract the git files, decompile classes and run them to generate the password reset link password. 
+
+```
+webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge7/Assignment7.java#L76-80
+
+@GetMapping(value = "/challenge/7/.git", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
+@ResponseBody
+public ClassPathResource git() {
+    return new ClassPathResource("challenge7/git.zip");
+}
+
+webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/SolutionConstants.java#L34-36
+
+String PASSWORD = "!!webgoat_admin_1234!!";
+String PASSWORD_TOM = "thisisasecretfortomonly";
+String ADMIN_PASSWORD_LINK = "375afe1104f4a487a73823c50a9292a2";
+```
+
+
+**Can SAST Find?** 
+- Possible (different issue)
+
+**Can DAST Find?**
+- Possible (different issue)
+
+**SAST Reasoning:**
+
+This is a fake vulnerability that hard codes a git index file to a spring `GetMapping` endpoint. However, a SAST tool would most likely flag the hardcoded credentials in `SolutionConstants.java` on line 36.
+
+**DAST Reasoning:**
+
+DAST tools commonly look for backup or known files, `.git` is usually ne of them. A DAST tool would attempt to find these files in each directory path and should report that the `/WebGoat/challenge/7/.git` git index is accessible. While it may attempt to decompile classes it would be unable to know that it's necessary to run a particular file.
+
+---
+
+### Challenges > Without account
+
+**Link:** http://localhost:8080/WebGoat/start.mvc#lesson/Challenge8.lesson
+
+**Source:** 
+- webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge8/Assignment8.java
+
+
+**Challenge:**
+
+The purpose of this challenge is to add a vote without logging in. This is a synthetic vulnerability due to the fact that it only checks if the request is a `GET` request but there's no real authorization checks. It is "exploitable" because it does not account for `HEAD` request method types.
+
+```
+
+webgoat-lessons/challenge/src/main/java/org/owasp/webgoat/challenges/challenge7/Assignment7.java#L76-80
+
+@GetMapping(value = "/challenge/8/vote/{stars}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<?> vote(@PathVariable(value = "stars") int nrOfStars, HttpServletRequest request) {
+        //Simple implementation of VERB Based Authentication
+        String msg = "";
+        if (request.getMethod().equals("GET")) {
+            var json = Map.of("error", true, "message", "Sorry but you need to login first in order to vote");
+            return ResponseEntity.status(200).body(json);
+        }
+        Integer allVotesForStar = votes.getOrDefault(nrOfStars, 0);
+        votes.put(nrOfStars, allVotesForStar + 1);
+        return ResponseEntity.ok().header("X-Flag", "Thanks for voting, your flag is: " + Flag.FLAGS.get(8)).build();
+    }
+```
+
+**Can SAST Find?** 
+- Impossible
+
+**Can DAST Find?**
+- Improbable
+
+**SAST Reasoning:**
+
+Since this is a synthetic vulnerability with no references to any authorization frameworks, there is nothing for a SAST tool to look for.
+
+**DAST Reasoning:**
+
+A DAST tool may attempt to switch request method types and do differential analysis to see if a `HEAD` request illicit a different response than a `GET` request.
+
+---
+
+</details>
+
+## Flaws outside of lessons
+
+There are a large number of flaws that are not necessarily part of the lesson. However, SAST and DAST tools may still report on these issues as they are exploitable. 
+
+Since tools will report on these issues, it is important to have a full set of all actual vulnerabilities that exist in WebGoat, or in any system used for benchmarking. 
+
+
+## Conclusion
+
+While in GitLab's proprietary format, we decided to release our results so that other organizations using WebGoat as a target can identify which flaws are legitimate for both [SAST](https://gitlab.com/gitlab-org/vulnerability-research/blog/-/blob/master/security-benchmarking-webgoat/webgoat-expected-sast-results.json) and [DAST](https://gitlab.com/gitlab-org/vulnerability-research/blog/-/blob/master/security-benchmarking-webgoat/webgoat-expected-dast-results.json) based discovery. 
+
+WebGoat is an excellent tool for learning about web application security. If your organization decides to use it to compare DAST and SAST tools you must be aware of the limitations and caveats during your analysis. 
+
+WebGoat is by no means a "real application", while it does contain a common structure of a Spring Boot based application, its flaws are sometimes synthetic and code flow is not indicative of how real applications are built.
+
+GitLab recommends using more than one application as apart of your benchmarking process. This should include multiple languages, features and the levels of complexity that matches the applications used in your organization.
+
+Cover image by [Bannon Morrissy](https://unsplash.com/@bannon15) on [Unsplash](https://unsplash.com)
+{: .note}

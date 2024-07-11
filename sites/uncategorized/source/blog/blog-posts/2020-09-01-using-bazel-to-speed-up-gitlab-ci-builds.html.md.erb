@@ -1,0 +1,117 @@
+---
+title: "How to use Bazel with GitLab to speed up your builds"
+author: Jason Yavorska
+author_gitlab: jyavorska
+author_twitter: j4yav
+canonical_path: "/blog/2020/09/01/using-bazel-to-speed-up-gitlab-ci-builds/"
+categories: engineering
+image_title: "/images/blogimages/build-container-image-runner-fargate-codebuild-cover.jpg"
+description: "We explain why Bazel and GitLab CI are a great match to speed up your build times."
+tags: CI/CD, integrations, tutorial
+guest: true
+twitter_text: "Bazel and GitLab CI are a great match to speed up your build times"
+featured: no
+---
+
+[Bazel](https://bazel.build/) is a useful tool that can be used with GitLab CI to push your build pipelines into overdrive.
+
+For maximum correctness, [CI/CD](/topics/ci-cd/) systems will usually rebuild all of the artifacts from scratch on every run. This method is considered safer since artifacts from one pipeline won't negatively impact subsequent pipelines, and is a lesson learned from older CI tools where the agent state was persistent over time – so you never really knew if you could do a build from scratch. The problem with redoing everything every time though, is that it's slow. GitLab improves upon this by using caches and shared artifacts, but there's only so far that approach can take you.
+
+Bazel is a good example of tackling things in a different way – it speeds up builds by only rebuilding what is necessary. On the surface, this might sound a lot like just having a cache and doing an incremental build. But the main difference is that Bazel is really good at not only being fast, but also [correct](https://docs.bazel.build/versions/3.4.0/guide.html#correct-incremental-rebuilds). Bazel is much more reliable than traditional `Makefiles` or build scripts, which are notorious for occasionally forcing you to `make clean` because they get into some inconsistent state they can't recover from.
+
+As of now, Bazel supports building Java, C, C++, Python, and Objective-C, and can also produce packages for deployment on Android or iOS. More capabilities are being added all the time, as well as open source rule sets for other languages like Go, Scala and many more, so be sure to check their latest [product overview](https://docs.bazel.build/versions/3.4.0/bazel-overview.html) for updates.
+
+## Setting up Bazel builds in GitLab CI
+
+Setting up Bazel for builds is very straightforward. A job like the following does everything you need:
+
+```yaml
+variables:
+  BAZEL_DIGEST_VERSION: "f670e9aec235aa23a5f068566352c5850a67eb93de8d7a2350240c68fcec3b25" # Bazel 3.4.1
+
+build:
+  image:
+    name: gcr.io/cloud-marketplace-containers/google/bazel@sha256:$BAZEL_DIGEST_VERSION
+    entrypoint: [""]
+  stage: build
+  script:
+    - bazel --output_base output build //main/...
+  artifacts:
+    paths:
+      - bazel-bin/main/hello-world
+  cache:
+    key: $BAZEL_DIGEST_VERSION
+    paths:
+      - output
+```
+
+What this script does is define a job called `build` which uses the official Google Bazel image. We track the digest version for two reasons: First, to ensure immutability (tags can be updated), and second to use it as a cache key so that the cache is invalidated whenever we upgrade the Bazel version. We also override the entry point because we want to pass our own parameters to our `bazel` invocation. The second parameter is the [label](https://docs.bazel.build/versions/master/glossary.html#label) of the [target](https://docs.bazel.build/versions/master/glossary.html#target) we want to build. A [target pattern](https://docs.bazel.build/versions/master/glossary.html#target-pattern) can also be used here to tell Bazel to build multiple things (and what they depend on), rather than one thing (and what it depends on).
+
+The first parameter (`--output_base output`) is to help Bazel work with a security feature of the GitLab runner. By default, the runner will [not access files outside of the build dir](https://docs.gitlab.com/ee/ci/yaml/#artifactspaths), but Bazel places its own cache outside by default. This parameter tells Bazel to place it inside, where the runner can access it. The next two sections (`artifacts` and `cache`), tell the runner where the output file you want to keep is, and importantly for Bazel, where the cache is that you want to persist. Note that until [this issue to allow for traversing symlinks](https://gitlab.com/gitlab-org/gitlab/-/issues/19746) is resolved, you must give the full path to the specific outputs you want to keep within the `bazel-bin` folder.
+
+When this job runs, it places the current cache (if it exists, and only for the current `BAZEL_DIGEST_VERSION`) in the `output` folder, and then runs `bazel` to build the `main:hello-world` target. It saves the artifact from `bazel-bin/main/hello-world`, and then caches everything in `output` for the next run.
+
+### Bazel: notes on caching
+
+In this example we've set up Bazel to work with GitLab caching, and this is how we currently use it internally. If you already have Bazel remote cache (or even better, Bazel remote execution), there is no need to set up GitLab CI cache: It actually would likely make things slower since in that case there is no need to download and unpack the cache at all. Setting up remote caching or remote execution are more advanced and outside of the scope of this article, but are even better ways to speed up the build. Until then, using a GitLab cache can be a good interim step. If you're interested in learning more about remote cache/remote execution, this [BazelCon video](https://www.youtube.com/watch?v=MyuJRUwT5LI&t=1017s) or Bazel's official [documentation on remote caching](https://docs.bazel.build/versions/master/remote-caching.html) may be helpful.
+
+## Building and testing with Bazel
+
+Using Bazel to run your tests is just as easy, and there are nice benefits to doing so. If you can rely on accurately knowing what has changed, you can be more selective in doing incremental tests and have the confidence that tests that were skipped were truly unnecessary. This is also quite easy to set up using Bazel, but one thing to consider is that running builds and tests all at once (rather than splitting build and test into different jobs) is going to be more efficient. You can do that by using a build job that looks like this:
+
+```yaml
+variables:
+  BAZEL_DIGEST_VERSION: "f670e9aec235aa23a5f068566352c5850a67eb93de8d7a2350240c68fcec3b25" # 3.4.1
+
+build:
+  image:
+    name: gcr.io/cloud-marketplace-containers/google/bazel@sha256:$BAZEL_DIGEST_VERSION
+    entrypoint: [""]
+  stage: build
+  script:
+    - bazel --output_base output test //main/...
+  artifacts:
+    paths:
+      - bazel-bin/main/hello-world
+  cache:
+    key: $BAZEL_DIGEST_VERSION
+    paths:
+      - output
+```
+
+In a build that includes all tests, you typically want to run everything that changed. That's usually done using an invocation like `bazel test //main/...` which:
+
+1. Finds all targets (referred to as `...`) in the workspace location (`//` denotes the root of the [workspace](https://docs.bazel.build/versions/master/glossary.html#workspace)), so we are referring to `main` relative to the root.) Note that you probably don't want to include a bare `//` (without `main`), since that will include the custom `output` folder and that is probably not what you intended.
+1. Builds usual targets.
+1. Builds test targets.
+1. Runs test targets.
+
+Only using the `test` parameter works because `bazel test` not only runs tests, but also builds everything that matched the target pattern by default. Individual targets can be excluded from being matched by `...` by applying a `manual` tag to them ([see `tags` in the Bazel glossary table](https://docs.bazel.build/versions/master/be/common-definitions.html#common-attributes)). One callout - in the example project we're building ([details below](#examples)), there actually aren't any tests, so this fails because we requested a test pass and there weren't any. If your project has tests in it, it will work fine.
+
+## Examples using Bazel
+
+We're actually using Bazel here at GitLab to build our [GitLab Agent for Kubernetes](https://gitlab.com/gitlab-org/cluster-integration/gitlab-agent). If you're interested in seeing a more complex, complete implementation using Bazel then that's a great one to explore. The simple example from this blog can be found live in [my own personal project](https://gitlab.com/jyavorska/testbazel), and it is based on the [stage three build tutorial](https://docs.bazel.build/versions/3.4.0/tutorial/cpp.html) from Bazel's own documentation.
+
+Bazel itself is also highly configurable through its own `.bazelrc`, `BUILD` files, and more. The [user documentation for Bazel](https://docs.bazel.build/versions/master/guide.html) contains several examples along with an exhaustive configuration reference.
+
+## What's next with Bazel?
+
+We are considering using Bazel in few more areas within GitLab:
+
+- In an ideal world, after a minor change, the build and test should only take a few seconds to complete. When the jobs are fast enough, it could even be triggered via an editor on every change before being committed to git at all. This kind of capability could be integrated with the Web IDE, giving you immediate insight into the results of your change. We have an issue related to [making it easier to run pipelines from the Web IDE](https://gitlab.com/gitlab-org/gitlab/-/issues/213604) that could take advantage of this.
+- By default, GitLab uses [a gem we created](https://gitlab.com/gitlab-org/ruby/gems/test_file_finder) (which is available in this [template](https://docs.gitlab.com/ee/user/project/merge_requests/fail_fast_testing.html)) for test execution optimization, but all we're doing so far is running the riskiest tests first. As Bazel grows and adds support for more languages, it could potentially become a standard for this purpose, allowing you to run even fewer tests (and among those, the riskiest ones first). We have an [epic](https://gitlab.com/groups/gitlab-org/-/epics/4121) where you can track progress toward this idea.
+- Finally, Bazel also supports distributed builds and caching, opening the door to autoscaling compilation and test capacity alongside runner capacity, or even sharing the same capacity for whatever jobs are needed at a given moment. This function would require managing your own capacity for this purpose, but in the future we could imagine this being added to GitLab. We have an [issue for exploring different ways Bazel could support distributed jobs](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/26663) using the GitLab Runner.
+
+## Tell us your Bazel success stories
+
+Are you using Bazel with GitLab CI? We'd love your feedback on what features we could add to make things work better and hear about the performance gains you've found from the combo. Please let us know in the Meta issue below, or contact [Jason Yavorska](https://twitter.com/j4yav) on Twitter.
+
+## Related content
+
+- [Bazel website](https://bazel.build/)
+- [Meta issue for deeper integration in GitLab](https://gitlab.com/gitlab-org/gitlab/-/issues/201484)
+- [Bazel blog on integrating it with CI systems](https://blog.bazel.build/2016/01/27/continuous-integration.html)
+- [GitLab CI quick start](https://docs.gitlab.com/ee/ci/quick_start/)
+
+Cover image by [Lucas van Oort](https://unsplash.com/@switch_dtp_fotografie) on [Unsplash](https://unsplash.com)
+{: .note}

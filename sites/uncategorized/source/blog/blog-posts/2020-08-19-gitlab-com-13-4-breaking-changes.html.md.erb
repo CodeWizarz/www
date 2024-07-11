@@ -1,0 +1,68 @@
+---
+title: "Upcoming GitLab.com narrow breaking changes to Secure Analyzers in GitLab 13.4"
+author: Taylor McCaslin
+author_gitlab: tmccaslin
+author_twitter: gitlab
+categories: security
+description: "Our next release, 13.4, will include narrow breaking changes for our Secure scanning features. Find out how this could affect you and what you need to do."
+twitter_text: "Upcoming GitLab.com narrow breaking changes to Secure Analyzers in GitLab 13.4. Find out how this could affect you and if so what to do."
+featured: no
+tags: releases, CI/CD, security
+---
+
+We've spent the first few releases of GitLab 13 with several user-focused improvements to our Static [Application Security Testing (SAST)](/topics/devsecops/) capabilities: 
+
+* We made our open-source based SAST analyzers free to use for every GitLab user on all tiers [covering 18 languages/frameworks](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks). 
+* We released a new [Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) scan type and a managed CI template. This also added new capabilities like [full history secret detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/#full-history-secret-scan). 
+
+With these changes we've modernized and simplified the way our Security scans work, requiring the deprecation and removal of a few configuration options to improve the security, stability, and speed of our analyzers. 
+
+With these removals, there are a few changes that you should make to your Secure scan configurations to ensure you continue enjoying those capabilities. All of these removals were previously announced as deprecations in the past few release blog posts.  
+
+**These changes will release to GitLab.com as early as August 27th and will be released to self-managed customers with GitLab 13.4 on September 22.** If you have questions or feedback, you can [let us know in this feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/235816).
+
+
+## Removal of Secret Detection Job in SAST CI Template (High Impact)
+
+Since [GitLab 13.1](/releases/2020/06/22/gitlab-13-1-released/#deprecation-of-secret-detection-job-in-sast-configuration), the [Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) CI/CD configuration settings moved to a separate GitLab-provided template and run as a new Secure scan type. This new Secret Detection template is also now [included in Auto DevOps](https://docs.gitlab.com/ee/user/application_security/#security-scanning-with-auto-devops). 
+
+In 13.4 we will remove the [old SAST `secrets-sast` job definition](https://gitlab.com/gitlab-org/gitlab/-/blob/67e235bd5826c160db47bbb8c0dc87e6b9cd7b43/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L171) and if you have not switched to the [new Secret Detection template](https://docs.gitlab.com/ee/user/application_security/secret_detection/#configuration) you will not continue to scan for secrets. You can easily transition by adding the new template.
+
+Before upgrading to GitLab 13.4 we recommend you [add the new Secret Detection template](https://docs.gitlab.com/ee/user/application_security/secret_detection/#configuration) to your `gitlab-ci.yml` file, and then remove the [old SAST `secrets-sast` job definition](https://gitlab.com/gitlab-org/gitlab/-/blob/67e235bd5826c160db47bbb8c0dc87e6b9cd7b43/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L171) from the [SAST configuration template](https://docs.gitlab.com/ee/user/application_security/sast/#configuration) in `SAST.gitlab-ci.yml` file. We have made a [video to guide you through the process of transitioning](https://www.youtube.com/watch?v=W2tjcQreDwQ&feature=emb_title) to this new template. 
+
+- You can follow [this implementation issue](https://gitlab.com/gitlab-org/gitlab/-/issues/234011) for further details.
+- [Initial deprecation announced in 13.1 (6/22)](/releases/2020/06/22/gitlab-13-1-released/#deprecation-of-secret-detection-job-in-sast-configuration)
+
+
+## Removal of DinD (Medium impact)
+
+To increase the security and reduce complexity of scans, use of Docker-in-Docker (DinD) in GitLab Secure scanners was [deprecated in 13.0](/releases/2020/05/22/gitlab-13-0-released/#deprecation-of-docker-in-docker-(dind)-for-security-scanners) and is **scheduled for removal in 13.4**. GitLab security products started to use non-DinD mode by default in vendor templates in GitLab 13.0. We encourage customers to update their vendor CI templates to use this new behavior. If you override or use custom [Secure CI templates](https://gitlab.com/gitlab-org/gitlab-foss/-/tree/master/lib/gitlab/ci/templates/Security), you can follow the guides below to disable Docker in Docker (DinD) from your existing job templates: 
+ 
+* [Disabling Docker in Docker for Dependency Scanning (12.10 Documentation)](https://docs.gitlab.com/12.10/ee/user/application_security/dependency_scanning/index.html#disabling-docker-in-docker-for-dependency-scanning)
+* [Disabling Docker in Docker for SAST (12.10 Documentation)](https://docs.gitlab.com/12.10/ee/user/application_security/sast/#disabling-docker-in-docker-for-sast)
+* [Initial deprecation announced in 13.0 (5/22)](/releases/2020/05/22/gitlab-13-0-released/#deprecation-of-docker-in-docker-(dind)-for-security-scanners)
+
+
+## Transition of Secure Analyzers to Linux Alpine image (Low impact)
+
+To [simplify and modernize](/direction/secure/static-analysis/sast/#whats-next--why) our [GitLab Secure SAST Analyzers](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks), we will transition the [GitLab Bandit Python Analyzer](https://gitlab.com/gitlab-org/security-products/analyzers/bandit) image from Debian Buster to [Alpine Linux](https://alpinelinux.org/about/). This transition will reduce the image size and increase both the speed and security of our analyzer.
+
+    This transition will be backward incompatible though we expect limited impact. If you use a `before_script` to pre-build dependencies for your Python project, you should test this change before upgrading to GitLab 13.4. We will add a new section in the [SAST troubleshooting documentation](https://docs.gitlab.com/ee/user/application_security/sast/#troubleshooting) with more information about this change as we approach 13.4.
+
+- [Initial deprecation annouced in 13.2 (7/22)](/releases/2020/07/22/gitlab-13-2-released/#transitioning-gitlab-bandit-secure-analyzer-os-image)
+
+
+## Transition of TSLint Job to ESLint (Low impact)
+
+The [recent update of our ESLint Secure analyzer](/releases/2020/07/22/gitlab-13-2-released/#javascript--typescript-sast-analyzer-available-for-all) includes new support for TypeScript which is actively maintained. Since 2019 the [TSLint project has been deprecated](https://palantir.github.io/tslint/) in favor of ESLint. We have now unified these analyzers in [GitLab's ESLint analyzer](https://gitlab.com/gitlab-org/security-products/analyzers/eslint), which renders our TSLint analyzer obsolete. 
+      
+In 13.2 we deprecated the [TSLint Secure analyzer](https://gitlab.com/gitlab-org/security-products/analyzers/tslint) and have removed the [TSLint job definition from the SAST template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml). If you leverage [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/) or `include` the [GitLab Secure SAST Template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml) no action is required, as this transition happened automatically when you updated to GitLab 13.2. We recommend that anyone using the TSLint SAST job in a customized CI template to migrate to the [newly updated ESLint Job](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L85).
+
+The next time the SAST job runs after this transition you may see previously present TSLint vulnerabilities being marked as "resolved" and new TypeScript vulnerabilities from ESLint. This behavior is expected due to the new unique vulnerability signatures from ESLint which are different from old TSLint job scan vulnerability signatures.
+
+- [Initial deprecation annouced in 13.2 (7/22)](/releases/2020/07/22/gitlab-13-2-released/#deprecation-and-planned-removal-of-tslint-secure-analyzer)
+
+
+## Looking towards the future
+
+We are always working to improve the security, efficiency, and quality of our Security scanning tools. These deprecations and removals help us rapidly improve our solution and allow us to deliver on our [Secure product vision](/direction/secure/). We appreciate your understanding of these changes, and if you have questions about these deprecations and removals please [let us know in this issue](https://gitlab.com/gitlab-org/gitlab/-/issues/235816).

@@ -1,0 +1,315 @@
+---
+title: How GitLab can help mitigate deletion of open source container images on Docker Hub
+author: Michael Friedrich
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: engineering
+image_title: '/images/blogimages/docker-hub-oss-image-deletion-mitigation/post-cover-image.jpg' # Intentionally https://unsplash.com/photos/oxh1lP2YV0M - will be in the MR git branch
+description: "CI/CD and Kubernetes deployments can be affected by Docker Hub tier changes. This tutorial walks through analysis, mitigations, and long-term solutions."
+tags: CI, open source, kubernetes
+featured: yes
+postType: dev-evangelism # required for dnsmichi as author
+related_posts:
+    - "/blog/2020/10/30/mitigating-the-impact-of-docker-hub-pull-requests-limits/"
+    - "/blog/2020/10/30/minor-breaking-change-dependency-proxy/"
+    - "/blog/2021/04/21/devops-workflows-json-format-jq-ci-cd-lint/"
+---
+
+Docker, Inc. shared an email update to Docker Hub users that it will [sunset Free Team organizations](https://www.infoworld.com/article/3690890/docker-sunsets-free-team-subscriptions-roiling-open-source-projects.html). If accounts do not upgrade to a paid plan before April 14, 2023, their organization's images may be deleted after 30 days. This change can affect open source organizations that publish their images on Docker Hub, as well as consumers of these container images, used in CI/CD pipelines, Kubernetes cluster deployments, or docker-compose demo environments. This blog post discusses tools and features on the GitLab DevSecOps platform to help users analyze and mitigate the potential impact on production environments.
+
+_Update (March 20, 2023): Docker, Inc. [published an apology blog post](https://www.docker.com/blog/we-apologize-we-did-a-terrible-job-announcing-the-end-of-docker-free-teams/), including a FAQ, and clarifies that the company will not delete container images by themselves. Maintainers can migrate to a personal account, join the Docker-sponsored open source program, or opt into a paid plan. If open source container image maintainers do nothing, this leads into another issue: Stale container images can become a security problem. The following blog post can help with security analysis and migration too._ 
+
+_Update (March 27, 2023): On March 24, 2023, Docker, Inc. [published another blog post](https://www.docker.com/blog/no-longer-sunsetting-the-free-team-plan/) announcing the reversal of the decision to sunset the Free team plan and updated its [FAQ for Free Team organization](https://www.docker.com/developers/free-team-faq/). While this is a welcome development for the entire community, it is still crucial to ensure the reliability of your software development lifecycle by ensuring redundancies are in place for your container registries, as detailed in this blog post._
+
+### Inventory of used container images
+
+CI/CD pipelines in GitLab can execute jobs in containers. This is specified by the [`image` keyword](https://docs.gitlab.com/ee/ci/yaml/#image) in jobs, job templates, or as a global [`default`](https://docs.gitlab.com/ee/ci/yaml/#default) attribute. For the first iteration, you can clone a GitLab project locally, and search for the `image` string in all CI/CD configuration files. The following example shows how to execute the `find` command on the command line interface (CLI), searching for files matching the name pattern `*ci.yml`, and looking for the `image` string in the file content. The command line prints a list of search pattern matches, and the corresponding file name to the standard output. The example inspects the [project](https://gitlab.com/gitlab-com/www-gitlab-com) for the [GitLab handbook](https://about.gitlab.com/handbook/) and [website](https://about.gitlab.com/) to analyze whether its CI/CD deployment pipelines could be affected by the Docker Hub changes.
+
+```bash
+$ git clone https://gitlab.com/gitlab-com/www-gitlab-com && cd www-gitlab-com
+
+$ find . -type f -iname '*ci.yml' -exec sh -c "grep 'image:' '{}' && echo {}" \;
+
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:www-gitlab-com-debian-${DEBIAN_VERSION}-ruby-3.0-node-16
+  image: alpine:edge
+  image: alpine:edge
+  image: debian:stable-slim
+  image: debian:stable-slim
+  image: registry.gitlab.com/gitlab-org/gitlab-build-images:danger
+./.gitlab-ci.yml
+```
+
+A [discussion on Hacker News](https://news.ycombinator.com/item?id=35168802) mentions that "official Docker images" are not affected, but this is not officially confirmed by Docker yet. [Official Docker images](https://hub.docker.com/u/library) do not use a namespace prefix, i.e. `namespace/imagename` but instead `debian:<tagname>` for example. `registry.gitlab.com/gitlab-org/gitlab-build-images:danger` uses a full URL image string, which includes the image registry server domain, `registry.gitlab.com` in the shown example.
+
+If there is no full URL prefix in the image string, this is an indicator that this image could be pulled from Docker Hub by default. There might be other infrastructure safety nets put in place, for example a cloud provider registry which caches the Docker Hub images (Google Cloud, AWS, Azure, etc.).
+
+#### Advanced search for images
+
+You can use the [project lint API endpoint](https://docs.gitlab.com/ee/api/lint.html#validate-a-projects-ci-configuration) to fetch the CI configuration. The following script uses the [python-gitlab API library](https://python-gitlab.readthedocs.io/en/stable/gl_objects/ci_lint.html) to implement the API endpoint:
+
+1. Collect all projects from either a single project ID, a group ID with projects, or from the instance.
+2. Run the `project.ci_lint.get()` method to get a merged yaml configuration for CI/CD from the current GitLab project.
+3. Parse the yaml content and print only the job names, and the image keys.
+
+The [full script is located here](https://gitlab.com/gitlab-de/use-cases/gitlab-api/gitlab-api-python/-/blob/main/get_all_cicd_job_images.py), and is open source, licensed under MIT.
+
+```python
+#!/usr/bin/env python
+
+import gitlab
+import os
+import sys
+import yaml
+
+GITLAB_SERVER = os.environ.get('GL_SERVER', 'https://gitlab.com')
+GITLAB_TOKEN = os.environ.get('GL_TOKEN') # token requires developer permissions
+PROJECT_ID = os.environ.get('GL_PROJECT_ID') #optional
+# https://gitlab.com/gitlab-de/use-cases/docker
+GROUP_ID = os.environ.get('GL_GROUP_ID', 65096153) #optional
+
+#################
+# Main
+
+if __name__ == "__main__":
+    if not GITLAB_TOKEN:
+        print("🤔 Please set the GL_TOKEN env variable.")
+        sys.exit(1)
+
+    gl = gitlab.Gitlab(GITLAB_SERVER, private_token=GITLAB_TOKEN)
+
+    # Collect all projects, or prefer projects from a group id, or a project id
+    projects = []
+
+    # Direct project ID
+    if PROJECT_ID:
+        projects.append(gl.projects.get(PROJECT_ID))
+
+    # Groups and projects inside
+    elif GROUP_ID:
+        group = gl.groups.get(GROUP_ID)
+
+        for project in group.projects.list(include_subgroups=True, all=True):
+            # https://python-gitlab.readthedocs.io/en/stable/gl_objects/groups.html#examples
+            manageable_project = gl.projects.get(project.id)
+            projects.append(manageable_project)
+
+    # All projects on the instance (may take a while to process)
+    else:
+        projects = gl.projects.list(get_all=True)
+
+    print("# Summary of projects and their CI/CD image usage")
+
+    # Loop over projects, fetch .gitlab-ci.yml, run the linter to get the full translated config, and extract the `image:` setting
+    for project in projects:
+
+        print("# Project: {name}, ID: {id}\n\n".format(name=project.name_with_namespace, id=project.id))
+
+        # https://python-gitlab.readthedocs.io/en/stable/gl_objects/ci_lint.html
+        lint_result = project.ci_lint.get()
+
+        data = yaml.safe_load(lint_result.merged_yaml)
+
+        for d in data:
+            print("Job name: {n}".format(n=d))
+            for attr in data[d]:
+                if 'image' in attr:
+                    print("Image: {i}".format(i=data[d][attr]))
+
+        print("\n\n")
+
+sys.exit(0)
+```
+
+The [script](https://gitlab.com/gitlab-de/use-cases/gitlab-api/gitlab-api-python/-/blob/main/get_all_cicd_job_images.py) requires Python (tested with 3.11) and the python-gitlab and pyyaml modules. Example on macOS with Homebrew:
+
+```shell
+$ brew install python
+$ pip3 install python-gitlab pyyaml
+```
+
+You can execute the script and set the different environment variables to control its behavior:
+
+```shell
+$ export GL_TOKEN=$GITLAB_TOKEN
+
+$ export GL_GROUP_ID=12345
+$ export GL_PROJECT_ID=98765
+
+$ python3 get_all_cicd_job_images.py
+
+# Summary of projects and their CI/CD image usage
+# Project: Developer Evangelism at GitLab  / use-cases / Docker Use cases  / Custom Container Image Python, ID: 44352983
+
+Job name: docker-build
+Image: docker:latest
+
+# Project: Developer Evangelism at GitLab  / use-cases / Docker Use cases  / Gitlab Dependency Proxy, ID: 44351128
+
+Job name: .test-python-version
+Job name: image-docker-hub
+Image: python:3.11
+Job name: image-docker-hub-dep-proxy
+Image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.11
+```
+
+Please verify the script and fork it for your own analysis and mitigation. The missing parts are checking the image URLs, and doing a more sophisticated search. The code has been prepared to either check against a single project, a group with projects, or an instance (this may take very long, use with care).
+
+You can perform a more history-focused analysis by fetching the CI/CD job logs from GitLab and search for the pulled container image to get an overview of past Docker executor runs – for example: `Using Docker executor with image python:3.11 ...`. The screenshot shows the CI/CD job logs UI search – you can automate the search using the GitLab API, and the [python-gitlab library](https://python-gitlab.readthedocs.io/en/stable/gl_objects/pipelines_and_jobs.html#jobs), for example.
+
+![GitLab CI/CD job logs, searching for the `image` keyword](/images/blogimages/docker-hub-oss-image-deletion-mitigation/cicd_gitlab_job_logs_search_image.png)
+
+This snippet can be used in combination with the code shared for the CI lint API endpoint. It fetches the job trace logs, and searches for the `image` keyword in the log. The missing parts are splitting the log line by line, and extracting the image key information. This is left as an exercise for the reader.
+
+```python
+        for job in project.jobs.list():
+            log_trace = str(job.trace())
+
+            print(log_trace)
+
+            if 'image' in log_trace:
+                print("Job ID: {i}, URL {u}".format(i=job.id, u=job.web_url))
+                print(log_trace)
+```
+
+
+### More inventory considerations
+
+Similar to the API script for CI/CD navigating through all projects, you will need to analyze all Kubernetes manifest configuration files – using either a pull- or push-based approach. This can be achieved by using the [python-gitlab methods to load files from the repository](https://python-gitlab.readthedocs.io/en/stable/gl_objects/projects.html#project-files) and searching the content in similar ways. Helm charts use container images, too, and will require additional analysis.
+
+An additional search possibility: Custom-built container images that use Docker Hub images as a source. A project will consist of:
+
+1. `Dockerfile` file that uses `FROM <imagename>`
+2. `.gitlab-ci.yml` configuration file that builds container images (using Docker-in-Docker, Kaniko, etc.)
+
+An alternative search method for customers is available by using the [Advanced Search](https://docs.gitlab.com/ee/user/search/advanced_search.html) through the GitLab UI and API. The following example uses the [scope: blobs](https://docs.gitlab.com/ee/api/search.html#scope-blobs-premium-2) to search for the `FROM` string:
+
+```shell
+$ export GITLAB_TOKEN=xxxxxxxxx
+
+# Search in https://gitlab.com/gitlab-de/use-cases/docker/custom-container-image-python
+
+$ curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/projects/44352983/search?scope=blobs&search=FROM%20filename:Dockerfile*"
+```
+
+![Command line output from Advanced Search API, scope blobs, search `FROM` in `Dockerfile*` file names.](/images/blogimages/docker-hub-oss-image-deletion-mitigation/cli_gitlab_advanced_search_api_dockerfile_from.png)
+
+
+## Mitigations and solutions
+
+The following sections discuss potential mitigation strategies, and long-term solutions.
+
+### Mitigation: GitLab dependency proxy
+
+The dependency proxy provides a caching mechanism for Docker Hub images. It helps reduce the bandwidth and time required to download and pull the images. It also helped to [mitigate the Docker Hub pull rate limits introduced in 2020](/blog/2020/10/30/minor-breaking-change-dependency-proxy/). The dependency proxy can be configured for public and private projects.
+
+The [dependency proxy](https://docs.gitlab.com/ee/user/packages/dependency_proxy/) needs to be enabled for a group. It also needs to be enabled by an instance administrator for self-managed environments, if turned off.
+
+The following example creates two jobs: `image-docker-hub` and `image-docker-hub-dep-proxy`. The dependency proxy job uses the `CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX` CI/CD variable to instruct GitLab to store the image in the cache, and only pull it once when not available.
+
+```yaml
+.test-python-version:
+  script:
+    - echo "Testing Python version:"
+    - python --version
+
+image-docker-hub:
+  extends: .test-python-version
+  image: python:3.11
+
+image-docker-hub-dep-proxy:
+  extends: .test-python-version
+  image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/python:3.11
+```
+
+The configuration is available in [this project](https://gitlab.com/gitlab-de/use-cases/docker/gitlab-dependency-proxy).
+
+The stored container image is visible at the group level in the `Package and container registries > Dependency Proxy` menu.
+
+
+### Mitigation: Container registry mirror
+
+[This blog post](/blog/2020/10/30/mitigating-the-impact-of-docker-hub-pull-requests-limits/) describes how to run a local container registry mirror. Skopeo from Red Hat is another alternative for syncing container image registries, a practical example is described [in this article](https://marcbrandner.com/blog/transporting-container-images-with-skopeo/).
+
+The GitLab Cloud Native installation ([Helm charts](https://docs.gitlab.com/charts/) and [Operator](https://docs.gitlab.com/operator/)) use a [mirror of tagged images](https://gitlab.com/gitlab-org/cloud-native/mirror/images) consumed by the related projects. Other product stages follow a similar approach, the [security scanners are shipped in container images](https://docs.gitlab.com/ee/user/application_security/offline_deployments/#container-registries-and-package-repositories) maintained by GitLab. This also enables self-managed airgapped installations.
+
+### Mitigation: Custom images in GitLab container registry
+
+Reproducible builds and compliance requirements may have required you to create custom container images for CI/CD and Kubernetes already. This is also key to verify that no untested and untrusted images are being used in production. GitLab provides a fully integrated [container registry](https://docs.gitlab.com/ee/user/packages/container_registry/), which can be used natively within CI/CD pipelines and [GitOps workflows with the agent for Kubernetes](https://docs.gitlab.com/ee/user/clusters/agent/gitops.html).
+
+The following `Dockerfile` example extends an existing image layer, and installs additional tools using the Debian Apt package manager.
+
+```
+FROM python:3.11-bullseye
+
+ENV DEBIAN_FRONTEND noninteractive
+
+RUN apt update && apt -y install git curl jq && rm -rf /var/lib/apt/lists/*
+```
+
+You can [use Docker to build container images](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html), and alternative options are Kaniko or Podman. On GitLab.com SaaS, you can use the Docker CI/CD template to build and push images. The following example modifies the `docker-build` job to only build the latest tag from the default branch:
+
+```yaml
+include:
+  - template: Docker.gitlab-ci.yml
+
+docker-build:
+  stage: build
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
+      #when: manual
+      #allow_failure: true
+```
+
+For this example, we specifically want to provide a Git tag that gets used for the container image tag as well.
+
+```
+$ git tag 3-11-bullseye
+$ git push --tags
+```
+
+The image will be available at the GitLab container registry URL and the project namespace path.This path needs to be replaced in all projects that use a Python-based image. You can [create scripts for the GitLab API](​​/blog/2023/02/01/efficient-devsecops-workflows-hands-on-python-gitlab-api-automation/) to update files and create MRs automatically,
+
+```
+image: registry.gitlab.com/gitlab-de/use-cases/docker/custom-container-image-python:3-11-bullseye
+```
+
+_Note: This is a demo project and not actively maintained. Please fork/copy it for your own needs._
+
+
+## Observability and security
+
+The [number of failed CI/CD pipelines](https://docs.gitlab.com/ee/user/analytics/ci_cd_analytics.html) can be a good service level indicator (SLI) to verify whether the environment is affected by the Docker Hub changes. The same SLI applies for CI/CD jobs that build container images, using a `Dockerfile` file, which is based on Docker Hub images (FROM <imagename>).
+
+A similar SLI applies to Kubernetes cluster deployments – if they continue to generate failures in GitOps pull or CI/CD push scenarios, additional analysis and actions are required. The pod status `ErrImagePull` and [`ImagePullBackOff`](https://kubernetes.io/docs/concepts/containers/images/#imagepullbackoff) will immediately show the problems. The [image pull policy](https://kubernetes.io/docs/concepts/containers/images/#image-pull-policy) should also be revised – `Always` will immediately cause a problem, while `IfNotPresent` will use the local image cache.
+
+[This alert rule example](https://awesome-prometheus-alerts.grep.to/rules.html#rule-kubernetes-1-18) for Prometheus observing a Kubernetes cluster can help detect the pod state as not healthy.
+
+```yaml
+  - alert: KubernetesPodNotHealthy
+    expr: sum by (namespace, pod) (kube_pod_status_phase{phase=~"Pending|Unknown|Failed"}) > 0
+    for: 15m
+    labels:
+      severity: critical
+    annotations:
+      summary: Kubernetes Pod not healthy (instance {{ $labels.instance }})
+      description: "Pod has been in a non-ready state for longer than 15 minutes.\n  VALUE = {{ $value }}\n  LABELS = {{ $labels }}"
+```
+
+CI/CD pipeline linters and Git hooks can also be helpful to enforce using a GitLab registry URL prefix in all `image` tags, when new updates to CI/CD configurations are being pushed into merge requests.
+
+Kubernetes deployment images can be controlled through additional integrations with the [Open Policy Agent Gatekeeper](https://www.openpolicyagent.org/docs/latest/kubernetes-introduction/) or [Kyverno](https://kyverno.io/policies/best-practices/restrict_image_registries/restrict_image_registries/). Kyverno also allows you to [mutate the image registry location](https://kyverno.io/policies/other/replace_image_registry/replace_image_registry/), and redirect the pod image to trusted sources.
+
+[Operational container scanning](https://docs.gitlab.com/ee/user/clusters/agent/vulnerabilities.html) in Kubernetes clusters and [container scanning in CI/CD pipelines](https://docs.gitlab.com/ee/user/application_security/container_scanning/) are recommended. This ensures that all images do not expose security vulnerabilities.
+
+## Long-term solutions
+
+As a long-term solution, analyze the affected Docker Hub organizations images and match them against your image usage inventory. Some organizations have raised their concerns in [this Docker Hub feedback issue](https://github.com/docker/hub-feedback/issues/2314). Be sure to identify critical production CI/CD workflows and replace all external dependencies with local maintained images.
+
+Fork/copy project Dockerfile files from the upstream Git repositories, and use them as the single source of truth for custom container builds. This will also require training and documentation for DevSecOps teams, for example optimizing container images for [efficient CI/CD pipelines](https://docs.gitlab.com/ee/ci/pipelines/pipeline_efficiency.html). More DevSecOps efficiency tips can be found in my Chemnitz Linux Days talk about "Efficient DevSecOps Pipelines in a Cloud Native World" ([slides](https://go.gitlab.com/RPog2h)).
+
+<iframe src="https://docs.google.com/presentation/d/e/2PACX-1vT3jcfpddKL2jq7leX01QX6S4Y8vfLLBZMz4L1ZHMLY3xzB4IGOOIExODLEzH8YQM1atCNPm07Bw9m_/embed?start=false&loop=true&delayms=3000" frameborder="0" width="960" height="569" allowfullscreen="true" mozallowfullscreen="true" webkitallowfullscreen="true"></iframe>
+
+Please share your ideas and thoughts about Docker Hub change mitigations and tools on the [GitLab community forum](https://forum.gitlab.com/). Thank you!
+
+Cover image by [Roger Hoyles](https://unsplash.com/photos/sTOQyRD8m74) on [Unsplash](https://www.unsplash.com)
+{: .note}

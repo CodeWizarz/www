@@ -1,0 +1,59 @@
+<div class="newsletter-form-short ">
+  <div class="slp-container">
+    <h2>Stay in the know with GitLab’s monthly newsletter</h2>
+    <script src="//page.gitlab.com/js/forms2/js/forms2.min.js"></script>
+    <form id="mktoForm_1077"></form>
+    <script>
+      MktoForms2.setOptions({
+        formXDPath: "/rs/194-VVC-221/images/marketo-xdframe-relative.html",
+      });
+      MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", 1077, function(
+        form
+      ) {
+        form.onSuccess(function(values, followUpUrl) {
+          dataLayer.push({
+            event: "mktoLead",
+            mktoFormId: form.getId(),
+            eventCallback: function() {
+              form.getFormElem().hide();
+              document.getElementById("confirmform").style.display = "block";
+            },
+            eventTimeout: 3000,
+          });
+          return false;
+        });
+        function getgacid() {
+          try {
+            var tracker = ga.getAll()[0];
+            return tracker.get("clientId");
+          } catch (e) {
+            return "n/a";
+          }
+        }
+        form.vals({
+          gacid: getgacid(),
+        });
+      });
+      setTimeout(() => {
+        const submitButton = document.querySelector(".mktoButton");
+        const fieldWrapper = document.querySelector(".mktoRequiredField");
+        const privacyLink = document.querySelector(
+          '[href="https://about.gitlab.com/privacy/"]'
+        );
+        const communicationsLink = document.querySelector(
+          '[href="https://about.gitlab.com/company/preference-center/"]'
+        );
+
+        fieldWrapper.appendChild(submitButton);
+        privacyLink.setAttribute("data-ga-name", "privacy");
+        privacyLink.setAttribute("data-ga-location", "newsletter");
+
+        communicationsLink.setAttribute("data-ga-name", "preference center");
+        communicationsLink.setAttribute("data-ga-location", "newsletter");
+      }, 500);
+    </script>
+    <div id="confirmform" class="confirm-message" style="display:none;">
+      <p>Thanks for subscribing!</p>
+    </div>
+  </div>
+</div>

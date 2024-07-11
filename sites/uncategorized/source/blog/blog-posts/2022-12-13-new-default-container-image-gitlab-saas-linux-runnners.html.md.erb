@@ -1,0 +1,40 @@
+---
+title: "How to use Ruby 3.1 as the default container image on GitLab SaaS Runners on Linux"
+author: Darren Eastman
+author_gitlab: darreneastman
+author_twitter: eastmandarren
+categories: engineering
+image_title: '/images/blogimages/container-reg-cdn-blog.jpg'
+description: "Learn about the new image and how to ensure CI job compatibility."
+tags: DevOps, inside GitLab, CI, CD, integrations
+twitter_text: "We are changing the default container image used on GitLab SaaS Runners on Linux to Ruby 3.1. Learn how to check for the new image and ensure CI job compatibility."
+featured: no
+---
+On January 12, 2023, we will change the [default container](https://docs.gitlab.com/ee/ci/runners/saas/linux_saas_runner.html) image used on GitLab Saas Runners on Linux from Ruby 2.5, which is end of life, to Ruby 3.1.
+
+If you have specified a container image in your CI/CD job, then there is no impact to you. In other words, your GitLab SaaS CI/CD job will only run in the default container if no image is set for the job in the `.gitlab-ci.yml` pipeline file.
+
+To check, open the log view of a CI job and note the image used. For example, if you have not added an image to your CI job on GitLab SaaS, then the job log will have the following:
+
+```
+Using Docker executor with image ruby:2.5 ...
+
+```
+
+If you have not set a container image in your CI job, then after this change, the job will run in a Ruby 3.1 container.
+
+## How can I check for any build issues on Ruby 3.1?
+
+While it is not expected that running a CI/CD job on Ruby 2.5 is incompatible with Ruby 3.1, to check, simply configure the job to run in a Ruby 3.1 container. To do so, edit the `.gitlab-ci.yml` and add the following:
+
+```
+default:
+  image: ruby:3.1
+```
+
+## Future plans
+
+In addition to this change, we plan to [define](https://gitlab.com/gitlab-org/gitlab/-/issues/384992) a new container image maintenance process for GitLab SaaS Runners on Linux. The new policy aims to ensure that the default image used is updated so that it contains the latest security fixes.
+
+_This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog post and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc._
+

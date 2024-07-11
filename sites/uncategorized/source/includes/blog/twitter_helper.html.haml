@@ -1,0 +1,20 @@
+- url = full_url(current_page)
+- keywords = current_page.data.keywords ? current_page.data.keywords.join(', ') : ''
+- twitter_text = current_page.data.twitter_text ? current_page.data.twitter_text : current_page.data.title
+- twitter_link_text = current_page.data.author_twitter ? "#{twitter_text} via @#{current_page.data.author_twitter}" : twitter_text
+- twitter_link = "http://twitter.com/share?text=#{URI.encode_www_form_component(twitter_link_text)}&url=#{url}&hashtags=#{keywords}"
+
+.panel.panel-default.twitter-block
+  %a.twitter-block-link.panel-body{ href: twitter_link, title: 'Tweet!', target: '_blank', rel: 'nofollow'}
+    %span.twitter-text.pull-left
+      #{twitter_text}
+      - if current_page.data.author_twitter
+        via @#{current_page.data.author_twitter}
+      - if current_page.data.keywords
+        - current_page.data.keywords.each do |keyword|
+          = precede '#' do
+            = keyword
+
+    %span.click-to-tweet
+      Click to tweet!
+      %i.fab.fa-twitter

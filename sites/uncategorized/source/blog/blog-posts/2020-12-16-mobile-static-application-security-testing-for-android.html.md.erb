@@ -1,0 +1,72 @@
+---
+title: "Android App Security Testing with SAST"
+window_title: "Getting Started with Android Application Security Testing | GitLab"
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: security
+image_title: "/images/blogimages/security-cover.png"
+description: "Learn how to secure your Android application with Static Application Security Testing."
+tags: security, DevOps, features, integrations, open source
+postType: product
+twitter_text: "Learn how to secure your Android application with @GitLab SAST" 
+related_posts:
+  - "/blog/2020/08/31/how-to-configure-dast-full-scans-for-complex-web-applications/"
+  - "/blog/2020/07/28/container-security-in-gitlab/"
+merch_banner: merch_four
+---
+
+At GitLab, everyone can contribute! [GitLab 13.5](/releases/2020/10/22/gitlab-13-5-released/) included an [integration for Mobile Static
+Application Security Testing (SAST)](/releases/2020/10/22/gitlab-13-5-released/#sast-support-for-ios-and-android-mobile-apps) from one of our customers. For their contribution, the 
+[H-E-B Digital](https://digital.heb.com/) team were [October 2020's MVP](/releases/2020/10/22/gitlab-13-5-released/#mvp).
+
+Their contribution enables SAST for mobile applications. This includes iOS apps written in Objective-C
+and Swift as well as Android apps written in Java and Kotlin. 
+
+This blog post will go over how Mobile SAST works on Android.
+
+## Static Application Security Testing
+
+[Static Application Security Testing](https://docs.gitlab.com/ee/user/application_security/sast/) analyzes source code for known vulnerabilities.
+SAST is used to detect potentially dangerous attributes in a class, or unsafe code that can
+lead to unintended code execution, as well as other issues such as SQL Injection. More information
+on SAST can be seen in the [OWASP Documentation](https://owasp.org/www-community/controls/Static_Code_Analysis).
+
+Here is a video which goes over [setting up SAST for Mobile](https://docs.gitlab.com/ee/user/application_security/sast/#experimental-features), as well as a sample application
+you can use to get started:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/v0GhEHZWtdw" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+In a nutshell, after the scanner has been configured, whenever an MR is created the
+scanner runs on the application source code and looks for patterns to determine if
+that code is vulnerable. This is covered below.
+
+Initially this analyzer supports source code analysis but we intend to [expand support for binary
+scanning](https://gitlab.com/gitlab-org/gitlab/-/issues/269915) of .ipa and .apk files in the near future.
+
+## Understanding security rules
+
+SAST for mobile applications uses the Mobile Security Framework (MobSF) to scan source code. MobSF
+uses certain rules in order to determine if an application is vulnerable. The rules used to scan
+mobile applications can be seen in their [rules file](https://github.com/MobSF/Mobile-Security-Framework-MobSF/tree/master/StaticAnalyzer/views/android/rules).
+These rules use [regex](https://en.wikipedia.org/wiki/Regular_expression) in order to find vulnerabilities in the static code.
+ 
+You can also [contribute your own rules](https://github.com/MobSF/Mobile-Security-Framework-MobSF/blob/master/.github/CONTRIBUTING.md) if you have thoghts on enhancements.
+I made a small change to [enable a regex to work on Kotlin](https://github.com/MobSF/Mobile-Security-Framework-MobSF/pull/1611).
+Not only can everyone contribute at GitLab, we encourage team members to contribute to other open source projects.
+
+Note: You will have to test your changes before they can be approved. In order to do this, you must [install
+your branch as seen here](https://mobsf.github.io/docs/#/installation).
+
+## Adding your own scanners
+
+GitLab allows for lots of extensibility. Using our [integration guidance](https://docs.gitlab.com/ee/development/integrations/secure.html), you can bring your own scanners into the
+merge request pipeline and the security dashboards. This was done for MobSF SAST, as well as the [WhiteSource
+Dependency Scanner](/blog/2020/08/10/whitesource-for-dependency-scanning/).
+
+I hope you enjoyed this blog post. Now you can start making your Android applications more secure.
+You can reach out on Twitter and share your thoughts with us [@GitLab](https://twitter.com/gitlab)!

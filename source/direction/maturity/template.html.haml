@@ -1,0 +1,154 @@
+---
+layout: default
+manual_cookiebot: true
+extra_css:
+  - maturity.css
+extra_js:
+  - libs/on-scroll.js
+  - all-clickable.js
+  - libs/moment.min.js
+  - maturity.js
+title: "Maturity"
+description: "To convey the state of our GitLab feature set and be transparent, we have developed a maturity framework for categories, application types, and stages."
+canonical_path: "/direction/maturity/"
+---
+
+.container
+
+  %p{style: "padding-top: 15px"}
+    GitLab has a
+    = succeed "," do
+      = link_to "broad scope and vision", "/direction/"
+    enabling organizations to collaboratively plan, build, secure, and deploy software to drive business outcomes faster. To provide teams with complete transparency, consistency, and traceability, we are constantly
+    = link_to "iterating", "/handbook/values/#iteration"
+    on existing and new features. Some stages and features are more mature than others. To convey the state of our feature set and be
+    = succeed "," do
+      = link_to "transparent", "/handbook/values/#transparency"
+    we have developed a maturity framework for categories, application types, and stages that considers both adoption and user experience. 
+    These maturity ratings reflect the current state of our categories. In general, we plan to continue working on categories to maintain and improve on this maturity. So even if a category is "Complete," it does not mean
+    we will not keep working on it.
+    We are 
+    = link_to "present-day pessimists and long-term optimists", "/handbook/values/#focus-on-improvement"
+    and maturities will change, including changes to lower maturity rating, to reflect the bar we set for ourselves, our position in the market and for customers. Contributions from our community are an essential part of achieving this overall vision for GitLab. 
+
+  %a.scroll-anchor{id: "legend"}
+  %div{style: "width: 50%; float: left;"}
+    %table.legend-table
+      %tr
+        %td{colspan: "2"}
+          = link_to "Category", "#category-maturity"
+          and
+          = link_to "Application Type", "#application-type-maturity"
+          maturity:
+      = partial "includes/product/maturity_legend"
+
+  %div{style: "width: 50%; float: left;"}
+    %table.legend-table
+      %tr
+        %td
+          %p
+            = link_to "Stage", "#maturity-by-stage"
+            lifecycle and recognition:
+            %ul
+              - for i in 0..7
+                %li
+                  = lifecycle(i)
+                  - if lifecycle_recognition(i)
+                    = "-"
+                    = lifecycle_recognition(i)
+          %p
+            = link_to "Product Investment", "https://internal.gitlab.com/handbook/product/investment/"
+            methodology.
+
+.container
+  %section.maturity-tables
+
+    %h2#category-maturity Category maturity
+
+    %p
+      GitLab features are grouped into a
+      = succeed "," do
+        = link_to "hierarchy", "/handbook/product/categories/#hierarchy"
+      representing increasingly higher level capabilities. Features make up a broader Category, which then belong to a DevOps Stage.
+      Stages are assigned a yearly
+      = succeed "," do
+        = link_to "lifecycle", "#legend"
+      and categories a
+      = succeed "." do
+        = link_to "maturity", "#legend"
+
+    .sdlc-container.position-relative#maturity-no-padding
+      .sdlc-table
+        - Gitlab::Homepage::Stage.all!.select{|stage| stage.marketing}.each do |stage|
+          .sdlc-column
+            .stage-container
+              %a{href: "##{stage.key}"}
+                = partial "/includes/icons/sdlc-icons/#{stage.key}.svg"
+              %a{href: "##{stage.key}"}
+                %p #{stage.display_name}
+            .solutions-container
+              - active_categories = active_categories(stage.categories)
+              - upcoming_categories = planned_categories(stage.categories)
+              - if active_categories.length >= 1
+                .current-categories
+                  %p.font-bold
+                    Since
+                    #{stage.established}
+                    GitLab added:
+                  .stage-column
+                    .category-list
+                      - active_categories.each do |category|
+                        .category
+                          .category-cell
+                            %a{ href: "##{category.key}"}
+                              = partial "/images/maturity/#{maturity(category, Date.today)}.svg"
+                          .category-cell
+                            - url = category.best_link
+                            %a{ href: "#{url}" } #{category.name}
+              - if upcoming_categories.length >= 1
+                .future-categories
+                  %p.font-bold Upcoming Categories:
+                  .stage-column
+                    .category-list
+                      - upcoming_categories.each do |category|
+                        .category
+                          .category-cell
+                            %a{ href: "##{category.key}"}
+                              = partial "/images/maturity/#{maturity(category, Date.today)}.svg"
+                          .category-cell
+                            - url = category.best_link
+                            %a{ href: "#{url}" } #{category.name}
+              .stage-strategy
+                %p.font-bold Stage Roadmap:
+                %p
+                  %a{ href: "#{stage.direction}"} #{stage.display_name} Direction
+
+    %h2#maturity-plan Planned category maturity
+
+    %p
+      The maturity framework makes it easy to visualize where GitLab is making investments, and resulting category maturity improvements. As part of the
+      %a{href: "https://about.gitlab.com/handbook/product/#planning-and-strategy"} planning process
+      for each category, the set of features required and expected date to reach the next maturity is maintained. It can also be used to compare historical to planned velocity. A reduction in velocity is
+      %a{href: "https://about.gitlab.com/handbook/leadership/mitigating-concerns/#loss-of-velocity"} one of our concerns.
+
+    %p
+      Below is a chart which illustrates the aggregate current and future progression of all categories.
+
+    .drop-shadow
+      .maturity-chart
+        = maturity_chart()
+
+    %h3#maturity-by-stage DevOps stage maturity
+
+    - stages = data.stages.stages.select { |stageKey, stage| stage.marketing }
+    = partial('includes/maturity/stage-details.html.haml', locals: { stages: stages, quarters: quarters })
+
+    %h3#non-devops-maturity-by-stage Non-DevOps stage maturity
+
+    - stages = data.stages.stages.select { |stageKey, stage| !stage.marketing }
+    = partial('includes/maturity/stage-details.html.haml', locals: { stages: stages, quarters: quarters })
+
+    %p
+      Learn how to make changes to categories and their maturity on our
+      = succeed "." do
+        %a{ href: "../../handbook/marketing/digital-experience/website/#working-with-stages-groups-and-categories"} website handbook page

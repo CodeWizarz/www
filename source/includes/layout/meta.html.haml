@@ -1,0 +1,64 @@
+- if current_page.request_path.start_with?('blog/categories')
+  - category_title = categories == 'ai-ml' ? 'AI/ML' : categories.to_s.camelize
+  - description = 'This is ' + category_title + ' blog category page ' + page_number.to_s + ' of ' + num_pages.to_s + ' showing 16 post per page'
+- else
+  - description = current_page.data.description
+
+- if !description
+  - description = "Learn more from GitLab, The DevSecOps Platform."
+
+%meta{ content: description, name: "description",  }
+%meta{ name: "twitter:description", content: description }
+%meta{ property: "og:description", content: description }
+
+%meta{content: data.site.title, property: "og:site_name"}
+
+-# Defined in meta title
+- if current_page.request_path.start_with?('blog/categories')
+  - category_title = categories == 'ai-ml' ? 'AI/ML' : categories.to_s.camelize
+  - title = category_title + ' blog category, page ' + page_number.to_s + ' of ' + num_pages.to_s
+- elsif current_page.data.title
+  - title = current_page.data.title
+- else 
+  - title = data.site.title + '| GitLab'
+
+%meta{content: title, property: "og:title"}
+
+- if data.site.repo
+  %meta{content: data.site.repo, property: "og:repo"}
+
+- if data.site.instance
+  %meta{content: data.site.instance, property: "og:instance"}
+
+- if data.site.path
+  %meta{content: data.site.path, property: "og:path"}
+
+- if current_page.file_descriptor.relative_path
+  %meta{content: current_page.file_descriptor.relative_path, property: "og:relative_path"}
+
+%meta{content: monorepo_site_path_fragment, property: "og:monorepo_site_path_fragment"}
+
+- if current_page.data.title
+  %meta{content: "article", property: "og:type"}
+- else
+  %meta{content: "website", property: "og:type"}
+
+- if current_page.url
+  %meta{content: "#{data.site.url}#{current_page.url}", property: "og:url"}
+
+- if current_page.data.date
+  %meta{content: current_page.data.date, property: "article:published_time"}
+  %meta{content: "#{data.site.url}/about", property: "article:author"}
+
+-# Defined in helpers/opengraph_helper.rb
+= open_graph_image_tags(data.site.url, current_page)
+
+%meta{ name: "twitter:card", content: "summary_large_image" }
+%meta{ name: "twitter:site", content: "@GitLab" }
+- if current_page.data.title
+  %meta{ name: "twitter:title", content: current_page.data.title }
+
+%meta{ name: "twitter:creator", content: "@GitLab" }
+
+- if current_page.data.keywords
+  %meta{ name: "keywords", content: current_page.data.keywords.join(", ") }

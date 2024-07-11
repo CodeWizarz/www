@@ -1,0 +1,47 @@
+- articles.each do |article|
+  - unless article.data.categories.include?("unfiltered")
+
+    - image_title = article.data.image_title ? article.data.image_title : '/images/default-blog-image.png'
+
+    .blog-hero{ style: "background-image: url(#{image_title});" }
+      .blog-hero-content
+        .blog-hero-tag
+          Featured Post
+        .blog-hero-meta
+          .blog-hero-author
+            - guest = article.data.guest
+            - anchor = article.data.author_twitter || article.data.author_gitlab
+            - if guest
+              = article.data.author
+            - else
+              - if anchor
+                = link_to article.data.author, "/company/team/##{anchor}"
+              - else
+                = article.data.author
+            / - if article.data.author_gitlab
+            /   %span &nbsp;
+            /   = link_to "https://gitlab.com/#{article.data.author_gitlab}" do
+            /     %spam.author-gitlab
+            /       %i.fab.fa-gitlab
+            / - if article.data.author_twitter
+            /   %span &nbsp;
+            /   = link_to "https://twitter.com/#{article.data.author_twitter}" do
+            /     %span.author-twitter
+            /       %i.fab.fa-twitter
+          .blog-hero-date
+            = article.date.to_time.strftime '%b %e, %Y'
+        %a.blog-hero-title{ href: article.url }
+          %h2
+            - if article.data.release_number
+              GitLab
+              = article.data.release_number
+              released
+            - else
+              = article.title
+        .blog-hero-excerpt
+          %p 
+            - if article.data.description
+              = article.data.description
+            - else
+              = article.summary
+            %a.blog-hero-more-link{ href: article.url } Read on

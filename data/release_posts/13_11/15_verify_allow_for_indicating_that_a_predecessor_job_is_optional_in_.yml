@@ -1,0 +1,16 @@
+---
+features:
+  primary:
+  - name: "Optional DAG ('needs:') jobs in CI/CD pipelines"
+    available_in: [core, premium, ultimate]
+    image_url: '/images/13_11/optional.png'
+    documentation_link: 'https://docs.gitlab.com/ee/ci/yaml/#needsoptional'
+    reporter: dhershkovitch
+    stage: verify
+    categories:
+    - Pipeline Authoring
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/30680'
+    description: |
+        The directed acyclic graph (DAG) in GitLab CI/CD lets you use the `needs` syntax to configure a job to start earlier than its stage (as soon as dependent jobs complete). We also have the `rules`, `only`, or `except` keywords, which determine if a job is added to a pipeline at all. Unfortunately, if you combine `needs` with these other keywords, it's possible that your pipeline could fail when a dependent job does not get added to a pipeline.
+
+        In this release, we are adding the `optional` keyword to the `needs` syntax for DAG jobs. If a dependent job is marked as `optional` but *not* present in the pipeline, the `needs` job ignores it. If the job is `optional` and present in the pipeline, the `needs` job waits for it to finish before starting. This makes it much easier to safely combine `rules`, `only`, and `except` with the growing popularity of DAG.

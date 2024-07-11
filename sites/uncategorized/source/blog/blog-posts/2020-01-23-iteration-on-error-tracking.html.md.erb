@@ -1,0 +1,132 @@
+---
+title: "Why we scoped down to build up error tracking"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: engineering
+image_title: '/images/blogimages/automate-ce-ee-merges.jpg'
+description: "We dig into how shipping small iterations is accelerating delivery on our error tracking product."
+tags: DevOps, frontend, production, workflow
+guest: true
+ee_cta: false
+install_cta: false
+twitter_text: "Think big, ship small. How shipping minimum viable changes is helping @gitlab improve error tracking"
+featured: yes
+postType: product
+merch_banner: merch_one
+---
+
+When our vision for [error tracking](https://about.gitlab.com/direction/analytics/error_tracking/) is fully realized, the developers who use GitLab will be able to find and fix errors before their customers ever report them, all while staying in our tool. But waiting until our error tracking feature is pristine would just us slow down.
+
+Instead, the engineers and product managers on the [Monitor:Health](/handbook/engineering/development/ops/monitor/respond/) team work **iteratively** by shipping smaller changes as we move closer to achieving our vision for the error tracking feature.
+
+## What does it mean to work iteratively?
+
+"[Iterating] means scoping down a task to deliver it sooner. So, it means making something smaller so you can get it done quicker," says [Sid Sijbrandij](/company/team/#sytses), CEO and co-founder of GitLab.
+
+We made [iteration](/handbook/values/#iteration) one of our core company values because of the fundamental belief that even a small change is better than no change at all. And while iteration in engineering is already recognized as being effective, our organization aims to make iteration a component to every team’s workflow.
+
+In the video below, Sid and [Christopher "Leif" Lefelhocz](https://about.gitlab.com/company/team/#christopher-l), senior director of development, share how the product and engineering teams worked together to speed up development on error tracking by breaking the engineering process down into small steps and iterating as they go.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/tPTweQlBS54" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+We followed up with the Monitor:Health team to talk about how product and engineering worked together to develop an iterative strategy for making improvements to our error tracking product, both in terms of how our product team built the plan for error tracking and how engineering shipped the [minimum viable change](/handbook/values/#minimal-viable-change-mvc) (MVC) to production.
+
+## How we created a product strategy for error tracking
+
+Error tracking is a process whereby application errors are identified and fixed as quickly as possible. The way error tracking functions at GitLab today is [through integration with Sentry](https://about.gitlab.com/direction/analytics/error_tracking/#overview), which aggregates errors, surfaces them in the GitLab UI, and provides the tools to triage and respond to the critical ones.
+
+Today, our error tracking feature is at the [minimal level of maturity](https://about.gitlab.com/direction/analytics/error_tracking/#maturity-plan), meaning we still have plenty of work to do before this feature is viable.
+
+"The goal was to be able to provide error tracking as a product and bring these processes closer to the development delivery workflow," said [Sarah Waldner](/company/team/#sarahwaldner), senior product manager on the Monitor:Health team.
+
+The product team summarized what needs to be done to move [error tracking at GitLab from minimal to viable](https://gitlab.com/groups/gitlab-org/-/epics/1625) as part of a detailed [parent epic](https://docs.gitlab.com/ee/user/group/epics/#multi-level-child-epics). The parent epic essentially establishes product priorities by defining which use cases error tracking needs to solve in order for the product to be considered a viable feature. The next step was to define the core problems that users encounter with error tracking and double-check the solutions that should be used to solve those problems.
+
+"Once we came up with these problems and validated those, we moved into a solution validation cycle whereby designers came up with different solutions and flows for these and then we tested them with different users," says Sarah. "After we did all of that and have all of our solutions validated we broke it down into four different things that someone needs to do from a high level with Sentry."
+
+Those top four actions were divided into child epics which roll-up to the parent epic, and include:
+
+*   [The instrumentation or configuration of Sentry](https://gitlab.com/groups/gitlab-org/-/epics/2036)
+*   [Correlating errors](https://gitlab.com/groups/gitlab-org/-/epics/2035)
+*   [Resolving errors](https://gitlab.com/groups/gitlab-org/-/epics/2034)
+*   [Triaging errors](https://gitlab.com/groups/gitlab-org/-/epics/2029)
+
+By breaking down the problems and establishing solutions, the team took an important step toward establishing their product development priorities. Contained in each of these child epics are other epics and issues which break down the solutions into the larger aspects.
+
+## Establishing development priorities
+
+The team recognized that, in order to boost error tracking to viable, there needed to be a better way to resolve errors that are surfaced by Sentry within GitLab. The team created an epic for [resolving errors](https://gitlab.com/groups/gitlab-org/-/epics/2034), and outlined some of the key development priorities.
+
+"So, to resolve errors, if you have an error that you need to fix, you might want to create an issue to track that work, respond to it, and close that issue in the general workflow," says Sarah. "So within the resolving errors workflow part of the error tracking parent epic, we pose the idea of being able to manually open an issue from a Sentry error, which was then broken down further into where you do it from, and further again on the error detail page."
+
+![Resolve errors epic](/images/blogimages/resolve_errors_epic.png){: .shadow.medium.center}
+The workflow for the resolve errors epic is broken down into multiple child epics, which correlate to different development projects.
+{: .note.text-center}
+
+The team decided that we needed the ability to [create an issue within GitLab based on the errors detected by Sentry](https://gitlab.com/groups/gitlab-org/-/epics/2210) and that they wanted this function and button to appear on both the error list page as well as on the [error detail page](https://gitlab.com/groups/gitlab-org/-/epics/2210). The team then decided to make the error detail page the first priority.
+
+"Through conversation, we were able to determine what is the bare minimum of value and broke it down as best as we could from frontend to backend, with the idea that it's better to ship something small that's not fully complete than (to ship) nothing at all," says [Clement Ho](/company/team/#ClemMakesApps), frontend engineering manager on Monitor:Health.
+
+## The "Create an Issue" button in three iterations
+
+"Being able to open an issue from the error detail page seems really simple, but once you talk through what that workflow actually looks like, there are a lot more aspects to it than previously thought," says Sarah.
+
+![Open issue workflow](/images/blogimages/open_issue_epic.png){: .shadow.medium.center}
+Breaking the frontend and backend engineering into iterations shows just how much work needs to be done to ship even one minor component of the error tracking product.
+{: .note.text-center}
+
+### The "Create an Issue" button in stages
+
+Clement was the architect behind the `Create an Issue` button frontend iterations. He explained that he wanted to take advantage of GitLab deploying frequently, and so he broke down the development process for the `Create an Issue` button into a series of small steps.
+
+The [first iteration](https://gitlab.com/gitlab-org/gitlab/issues/36537) was simply to build the ability to create an issue from the error detail page. In this iteration, the `Create an Issue` button was simple and unstyled and clicking it led the user to a blank issue. While not overly helpful at this phase, it represents a good start in allowing someone to respond to an error.
+
+![Create an Issue button](/images/blogimages/create_an_issue_it1.png){: .shadow.medium.center}
+What the `Create an Issue` button will look like when it's done.
+{: .note.text-center}
+
+In the [second iteration](https://gitlab.com/gitlab-org/gitlab/issues/36540), the user clicks `Create an Issue` and the issue comes pre-filled with the Sentry error title, description, and link. It’s still not styled and consistent with GitLab UI yet, but it’s possible to see more of the error context when creating an issue in response to the error.
+
+In the [third iteration](https://gitlab.com/gitlab-org/gitlab/issues/36542), the GitLab UI gets cleaned up and the issue comes with proper formatting.
+
+"Now, we are three issues into this and each one has been done in a couple of days and after the first couple of days, someone was able to create an issue," says Sarah. "And that way we got the system much faster instead of first adding the button and then adding the experience of the new issue and then having all of the information in there styled."
+
+### Is it better to start with frontend or backend engineering?
+
+As Christopher noted in his [conversation with Sid](https://www.youtube.com/watch?v=tPTweQlBS54), everything that Clement was working on in the first three iterations was frontend-focused; typically engineers start problem-solving from the backend.
+
+"I love frontend first. I love interface first also because it helps everyone think about it," says [Sid in to Christopher regarding this project](https://www.youtube.com/watch?v=tPTweQlBS54). "If you have something in the interface it's easier to understand for customers, for backend people, etc. So in the end what the customer sees is the product. One way to develop is to start with the readme or start with the press release. After that, the closest thing you can think of is the interface. So I think it's much better to have an interface built and then do the backend than vice versa. Even though I come from backend engineering."
+
+Just a few days after Clement started building the frontend of the `Create an Issue` button the backend team started building support in separate issues. The main priority was to build backend support that associates issues to errors so that users are not creating multiple issues for the same error. The engineers also built frontend support so the user can see that an issue was already created and linked to a particular error.
+
+## The power of iterative thinking
+
+"One huge thing that came out of this is all team members now feel empowered to create issues and to just add them to the milestone and if they realize something is too big, they can create followups or second iterations," says Sarah.
+
+While the end goal is to build a viable error tracking product, the big vision simply cannot be achieved without smaller, incremental steps. While it is clear that the engineering teams embraced iteration, Sarah and the product team also recognized the strong strategic value of iterative product development.
+
+At the same time, Clement wanted to take advantage of GitLab’s frequent deployments, but he also realized that by breaking down the engineering process into MVCs he could also drive up [merge request rate](/handbook/engineering/development/performance-indicators/#mr-rate) on the Monitor:Health frontend engineering team (the average number of merge requests per engineer merged per month) which is a [KPI](/handbook/engineering/development/performance-indicators/#mr-rate).
+
+![MR rate increases](/images/blogimages/mrs.png){: .shadow.medium.center}
+The data shows an increase in the rate of merge requests on the Monitor:Health frontend engineering team.
+{: .note.text-center}
+
+The data speaks for itself, since breaking down the product development process for error tracking into smaller iterations, the MR rate for Clement’s team has increased. 🎉
+
+## Scoping down to speed things up
+
+Clement says that one of his key takeaways from this iterative development process was that GitLab ought to embrace iteration on the engineering side, but also iteration in product development. He is encouraging his team to ship MVCs more frequently, and plans to check his work by running through the process a few more times to iron out any wrinkles in the workflow.
+
+While the highly iterative approach to error tracking has been lauded by everyone from the senior director of development to our very own CEO, Clement acknowledges that this is still a work-in-progress.
+
+"I think the cost is communication and information being spread out everywhere," Clement says.
+
+He advises teams looking to adopt this highly iterative approach be extra disciplined at consolidating conversation on specific epics and issues within GitLab, otherwise, communication can get unwieldy, fast.
+
+Cover photo by Max Ostrozhinskiy on Unsplash.
+{: .note}
+

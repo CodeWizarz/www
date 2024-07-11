@@ -1,0 +1,130 @@
+---
+title: "How to use Terratag to automatically manage tags and labels for your Terraform Code"
+author: Itzik Gan-Baruch, Omry Hay
+author_gitlab: iganbaruch
+categories: engineering
+image_title: /images/blogimages/2021-terratag-env0/blog-image.png
+description: "This blog addresses how you can do that easily and automatically when using Terraform and Terratag (an open source project by env0) on top of the Gitlab CI/CD platform."
+tags: DevOps, GitOps
+guest: true
+twitter_text: "Automatically manage tags/labels for your Terraform Code with Terratag"
+featured: no
+postType: content marketing
+merch_banner: merch_eight
+---
+
+When using infrastructure as code (IaC) on a public cloud provider, it's important to use tags and labels to organize your IaC using their complementary services. Terratag, an open source project developed by [env0](http://www.env0.com), can be used with Terraform and placed on top of the GitLab CI/CD platform, making tagging and labeling IaC easier and more efficient.
+
+GitLab and Terraform make it easy to tag and label infrastructure as code.
+
+## Inside your toolbox
+
+[GitLab](https://about.gitlab.com/) the industry's leading [DevOps](https://about.gitlab.com/topics/devops/) platform. Not long ago, we announced the ability to control Terraform deployments, remote state management, private module registry, and merge request integration for Terraform. This gives users a range of solutions for running CI/CD for Terraform code and managing it on a large scale.
+
+[Terraform](https://www.terraform.io/) is the most widely adopted IaC framework out there. It's an open source project that is maintained by HashiCorp, and was launched in 2014 based on HashiCorp configuration language (HCL). Terraform is a command line (CLI) tool that can help manage and provision external resources such as public cloud infrastructure, private cloud infrastructure, network appliances, and SaaS and PaaS vendors. All major clouds are supported where AWS, Azure, and GCP have an official provider that are maintained internally by the HashiCorp Terraform team.
+
+All major cloud providers support tagging/labeling for most of their resources using their Terraform provider, to help users manage infrastructure more efficiently. In this blog post, we provide some examples that show how it is easy to tag and label your IaC using Terratag with GitLab CI/CD – a core component of our DevOps platform.
+
+### How to automatically manage tags/labels for your Terraform Code
+
+First, we'll take a deep dive into the importance of tagging and labeling your IaC when using a public cloud provider. Next, we'll explain how to manage tags and labels for your IaC easily and automatically when using Terraform and [Terratag](https://terratag.io/) on top of the Gitlab CI/CD platform, with simple code examples for an end-to-end solution.
+
+### Why tags/labels are so important
+
+All major cloud providers allow tagging (or labeling) cloud resources. Moreover, they encourage you to use tags or labels to do things like manage budgets, set up powerful automation algorithms, and unlock insights offered by the cloud providers and independent third parties.
+
+By harnessing powerful IaC frameworks like Terraform, users can define and tag cloud resources for verticals ranging from the development to ops, as well as business needs.
+
+### The problem with tagging today
+
+Tagging is a manual process, which can make it a real hassel, particularly as your infrastructure grows. Repeatedly tagging dozens or even hundreds of cloud resources is inefficient, but that's just the start of the problems. Manually tagging fails in other important ways too:
+
+* **Standards are hard to maintain if they're not enforced**: Your entire team needs to be on the same page – keeping an eye out for newly added cloud resources, making sure they include those tags or you may miss some significant resources when acting on that metadata later.
+
+* **Harder to change**: Applying changes to tag structure across the board quickly becomes unmanageable.
+
+* **Metadata can obscure what's important**: While tagging all this metadata is useful for slicing and dicing later, having it everywhere on your resources pollutes your IaC, making it more cumbersome and harder to maintain.
+
+* **Migration**: What if you already have plenty of Terraform modules with cloud resources, which weren't tagged to begin with? Trying to tag them all now can be painstaking work.
+
+At the end of the day, IaC is, well, just code, and as is the case with any code, repetition makes it harder to fix errors, apply enhancements, make adjustments and maintain readability. As tagging is a cross-cutting concern, the lack of proper layering or aspect control makes it harder to retrofit existing solutions.
+
+### Terratag to the rescue
+
+[Terratag](https://terratag.io/) allows the user to automatically tag or label all the resources in their Terraform code. It also automatically tags all of your Terraform sub-modules, even if they don't expose tags as an input. Terratag is a CLI tool that works with all the major cloud providers including AWS, Google Cloud Platform, and Microsoft Azure, and solves the complicated problem of tagging resources across applications at scale. It eliminates the risk of human error, can retroactively tag IaC resources that were previously deployed, and helps you easily use the tags for various purposes, like cost management, organization, reporting, etc.
+
+### How to run Terraform with GitLab
+
+Gitlab offers a wide range of tools for Terraform, starting with a [managed remote state](https://docs.gitlab.com/ee/user/infrastructure/terraform_state.html), running your deployment with [Gitlab CI/CD](https://docs.gitlab.com/ee/ci/), [Terraform private module registry](https://docs.gitlab.com/ee/user/packages/terraform_module_registry/index.html#publish-a-terraform-module-by-using-cicd) and [integration in Merge Requests (MRs)](https://docs.gitlab.com/ee/user/infrastructure/mr_integration.html) and getting Terraform plan output information into an MR.
+
+In this tutorial, we use Gitlab CI/CD to deploy a Terraform repository into Google Cloud Platform and let Gitlab manage our remote state.
+
+### Combining Terraform wtih GitLab in GCP
+
+We explain how to implement and combine Terraform and GitLab with ease, starting with building the deployment of our Terraform code using GitLab and then see the results in Google Cloud platform.
+
+### Terraform code with GitLab as a backend
+
+We're using Terraform to deploy a simple VPC and a VM into GCP. We will use GitLab Terraform backend configuration, which is based on the Terraform [HTTP backend](https://www.terraform.io/docs/language/settings/backends/http.html). The beauty of this configuration is that you don't need to add any configuration regarding authentication when running it inside Gitlab CI/CD. GitLab will automatically set up all the relevant configuration for your backend according to the project it's running in.
+
+The code is available in [the Terratag project created for this blog post](https://gitlab.com/env0/terratag-blog-post/-/tree/main).
+
+### Set up variables
+
+This Terraform code needs some variables in order to run. We can set these up using Gitlab CI/CD variables. Under your Gitlab Project, go to Settings > CI/CD and expand the variable section. We will need to add three variables:
+
+* `GOOGLE_CREDENTIALS`: This variable value should be the JSON of your Google Cloud service account. [See this documentation](https://cloud.google.com/iam/docs/creating-managing-service-account-keys) on how to create a service account key.
+
+* `TF_VAR_project_id`: Your Google Cloud project ID.
+
+* `TF_VAR_machine_type`: The VM type you would like to create.
+
+![tg_1](/images/blogimages/2021-terratag-env0/tg_1.png)
+
+### Set up Gitlab CI/CD
+
+Setting up a Gitlab CI/CD for Terraform is really easy – all you need to do is add a simple file in your repository called `.gitlab-ci.yml` and add a configuration for each step of your Terraform deployment. We're going to add the following steps to our pipeline:
+
+* **Plan**: This step will run the `terraform init` and `terraform plan` commands and in the middle will also run Terratag to tag all the relevant resources. At the end it will also output the Terraform plan as a `JSON` file and create an artifact.
+
+* **Apply**: This step will run the `terraform apply` command. It depends on the plan to finish successfully. This step is done manually so we can check the plan before applying the changes.
+
+[https://gitlab.com/env0/terratag-blog-post/-/blob/main/.gitlab-ci.yml](https://gitlab.com/env0/terratag-blog-post/-/blob/main/.gitlab-ci.yml)
+
+Since Terratag scans the entire Terraform code, including any Terraform modules you may be using, we need to run the `terraform init` command before we run the Terratag command, since the init command will download all the relevant modules so Terratag can scan them.
+
+We can see two resources in this code:
+
+* `google_compute_network`: This resource sets up the VPC. Terratag will not apply labels since the [compute network doesn't allow labels](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_network).
+
+* `google_compute_instance`: This resource sets up the VM. Terratag applies the label that the user defines.
+
+Here is the output of Terratag on this Terraform code:
+
+![tg_2](/images/blogimages/2021-terratag-env0/tg_2.png)
+
+This is what this pipeline will look like in the Gitlab UI. When the Terraform plan step is successfully completed, you can manually apply the changes after reviewing the plan, which is also available as an artifact – meaning it can be downloaded and viewed locally.
+
+![tg_3](/images/blogimages/2021-terratag-env0/tg_3.png)
+
+### How to apply labels on GCP
+
+As we mentioned before, labeling your resources has a lot of technical, operations, and business benefits. This blog post focuses on the cost benefit of effectivelabeling.
+
+First, let's see that the VM we've created is actually tagged correctly.
+
+Start by heading to the Google Cloud console. Next, go to the Compute Engine page and, under VM, search for the VM we've just created. Then, go into the VM Instance details page and see that the label exists with the right value.
+
+![tg_4](/images/blogimages/2021-terratag-env0/tg_4.png)
+
+Next, go to the Billing section and select "Reports". On the right hand side of the page there are filters. Under labels, we can filter the label key and the label value and get the cost of those resources.
+
+![tg_5](/images/blogimages/2021-terratag-env0/tg_5.png)
+
+### Automate labeling using Terratag
+
+Tags and labels play a crucial role in managing a large-scale infrastructure projects and offer significant benefits when using tools such as [Gitlab CI/CD](https://docs.gitlab.com/ee/ci/). [Terratag](https://www.terratag.io/) has the advantage of easing the transition for Terraform users. Adopting Terratag for use with GitLab CI/CD and Terraform will also help establish a standard in your organization when it comes to use of tags and labels, eliminating the need for human intervention on a large-scale project to change your current Terraform code base.
+
+Feel free to check out the [code base](https://gitlab.com/env0/terratag-blog-post) for this blog post and leave us feedback.
+
+_Blog post coauthor [Omry Hay](https://www.linkedin.com/in/omryhay/) is the co-founder and CTO of [env0](http://www.env0.com)_

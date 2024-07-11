@@ -1,0 +1,1 @@
+This file has been deprecated in favor of the [Individual Contributor License Agreement in the GitLab CE project](https://gitlab.com/gitlab-org/gitlab-ce/blob/master/doc/legal/individual_contributor_license_agreement.md).

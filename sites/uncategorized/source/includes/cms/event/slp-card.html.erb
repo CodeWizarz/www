@@ -1,0 +1,103 @@
+<section class="slp-commit-grid slp-relative slp-mb-64 md:slp-mb-160">
+  <% if section.type == 'event' %>
+    <div class="slp-col-span-10">
+  <% else %>
+    <div class="slp-col-span-12"> 
+  <% end %>
+    <% if section.type == 'event' %>
+      <div class="slp-col-span-full slp-relative">
+        <div class="slp-max-w-prose">
+          <%= partial "includes/cms/event/slp-heading", locals: { heading: section.heading, icon: section.icon }  %>
+        </div>
+      </div>
+    <% else %> 
+      <div class="slp-relative slp-text-center slp-max-w-7xl slp-mb-16 slp-mx-auto">
+        <h3
+          class="slp-font-normal slp-text-grayscale-333 slp-text-3xl md:slp-text-4xl slp-leading-tight slp-mb-16 slp-col-span-full"
+        >
+          <%= section.heading %>
+        </h3>
+        <p
+          class="slp-font-normal slp-text-grayscale-333 slp-text-xl slp-mb-16 slp-leading-tight"
+        >
+          <%= section.body %>
+        </p>
+      </div>
+    <% end %>
+    <div class="sm:slp-flex slp-overflow-x-auto">
+      <% section.cards.each do | card | %>
+        <a 
+          href="<%= card.destinationUrl %>"
+          class="slp-cursor-pointer slp-text-grayscale-333 slp-flex-none slp-px-16 slp-mb-32 slp-mt-32 slp-w-1/3"
+          data-ga-name="<%= card.heading %>"
+          data-ga-location="cards" 
+        >
+          <div
+            class="slp-max-w-lg slp-rounded-md slp-border slp-border-grayscale-highlight slp-border-solid slp-h-full slp-box-border slp-flex slp-flex-col slp-min-w-full slp-group slp-shadow hover:slp-shadow-lg hover:no-underline slp-ease-in-out slp-transition-all slp-duration-300"
+          >
+            <% if card.bannerImageSource %>
+              <img
+                src="<%= card.bannerImageSource %>"
+                class="slpEventEventsBanner__image"
+              />
+            <% end %>   
+            <div class="slp-p-32 slp-relative">
+              <% if card.bannerImageSource %>
+                <div
+                  class="slp-rounded-full slp-p-8 slp-absolute slp--top-20 slp-left-18 slp-bg-brand-purple slp-text-white"
+                >
+                  <%= inline_svg "#{card.icon}" %>
+                </div>
+              <% end %>     
+              <p class="slp-uppercase slp-text-xs slp-mb-16"><%= card.event_type %></p>
+              <p
+                class="slp-font-normal slp-text-grayscale-333 slp-text-base slp-leading-normal slp-mb-16"
+              >
+                <%= card.date %>
+              </p>
+              <h3
+                class="group-focus:slp-text-ui-secondary group-hover:slp-text-ui-secondary slp-text-lg slp-leading-tight slp-mb-6 slp-font-normal slp-text-grayscale-333"
+              >
+                <%= card.heading %>
+              </h3>
+              <p
+                class="slp-font-normal slp-text-grayscale-333 slp-text-base slp-leading-normal"
+              ></p>
+            </div>
+            <div class="slp-flex slp-items-center slp-mt-auto slp-p-32 slp-pt-0">
+              <span class="slp-font-bold slp-text-sm slp-leading-6 hover:slp-underline slp-text-ui-secondary">
+                <%= card.cta %>
+                <svg
+                  width="9"
+                  height="6"
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="slp-inline-block"
+                >
+                  <path
+                    d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z"
+                    fill="none"
+                    class="slp-fill-current group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"
+                  ></path>
+                </svg>
+              </span>
+            </div>
+            <% if card.bannerImageSource == nil %>
+              <div
+                class="slp-rounded-full slp-p-8 slp-absolute slp-transform slp-translate-x-32 slp--translate-y-1/2 slp-bg-brand-purple slp-text-white"
+              >
+                <%= inline_svg "#{card.icon}" %>
+              </div>
+            <% end %> 
+          </div>
+        </a>
+      <% end %>   
+    </div>
+  </div>
+</section>
+
+<!-- needed to override underline on hover -->
+<style>
+  a.slp-group:hover {
+    text-decoration: none!important
+  }
+</style>

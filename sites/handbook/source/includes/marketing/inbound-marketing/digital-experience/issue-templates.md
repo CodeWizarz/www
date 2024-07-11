@@ -1,0 +1,12 @@
+- [Request work on about.gitlab.com](https://gitlab.com/gitlab-com/marketing/inbound-marketing/growth/-/issues/new?issuable_template=request-digital-experience) and related properties such as landing pages for Marketo.
+- [Report a bug on about.gitlab.com](https://gitlab.com/gitlab-com/www-gitlab-com/issues/new?issuable_template=-website-bug-report)
+    - Please supply all possible information. If we can't reproduce the bug then we can't fix it.
+- [Request an A/B Test](https://gitlab.com/gitlab-com/marketing/inbound-marketing/growth/issues/new?issuable_template=ab-test)
+    - Use this template to request an A/B test on the website
+    - Note: There are many requests for tests and often the strategy behind pages is rapidly evolving. Your request will be evaluated and logged in the Page Testing Spreadsheet. A/B testing spreadsheets are located in the Shared Growth Marketing Drive.
+    - Process for A/B Tests (LINK COMING SOON)
+- [Requesting homepage promotion](https://gitlab.com/gitlab-com/marketing/inbound-marketing/growth/-/issues/new?issuable_template=request-website-homepage-promotion)
+    - Use this template to request to be put on the content calendar for homepage promotion
+    - Note: this is a request and must be approved
+    - If this is for a campaign, please put in the request as part of the initial campaign distribution plan
+    - For more information on this process click [HERE](/handbook/marketing/inbound-marketing/content/index.html#homepage-promotion-guidelines)

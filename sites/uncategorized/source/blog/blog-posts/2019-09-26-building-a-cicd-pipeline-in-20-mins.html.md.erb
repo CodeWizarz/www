@@ -1,0 +1,128 @@
+---
+title: "How to build a CI/CD pipeline in 20 minutes or less"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: engineering
+image_title: '/images/blogimages/pipeline.jpg'
+description: "Deploying your pipeline to Kubernetes is just a 'git push' away using GitLab's Auto DevOps feature."
+tags: kubernetes, cloud native
+twitter_text: "Learn how to build a @gitlab CI/CD pipeline in no time in this demo by @eddiezane at #GitLabCommit"
+featured: yes
+ee_cta: false
+postType: content marketing
+merch_banner: merch_two
+merch_sidebar: merch_two
+cta_button_text: 'Master your CI/CD'
+cta_button_link: '/competition/github/'
+related_posts:
+  - "/blog/2020/12/17/gitlab-for-cicd-agile-gitops-cloudnative/"
+  - "/blog/2019/07/24/cross-project-pipeline/"
+  - "/blog/2018/10/24/setting-up-gitlab-ci-for-android-projects/"
+---
+
+In software development, time really is money. GitLab users know that by using our [Auto DevOps functionality](/stages-devops-lifecycle/auto-devops/), you can move from code to production in just two simple steps.
+
+[Eddie Zaneski](https://gitlab.com/eddiezane) of Digital Ocean joined us in Brooklyn at [GitLab Commit, our inaugural user conference](/blog/2019/09/18/wrapping-up-commit/). In an informative and light-hearted talk, Eddie demonstrated how to build and deploy a [CI/CD pipeline](/topics/ci-cd/) to a Kubernetes cluster from scratch or by using GitLab’s [Auto DevOps](/stages-devops-lifecycle/auto-devops/) tooling in less than 20 minutes.
+
+In the demo, Eddie and his co-founder were really wingin’ it when building an app for the “startup” he used for this demo, the Screaming Chicken Club.
+
+{::options parse_block_html="false" /}
+
+<div class="center">
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Massive shoutout to <a href="https://twitter.com/kamaln7?ref_src=twsrc%5Etfw">@kamaln7</a> for building <a href="https://t.co/kke5hc2FC8">https://t.co/kke5hc2FC8</a> and lending it to me for <a href="https://twitter.com/hashtag/GitLabCommit?src=hash&amp;ref_src=twsrc%5Etfw">#GitLabCommit</a></p>&mdash; Eddie Zaneski (@eddiezane) <a href="https://twitter.com/eddiezane/status/1174044146002288640?ref_src=twsrc%5Etfw">September 17, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+</div>
+
+“I'm trying to raise money right now and VCs are caring about my tech,” said Eddie of his hypothetical start-up. “An easy way to score credit with VCs by having a super secure and well-thought-out DevOps pipeline, and that's where GitLab really comes into play here.”
+
+[Auto DevOps](/topics/devops/) is an out-of-the-box solution that helps move your code into production faster by automating the complex components of building a CI/CD pipeline, such as: “Building your application into a container; checking it for vulnerabilities; checking it for dependencies, checking it for licenses; deploying that to a Kubernetes cluster; setting up host names; DNS, TLS certs; automatically renewing them for you and doing performance testing.”
+
+So where do you start?
+
+## Spin up your Kubernetes cluster
+
+
+
+GitLab has an airtight integration with Kubernetes that makes it possible to [deploy software from GitLab’s CI/CD pipeline to Kubernetes](/solutions/kubernetes/) by using Auto DevOps or by building the pipeline yourself. Either way, the first step will be to [configure a new Kubernetes cluster to deploy your application](https://docs.gitlab.com/ee/user/project/clusters/index.html).
+
+It’s really as simple as toggling to the lefthand sidebar on GitLab and clicking Kubernetes > Operations > Add a Cluster. This process works for [GCP or GKE users](https://docs.gitlab.com/ee/user/project/clusters/index.html#add-new-gke-cluster), as well as those that are not on Google Cloud or are using an on-prem solution. In the demo, Eddie used Digital Ocean’s managed Kubernetes service to create the cluster, select the data center, and pick the size of the node. Eddie estimated this process would take anywhere from three to five minutes.
+
+The next step is to integrate the Kubernetes cluster into the project, which requires a number of manual tasks, including grabbing the URL for the Kubernetes API server, creating a service account and binding it to the cluster admin, and grabbing the service token that’s generated. In the spirit of innovative shortcuts, Eddie created a [kubectl plugin](https://gitlab.com/eddiezane/kubectl-gitlab_bootstrap) that makes it even easier to add the Kubernetes cluster to the associated GitLab project.
+
+“This is actually going to automatically bootstrap a Kubernetes cluster into your GitLab project, create all the service accounts, make all the GitLab API requests, and take care of everything under the hood.” Thanks, Eddie!
+
+Next, just grab the GitLab project ID, and run:
+
+`kubectl gitlab-bootstrap gitlab-project-id`
+
+The result is a URL. Follow the URL to see more about the Kubernetes cluster in your GitLab project.
+
+## GitLab-managed applications make your life easier
+
+Once you’re there, you’ll see a list of [GitLab-managed applications](https://docs.gitlab.com/ee/topics/autodevops/quick_start_guide.html#installing-helm-ingress-and-prometheus). These apps can be installed in just one click to help manage your new Kubernetes cluster.
+
+1. [Helm](https://docs.gitlab.com/ee/user/clusters/applications.html#helm): Install Helm first, because it is the package manager for Kubernetes and is required to install the other applications.
+2. [Ingress](https://docs.gitlab.com/ee/user/clusters/applications.html#ingress): Once Helm is installed, you can install the [Ingress controller,](https://docs.gitlab.com/ee/user/clusters/applications.html#ingress) which will handle all the routing and mapping within the cluster and will create a load balancer behind the scenes. **Copy the IP address that’s displayed; you’ll need it later.**
+3. [Prometheus](https://docs.gitlab.com/ee/user/clusters/applications.html#prometheus): An open source tool that monitors your deployed applications.
+4. [Cert-Manager](https://docs.gitlab.com/ee/user/clusters/applications.html#cert-manager): This will handle all the certificates and make sure everything is up to date.
+5. [GitLab Runner](https://docs.gitlab.com/ee/user/clusters/applications.html#gitlab-runner): Lets you run your GitLab CI/CD on your own host, or within the Kubernetes cluster.
+
+The superstar of the bunch is GitLab Runner, the open source project that is used to run your CI/CD jobs and send the results back to GitLab.
+
+Changes include:
+
+## Launch Auto DevOps with the click of a button
+
+Once you’ve created your Kubernetes cluster and installed the required applications, [launch the Auto DevOps process with the click of a button](https://docs.gitlab.com/ee/topics/autodevops/quick_start_guide.html#enabling-auto-devops), literally.
+
+![Enable Auto DevOps](/images/blogimages/guide_enable_autodevops.jpg){: .shadow.medium.center}
+
+By enabling Auto DevOps and selecting your deployment strategy (here is where you need the Ingress IP address), you kick off the CI/CD pipeline.
+
+## Or launch your own Auto DevOps process
+
+Don’t want to use our out-of-the-box Auto DevOps feature? You don’t have to. The good news is the underlying source code is available to you for each component of the deployment process, making it easy for you to parse out what jobs you'd like to run.
+
+“The great thing about GitLab being open source is nothing is magic, right? All this stuff is source code that we can all go look up and read,” says Eddie.
+
+The source code for the entire out-of-the-box Auto DevOps process lives in [one YAML file](https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/gitlab/ci/templates/Auto-DevOps.gitlab-ci.yml) in the GitLab repository. GitLab users are able to separately run jobs for each stage in the Auto DevOps process, from build to cleanup, simply by copy/pasting the [underlying source code](/stages-devops-lifecycle/source-code-management/) into a properly configured terminal.
+
+The individual templates and components for the important jobs in each Auto DevOps stage are included in the YAML file. You can select which components you’d like to use. Note that nothing needs to be imported, because it all comes with your GitLab install.
+
+In the demo, Eddie ran the jobs for the build and deploy stages as examples.
+
+Remember to return to the load balancer and grab the IP address Ingress created to configure your DNS, `git push`, then, viola! Your CI/CD pipeline is running.
+
+## A peek inside the pipeline
+
+During the demo Eddie went behind the scenes to explain what was happening inside the pipelines for the build and deploy jobs he started.
+
+### Build
+
+“It's going to take care of a lot of stuff behind the hood for us,” said Eddie. The pipeline uses Docker to build containers inside Docker, which will log in to our Kubernetes cluster’s container registry.
+
+“So GitLab automatically provides you with a container registry for your project,” said Eddie. “It's going to substitute in a whole bunch of environment variables and handles all the logins and generates the token, and all that. So we don't actually have to think about anything.”
+
+Next, the Docker base image loads. Eddie went into more detail about how to write up the Docker set-up, but the GitLab build component can automatically figure out the type of project you’re running and generates a Docker file with best practices to build the container.
+
+“So my project is building, compiling, pushing up my layers to the container registry, and then my build job should finish real quick and then my deploy job is going to kick off,” explained Eddie.
+
+### Deploy
+
+The deploy job kicks off by spinning up a Helm chart that automatically fills the required information, such as the container ID, the host name, namespace, etc., into the template. Then it will create the Ingress ID, and then deploy the application.
+
+## Put your CI/CD pipelines on autopilot with GitLab and Kubernetes
+
+In just a few minutes, Eddie was able to demonstrate two different ways to build a CI/CD pipeline by using GitLab and Kubernetes. While our Auto DevOps feature makes it so you don’t have to create a bunch of YAMLs from scratch (because, let’s face it, if you’re running Kubernetes you’re already running a ton of YAMLs), our open source Auto DevOps process makes it possible to pick and choose which components or jobs you’d like to run.
+
+Watch the entire video from GitLab Commit Brooklyn to see Eddie run a **third** CI/CD pipeline during his 17-minute talk.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/-shvwiBwFVI" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+Like what you see? [Join us in London](/events/commit/) on October 9 for our second GitLab Commit event with all new talks!
+
+<%= partial "includes/blog/blog-merch-banner" %>

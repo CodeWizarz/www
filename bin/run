@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+begin
+  system 'bundle install --quiet' or fail('Error installing gems')
+  middleman_pid = spawn(*%w[bundle exec middleman])
+  puts "Middleman detached with pid '#{middleman_pid}'. Run `pkill -f middleman' or `kill -9 #{middleman_pid}' to stop Middleman if not stopped with Ctr-C."
+  system('open http://localhost:4567')
+  loop do
+    sleep 1
+  end
+rescue Interrupt
+  puts "\nThanks for contributing to about.gitlab.com!\n"
+ensure
+  Process.kill('TERM', middleman_pid)
+end

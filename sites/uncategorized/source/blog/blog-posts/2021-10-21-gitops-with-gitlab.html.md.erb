@@ -1,0 +1,49 @@
+---
+title: "Here's how to do GitOps with GitLab"
+author: "Viktor Nagy" 
+author_gitlab: nagyv-gitlab 
+author_twitter: nagyviktor 
+categories: engineering
+twitter_image: "/images/blogimages/Learn-at-GL.jpg"
+description: "This is the first in a seven-part series on GitOps using GitLab's DevOps Platform."
+tags: GitOps, DevOps, kubernetes 
+twitter_text: "Wondering how to do #GitOps with @gitlab? Here's part one of our tutorial series"
+featured: no 
+postType: content marketing
+---
+
+_It is possible to use GitLab as a best-in-class GitOps tool, and this blog post series is going to show you how. These easy-to-follow tutorials will focus on different user problems, including provisioning, managing a base infrastructure, and deploying various third-party or custom applications on top of them. You can find the entire "Ultimate guide to GitOps with GitLab" tutorial series [here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/)._
+
+This post provides an overview of the series, and will provide a bit of context around GitOps, [Infrastructure as Code](/topics/gitops/infrastructure-as-code/), and related notions.
+
+## Start with the buzzwords
+
+The DevOps industry is changing at a very fast pace, and there are plenty of new ideas popping up around this transformation. What are these? Let’s look into the following concepts and why they matter: DevOps, site reliability engineers (SRE), GitOps, Infrastructure as Code, and containers.
+
+The term DevOps was coined by Patrick Debois in 2009. DevOps is a cultural approach, not a technology or a set of processes. At its core there are a few principles such as continuous learning, fast feedback loops and a clear flow of work. There is a strong connection between DevOps and SRE, as one can think of the SRE approach as a well-defined implementation of DevOps. Two important aspects of the SRE approach are codified infrastructure management and metrics. These enable the level of automation needed for feedback, and their central metrics (SLIs) are being moved to the left down to development teams too.
+
+With the emergence of cloud computing, infrastructure can be managed fully through APIs. This gave rise to Infrastructure as Code or IaC. IaC means infrastructure engineers almost never have to click through a provider’s UI to configure a new user or a resource. IaC approaches can be used to configure GitLab itself or to allow GitLab to configure a 3rd party system (such as creating a cluster or managing databases).
+
+[GitOps](/topics/gitops/) is the new kid on the block here, and it basically summarizes the current state of our industry. IaC projects likely store their code in version-controlled ways, probably in git. They might even be automated through pipelines, and the resulting infrastructure might have good observability built into the whole stack. So, what does GitOps bring to the table? It brings us two things. First, GitOps wants to avoid drift using a reconciliation loop that automatically “fixes” the infrastructure if it deviates from the codified state found in the IaC repository. Whether this is feasible and how this is done is still a debated question. At the same time, the rise of declarative infrastructure popularized by Kubernetes makes this a compelling approach to many. The second benefit of GitOps is the "declarative" ability. By being declarative, the desired state of the infrastructure is described in the git repo. This simplifies complexity in provisioning as the end-system is tasked by setting up the described infrastructure. Contrast this with an imperative setup where the administrators have to codify the exact steps of setting up the infrastructure.
+
+Containers are mentioned here for a single reason: Once we get to deployments, I am going to focus on containerized applications only. Containers have already proved to be a great layer of abstraction for application delivery.
+
+You can [read more about the evolution of DevOps](/blog/2021/07/12/gitops-as-the-evolution-of-operations/) and how we got to GitOps as part of this evolution.
+
+## The series overview
+
+**Infrastructure provisioning with GitLab and Terraform**: My next post in the series will outline how to use GitLab to provision infrastructure. In this post I will use a GitLab project to create an EKS cluster following IaC best practices. To do this I will use Terraform, as Terraform is considered to be the de facto standard in infrastructure provisioning, and GitLab has strong built-in support for it.
+
+**Connecting GitLab with a Kubernetes cluster - Quickstart**: This post will show how one can quickly connect a cluster with GitLab using our recommended way, the GitLab Agent for Kubernetes. As this is a quickstart, this approach does not use all the GitLab IaC recommendations. Nevertheless it is a great start that we can build upon later. This post will outline the different approaches for connecting a cluster to GitLab, including our recommended approach.
+
+**Secrets management with GitLab**: In the third post, I will deploy a simple “secrets as code” solution into our cluster and set it up for future use. This will demonstrate how third-party services can easily be deployed and managed with GitLab. Moreover, this specific tool will be used in the subsequent post where we migrate from the quickStart cluster connection to a self-managing, IaC connection.
+
+**Managing the cluster connection from code**: In the second post, we created a GitLab-connected cluster, but there we either need to manage the cluster from our local CLI or need to do some CI magic. Now I will demonstrate how to build out a more robust management for the cluster connection. We set up the cluster connection to manage itself using a pull-based approach.
+
+**Integrate the cluster into GitLab**: As GitLab is not just an SCM and CI tool, but the complete DevOps Platform, it has robust monitoring and security integrations with Kubernetes. In this post I am going to show how one can use the GitLab-provided cluster management application on top of our cluster connection, and install NGINX, Cilium, and custom runners with minimal effort, in an IaC style.
+
+**Application deployment with Auto DevOps**: The final post in the series will illustrate how business applications can be easily deployed into the cluster. I will focus on push-based deployments as many development teams might be familiar with pipelines, unlike the most recent pull-based approaches. At the same time, given the content from the previous posts, it should be possible to put together a pull-based deployment as top of Auto DevOps as well.
+
+_[Click here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/) for the next tutorial._
+
+

@@ -1,0 +1,147 @@
+---
+title: "Best practices to keep your Kubernetes runners moving"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: engineering
+image_title: '/images/blogimages/trackandfield.jpg'
+description: "In a presentation at GitLab Commit San Francisco, a senior software engineer from F5 Networks shares some best practices for working with Kubernetes runners."
+tags: kubernetes, CI/CD, user stories
+twitter_text: "How to keep your Kubernetes runners going on @gitlab"
+featured: no
+postType: content marketing
+merch_banner: merch_six
+---
+
+Sometimes in software engineering, you have to learn the hard way. GitLab CI is extremely powerful and flexible, but it’s also easy to make mistakes that could take out a GitLab runner, which can clog up Sidekiq and bring down your entire GitLab instance.
+
+Luckily, Sean Smith, senior software engineer for F5 Networks has been through it, and summarizes some of their learnings in [his talk at GitLab Commit San Francisco](https://www.youtube.com/watch?v=Hks5ElUxkP4). In the presentation, Sean goes in-depth about a past incident that clogged up F5 Network's GitLab runner, and shares tips on setting limits for Kubernetes (K8s) runners.
+
+Sean is a GitLab administrator for [F5 Networks](https://www.f5.com/), a company with about 1,800 users worldwide running 7,500 projects each month – excluding forks. That’s roughly 350,000 - 400,000 CI jobs going through the K8s runners each month. Until some recent hires, there were only three engineers to handle it all.
+
+Instead of running a giant GitLab instance on one VM, F5 broke up their instance into seven different servers: Two HA web servers, one PostGres server, PostGres replica, Sidekiq, Gitaly (our Git filesystem), and Redis.
+
+## Keep your GitLab runners up and moving
+
+F5 uses two types of GitLab runners:
+
+*   Kubernetes: About 90% of F5 jobs go through K8s
+*   Docker: Docker machine is run on-prem and in the cloud
+
+**Why use Docker?** F5 uses Docker to configure cluster networks in different jobs as well as for unit testing. Since the Docker machine can run on-prem and also in the cloud, it’s easy to have a VM dedicated to the job that allows you to manage those Docker images and Docker containers and set up your cluster networking topology within Docker, so you can run your tests and tear it down afterward without affecting other users. This isn’t something that is really possible in Kubernetes runners.
+
+Otherwise, F5 Networks uses Kubernetes, but keeping your K8s up and running isn’t necessarily foolproof.
+
+### CI jobs can spawn
+
+Sometimes, a seemingly benign coding error can create unanticipated consequences for your Kubernetes runners.
+
+One time, an F5 Engineer decided to use a GitLab CI job to automatically configure different settings on various jobs and projects. It made sense to configure using GitLab CI because the engineer wanted to be able to use [Git for version control](/topics/version-control/). Version control makes it easier for the team to iterate on the code transparently. He wrote the code to run the job.
+
+But, he didn’t read the fine print in the library he was using. The code he wrote looked for the project ID, and if it found the project ID, runs the pipeline once per hour at the 30-minute mark. The assumption was that if there was already a matching scheduled task, the create function would not create a duplicate. Unfortunately, this was not the case. The code he ran caused the number of CI jobs to grow exponentially.
+
+![The code that clogged the K8s runner with GitLab CI jobs for F5 Networks](/images/blogimages/problemcode.png){: .shadow}
+The code that clogged the K8s runner with GitLab CI jobs for F5 Networks. Can you see the problem yet?
+{: .note.text-center}
+
+"You schedule a job, then next you schedule another job so now you've got two jobs scheduled, and then you've got four jobs scheduled, and then eight, after 10 iterations, you get around the 1,024 jobs scheduled and after 1,532,000 jobs, if this was allowed to run for 24 hours, you would end up with 16.7 million jobs being scheduled by the 24th hour," says Sean.
+
+In short: Chaos. Remember, F5 Networks has a CI pipeline capacity of 350,000 to 400,000 jobs per month, so 16.7 million jobs in 24 hours could easily clog the system, taking down the K8s nodes, as well as GitLab nodes.
+
+Luckily, there’s a simple enough fix. First, identify which project is causing the problem, and disable CI on the project so it can’t create any new jobs. Next, kill all the pending jobs by [running this snippet](https://gitlab.com/snippets/1924269).
+
+```
+# gitlab-rails console
+p = Project.find_by_full_path(‘rogue-group/rogue-project’)
+Ci::Pipeline.where(project_id: p.id).where(status: ‘pending’).each {|p| p.cancel}
+exit
+```
+
+It’s really a judgment call whether to kill a running job or not. If a job is currently running and is going to take all of 30 seconds then maybe don’t bother killing it, but if the job is going to take 30 minutes then consider killing it to free up resources for your users.
+
+F5 learned a lesson here and set up a monitoring alert to help ensure the job queue doesn’t back up like that again. The Cron job checks to make sure F5 is not exceeding a preestablished threshold on the number of jobs in a pending state. The alert links to a dashboard and also includes the full playbook for how to resolve the problem (because let’s face it, nobody is at their best when troubleshooting bleary-eyed at 3 a.m.). At first there were some false positives, but now the alerting has been fine-tuned and the system saved F5 from two outages so far.
+
+### Push it to the limit
+
+The fact is, nobody has an unlimited cloud budget, and even if you're on-prem, resources are even more constrained for users that rely upon hardware. Sean says that F5 soon realized that, to meet the needs of all users, sensible limits had to be established so one or two mega-users didn't devour all their resources. He has some tips on how to set limits in your Kubernetes and GitLab runners.
+
+While some users may be disgruntled that cloud limits exist and are enforced, the best method is to keep an open dialogue with users about the limits while recognizing that projects expand and grow over a period of time.
+
+Fortunately you can set the limits yourself and don’t have to rely on the goodwill of your users to conserve CPU. Kubernetes allows limits by default, and GitLab supports K8s request and limits. The K8s scheduler uses requests to determine which nodes to run the workload on. Limits will kill a job if the job exceeds the predefined limit – there can be different requests and limits but if requests aren’t specified and limits are, the scheduler will use the limits to determine the request value.
+
+[Take a peek at what F5 configured the limits for their Kubernetes GitLab runner](https://gitlab.com/snippets/1926912).
+
+```ruby
+concurrent = 200
+log_format = "json"
+[[runners]]
+  name = "Kubernetes Gitlab Runner"
+  url = "https://gitlab.example.com/ci"
+  token = "insert token here"
+  executor = "kubernetes"
+  [runners.kubernetes]
+    namespace = "gitlab-runner"
+    service-account = "gitlab-runner-user"
+    pull_policy = "always"
+
+    # build container
+    cpu_limit = "2"
+    memory_limit = "6Gi"
+
+    # service containers
+    service_cpu_limit = "1"
+    service_memory_limit = "1Gi"
+
+    # helper container
+    helper_cpu_limit = "1"
+    helper_memory_limit = "1Gi"
+```
+
+"We have got currency of 200 jobs, so it will at max spawn 200 jobs and you'll see that we are limiting the CPU use on the build container to two and memory to six gigabytes, and on the helper and service CPU and memory limits, we have one CPU and one gig of memory each," says Sean. "And so it gives you that flexibility to break it out because generally, you don't necessarily need as much CPU or as much memory on a service that you're spending up in your CI job."
+
+## What comes first: Setting up Kubernetes runners or establishing limits?
+
+[DevOps](/topics/devops/) is a data-driven practice, so the idea of setting limits to conserve resources without any underlying data about what users are doing can seem counterintuitive. If you’re migrating to Kubernetes runners from a Docker runner or a shell runner, it’s easy enough to extrapolate the numbers to establish limits as you set up your Kuberntes runners.
+
+If you’re brand-new to GitLab and GitLab CI, then it’s kind of a shot in the dark. Think about your bills and resource constraints: How much memory and CPU is available? Is anything else running on your K8s cluster. Chances are, your guesses will be incorrect – but that’s OK.
+
+It might sound obvious, but if you’re running a hosted application on the same K8s cluster as your GitLab CI jobs, don’t set limits based on the capacity of a full K8s cluster. Ideally, you’d have a separate K8s cluster for GitLab CI jobs, but that isn’t always possible.
+
+### How F5 Networks did it
+
+F5 Networks started with a small team of roughly 50 people and maybe 100 projects in GitLab – so setting a limit on K8s wasn’t a major concern until the company and, as a result, projects, started to grow.
+
+Once it came time to set limits to their preexisting K8s runners, the first step was to enable the K8s metric server to monitor how their users consume resources. The next step was to determine what users are doing. Sean recommends using a tool like Grafana or Prometheus, which has a native integration within GitLab (although, F5 used a tool called K9), to extract the data from the K8s metric server and display it on some sort of dashboard using Grafana or Prometheus.
+
+## Some more tips for Kubernetes runners
+
+### Cutting them off: Enforcing limits
+
+Once a user hits their limit, most of the time the end result is their job gets killed. Usually the user will notice a mistake, go in, and fix their code, but most likely they will just ask for more resources.
+
+The best way to determine whether or not to allocate more of your finite resources to a user is to determine need, Sean explains. Ask the user to return to you with concrete numbers about the amount of RAM or CPU they require. But if you don’t have the resources, then don’t overextend yourselves to the detriment of your other users.
+
+### Use labels to reveal more data
+
+[Labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set) make it easier to identify workloads in Kubernetes, and can be expanded to environmental variables within GitLab, for example, job = "$CI_JOB_ID" and project = "$CI_PROJECT_ID". Labels can be used by admins who are manually doing Quebectal commands against K8s or they can be used in reporting tools like Prometheus or Grafana for setting limits. But labels are the most valuable when it comes to debugging purposes.
+
+Bear in mind, labels are finicky in Kubernetes. [There are certain characters (stay away from "?") that can cause jobs to fail](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4565). There is a 63 character limit on labels. If there is an unsupported character or the label is too long, the job won’t start. There won’t be a really good indication as to why your job wouldn’t start either, which can be a pain for troubleshooting. [Bookmark this page to learn more about labels in Kubernetes](https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set) (including its limitations).
+
+GitLab users that run on K8s need to be cautious not to overburden the runner with GitLab CI jobs, and ought to consider setting limits on CPU to conserve valuable resources.
+
+Want to learn more about how F5 manages their Kubernetes runners on their GitLab instance? Watch Sean's presentation at GitLab Commit San Francisco in the video below.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/Hks5ElUxkP4" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Learn more
+
+* [Read on](/solutions/kubernetes/) to learn more about how GitLab and Kubernetes work together, and explore our plans for future integration with Kubernetes.
+
+* Explore the official documentation on [Kubernetes executor](https://docs.gitlab.com/runner/executors/kubernetes.html), which covers everything from choosing options in your configuration file to giving GitLab Runner access to the Kubernetes API, environment variables, volumes, helper containers, security context, privileged mode, secret volume, and removing old runner pods.
+
+Cover Photo by [Kolleen Gladden](https://unsplash.com/@rockthechaos?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/track-and-field?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note.text-center}

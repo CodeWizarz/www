@@ -1,0 +1,153 @@
+### <%= performance_indicator.name %>
+
+<% if performance_indicator.parent %>
+   <p>This is a subset of an existing KPI. Please see <a href="<%=performance_indicator.parent=%>">the definition for the parent KPI.</a></p>
+<% end %>
+
+
+<p><%= performance_indicator.definition %></p>
+
+<% if performance_indicator.funnel %>
+  <p><b>Funnel Description:</b> <a href="<%= performance_indicator.funnel %>">Handbook Link</a></p>
+<% end %>
+
+<% if performance_indicator.product_analytics_type %>
+  <p><b>SaaS/SM:</b> <%= performance_indicator.product_analytics_type %></p>
+<% end %>
+
+<% if performance_indicator.target %>
+  <p><b>Target:</b> <%= performance_indicator.target %></p>
+<% end %>
+
+<% if performance_indicator.is_primary %>
+  <p><b>Is Primary PI:</b> <%= performance_indicator.is_primary %></p>
+<% end %>
+
+<% if performance_indicator.public == false %>
+  <p><b>This KPI cannot be public.</b> </p>
+<% end %>
+
+<b>Health: <%= color_code_health(performance_indicator.health.level) %></b>
+
+<% performance_indicator.health.reasons.each do |reason| %>
+<%="  * #{reason}"%>
+<% end %>
+
+<% if performance_indicator.metric_name %>
+  <p><b>Metric Name:</b> <%= performance_indicator.metric_name %></p>
+<% end %>
+
+<% collapsed = !performance_indicator.is_key && (performance_indicator.base_path.start_with?('/handbook/engineering/') || performance_indicator.base_path.start_with?('/handbook/support/')) %>
+
+<% if performance_indicator.chart_image %>
+  <details <%= 'open="open"' unless collapsed %>>
+    <summary><b>Chart</b></summary>
+    <p><img src="<%=performance_indicator.chart_image%>"/></p>
+  </details>
+<% end %>
+
+<% if performance_indicator.sisense_data %>
+  <details <%= 'open="open"' unless collapsed %>>
+    <summary>
+      <b>Chart</b>
+        <% if performance_indicator.sisense_data.shared_dashboard%>
+          (<a href="https://app.periscopedata.com/shared/<%= performance_indicator.sisense_data.shared_dashboard %>" target="_blank">Sisense↗</a>)
+        <% elsif performance_indicator.sisense_data.dashboard && performance_indicator.sisense_data.filters%>
+          (<a href="https://app.periscopedata.com/app/gitlab/<%= performance_indicator.sisense_data.dashboard %>" target="_blank">Sisense↗</a>)
+        <% elsif performance_indicator.sisense_data.chart && performance_indicator.sisense_data.dashboard%>
+          (<a href="https://app.periscopedata.com/app/gitlab/<%= performance_indicator.sisense_data.dashboard %>/?widget=<%= performance_indicator.sisense_data.chart %>" target="_blank">Sisense↗</a>)
+        <% end %>
+    </summary>
+  <% if ENV['PERISCOPE_EMBED_API_KEY'] %>
+      <% if performance_indicator.public != false %>
+        <% if performance_indicator.sisense_data.filters %>
+          <embed width="100%" height="100%" style="min-height:300px;" src="<%= signed_periscope_url(dashboard: performance_indicator.sisense_data.dashboard, chart: performance_indicator.sisense_data.chart, embed: 'v2', filters: performance_indicator.sisense_data.filters) %>">
+        <% else %>
+          <embed width="100%" height="100%" style="min-height:300px;" src="<%= signed_periscope_url(performance_indicator.sisense_data) %>">
+        <% end %>
+      <% end %>
+  <% else %>
+    <p>You must set a <code>PERISCOPE_EMBED_API_KEY</code> environment variable to render this chart.</p>
+  <% end %>
+  </details>
+<% end %>
+
+<% if performance_indicator.sisense_data_secondary %>
+  <details <%= 'open="open"' unless collapsed %>>
+    <summary>
+      <b>Secondary Chart</b>
+        <% if performance_indicator.sisense_data_secondary.shared_dashboard%>
+          (<a href="https://app.periscopedata.com/shared/<%= performance_indicator.sisense_data_secondary.shared_dashboard %>">Sisense↗</a>)
+        <% elsif performance_indicator.sisense_data_secondary.chart && performance_indicator.sisense_data_secondary.dashboard%>
+          (<a href="https://app.periscopedata.com/app/gitlab/<%= performance_indicator.sisense_data_secondary.dashboard %>/?widget=<%= performance_indicator.sisense_data_secondary.chart %>">Sisense↗</a>)
+        <% end %>
+    </summary>
+  <% if ENV['PERISCOPE_EMBED_API_KEY'] %>``
+    <% if performance_indicator.public != false %>
+      <embed width="100%" height="100%" style="min-height:300px;" src="<%= signed_periscope_url(performance_indicator.sisense_data_secondary) %>">
+    <% end %>
+  <% else %>
+    <p>You must set a <code>PERISCOPE_EMBED_API_KEY</code> environment variable to render this chart.</p>
+  <% end %>
+  </details>
+<% end %>
+
+<% if performance_indicator.sisense_data_tertiary %>
+  <details <%= 'open="open"' unless collapsed %>>
+    <summary>
+      <b>Tertiary Chart</b>
+        <% if performance_indicator.sisense_data_tertiary.shared_dashboard%>
+          (<a href="https://app.periscopedata.com/shared/<%= performance_indicator.sisense_data_tertiary.shared_dashboard %>">Sisense↗</a>)
+        <% elsif performance_indicator.sisense_data_tertiary.chart && performance_indicator.sisense_data_tertiary.dashboard%>
+          (<a href="https://app.periscopedata.com/app/gitlab/<%= performance_indicator.sisense_data_tertiary.dashboard %>/?widget=<%= performance_indicator.sisense_data_tertiary.chart %>">Sisense↗</a>)
+        <% end %>
+    </summary>
+  <% if ENV['PERISCOPE_EMBED_API_KEY'] %>
+    <% if performance_indicator.public != false %>
+      <embed width="100%" height="100%" style="min-height:300px;" src="<%= signed_periscope_url(performance_indicator.sisense_data_tertiary) %>">
+    <%end %>
+  <% else %>
+    <p>You must set a <code>PERISCOPE_EMBED_API_KEY</code> environment variable to render this chart.</p>
+  <% end %>
+  </details>
+<% end %>
+
+<% if performance_indicator.dri %>
+  <p><b>DRI: </b><%= performance_indicator.dri %></p>
+<% end %>
+
+<% if performance_indicator.urls %>
+  <b>URL(s)</b>
+  <ul>
+  <% performance_indicator.urls.each do |url| %>
+    <li><a href="<%= url %>"><%= url %></a></li>
+  <% end %>
+  </ul>
+<% end %>
+
+<% if performance_indicator.implementation %>
+  <b>Implementation Status:</b> <%= performance_indicator.implementation.status %>
+
+  <% if performance_indicator.implementation.reasons %>
+    <% performance_indicator.implementation.reasons.each do |reason| %>
+<%="  * #{reason}"%>
+    <% end %>
+  <% end %>
+<% end %>
+
+<% if performance_indicator.lessons %>
+<b>Lessons Learned (<%= Date::MONTHNAMES[Date.today.prev_month.month] %>):</b>
+
+<% performance_indicator.lessons.learned.each do |reason| %>
+<%="  * #{reason}"%>
+<% end %>
+<% end %>
+
+
+<% if performance_indicator.monthly_focus %>
+<b>Focus This Month (<%= Date::MONTHNAMES[Date.today.month] %>):</b>
+
+<% performance_indicator.monthly_focus.goals.each do |reason| %>
+<%="  * #{reason}"%>
+<% end %>
+<% end %>

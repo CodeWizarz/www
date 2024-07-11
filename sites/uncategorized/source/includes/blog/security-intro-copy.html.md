@@ -1,0 +1,1 @@
+For timely security release updates please subscribe to our [security release RSS feed](/security-releases.xml).

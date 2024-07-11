@@ -1,0 +1,22 @@
+---
+features:
+  secondary:
+  - name: "Automatic disabling of failing group webhooks"
+    available_in: [core, premium, ultimate]
+    gitlab_com: true
+    documentation_link: 'https://docs.gitlab.com/ee/user/project/integrations/webhooks.html#failing-webhooks'
+    reporter: m_frankiewicz
+    stage: manage
+    stage_url:  '/stages-devops-lifecycle/'
+    categories:
+    - Integrations
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/385902'
+    description: |
+      To protect GitLab and users across the system from any potential abuse or misuse, we've implemented a feature to disable group webhooks that fail consistently.
+
+      - Group webhooks that return response codes in the `5xx` range are understood to be failing intermittently and are temporarily disabled. These webhooks are initially disabled for 1 minute, which is extended on each retry up to a maximum of 24 hours.
+      - Group webhooks that fail with `4xx` errors are permanently disabled.
+
+      Users with the Owner or Maintainer role are alerted in the app to investigate and re-enable any failed group webhooks.
+
+      By default, this feature is enabled on GitLab.com and disabled on self-managed GitLab. To enable automated disabling of failed webhooks for project or group webhooks, administrators of self-managed instances must enable the `auto_disabling_web_hooks` [feature flag](https://docs.gitlab.com/ee/administration/feature_flags.html).

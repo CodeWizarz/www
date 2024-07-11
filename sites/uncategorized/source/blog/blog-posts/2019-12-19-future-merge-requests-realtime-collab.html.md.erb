@@ -1,0 +1,136 @@
+---
+title: "The future of merge requests: Real-time collaboration"
+window_title: "Real-time Code Collaboration with Git Merge Requests | GitLab"
+author: Pedro Moreira da Silva & James Ramsay
+author_gitlab: pedroms
+author_twitter: pedromscom
+categories: engineering
+image_title: "/images/blogimages/future-merge-requests-realtime-collab/cover.jpg"
+description: "We want to hear your thoughts on the future of merge requests and code review."
+tags: code review, collaboration, UX
+ee_cta: false
+install_cta: false
+cta_button_text: "Watch the recording (28 min)"
+cta_button_link: "https://www.youtube.com/watch?v=KpdvIU6hv94" # optional
+twitter_text: "See the future of merge requests and #codereview at @GitLab and share your feedback"
+featured: no
+postType: product
+merch_banner: merch_two
+merch_sidebar: merch_two
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2019-12-20.
+{: .alert .alert-info .note}
+
+We want to share some of the work we’ve been doing in the [Source Code](/handbook/product/categories/#source-code-group) part of the product and get feedback on what could be the future of [merge requests](https://docs.gitlab.com/ee/user/project/merge_requests/) and [code review](/direction/create/code_review/).
+
+**Perhaps the best way is to walk you through a short visual story. You can** [**watch the recording (28 min)**](https://www.youtube.com/watch?v=KpdvIU6hv94) **or** [**jump to its text version**](#context) **below. In the end, if you’d like to share your thoughts, you can do so on the** [**feedback issue**][feedback-issue].
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/KpdvIU6hv94" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+## Context
+
+If you haven’t been following along our work on merge requests, let’s set the scene:
+1. In the next releases of GitLab, we’re shipping [**performance**](https://gitlab.com/groups/gitlab-org/-/epics/1417) **and** [**navigation**](https://gitlab.com/gitlab-org/gitlab/issues/33813) **improvements**, based on the user experience research we’ve been doing.
+1. We have also an exciting [**new Sourcegraph integration**](/blog/2019/11/12/sourcegraph-code-intelligence-integration-for-gitlab/) which levels up the merge request interface allowing you to navigate code, jumping to definitions or finding references.
+1. **Other improvements** we’ve shipped over the past year include [multiple assignees](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html#multiple-assignees), [multiple approval rules](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/rules.html#multiple-approval-rules), [code owners](https://docs.gitlab.com/ee/user/project/codeowners/), and [suggest changes][suggest-changes] – all of these were based on research and user feedback (your feedback).
+
+These are nice improvements but they are iterating on what we already have and are not substantially changing the code review workflow. Today’s merge request experience is pretty similar to what it was five years ago – we’ve improved it a lot but its fundamental structure is the same.
+
+We’ve been hearing feedback from users and customers about how we might improve merge requests to solve harder problems and that may require rethinking what we’ve come to accept as the default. **The merge request is a significant place, where people collaborate, where knowledge is shared, where people grow in their skills, where code quality is ensured and improved.** As a result, significant time is spent in the merge request interface. So, we’ve been asking ourselves:
+
+> _How can we significantly decrease the cycle time, increase the efficiency of code review, and create better ways of collaborating?_
+
+To simplify our approach, we have defined **three key questions** that have also surfaced through research and our own usage:
+1. **Catch up**: Understanding where the merge request is since I last looked at it, what needs my attention, what’s changed, and helping me review that difference more efficiently after first reviewing it.
+1. **Real time collaboration**: Many teams are in the same location or same time zone and have significant overlap. Even here at GitLab, an [all-remote company](/company/culture/all-remote/), most people who work together share a few of hours of overlap and are sometimes looking at the same things. So if people are coming to the same merge request, and working on it at the same time, how can we make that more efficient?
+1. **External discussions**: Working remotely, through [asynchronous communication](/handbook/communication/#introduction), is how we mainly communicate at GitLab. It’s something that we do quite well, but sometimes it’s better to work synchronously by just getting on a call and solve confusions, communicate, sketch things out, and then document those decisions. But unfortunately, the merge request doesn’t provide a natural way to do that. We use Zoom, we use Google Docs, and then we try to summarize in merge requests or issues. What if we could integrate all of that into the merge request?
+
+To explain what we’ve been thinking about and how we could answer these questions, here is a **short visual story**. The following images are very low-fidelity mockups so that we can focus on ideas rather than dwelling on the details.
+
+## 1. Catch up
+
+> The story starts with me, as a reviewer, coming into a merge request and looking at my personal area at the top right corner.
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step1.png){: .shadow.medium.center}
+
+> I can immediately see what has happened since I last reviewed the merge request: Two files with new changes to review and one comment that needs my attention. This comment may be someone that mentioned me, someone that replied to one of my comments, or maybe someone that resolved a thread I’m participating in.
+
+## 2. Smarter suggestions
+
+> I click the speech bubble icon to jump to that comment, where Katherine, the merge request author, and James, another reviewer, are participating. Hmm, this discussion is getting a bit convoluted... but since they are in other timezones, I’ll reply with my thoughts so they can read them in their own time. It also looks like we need specific expertise here. When I start @-mentioning, I see that André was the person who last changed this line of code (and he’s also a code owner of this file). He might have an idea why this was changed, so I’ll mention him in my comment.
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step2.png){: .shadow.medium.center}
+
+Today in GitLab we already suggest people who are involved in the merge request or conversation, but this idea brings in new data and more clearly highlights why people are relevant.
+
+## 3. Real time collaboration
+
+> Meanwhile, I notice that Katherine and James are **looking at this merge request right now**, by seeing their avatars popping up at the top of the merge request – _very similar to how you would see someone in Google Docs looking at the same document that you are_. I also get a notification saying that Katherine mentioned me in a comment and that James is now replying to one of my comments.
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step3.png){: .shadow.medium.center}
+
+I can see people interacting with the merge request in real time, I can notice their presence, but I’m not seeing what they’re typing or collaborating directly with them – we’re just going about doing our tasks separately. **The way we work may change if we expect an immediate response.** For example, if you notice someone is online, you might ask more open-ended questions because you know that the other person can respond more quickly versus writing a longer response that seeks to conclude the discussion faster. And this is helpful not only for people that work distributed and asynchronously but also for people that work in the same time zone, in the same location, in the same office, or even in the same room.
+
+**These presence indicators create certain expectations and give a sense of progress to the merge requests as well.** When you’re waiting on a code review, you don’t know if someone has looked at it or if the reviewers are close to finishing the review. This can save people from interrupting one another. This provides a sense of progress without needing someone to take an active measure to find out if progress is being made. This is important because progress is one of those things that we all want to feel when we’re waiting on someone or something else.
+
+> Back to the story... This is great timing! Since we’re all online maybe it’s time we jump on a call to clear up the discussions together and get back on track.
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step4.png){: .shadow.medium.center}
+
+> By using this dropdown button next to the avatars, I can immediately start a shared session or invite the other participants to a video call, using Zoom (one of our favorite tools here at GitLab). Starting a Zoom meeting also starts a collaborative shared session in the merge request. **In the shared session we can follow each other and write comments together in real time.** I can now follow James and Katherine and see which files they are looking at, in which lines they’re commenting, and also what they’re writing, in real time. I can also ask to be followed if I want to focus all of the participants’ attention to a specific comment or file. I can even copy a link to this shared session and share it via our chat tool or email so that others can join without having to find the merge request.
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step5.png){: .shadow.medium.center}
+
+But the most important thing is the ability to **co-author and collaborate in real time on comments in the merge request**. Not only commenting on the changes but also in the merge request overview (comments that are not attached to specific lines). You can collaborate while you’re in a video call, on the phone, or just in the office next to each other.
+
+## 4. External discussions
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step6.png){: .shadow.medium.center}
+
+> Collaborating in real time on the merge request allowed us to quickly reach a consensus. **And we could easily record everything we discussed in GitLab, instead of using separate tools.** Before ending the shared session, we add a joint comment with a summary and next steps.
+
+We know that some teams do code reviews in meeting rooms, projecting the changes and all reviewing it together. Everyone’s got their laptops but they’re sort of looking at the same thing, but not quite. These abilities would allow everyone to take notes collaboratively, creating an interesting way of documenting. This is just one use case, there are likely many more use cases that we can solve here.
+
+You'll notice that it looks a lot like a Google Doc, but on a merge request in GitLab. From a user experience standpoint, we must try to use metaphors and patterns that people have seen and used in other common tools. **Looking and behaving like Google Docs is a good thing because people can immediately relate and understand what these cursors and avatars mean.** But it’s about understanding these paradigms, not accepting them blindly. We strive to study and see if they fit into the situation at hand and if the users recall using this metaphor for this purpose. Using [boring solutions](/handbook/values/#boring-solutions) is part of our values at GitLab.
+
+Today we use Google Docs to take notes during our meetings but maybe this can replace the need to have all of these different tools open simultaneously while we’re on a video call. You can use your preferred tools, like a projector, to collaborate better depending on your work setting and what works best for you and your team, but in the end **everything is recorded in the same tool, in the same integrated environment that is GitLab.** There is no data duplication and it stops teams from using tools like Google Docs to record information that then gets replicated in merge requests and issues, instead the information can go directly into the single source of truth where the decision and discussion are relevant. If we can work out how to do this properly on merge requests we can perhaps apply it to issues and epics as well.
+
+## 5. Record decisions
+
+> Finally, in the shared session we realized that one of the changes must be documented for posterity so that we can prevent mistakes and clarify our decision. So I come back to the comment to commit it to the code base. **This adds the comment directly to the source file as a code comment.**
+
+![](/images/blogimages/future-merge-requests-realtime-collab/step7.png){: .shadow.medium.center}
+
+One thing that we see happening a lot at GitLab and in other companies is people explaining a decision or why we shouldn’t touch this specific part of the code, in writing. This valuable content is usually left in comments, emails, or chat messages, when it should be a _code comment_. **Code comments allow explanations, decisions, and rationale to be left for posterity so that future authors can be aware of them.**
+
+Our [suggest changes feature][suggest-changes] in merge requests allows you to include suggestions as part of your line comments. These suggestions can then be applied directly to the file where the comment was made, replacing its contents with the suggestion. With the idea of "Commit as file comment," this is slightly different, as you’d be applying the comment to the file itself, as a code comment.
+
+Moving the explanation into the actual file rather than leaving it as a comment in the merge request **makes it accessible wherever the code goes**. It’s in the Git repository, it has a timestamp, it’s part of the repository history, and it’s even in your desktop IDE. It means that if you refactor your repository, split this module out into another repository, the comment follows that line of code.
+
+## Conclusion
+
+**We’re not entirely sure how these ideas will be executed, if all of them are viable, or if they’re even good ideas.** That is why we’d love to hear your thoughts on the [**feedback issue**][feedback-issue]. Share with us what you like, what you don’t like, and what other ideas you have for code review. This short story doesn’t mean that we’re going through with these ideas but that we think they are possible directions to solve those big problems that we’ve been seeing with code review at GitLab.
+
+If you visualize the communication tools as a spectrum, right now GitLab’s merge requests are similar to email: you’re sending "emails" you’re receiving "emails" and it’s not a real time discussion, you’re not seeing what other people are typing, you don’t know when you’re going to get a response. On the other end of the spectrum is Google Docs: You see exactly what people are typing in real time, and expectations are more clear. Somewhere closer to Google Docs, you have Slack, which as a chat tool is very much focused on synchronous communication (although it can also be used for asynchronous communication). **We want to be in the middle of this communication tools spectrum, not like a Google Doc, always on, always real time, but we also don’t want to stay as an "email client for collaborating on code."** We want to be smarter than that, enabling collaboration at the right moments.
+
+One question that has been raised is **privacy**: People feel concerned about revealing when they’re looking at a merge request. Privacy is also a big concern in the sense of "peer pressure," people changing their behaviors because they know they can be observed by others. We have to find some middle ground between people that opt to be more private and quietly observe things, versus people that opt for maximum efficiency and prefer collaborating in real time when everyone is in the merge request. Another concern is how to **avoid interrupting** people's flow. We anticipate that these are some of the interesting challenges we will have to wrestle with and balance against helping teams work most efficiently.
+
+These concerns are one of the main reasons why we are sharing our ideas. We realized that these are some of our blind spots and that there could be others, so **we need** [**your feedback**][feedback-issue]. There also might be other, even more amazing, crazy ideas that we haven’t thought of yet which would take merge requests to an exciting new place. **So don’t limit your feedback to the ideas that we’ve come up with, feel free instead to share ideas that you think would make the merge request an even better place to work and get your job done.**
+
+If you’re interested in our macro strategy and plans of how we’re going to help you better manage, plan, and create in GitLab, take a look at our [Dev strategy](/blog/2019/12/04/dev-strategy-review/).
+
+{::options parse_block_html="true" /}
+
+<i class="fab fa-gitlab" style="color:rgb(107,79,187); font-size:.85em" aria-hidden="true"></i>&nbsp;&nbsp;
+Help shape the future of code review - [Share your feedback][feedback-issue]
+&nbsp;&nbsp;<i class="fab fa-gitlab" style="color:rgb(107,79,187); font-size:.85em" aria-hidden="true"></i>
+{: .alert .alert-webcast}
+
+Cover image by [Mitchell Luo](https://unsplash.com/@mitchel3uo) on [Unsplash](https://unsplash.com/photos/H3htK85wwnU)
+{: .note}
+
+[feedback-issue]: https://gitlab.com/gitlab-org/gitlab/issues/36119
+[suggest-changes]: https://docs.gitlab.com/ee/user/discussions/#suggest-changes

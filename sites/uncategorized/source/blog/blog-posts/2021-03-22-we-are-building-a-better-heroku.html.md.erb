@@ -1,0 +1,225 @@
+---
+title: "We are very far from a better Heroku for production apps in a hyper cloud"
+window_title: "Building Heroku Production Apps In The Cloud | GitLab"
+author: Michael Friedrich
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: unfiltered
+image_title: '/images/blogimages/better-heroku-5min-prod-app/spacex-unsplash.jpg'
+description: "GitLab is building Heroku for production apps in hyper clouds, integrated into your DevSecOps workflow: The 5 minute production app."
+tags: cloud native, DevOps, CD
+#cta_button_text:
+#cta_button_link:
+guest: false
+ee_cta: false
+install_cta: false
+twitter_text: ".@gitlab is building #Heroku for production apps in hyper clouds: The 5 minute production app #SeeingIsBelieving"
+postType: corporate, dev-evangelism
+merch_banner: merch_one
+merch_sidebar: merch_one
+related_posts:
+  - "/blog/2020/12/15/first-code-to-ci-cd-deployments-in-5-minutes/"
+  - "/blog/2021/02/24/production-grade-infra-devsecops-with-five-minute-production/"
+  - "/blog/2020/12/15/deploy-aws/"
+---
+
+{::options parse_block_html="true" /}
+
+
+
+> Update: This post does not live up to its original title `We are building a better Heroku`. It shows my own personal experience and reflects poorly on competitors. I am sorry about that.
+>
+> It should have emphasized the _building_ part, we're just starting. The current 5 minute production app doesn't hold a candle to Heroku at the moment.
+> It should have made it clear the goals is to improve the speed with which you can configure a production app, not a development app. Development apps on Heroku are already close to perfect. The examples in this post are contrived since it talks about a development app, as [rightly called out by Heroku people](https://twitter.com/johnbeynon/status/1374306499426652161).
+> It should have gone into [why hyper clouds might be preferable](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template#hypercloud).
+> It should have talked about state, we made a small improvement in [this MR](https://gitlab.com/gitlab-com/www-gitlab-com/-/merge_requests/78028/diffs) but we should have done the [planned work](https://gitlab.com/gitlab-com/www-gitlab-com/-/issues/11137) and made one post out of it.
+>
+> We are very far from a better Heroku for production apps in a hyper cloud.
+
+Creating a web application has become very convenient and easy. You’ll start in your local development environment, run a dev server and verify the changes looking good. At a certain point, you want to share it with your friends on the internet. A service or server?
+
+### Use Heroku
+
+I have been a backend developer in the past 20 years. Web development is often fighting with Javascript and CSS. Especially Heroku as a deployment platform is a new area for me.
+
+Let's start with creating an account, login, and follow the web instructions to create a new app in the [documentation](https://devcenter.heroku.com/).
+
+Let’s try a fun demo, a battleship game to learn Javascript on the client and NodeJS on the server.
+
+```
+$ cd ~/dev/opensource
+$ git clone https://github.com/kubowania/battleships
+$ cd battleships
+```
+
+Test it locally, optional.
+
+```
+$ npm install
+$ npm start
+```
+
+Install the Heroku CLI, on [macOS with Homebrew](/blog/2020/04/17/dotfiles-document-and-automate-your-macbook-setup/).
+
+```
+$ brew install heroku/brew/heroku
+
+$ heroku autocomplete
+```
+
+This opens a new browser window to login. Lets create an app.
+
+```
+$ heroku create
+Creating app... done, ⬢ nameless-mountain-48655
+https://nameless-mountain-48655.herokuapp.com/ | https://git.heroku.com/nameless-mountain-48655.git
+```
+
+The CLI command adds a new Git remote called `heroku` where we need to push into.
+
+```
+$ git push heroku main
+
+remote: -----> Launching...
+remote:        Released v3
+remote:        https://nameless-mountain-48655.herokuapp.com/ deployed to Heroku
+remote:
+remote: Verifying deploy... done.
+```
+
+Deployed in less than 5 minutes. Getting there and installing the pre-requisites on the CLI took longer than expected.
+
+![Battleship web app deployed with Heroku](/images/blogimages/better-heroku-5min-prod-app/battleship_heroku.png){: .shadow.medium.center}
+
+Lots of CLI commands involved, and it did not run in a CI/CD pipeline with additional tests before deploying it. Now the web application is deployed into a black box. Want to use Let’s Encrypt and your own domain name? How about adding the deployment natively to GitLab to have a single application in your DevOps workflow?
+
+#### Setting up Persistence with Heroku
+
+This gets more challenging. Imagine that your app uses a relational database, a caching layer and object storage. This requires lots of CLI commands and a deep dive into the application configuration. We did not touch persistent backends in the demo app above yet.
+
+Heroku offers [PostgreSQL](https://devcenter.heroku.com/categories/postgres-basics), [Redis](https://devcenter.heroku.com/categories/heroku-redis) and [AWS S3](https://devcenter.heroku.com/articles/s3).
+
+```
+heroku addons:create heroku-postgresql:hobby-dev
+heroku addons:create heroku-postgresql:hobby-dev --version=10
+
+heroku pg:promote HEROKU_POSTGRESQL_YELLOW
+```
+
+```
+heroku addons:create heroku-redis:hobby-dev -a 5-min-prod-app
+```
+
+Note that the default `hobby-dev` plan allows unencrypted connections too.
+
+```
+heroku config:set S3_BUCKET_NAME=appname-assets
+heroku config:set AWS_ACCESS_KEY_ID=xxx AWS_SECRET_ACCESS_KEY=yyy
+```
+
+All stateful backends in Heroku need to be secured. This requires more commands to create self-signed certificates and encrypt transport layers in the backend.
+
+After all, is there a better way to automate requesting stateful backend services and automate their provisioning?
+
+### A better Heroku: The 5 minute production app
+
+{::options parse_block_html="false" /}
+
+<div class="center">
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">the modern tech industry is basically folks just endlessly remaking remakes of heroku</p>&mdash; Always Miso (@monkchips) <a href="https://twitter.com/monkchips/status/1368924845740810249?ref_src=twsrc%5Etfw">March 8, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Truth <a href="https://t.co/AFN9anBbQG">https://t.co/AFN9anBbQG</a></p>&mdash; Sid Sijbrandij (@sytses) <a href="https://twitter.com/sytses/status/1368982067229253632?ref_src=twsrc%5Etfw">March 8, 2021</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+</div>
+
+
+Cloud resources are cheap. AWS offers a free tier, HashiCorp Terraform has become an excellent tool to manage multi-cloud resources and GitLab integrates app packaging, container registry, deployment and TLS certificates.
+
+There’s more application goodies: Provision a PostgreSQL VM, add Redis, SMTP email transport, custom domains with Let’s Encrypt.
+
+#### Use the 5 minute production app
+
+The [documentation](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template#usage) says to create a new AWS IAM role with credentials for automation.
+
+The second step is to have the source code available in a GitLab project. You can use `New project > Import project > Repo by URL` to automatically import the GitHub repository `https://github.com/kubowania/battleships.git`.
+
+![Import the GitHub repository into GitLab](/images/blogimages/better-heroku-5min-prod-app/gitlab_new_project_import_github_url.png){: .shadow.medium.center}
+
+Once imported, navigate into `Settings > CI/CD > Variables` to specify the AWS credentials and region. Ensure to tick the `Masked` checkbox to hide them in all job logs.
+
+![Configure AWS credentials as masked CI/CD variables](/images/blogimages/better-heroku-5min-prod-app/gitlab_5minprodapp_aws_cicd_variables.png){: .shadow.medium.center}
+
+Navigate back into the project overview. Click the `Setup CI/CD` button or open the Web IDE to create a new `.gitlab-ci.yml` file. Add the remote CI/CD template include like this:
+
+```
+variables:
+    TF_VAR_DISABLE_POSTGRES: "true"
+    TF_VAR_DISABLE_REDIS: "true"
+
+include:
+  remote: https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/raw/stable/deploy.yml
+```
+
+The battleship application does not need the PostgreSQL and Redis backends. They are disabled with setting `TF_VAR_DISABLE_POSTGRES` and `TF_VAR_DISABLE_REDIS` [variables](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/blob/master/VARIABLES.md) to `false`.
+
+Commit the change to the default branch.
+
+8:43pm CET: Pipeline started with the build job. 2 min 33 sec.
+
+![GitLab pipeline builds the Docker image with Auto-Build](/images/blogimages/better-heroku-5min-prod-app/gitlab_5minprodapp_pipeline_01.png){: .shadow.medium.center}
+
+8:45pm CET: Pipeline runs terraform_apply to provision AWS resources in 2min 47 sec.
+
+![GitLab pipeline runs Terraform to provision cloud resources in AWS](/images/blogimages/better-heroku-5min-prod-app/gitlab_5minprodapp_pipeline_02.png){: .shadow.medium.center}
+
+8:48pm CET: Deployed in 1 min 11 sec.
+
+The deploy job log greets with the URL in ~5 minutes, including a Lets Encrypt TLS certificate. There we go, let’s play some battleship!
+
+![Battleship web app deployed in AWS with the 5 minute production app](/images/blogimages/better-heroku-5min-prod-app/battleship_5minprodapp_aws.png){: .shadow.medium.center}
+
+Note that we never left the browser and there is no CLI involved. Next to the included template, there’s also room for adding more CI tests and security best practices while hacking on this project. You can navigate into your AWS console for debugging and troubleshooting and plan with production budgets, where needed.
+
+#### Setting up Persistence with the 5 Minute Production App
+
+Remember the stateful backends with Heroku above? By default, the 5 minute production app takes care of provisioning:
+
+- PostgreSQL server and secured backend
+- Redis cluster
+- S3 object storage in AWS
+
+The 5 minute production app uses the managed stateful services of a hypercloud so your data is persisted and secure. By leveraging these managed services (databases, caching, objects storage, etc.) you have less to maintain. Everything is provisioned through Terraform which has the following advantages:
+
+- Terraform is the most popular IaC tool.
+- Terraform works accross platforms.
+- Terraform is well-documented.
+- Terraform state can be [stored and viewed in GitLab](https://docs.gitlab.com/ee/user/infrastructure/#gitlab-managed-terraform-state).
+- You avoid the cost and complexity of Kubernetes.
+- You have complete control to customize and extend.
+
+We will explore more stateful backends in future apps and blog posts.
+
+### 5 minute production app + DevSecOps = ❤️
+
+Example for [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) and [SAST](https://docs.gitlab.com/ee/user/application_security/sast/analyzers.html):
+
+```
+include:
+  - remote: https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/raw/stable/deploy.yml
+  - template: Dependency-Scanning.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+```
+
+### More to use: Database backends, TLS, environments
+
+This blog post covers the basic learning steps with Heroku and the 5 minute production app. A typical web app requires a database, storage or caching backend, which can get complicated to run with Heroku. We will explore the setup and production experience in future blog posts. In addition to backends, we will also look into TLS certificates and production environments in CD workflows.
+
+Meanwhile, try the 5 min production app yourself:
+
+* [5 minute production app docs](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template#the-5-minute-production-app)
+* [Example projects](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template#examples)
+* Your own future web app with [your custom domain](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template#custom-domain)?
+
+Cover image by [SpaceX](https://unsplash.com/@spacex) on [Unsplash](https://unsplash.com/photos/OHOU-5UVIYQ)
+

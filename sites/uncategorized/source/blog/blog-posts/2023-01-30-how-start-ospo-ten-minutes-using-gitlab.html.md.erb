@@ -1,0 +1,105 @@
+---
+title: "Start an open source center of excellence in 10 minutes using GitLab"
+author: Boris Baldassari
+author_gitlab: bbaldassari
+author_twitter: BorisBaldassari
+categories: engineering
+image_title: '/images/blogimages/opensign.jpg'
+description: "Launch your own open source program office using the OSPO Alliance's tools on GitLab"
+tags: open source, tutorial, DevOps
+guest: true
+twitter_text: "Want to create an open source center of excellence? Follow this step-by-step tutorial to make it happen using GitLab."
+featured: no
+---
+Now that open source has finally become a mainstream topic of conversation in the software industry, many organizations are increasingly curious about best practices for consuming, using, managing, and contributing to open source software projects. Open source software can seem alien and intimidating for organizations unfamiliar with it, and participating meaningfully and effectively in the open source ecosystem can be challenging.
+
+Organizations especially serious about working in open source have formed [open source program offices](https://opensource.com/business/16/5/whats-open-source-program-office) (OSPOs) to spearhead their efforts. These offices are centers of excellence for an organization's ongoing work in open source. They help the organization realize the benefits of working with open source communities to accelerate innovation and build more secure tools.
+
+Perhaps your organization is considering establishing an OSPO. If it is, you likely have questions about how to get started – and especially about the best ways to help your organization become a valuable participant in the open source ecosystem.
+
+The [OSPO Alliance](https://ospo.zone/) can help. Formed in 2021, the OSPO Alliance connects [experienced open source practitioners](https://ospo.zone/membership/) with organizations in need of seasoned guides to the open source world. Since the organization's founding, its members have composed a corpus of best open source practices called the [Good Governance Initiative Handbook](https://ospo.zone/ggi/), which explores various legal, cultural, and strategic considerations organizations face when working with open source software (and, naturally, the handbook itself is openly licensed, so anyone can contribute to it).
+
+To celebrate the launch of the GGI Handbook Version 1.1, the OSPO Alliance went a step further: We have released the [MyGGI project](https://gitlab.ow2.org/ggi/my-ggi-board), which allows organizations to quickly create the infrastructure for their own open source program offices using GitLab.
+
+Now, let's look at what the MyGGI project can help your organization accomplish, including how to use the tool to establish an OSPO built on GGI principles — in only 10 minutes.
+
+## Working with the GGI Handbook
+
+The GGI Handbook defines 25 activities, or best practices, organized according to various goals an organization may seek to accomplish with open source. Examples of activities include recommendations like "Manage open source skills and resources," "Manage software dependencies," "Upstream first," or "Engage with open source projects." Each of these activities, then, has a corresponding description and rationale, and the handbook provides resources, tools, and hints for successfully implementing them.
+
+Activites are intentionally generic and must be adapted to your organization's specific, unique, local context. The GGI Hanbook offers tools for doing this, too: scorecards. Scorecards allow you to assess your organization's engagement in and progress with various open source best practices.
+
+So working with the GGI Handbook in your organization might look something like this:
+
+1. Evaluate the open source-related activities the handbook proposes and remove those that don't fit your specific context (maybe some activities will require a bit of adptation to be more relevant to the domain, while some others may just be discarded).
+1. Identify the activities that would be most beneficial to reaching your organization's goals in engaging with open source.
+1. Construct an Agile-like, iterative process for working on a small set of these activities. Do this in the form of sprints by tracking your progress with scorecards, and adapt the activity to your local context, team cultures, and available resources as you go.
+1. At the end of each iteration, review the activities your teams have completed, select a new scope for improvement, and repeat the process.
+
+The MyGGI project provides a push-button infrastructure for doing this work. Next, let's examine how to deploy it on GitLab.
+
+### Deploying the GGI Handbook on GitLab
+
+The OSPO Alliance wanted to provide a quick and straightforward way for organizations to establish their own open source program activities using a dashboard, so they can start implementing the GGI Handbook's methods without delay. We didn't want to reinvent the wheel with some heavy custom tooling. Instead, we decided to build the project using tools already available to us. We had already used GitLab issues to model activities during the early stages of handbook development, so reusing this GitLab feature made most sense. By simply adding some scripting to automate the initialization of activities and updating a static website on GitLab Pages, we were able to launch the project so others could easily deploy it in their own GitLab instances.
+
+Instructions for deploying the program are available in the project's [README](https://gitlab.ow2.org/ggi/my-ggi-board/-/blob/main/README.md). Let's review them here and start your own OSPO together.
+
+First, we need to create a new project on our GitLab instance. Select `Import project`, then `From repository by URL`. 
+
+Next, we will need to provide a remote URL. Copy the existing MyGGI project by using the [URL](https://gitlab.com/gitlab-com/marketing/community-relations/open-source-program/gitlab-open-source-partners/publications-and-presentations/-/tree/main) `[https://gitlab.ow2.org/ggi/my-ggi-board.git](https://gitlab.ow2.org/ggi/my-ggi-board.git)`.
+
+Then we will give our project a unique name and choose a visibility level. Here's an example of how it might look:
+
+![Repository by URL](/images/blogimages/ospointenminutes/screenshot-1.png){: .shadow}
+
+When you have configured your desired settings, click `Create project` to continue.
+
+Our next step is to configure access privileges. Go to `Project Settings > Access Tokens` and create a `Project Access Token` with `API` privilege and `Maintainer` role. The project's scripts will use these to create the issues and generate the static website dashboard for your OSPO.
+
+When the token is created, copy it to a safe place, as **you will never be able to see it again**. Note that some GitLab instances prefer to disable the Project Access Token feature in favor of Personal Access Tokens. This is perfectly okay; the preference won't affect the deployment of this project (see the instructions for more details).
+
+Here's an example of what you will see at this stage:
+
+![Project access tokens](/images/blogimages/ospointenminutes/screenshot-2.png){: .shadow}
+
+We will then provide this access token to the pipelines and scripts by creating a CI/CD environment variable. Go to `Project Settings` and then `CI/CD`. Scroll to the `Variables` section and add a new variable with name `GGI_GITLAB_TOKEN`. Input the access token you created in the last step as the value. Here's an example:
+
+![Add variable screen](/images/blogimages/ospointenminutes/screenshot-3.png){: .shadow}
+
+We can now execute the pipeline to begin the process of creating your OSPO infrastructure. Go to `CI/CD`, then `Pipelines`, and click on `Run pipeline`. After a couple of minutes, the pipeline should finish and the website will deploy. You will see something like this when the pipeline finishes:
+
+![Pipeline passed screen](/images/blogimages/ospointenminutes/screenshot-4.png){: .shadow}
+
+Infrastructure for your open source program office is now ready!
+
+### Using the tools
+
+The MyGGI project creates a set of 25 activities, along with a nice project board to help you visualize them:
+
+![Project board](/images/blogimages/ospointenminutes/screenshot-5.png){: .shadow}
+
+Users can click on specific activities (rendered as issues) to read the description of the activity, understand the tools and resources that might help them complete it, and begin completing relevant scorecards. Users can also define their own perspectives on the activities, as they see them from the organization's specific context. Then they can create tasks to narrow the scope of each activity so they can iterate on it and track progress. 
+
+Their work is displayed on a static website hosted on GitLab Pages and updated nightly according to the organization's progress on various activities and tasks. This web page is especially useful to present the program and its day-to-day evolution to the organization (or the world); participants, stakeholders, and executives can review it to learn more about the various initiatives, see what work is underway, and track the overall development of the organization's open source program office. The initial website looks like this:
+
+![Welcome screen of website](/images/blogimages/ospointenminutes/screenshot-6.png){: .shadow}
+
+### Running your OSPO
+
+Selecting an open source program manager to oversee the work on the project boards is beneficial at this step. That person will:
+
+- Assign issues to team members to start working on new activities, create scorecards to track the work and associated tasks, and label them as "In Progress" instead of "Not Started".
+- Oversee the evolution of the work as it moves through various iterations, completing the scorecards with local resources and information, and closing issues as tasks are complete.
+- Ensure that issues keep making progress and, as team members complete them, assign new ones.
+
+As changes occur in both the project and its issues, your OSPO's static website will regularly update to reflect the current status of activities, tasks, and the overall progress. After some time, for instance, the dashboard may look like this:
+
+![Dashboard with current status](/images/blogimages/ospointenminutes/screenshot-9.png){: .shadow}
+
+You're now on your way to establishing your organization's open source program office. Don't hesitate to connect with the [OSPO Alliance](https://ospo.zone/) for help and support as you continue your journey!
+
+_Boris Baldassari is an open source consultant at the Eclipse Foundation Europe, and an active contributor to the OSPO Alliance._
+
+Cover image by [Clay Banks](https://unsplash.com/@claybanks?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://www.unsplash.com)
+{: .note}
+

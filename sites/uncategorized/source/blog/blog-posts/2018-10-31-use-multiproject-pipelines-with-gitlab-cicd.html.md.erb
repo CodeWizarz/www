@@ -1,0 +1,120 @@
+---
+title: "How to streamline interactions between multiple repositories with multi-project pipelines"
+author: Fabio Busatto
+author_gitlab: bikebilly
+author_twitter: gitlab
+categories: engineering
+tags: CI/CD
+just_commit_button_text: 'Join us for a <strong>GitLab + Cloud Native</strong> webcast!'
+just_commit_button_link: '/webcast/cloud-native-transformation/'
+image_title: '/images/blogimages/multi-project-pipelines.jpg'
+description: "You can connect CI/CD pipelines and artifacts for multiple related projects to make managing interactions easy."
+postType: content marketing
+---
+
+Modern software products consist of different components and
+[microservices](/topics/microservices/) that work together, relying on many libraries and dependencies:
+because of this, many projects cannot be limited to one single repository.
+
+With [GitLab 9.3](/releases/2017/06/22/gitlab-9-3-released/#multi-project-pipeline-graphs)
+we released [multi-project pipelines](https://docs.gitlab.com/ee/ci/multi_project_pipelines.html)
+to make interactions between different repositories easy to manage. Here's a look at how they work.
+
+Note: these features are available in GitLab [Premium](/pricing/#self-managed), [Gold subscriptions](/pricing/#gitlab-com),
+and public projects on GitLab.com only.
+{: .note}
+
+## What are multi-project pipelines, and how do they help?
+
+Multi-project pipelines span multiple repositories, creating a
+connection between them. But what is technically possible to achieve, and how?
+
+### Start an external pipeline directly from your job
+
+The most important feature is the ability to trigger an external pipeline
+from `gitlab-ci.yml`: using the special variable `$CI_JOB_TOKEN` and the
+[Pipeline Trigger API](https://docs.gitlab.com/ee/api/pipeline_triggers.html)
+you can start another pipeline in a different project directly from your job,
+without setting any additional authentication token or configuration in the
+target project: GitLab automatically detects the user running the caller
+pipeline, and run the target one with the same privileges.
+
+The [`$CI_JOB_TOKEN` variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html)
+is automatically created when a job starts: it is associated with the user
+that is running the job, so GitLab is able to enforce permissions when
+dealing with other related projects. It is also very limited in capabilities,
+and it is automatically destroyed as soon as the job ends, to prevent abuses.
+
+### Easily view related pipelines
+
+Another very useful feature is the ability to see how projects are linked
+together directly in the [pipeline graph](https://docs.gitlab.com/ee/ci/pipelines/index.html#pipeline-graphs):
+upstream and downstream stages are rendered as squared boxes and connected
+to the main flow. They give you the status of the related pipelines and you
+can easily jump to them by clicking the boxes. This feature is also available
+in the pipeline mini-graph that is shown in the Merge Request Widget (this
+feature was released with [GitLab 9.4](/releases/2017/07/22/gitlab-9-4-released/#mini-graph-for-multi-project-pipelines)).
+
+![Multi-project pipeline graph](/images/blogimages/multi_project_pipeline_graph.png){: .shadow.center}
+ *<small>See how upstream and downstream pipelines are shown on both sides of the graph</small>*
+
+### Download artifacts from another project
+
+You can also use the `$CI_JOB_TOKEN` variable with the Jobs API in order to
+[download artifacts](https://docs.gitlab.com/ee/api/jobs.html#get-job-artifacts)
+from another project. This is very helpful if one of the related pipelines
+creates a dependency that you need (this has been possible since
+[GitLab 9.5](/releases/2017/08/22/gitlab-9-5-released/#cijobtoken-variable-for-artifacts-api)).
+
+## Why do we need multi-project pipelines?
+
+Let's see how multi-project pipelines could be very useful when dealing
+with real-life projects.
+
+### Automatically test changes across all connected components
+
+A common development pattern is to have an API provider, a web
+frontend, and some additional services (bulk data processing, email management,
+etc). Each of these components has its own life in a different repository,
+but they are strictly connected: a change in one of them should trigger
+builds and integration tests in all the related projects in order to check
+that the changes are not introducing unintended behaviors. Linking those
+projects with multi-project pipelines automates this task, and users
+will receive notifications in case of failures.
+
+### Automatically trigger downstream pipelines for packaging
+
+Another common scenario where multi-project pipelines can be used to simplify
+the development workflow is packaging and releasing software: every time a
+change is pushed to the stable branch, a downstream pipeline for the repository
+that is responsible for packaging the application is triggered automatically.
+This pipeline can easily fetch the latest artifacts from all the repositories
+that contain the components of the application and create a Docker image or a
+package that can be then published and distributed.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+## Example application
+
+You can find [an example application here](https://gitlab.com/gitlab-examples/multi-project-pipelines/).
+It consists of a Maven package and a command line app that uses it as a dependency.
+
+The package is built and deployed to the [GitLab Maven Repository](https://docs.gitlab.com/ee/user/packages/maven_repository/index.html),
+then it triggers a multi-project pipeline to update the entire application.
+
+You can look at the [upstream](https://gitlab.com/gitlab-examples/multi-project-pipelines/simple-maven-dep/pipelines/33011429)
+and [downstream](https://gitlab.com/gitlab-examples/multi-project-pipelines/simple-maven-app/pipelines/33012000)
+pipelines to see how the two projects interact to keep everything up to date.
+
+## Conclusion
+
+Multi-project pipelines are very helpful when dealing with big applications
+that are not fully contained in a single repository. Existing features allow
+users to connect them together and automate processes without complex setups.
+
+We want to continue iterating on multi-project pipelines, and everyone is
+invited to give feedback on this feature and suggest how we can make it even more
+powerful in the future.
+
+[Cover image](https://unsplash.com/photos/m3TYLFI_mDo?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) by Gerrie van der Walt on [Unsplash](https://unsplash.com/search/photos/pipes?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

@@ -1,0 +1,19 @@
+deprecations:
+  - feature_name: "Offset pagination limit of 50,000 for /projects endpoint"
+    due: May 22, 2020
+    reporter: joshlambert
+    description: |
+      An offset-based pagination limit of `50,000` will be applied on
+      GitLab.com, and by default on self-managed instances, to the `/projects`
+      API endpoint in GitLab 13.0. Integrations which make API calls with
+      offsets above `50,000` will need to switch to a [keyset-based pagination
+      method](https://docs.gitlab.com/ee/api/#keyset-based-pagination), which
+      will offer significantly improved response times and reduced load on the
+      GitLab server. Self-managed instances will be able to customize the limit
+      to a desired value.
+
+      To provide the optimized performance, keyset-based pagination only offers
+      ordering based on project `id`. Use cases which require more flexible
+      ordering options can continue to use offset-based pagination, provided the
+      offsets remain below the limit. If use cases require flexible ordering
+      options with deep offsets, we recommend sorting client-side.

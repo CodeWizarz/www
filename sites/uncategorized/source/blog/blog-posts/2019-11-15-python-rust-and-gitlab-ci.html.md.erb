@@ -1,0 +1,296 @@
+---
+title: "Bringing your application from idea to production using Python, Rust, and GitLab CI"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: company
+image_title: '/images/blogimages/python_and_rust_post/lightbulb.jpg'
+description: "GitLab hero Mario Garcia demos the intricate process at GitLab Commit London."
+tags: CI/CD, community, user stories
+ee_cta: false
+install_cta: false
+twitter_text: "How one GitLab hero brought his application to production using Python, Rust, and GitLab CI"
+featured: yes
+postType: content marketing
+merch_banner: merch_two
+merch_sidebar: merch_two
+---
+
+During his talk at GitLab Commit London, GitLab Hero [Mario García](https://gitlab.com/mattdark), explains how he troubleshooted his way through numerous roadblocks to take his Firebase application from development to production using Rust, Python and GitLab CI.
+
+## Rewriting from Python to Rust
+
+### What is Rust?
+
+While Python is a household name among developers, Rust is the new kid on the block when it comes to a systems programming language.
+
+[Rust](https://www.rust-lang.org/) was developed by Mozilla is giving to the world, it's been in development since 2009 with a first stable version released in May 2015 and it aims to improve memory usage while maintaining performance and speed. Mario, who is a Mozilla representative, dedicated himself to learning Rust in late 2015. He started this journey by reading the Rust book, [solving programming exercises](https://exercism.io/tracks/rust), migrating Python code to Rust, and then rewriting one of his [personal projects, a gallery for reveal.js presentations, in Rust](https://gitlab.com/mattdark/reveal-js-gallery).
+
+Reveal-js is a framework for creating presentations using HTML, and allows the user to store speaker notes, images, and more in a presentation gallery. Mario first wrote his gallery app in Python but migrated the project into Rust while he was learning the new language and found the process to be relatively painless. But it wasn’t long before Mario hit a bump in the road when it came to using Rust for other projects.
+
+### Problems with Rust
+
+“I was working on another project that I applied to the Mozilla Open Leaders program two years ago,” said Mario. “And for this project I was using [Cairo SVG Python library](https://cairosvg.org/). I needed this specific library because I was converting SVG files to PDF. So that's how I found out that it was _impossible_ to rewrite this specific part with Rust because there is no alternative available in Rust for this library.”
+
+Not only did Rust lack an alternative to the CairoSVG Python library, but there was also no crates (Rust libraries) for Firebase. Mario needed Firebase for his project that takes the database of speaker information and automatically generates certificates of participation.
+
+Mario was presenting an example of a web app at Google I/O Extended on how to use Rust and Firebase with web apps. But there was no functional library in Rust that could connect with Firebase and retrieve data from the database.
+
+Mario came up with a solution: use Python.
+
+_More of a video person? Watch Mario’s entire presentation from GitLab Commit London in the video below, or follow along step by step in this blog post._
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/BYfJBa_79Xo" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Using Python and Rust together
+
+In his presentation at GitLab Commit London, Mario demonstrated how he managed to build a Firebase web application in Rust using Python, and deploy it using GitLab CI so fellow GitLab users can try to replicate his process, or get some input if they're also having difficulties.
+
+### Configure your environment
+
+The first step is to make sure that your environment is properly configured. To use both Python, Rust, and GitLab CI, you’ll need the following on your machine:
+
+*   Git
+*   [GCC](https://crates.io/crates/gcc)
+    *   Rust needs a C compiler and Cargo, which is the package manager for Rust projects
+*   Rust
+    *   Nightly mode for this project
+    *   Cargo
+*   Python 3.5+
+    *   [pipenv](https://github.com/pypa/pipenv) for managing dependencies
+
+Install Rust using [Rustup](https://rustup.rs/) by typing the code below into your terminal.
+
+`curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+
+You’ll also need to install bindings to run Python code directly from Rust, and that will also help with writing Python models using Rust code. Mario recommends [CPython](https://crates.io/crates/cpython)and [Py03](https://crates.io/crates/pyo3), but used CPython in this demo.
+
+### Kick-start your project
+
+Next, Mario describes the general process for creating a project using Python and Rust.
+
+Cargo is a package manager for Rust projects, and will create a Cargo.toml file and src/ directory when its run. The Cargo.toml file is the manifest for the application and includes the dependencies the project requires. Within the src/ file is a [main.rs file](https://gitlab.com/mattdark/firebase-example/blob/master/src/main.rs) that contains an example of a Rust application.
+
+The next step is to move through the src/ directory Cargo created to set up the default toolchain for the project.
+
+```ruby
+[package]
+name = "firebase_sample"
+version = "0.1.0"
+authors = ["mattdark"]
+edition = "2018"
+[dependencies]
+cpython = "0.3"
+serde = "1.0.99"
+serde_derive = "1.0.99"
+serde_json = "1.0.40"
+rocket = "0.4.2"
+[dependencies.rocket_contrib]
+version = "0.4"
+features = ["handlebars_templates"]
+```
+
+The Cargo.toml file will show the name of the application, the version, authors etc. And if you’re working on Linux, it will take the user of your system and put it as the author of the project.
+{: .note}
+
+“The dependencies that we need for the project are CPython for the Python part, [Serde](https://serde.rs/), which is a library that help us with reading information for files like JSON, and Rocket, which is a web framework for Rust,” said Mario.
+
+Next, set the [Nightly version of Rust](https://doc.rust-lang.org/1.2.0/book/nightly-rust.html) as the default toolchain for the project.
+
+Add a ‘python’ directory to src/ directory, where you’ll be adding the Python models required for this project to this directory.
+
+Once the src/python is set-up, add the Pipfile or [requirements.txt file](https://gitlab.com/mattdark/firebase-example/blob/master/requirements.txt) for the dependencies of the Python module to the directory.
+
+```ruby
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+[dev-packages]
+[packages]
+firebase = "*"
+python-jwt = "*"
+gcloud = "*"
+sseclient = "*"
+pycrypto = "*"
+requests-toolbelt = "*"
+[requires]
+python_version = "3.7.3"
+```
+
+The Pipfile is an example of a project used for Firebase. Included here is all the dependencies we need for Firebase in the file, as well as the Python version in use.
+{: .note}
+
+Next write the Rust code in src/main.rs and add the Python scripts in src/python.
+
+### Writing the Python code
+
+Mario’s Firebase application is designed to rake a database of speaker information and automatically generate certificates of participation in PDF format.
+
+```
+{
+  "slides" : {
+    "privacymatters" : {
+      "description" : "Talk about privacy & security",
+      "file" : "privacy-matters.md",
+      "id" : "2",
+      "screenshot" : "/img/screenshot/privacy-matters.png",
+      "theme" : "mozilla.css",
+      "title" : "Why Privacy Matters?",
+      "url" : "privacy-matters"
+    },
+    "rust101" : {
+      "description" : "Introduction to Rust",
+      "file" : "rust-101.md",
+      "id" : "1",
+      "screenshot" : "/img/screenshot/rust-101.png",
+      "theme" : "mozilla.css",
+      "title" : "Rust 101",
+      "url" : "rust-101"
+    },
+    "rustrocket" : {
+      "description" : "Building Web Apps with Rust + Rocket",
+      "file" : "rust-rocket.md",
+      "id" : "3",
+      "screenshot" : "/img/screenshot/rust-rocket.png",
+      "theme" : "mozilla.css",
+      "title" : "Rust + Rocket",
+      "url" : "rust-rocket"
+    },
+    "whyrust" : {
+      "description" : "What is Rust and Why Learn it?",
+      "file" : "why-rust.md",
+      "id" : "4",
+      "screenshot" : "/img/screenshot/why-rust.png",
+      "theme" : "mozilla.css",
+      "title" : "Why Rust?",
+      "url" : "why-rust"
+    }
+  }
+}
+```
+{: .language-ruby}
+
+Information about Mario’s Firebase application lives in this JSON file of the Firebase database.
+{: .note}
+
+The application is written in Rust, and therefore needed a Firebase connector. But since the is not a functional Firebase crate, Mario had to think outside the box and use the Python library.
+
+```
+import json
+from firebase import Firebase
+def read_data(self):
+    config = {
+        "apiKey": "APIKEY",
+        "authDomain": "fir-speakers.firebaseapp.com",
+        "databaseURL": "https://fir-speakers.firebaseio.com",
+        "projectId": "fir-speakers",
+        "storageBucket": "",
+        "messagingSenderId": "MESSAGINGSENDERID"
+    }
+    firebase = Firebase(config)
+    speaker = list()
+    db = firebase.database()
+    all_speakers = db.child("speakers").get()
+    for x in all_speakers.each():
+        speaker.append(x.val())
+    s = json.dumps(speaker)
+    return s
+```
+{: .language-ruby}
+
+“For the Python part of the project, we have to connect to the Firebase database, retrieve the data and save it to a variable that later we will convert to JSON so that Rust can correctly rake the data and pass it to the HTML5,” said Mario.
+
+### Troubleshooting
+
+There was a profound lack of documentation about how to use Rust and Python together to build a Firebase application, and Mario ran into even more hurdles as he tried to troubleshoot.
+
+The two major problems that he was trying to solve were:
+
+*   Calling a Python script (.py) from Rust
+*   Passing a value from Rust to Python
+
+“In the Github repositories for these projects – well at least for the library that I'm using – there is no information about how you can do those tasks,” said Mario.
+
+After hours of researching and testing, he discovered a solution.
+
+### Building the Project
+
+Mario was able to run the Python script from Rust and execute the function that connects to the Firebase database. Once connected to the Firebase database, the process will retrieve the data and funnel it back to Rust as JSON.
+
+![Rust code](/images/blogimages/python_and_rust_post/rust-code.jpg){: .shadow.medium.center}
+
+After some troubleshooting, Mario discovered the proper code to run in Rust to bridge the gap between Rust and the Firebase application.
+{: .note-text.center}
+
+Next, the Rust code will convert the values into a HashMap, and pass that information to an HTML file.
+
+Now that the project is built, it’s time to run it using:
+
+```
+cargo run
+pipenv run cargo run
+```
+To see your project type `localhost:8000` into the web browser.
+The result should look similar to what you see here and in the [GitLab project](https://gitlab.com/mattdark/reveal-js-gallery).
+
+![GitLab project preview](/images/blogimages/python_and_rust_post/gitlabproject.jpg){: .shadow.medium.center}
+
+## Deploying the application with GitLab CI
+
+### Dockerize the application
+
+To configure for GitLab CI, Mario had to choose a Docker image for running the test and deployment. There is a custom Docker image for Rust that can be customized to fit the specific version for Rust, which in this case is Rust Nightly.
+
+`rustlang/rust:nightly`
+
+“The problem is that the Python version that is installed in these Docker image is based on Debian image itself, so we need pipenv and we need other tools to be installed,” said Mario.
+
+So Mario customized the Docker image and generated a second one that has the pipenv components.
+
+### Create the repository
+
+Now that the Docker images are configured for the application, it’s time to create the repository and upload the code using the Terminal or GitKraken.
+
+The next – and arguably the most important – step in the process is **documentation**. Mario urges all users to upload any and all relevant files to the repository, such as the README, LICENSE, CODE_OF_CONDUCT.md, etc.
+
+Once the necessary files are uploaded into the repository, it’s time to start configuring for GitLab CI.
+
+Mario recommends using Gitignore.io to the .gitignore file for the technologies being used for the project (in this case, Rust or Python). There are three key files that need to be written to configure the pipelines required for running GitLab CI:
+
+*   **Procfile**: A way to tell a platform like Heroku what is the binary file for the project. Since the project is being developed with Rust, it will generate a binary file that needs to be executed.
+*   **RustConfig**: Contains the version of Rust we are using for the project.
+*   **Rocket.toml**: Can be used to specify the configuration parameters for the environment.
+
+You can find examples of these files in the [Firebase example project on GitLab](https://gitlab.com/mattdark/firebase-example/tree/prod).
+
+### GitLab CI
+
+All of these efforts go into preparing the application for deployment using GitLab CI. Deployment with GitLab CI is simple, because each stage of the deployment process lives in a yaml file. [Mario’s gitlab-ci.yml file](https://gitlab.com/mattdark/firebase-example/blob/master/.gitlab-ci.yml) only includes the build and production stages, but [more comprehensive information about GitLab CI is available here](https://docs.gitlab.com/ee/ci/).
+
+## Document, document, document
+
+The lack of documentation created significant delays for Mario as he tried to get his Firebase application off the ground. While in this case the information he required was difficult to track down even in English, there are even more substantial barriers for non-native English speakers or non-English speaking programmers.
+
+>>“I'm from Mexico, so I'm living in a Spanish-speaking country and I started learning English 15 years ago. That means that I'm in a privileged position. When we are writing the documentation sometimes, we forget that not many people have the opportunity to learn English,” said Mario. “I'm talking about English because most of the information and documentation of technologies that are available in this language. So if we live in a non-English speaking country, don't forget to write the documentation in our native language.”
+
+His comments resonated strongly with the GitLab Commit London audience.
+
+{::options parse_block_html="false" /}
+
+<div class="center">
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">This is so important for accessibility.<br><br>Same goes for filling documentation full of jargon and marketing terms.<br><br>Documentation is there to inform those who don&#39;t have the knowledge, presuming knowledge just furthers a toxic culture of gatekeeping. <a href="https://t.co/k7EILtHuvy">pic.twitter.com/k7EILtHuvy</a></p>&mdash; Matt Smith (@Harmelodic) <a href="https://twitter.com/Harmelodic/status/1181946002720411648?ref_src=twsrc%5Etfw">October 9, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+</div>
+
+Join us at GitLab Commit San Francisco to hear about the innovative ways users like Mario are using GitLab and other open source technologies! Registration information is available below.
+
+Cover image by [Jack Carter](https://unsplash.com/@carterjack) on [Unsplash](https://unsplash.com/s/photos/lightbulb).
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

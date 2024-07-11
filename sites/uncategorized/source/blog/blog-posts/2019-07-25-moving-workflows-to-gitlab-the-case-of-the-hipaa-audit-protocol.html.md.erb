@@ -1,0 +1,186 @@
+---
+title: "Moving workflows to GitLab: The case of the HIPAA Audit Protocol"
+author: Luka Trbojevic
+author_gitlab: ltrbojevic
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/bright-cardiac-cardiology.jpg'
+description: "With the GitLab API, you can easily move workflows into GitLab. Here’s how we did it for the
+HIPAA Audit Protocol."
+tags: inside GitLab, open source, security
+twitter_text: "With the @gitlab API, you can easily move workflows into GitLab. Here’s how we did it for the
+#HIPAA Audit Protocol"
+postType: content marketing
+ee_cta: false
+---
+
+Using GitLab for just about everything we do, I’ve seen firsthand how powerful and effective
+it can be as a project management tool.
+
+**However, in speaking with folks about adopting GitLab for their own non-development
+workflows, the most common roadblock I hear is the lack of specific examples.** If you're not
+a developer or otherwise don't work with GitLab often, it can be hard to see how all the
+features and capabilities fit together to go from an idea to a functional workflow. Because
+of this, I thought it was important to create a specific, real-world example for something most
+folks can relate to: an audit.
+
+The [HIPAA Audit Protocol](https://www.hhs.gov/hipaa/for-professionals/compliance-enforcement/audit/protocol/index.html)
+is published by the U.S. Department of Health & Human Services and is used by the
+Office for Civil Rights as part of its HIPAA compliance enforcement efforts. The
+HIPAA Audit Protocol currently exists as a table on the HHS website and is most commonly turned
+into a spreadsheet. But there are limitations and inefficiencies to working with an audit
+protocol in a spreadsheet, as compared to GitLab:
+
+* Collaboration is challenging in a spreadsheet. With issues, robust and well-organized conversations are easy.
+* You can't upload audit protocol files directly to the spreadsheet. With issues, you can upload files directly.
+* There's no simple, clean way to maintain a full, comprehensive change history in a
+spreadsheet. With issues and merge requests, change history and logging is directly built in.
+* It can be challenging to manage due dates, milestones, and work assignments in a
+spreadsheet. With issues, those are all native features.
+
+## Introducing the HIPAA Audit Protocol Issue Generator
+
+The HIPAA Audit Protocol Issue Generator is a simple Python script using the
+`python-gitlab` API wrapper to create issues out of every audit inquiry in the protocol.
+The purpose of the script is to highlight how easy it is to use the GitLab API to move
+workflows inside of GitLab and leverage GitLab's project management capabilities.
+
+The best part? Creating this tool was really easy and simple. I started by copying the
+HTML table of the audit protocol into a CSV. Then I wrote a simple loop to go through each
+row in the CSV and automatically create an associated issue. Note: While you can use the
+issue importer, you’d have to create a very strictly structured and formatted import file.
+With the GitLab API, you have more flexibility and the output is easier to work with.
+
+For your use, we’ve made
+the [full script and a CSV of the audit protocol](https://gitlab.com/ltrbojevic/hipaa-audit-protocol-issue-generator)
+available.
+
+Here’s what an issue looks like:
+
+![sample issue](/images/blogimages/HIPAA-audit-protocol-example.png){: .shadow.medium.center}
+
+All the information you need is front and center and the issues are labeled.
+{: .note.text-center}
+
+### Customizing the issue structure
+
+First, it’s important to understand how we load the data from the CSV. There are different
+ways to do it, but I like to assign every column in the CSV to a variable, then pass that
+variable to the issue create API call. For this script, we have:
+
+```
+audit_type = col[0]
+section = col[1]
+key_activity = col[2]
+established_performance_criteria = col[3]
+audit_inquiry = col[4]
+required_addressable = col[5]
+```
+
+That means `audit_type` is the first column, `section` is the second column, and so on.
+
+These variables then get used in the issue create API call. For this script, we have:
+
+```
+issue = project.issues.create({'title': key_activity,
+'description': '## Established Performance Criteria' + '\n' +
+established_performance_criteria + '\n' + '## Audit Inquiry' +
+'\n' + audit_inquiry,
+'labels': [audit_type] + [required_addressable] + [section]})
+```
+
+#### Title
+
+I decided to use the respective Key Activity of every audit inquiry. In the issue create API
+call, it looks like this:
+
+` ‘title’: key_activity, `
+
+You can make the title anything you want. In this case I just used a column from the CSV, but I
+could start or end the title with some other text not in the CSV, like:
+
+` ‘title’: Any text you want:’ + ‘ ‘ key_activity, `
+
+#### Description
+
+I just used a string to manually write out the headers for the section and filled the sections
+using the data from the CSV. In the issue create API call, it looks like this:
+
+` 'description': '## Established Performance Criteria' + '\n' + established_performance_criteria + '\n' + '## Audit Inquiry' + '\n' + audit_inquiry, `
+
+Notice how I use the newline. Without the newline, all of the data would be added to the description
+right next to each other and it would be unreadable. You can add as many newlines as you want,
+and if you’re planning on doing regular editing of the issue description itself, consider
+adding two newlines to create a new paragraph so the issue description is more readable in edit mode.
+
+#### Labels
+
+Labels are very helpful for organizing, searching, filtering, and creating boards. For the labels,
+I opted to use Audit Type and Section. In the issue create API call, it looks like this:
+
+` 'labels': [audit_type] + [required_addressable] + [section] `
+
+You can also add your own labels to the CSV by creating a new column and adding the labels you
+want for every given row, or you can add a static label applied to all the issues by adding it
+to the API call. Make sure to keep the variables in brackets or the string will split
+(for example, instead of `Privacy` it will create a label for each letter in the word `Privacy`).
+
+#### Adding other sections
+
+You can customize the script to add any other sections allowable by
+the [GitLab API](https://docs.gitlab.com/ee/api/). Because we’re working with issues,
+the [GitLab Issues API](https://docs.gitlab.com/ee/api/issues.html) documentation will be
+helpful. The [`python-gitlab` documentation](https://python-gitlab.readthedocs.io/en/stable/index.html) is
+also a great resource, given that this script makes use of it.
+
+## Making your own workflows in GitLab
+
+While in this blog post I've focused on the HIPAA Audit Protocol and the issue generator
+script, it is also a practical, hands-on example of how simple it is to use the
+GitLab API to move any workflow to GitLab. There are two primary components:
+
+1. A data source (I prefer CSV files)
+2. A crafted API call to use the data source to bring the data into GitLab
+
+I think of the data source as the thing I want in GitLab and the crafted API call as the
+vehicle to get it into GitLab. Think of a row in your CSV as an issue and the columns as the
+things you’re putting in the issue.
+
+While my specific example was the audit protocol, we can use this strategy for just about anything.
+Some examples are risk assessments, gap analyses, event planning, product launches, and more.
+
+To adapt this script for other workflows:
+1. Start by getting your data into a CSV. Be sure to remove your headers before running the script
+because the script doesn’t account for column headers as is!
+2. Modify the variables and issue create API call we talked about in
+the [Customizing the issue structure section above](#customizing-the-issue-structure) to match with your CSV and data.
+
+And that’s really it!
+
+At GitLab, we use the
+[simplest and most boring solution](/handbook/values/#boring-solutions)
+to solve problems. With this approach, we were able to turn an HTML table of the HIPAA Audit Protocol
+on the HHS website into a functional workflow within GitLab in just a few
+hours (including API research time and CSV formatting) and in 42 lines of code (including comments).
+To add to that, the script can be repurposed for just about any other workflow. Plus, the script is
+available for anyone to download, use, and modify in any way, and this blog post can serve as a
+guide on how to do that.
+
+As a long-term solution to bring this functionality into
+GitLab as a feature, there’s also an
+[open issue to collect feedback on creating
+a marketplace for issue templates](https://gitlab.com/gitlab-org/gitlab-ce/issues/62895). If you have any suggestions or comments about the marketplace
+idea, feel free to post them in the issue!
+
+Have a specific question you want answered or want to get feedback on a specific use case? Comment below!
+
+### Disclaimer
+THE INFORMATION PROVIDED ON THIS WEBSITE IS TO BE USED FOR INFORMATIONAL PURPOSES ONLY. THE
+INFORMATION SHOULD NOT BE RELIED UPON OR CONSTRUED AS LEGAL OR COMPLIANCE ADVICE OR OPINIONS.
+THE INFORMATION IS NOT COMPREHENSIVE AND WILL NOT GUARANTEE COMPLIANCE WITH ANY REGULATION OR
+INDUSTRY STANDARD. YOU MUST NOT RELY ON THE INFORMATION FOUND ON THIS WEBSITE AS AN
+ALTERNATIVE TO SEEKING PROFESSIONAL ADVICE FROM YOUR ATTORNEY AND/OR COMPLIANCE PROFESSIONAL.
+{: .note}
+
+Photo by [Pixabay](https://www.pexels.com/photo/bright-cardiac-cardiology-care-433267/) on [Pexels](https://www.pexels.com)
+{: .note}

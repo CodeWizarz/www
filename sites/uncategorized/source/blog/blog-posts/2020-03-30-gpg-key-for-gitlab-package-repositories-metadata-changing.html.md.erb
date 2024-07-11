@@ -1,0 +1,62 @@
+---
+title: "The GPG key used to sign GitLab package repositories' metadata is changing"
+author: "Balasankar 'Balu' C"
+author_gitlab: balasankarc
+author_twitter: balasankarc
+categories: news
+image_title: "/images/default-blog-image.png"
+description: "The GPG key used to sign repository metadata on GitLab's Packagecloud instance at packages.gitlab.com is changing – find out what this means for you."
+tags: installation
+postType: product
+---
+
+GitLab uses a [Packagecloud instance](https://packages.gitlab.com) to
+distribute official [omnibus-gitlab](https://gitlab.com/gitlab-org/omnibus-gitlab.git)
+and [gitlab-runner](https://gitlab.com/gitlab-org/gitlab-runner.git) packages.
+To ensure integrity of packages shipped through this instance, the metadata of
+the various apt and yum repositories managed in this instance are signed using
+a GPG key, in addition to the packages themselves being signed by a separate key.
+
+The current key used for the metadata signing, with the fingerprint `1A4C 919D B987 D435 9396 38B9 1421 9A96 E15E 78F`,
+is set to expire on Apr. 15, 2020. So, GitLab is rotating this GPG key in
+favor of a newer one which will be active for another two years. The GPG
+fingerprint of this new key is `F640 3F65 44A3 8863 DAA0 B6E0 3F01 618A 5131 2F3F`.
+Please check the [official documentation](https://docs.gitlab.com/omnibus/update/package_signatures#package-repository-metadata-signing-keys) for
+more details on the key.
+
+## When will it be changed?
+
+The key will be changed on **Apr. 6, 2020**.
+
+## What does this mean for existing users?
+
+Any existing users who have already configured these repositories in their
+machines (using any method that uses packages.gitlab.com like the `curl` script mentioned in the [GitLab installation page](/install/)
+or [gitlab-runner installation docs](https://docs.gitlab.com/runner/install/linux-repository.html))
+will be affected and will be unable to fetch packages from these repositories
+after the key is changed until they install the new public key. This is because once the GPG key is changed, the
+metadata will be signed with the new key, and because the user doesn't have the
+corresponding public key, `apt`/`yum` will fail to verify the integrity of
+these repositories and will not fetch packages from them.
+
+## What does this mean for new users?
+
+For users who are configuring the repositories for the first time, the `curl` script to install
+repositories will automatically fetch the new key – so new users who are
+configuring repositories for the first time after the switch are unaffected
+and do not need to do anything beyond following official installation docs.
+
+## What should I do?
+
+If you have already configured GitLab repositories on your machine
+before Apr. 6, 2020, please check out the official documentation on
+[how to fetch and add the new key](https://docs.gitlab.com/omnibus/update/package_signatures#package-repository-metadata-signing-keys)
+to your machine. 
+
+If you are a new user, there is nothing specific for you to do
+other than follow the [GitLab installation page](https://about.gitlab.com/install/)
+or the [gitlab-runner installation docs](https://docs.gitlab.com/runner/install/linux-repository.html).
+
+## I still have problems, what do I do?
+
+Please open an issue in the [omnibus-gitlab issue tracker](https://gitlab.com/gitlab-org/omnibus-gitlab/issues).

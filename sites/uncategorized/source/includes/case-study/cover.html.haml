@@ -1,0 +1,22 @@
+- if current_page.data.cover_image != nil
+  - cover_image = current_page.data.cover_image
+- elsif yield_content(:cover_image) != nil
+  - cover_image = yield_content(:cover_image)
+- else
+  - cover_image = '/images/default-blog-image.png'
+
+- if current_page.data.cover_description != nil
+  - cover_description = current_page.data.current_description
+- elsif yield_content(:cover_description) != nil
+  - cover_description = yield_content(:cover_description)
+- else
+  - cover_description = nil
+
+.cover{ style: "background-image: url(#{cover_image});" }
+  .overlay
+    .header.container
+      %h1= current_page.data.cover_title ? current_page.data.cover_title : yield_content(:cover_title)
+
+      - if cover_description != nil
+        %p
+          = cover_description

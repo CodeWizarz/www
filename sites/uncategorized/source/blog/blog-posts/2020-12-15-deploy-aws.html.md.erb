@@ -1,0 +1,127 @@
+---
+title: "How to deploy to AWS with GitLab"
+author: Orit Golowinski
+author_gitlab: ogolowinski
+author_twitter: GO_Orit
+categories: engineering
+image_title: '/images/blogimages/aws_rocket.jpeg'
+description: "We believe deploying to the cloud should be easy and boring. The deployment process is the same regardless of what tech stack you're using so why not automate it?"
+tags: cloud native, DevOps, CI, CD
+guest: true # required when the author is not a GitLab Team Member or there is more than one author
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "Deploying to AWS is now easier on @GitLab. Read on to learn how to deploy to other cloud providers in a similar way"
+featured: no
+postType: content marketing
+merch_banner: merch_one
+---
+
+Cloud computing services are replacing traditional hardware technologies at an extremely fast pace. The majority of businesses worldwide are already moving their applications to the cloud — both public and private cloud — or plan to in the near future. Over a short period of time, this technology took over the market as businesses preferred remote access to data as well as the cloud's scalability, economy, and reach.
+
+## AWS Deployment: deploying applications to the cloud
+
+COVID-19 and the resulting trend toward remote work forced organizations to adopt cloud technologies even if they hadn’t planned to originally. Software deployment to the cloud has also increased. Cloud is no longer just virtual machines, organizations are driving the use of [Containers as a Service (CaaS)](https://searchitoperations.techtarget.com/definition/Containers-as-a-Service-CaaS) due to their growing interest in leveraging containers to ease development and testing, speed up deployment, scale operations, and increase the efficiency of workloads running in the cloud.
+
+Since deployment to the cloud has become a standard practice, at GitLab we want to make this repeatable and [boring](/handbook/values/#boring-solutions). In this blog post, we explain how we've made it easier to deploy to Amazon Web Services (AWS) as part of your deployment process. We invite users to replicate this example to deploy to other cloud providers in a similar way.
+
+Since we want cloud deployment to be as flexible as possible (similar to a microservices architecture), we constructed atomic Docker images that function as building blocks. Users can use these images as part of their custom `gitlab-ci.yml` file or use our predefined `.gitlab-ci.yml` templates. We also added the ability to use [Auto DevOps](/stages-devops-lifecycle/auto-devops/) with the new AWS deployment targets.
+
+## AWS Deployment: how to use GitLab's official AWS Docker Images
+
+### AWS CLI Docker image
+In [GitLab 12.6](/releases/2019/12/22/gitlab-12-6-released/), we provided an official GitLab [AWS cloud-deploy](https://gitlab.com/gitlab-org/cloud-deploy/-/blob/master/aws/cloud_deploy/Dockerfile) Docker image that downloads and installs the [AWS CLI](https://aws.amazon.com/cli/). This allows users to run `aws` commands directly from their pipelines. For more information, see [Run AWS commands from GitLab CI/CD](https://docs.gitlab.com/ee/ci/cloud_deployment/#run-aws-commands-from-gitlab-cicd).
+
+### CloudFormation stack creation Docker image
+In [GitLab 13.5](/releases/2020/10/22/gitlab-13-5-released/), we provided a Docker image that runs a script that [creates a stack with CloudFormation](https://gitlab.com/gitlab-org/cloud-deploy/-/blob/master/aws/src/bin/gl-cloudformation). The `gl-cloudprovision create-stack` uses [aws cloudformation create-stack](https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/template-anatomy.html) behind the scenes. A JSON file based on the CloudFormation template must be passed to that command. For an example of this type of JSON file, see [`cf_create_stack.json`](https://gitlab.com/ebaque/jekyll-demo/-/blob/deploy-to-ec2/aws/cf_create_stack.json). With this type of JSON file, the command creates the infrastructure on AWS, including an EC2 instance directly from the `.gitlab-ci.yml` file. The script exists once we get confirmation that the stack setup is complete or has failed (through periodic polling).
+
+### Push to S3 and Deploy to EC2 Docker image
+In [GitLab 13.5](/releases/2020/10/22/gitlab-13-5-released/) we also provided a Docker image with [Push to S3 and Deploy to EC2 scripts](https://gitlab.com/gitlab-org/cloud-deploy/-/blob/master/aws/src/bin/gl-ec2). The `gl-ec2 push-to-s3` script pushes source code to an S3 bucket. For an example of the JSON file to pass to the `aws deploy push` command, see [`s3_push.json`](https://gitlab.com/ebaque/jekyll-demo/-/blob/deploy-to-ec2/aws/s3_push.json). This code can be whatever artifact is built from a preceding build job. The `gl-ec2 deploy-to-ec2` script uses `aws deploy create-deployment` behind the scenes to create a deployment to an EC2 instance directly from the `.gitlab-ci.yml` file. For an example of the JSON template to pass, see [`create_deployment.json`](https://gitlab.com/ebaque/jekyll-demo/-/blob/deploy-to-ec2/aws/create_deployment.json). The script ends once we get confirmation that the deployment has succeeded or failed (via polling).
+
+## AWS Deployment: using GitLab CI templates to deploy to AWS
+
+### How to deploy to Elastic Container Service (ECS) with GitLab
+In [GitLab 12.9](/releases/2020/03/22/gitlab-12-9-released/), we created a full `.gitlab-ci.yml` template called [`Deploy-ECS.giltab-ci.yml`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Jobs/Deploy/ECS.gitlab-ci.yml) that deploys to Amazon ECS and extends support for Fargate. Users can include the template in their configuration, specify a few variables, and their application will be deployed and ready to go in no time. This template can be customized for your specific needs. For example: Replacing the selected container registry, changing the path of the file location, etc.
+
+### How to deploy to Elastic Cloud Compute (EC2) with GitLab
+In [GitLab 13.5](/releases/2020/10/22/gitlab-13-5-released/), we created a full `.gitlab-ci.yml` template called [`CF-Provision-and-Deploy-EC2.gitlab-ci.yml`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Jobs/Deploy/EC2.gitlab-ci.yml) that provisions the infrastructure by leveraging [AWS CloudFormation](https://aws.amazon.com/cloudformation/). It then pushes your previously-built artifact to an [AWS S3 bucket](https://aws.amazon.com/s3/) and deploys the pushed content to [AWS EC2](https://aws.amazon.com/ec2/).
+
+## AWS Deployment: security  considerations
+
+### Predefined AWS CI/CD variables
+
+In order to deploy to AWS, you must use AWS security keys to connect to to your AWS instance. Users can define this security keys as [CI/CD environment](/topics/ci-cd/) variables that can be used by the deployment pipeline.
+
+In [GitLab 12.9](/releases/2020/03/22/gitlab-12-9-released/), we added support for predefined AWS variables. This support function helps users know which variables are required for deploying to AWS and also prevents typos and spelling mistakes.
+
+| Env. variable name | Value|
+| --- | --- |
+| `AWS_ACCESS_KEY_ID` | Your Access key ID |
+| `AWS_SECRET_ACCESS_KEY` | Your Secret access key |
+| `AWS_DEFAULT_REGION` | Your region code |
+
+### "Just-in-time" guidance for AWS deployments
+
+[GitLab 13.1](/releases/2020/06/22/gitlab-13-1-released/) provides just-in-time guidance for users who wish to deploy to AWS. Setting up AWS deployments isn't always as easy as we'd like it to be, so we've added in-product links to our AWS templates and documentation when you start adding AWS CI/CD variables to make it easier for you to use our AWS features. This will help you get up and running faster.
+
+![In-product guidance for AWS](/images/blogimages/aws_guide.png){: .shadow}
+
+AWS guide from CI/CD variables
+{: .note.text-center}
+
+### Added security for the GitLab's official AWS Docker images
+
+In [GitLab 13.5](/releases/2020/10/22/gitlab-13-5-released/), we changed the image identifier from the release version number to the Docker image digest. Docker supports immutable image identifiers and we adopted this best practice to update our cloud-deploy images. When a new image is tagged, we also programmatically retrieve the image digest upon its build and create a release note to effectively communicate this digest to users. This guarantees that every instance of the service runs exactly the same code. You can roll back to an earlier version of the image, even if that version wasn't tagged (or is no longer tagged). This can even prevent race conditions if a new image is pushed while a deploy is in progress.
+
+![Docker Image Digest](/images/blogimages/digest1.png){: .shadow}
+
+Docker image digest or release tag
+{: .note.text-center}
+
+## AWS Deployment: auto DevOps support
+
+GitLab already supports Kubernetes users deploying to AWS EKS cluster. Click the link to read instructions about [how to deploy an application to a GitLab-managed Amazon EKS cluster with Auto DevOps](/blog/2020/05/05/deploying-application-eks/#:~:text=The%20Auto%20DevOps%20function%20at,build%2C%20and%20deploy%20your%20application).
+
+We also expanded Auto DevOps to support non-Kubernetes users. Users can specify their deployment target by adding the `AUTO_DEVOPS_PLATFORM_TARGET` variable under the CI/CD variables settings. Specifying the deployment target platform builds a full CI/CD pipeline that deploys to AWS targets.
+
+We currently support:
+
+- `AUTO_DEVOPS_PLATFORM_TARGET: ECS` (added in GitLab 13.0)
+- `AUTO_DEVOPS_PLATFORM_TARGET: FARGATE` (added in GitLab 13.2)
+- `AUTO_DEVOPS_PLATFORM_TARGET: EC2` (added in GitLab 13.6)
+
+For more information about Auto DevOps for AWS targets, see [requirements for Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/requirements.html) documentation.
+
+Here's a quick recording for how to use Auto Deploy to Amazon ECS:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/HzRhLLFlAos" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+Speed run on how to use auto deploy to EC2 (animation):
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/rVr-vZfNL6U" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+## AWS Deployment: Future plans to extend deployment support via GitLab
+
+Check out some of the open issues below to see our plans are for the future of deploying to AWS using GitLab.
+
+- [Show AWS deployment success code in logs](https://gitlab.com/gitlab-org/gitlab/-/issues/215333): This will bring the success/failure codes from AWS into your GitLab pipeline logs, allowing you to see the deployment success code without needing to go into the AWS console to retrieve the logs.
+- [Show AWS deployment success code in pipeline view](https://gitlab.com/gitlab-org/gitlab/-/issues/232983): This will bring the success/failure codes from AWS into your GitLab pipeline, allowing you to see if the deployment job was successful in one view.
+- [Auto Deploy to AWS S3](https://gitlab.com/gitlab-org/gitlab/-/issues/219087): This will expand the supported deployment targets covered in this blog to include [S3 buckets](https://aws.amazon.com/s3/) as well.
+- [AWS integration per-environment role management](https://gitlab.com/gitlab-org/gitlab/-/issues/27107): This returns a set of temporary security credentials you can use to access AWS resources that you normally might not be able to access. This is accomplished by using the [AWS IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html) roles.
+
+## More material on deploying to EKS and Lambda
+
+- [Demo of how to deploy to EKS](https://docs.google.com/presentation/d/1iXnB6lvTx2_-_0ASElLUDZwyFPWILCRx54XjJkMFuw0/edit#slide=id.g6bb36a7017_2_42).
+- [Whitepaper on how to deploy on AWS from GitLab](/resources/whitepaper-deploy-aws-gitlab/).
+
+We invite you to contribute to our other cloud provider solutions:
+
+- [Streamline GCP deployments](https://gitlab.com/groups/gitlab-org/-/epics/2706).
+- [Streamline Azure deployments](https://gitlab.com/groups/gitlab-org/-/epics/4846).
+
+At GitLab, [everyone can contribute](/company/strategy/#contribute-with-gitlab). If you want to deploy to a target that isn't mentioned in this post, please let us know by adding an issue and linking it to our [Natively support hypercloud deployments](https://gitlab.com/groups/gitlab-org/-/epics/1804) epic.
+
+Cover image by [SpaceX](https://unsplash.com/photos/uj3hvdfQujI) on [Unsplash](https://www.unsplash.com){: .note}

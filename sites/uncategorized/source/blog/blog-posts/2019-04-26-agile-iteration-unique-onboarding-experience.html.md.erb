@@ -1,0 +1,107 @@
+---
+title: "Agile iteration: My unique onboarding experience at GitLab"
+author: Michael Fahey
+author_gitlab: mfahey
+author_twitter: rootwarrior
+categories: security
+image_title: '/images/blogimages/security-cover-new.png'
+description: "How I learned to iterate quickly during my first week at GitLab."
+tags: inside GitLab, security
+twitter_text: "How I learned to iterate at the speed of @gitlab during my first week as the Red Team manager"
+postType: content marketing
+---
+
+My name is Michael Fahey. I have been working in the security and IT industries for over 15 years. Recently, I joined GitLab’s Security Team as the manager of the [Red Team](/handbook/security/#red-team). The GitLab Red Team is responsible for assessing the overall security posture of GitLab as a company as well as testing the security and defensive capabilities of our products and services.
+
+We demonstrate that by telling the stories of our exploits, to help provide context and flavor to the risks we identify. We are white-hat hackers emulating adversaries, and bad guys, so we can rapidly iterate on our security practices resulting in a stronger security posture and better security products.
+
+The Red Team is a new team. Initially, when I talked to my manager, I was expecting to plan and conduct Red Team exercises after I onboarded. An opportunity presented itself for me to join the [CEO Shadow Program](/handbook/ceo/shadow/), so instead, in my second week, I was in San Francisco working with the CEO of GitLab, [Sid Sijbrandij](/company/team/#sytses)! One thing to know about Sid is that he is passionate about security, so while I was a part of the CEO Shadow Program, he recommended we perform a social engineering exercise against GitLab. I was starting to understand how serious GitLab is about our values, and I wanted to get the firsthand experience with one of our values, [iteration](/handbook/values/#iteration).
+
+The tempo at which everything was going was not something I was used to. When faced with a new situation like this, I try to emphasize care by slowly gathering information on the target, then building a believable story to persuade the target to perform what I want them to. Social engineering exercises are more about building trust and sympathy than anything else. Sid, however, insisted that I just execute and iterate on the exercise, despite my reservations. Sid was trying to teach me something important which I did not yet grasp.
+
+## What are our Red Team exercise goals?
+
+The goal of the exercise was to observe how a new employee would react to the demands of the CEO. From the perspective of an adversary, the goal was to compromise GitLab.com by impersonating the CEO, and then demand that an employee with privileged access install an authorization key, controlled by the Red Team, to production servers.
+
+The expected value of this basic exercise was to identify areas of improvement and level set on our current security stance. It's a starting point to allow us to iterate and build upon. Ideally, we hoped our chosen target would report the incident to the Security Operations Team. At that point, the event would be triaged, and the account deactivated quickly to mitigate any further impact.
+
+### Here is how we scoped this basic exercise:
+
+- Limit the activity to Slack.
+- Emulate an immature, aggressive adversary.
+- Target and identify the people who administer our production systems.
+- Assume compromise of the CEO's Slack identity. For the objectives of this exercise, we don't care how Sid's identity got compromised. In fact, the impersonated Slack account was provisioned before this exercise.
+- The Security Operations Team were not aware of the engagement and were not notified prior to this exercise.
+
+### How did the attempted compromise go?
+
+So, as the adversary, we started out with the pre-provisioned CEO slack account and logged in. Next, we needed to learn more about GitLab and find the weakest link in the chain to exploit. Luckily, GitLab makes all the information we need publicly available
+within the [handbook](/handbook/) and [team](/company/team/) pages.
+
+### Here is what we learned:
+
+- The Infrastructure Team administers all of GitLab’s production systems.
+- The Infrastructure Team remotely accesses, controls and manages GitLab.com.
+- I identified a new GitLab team-member who had just joined the Infrastructure Team. His Slack profile really stood out for us:
+
+![New GitLab team-member Slack profile](/images/blogimages/red-team-exercise/slack-profile.png){: .shadow.medium.center}
+
+We found the status of “Onboarding – be gentle” too good not to take up. So, we sent out an urgent request impersonating the CEO of GitLab. “Sid” had an urgent request to add his SSH key to the production systems and Target0 was the only one that could help. Check out what the Red Team sent him below.
+
+![Message from "Sid"](/images/blogimages/red-team-exercise/sid-message.png){: .shadow.medium.center}
+
+For context alone, there is one crucial fact to understand. An Advanced Persistent Threat (APT) would not burn such a high-value asset as Sid’s Slack profile on something so aggressive. It has too high of a chance for failure. That isn’t to say this doesn’t happen. It is generally a more immature adversary who just wants to do a smash and grab of whatever they can get.
+
+With the message sent, Target0 never responded. We didn’t have any insight as to what was happening, and we didn’t want to push too hard, so we took a different tactic. We contacted his manager, Target1 to see if we could pressure Target0 through another trusted means.
+
+![Message from "Sid" to manager](/images/blogimages/red-team-exercise/sid-message-manager.png){: .shadow.medium.center}
+
+Looks like we are onto something here! Target1 is going to look into it for us, but we hear nothing back. At this point in the exercise, we were still not sure what was happening in the background and waited over an hour. Our access was still intact, so we weren’t sure if we were caught or they were working on implementing the request.
+
+## What actually happened?
+
+Turns out Target0 challenged the request and reached out for help from our Security Operations team. We failed to compromise GitLab.com, but there could be more to learn in how Security Operations responded to the event. One can see that Target0 created the following ticket below. At that point, our Security Operations team was on it!
+
+![Ticket to SecOps](/images/blogimages/red-team-exercise/sec-ops-ticket.png){: .shadow.medium.center}
+
+The Security Operations Team immediately triaged the issue. They got in touch with Sid’s executive assistant. She asked the Security Operations team to hold off on any action then went unresponsive for a half hour, because she knew about this exercise, and was advised to take the actions that she took. This stalled the response process. During that time, the Red Team still had control over Sid’s Slack account, which had not been deactivated.
+
+## What were the results of the exercise?
+
+From a Red Team perspective, we _wanted_ to fail in our exercises, but fail or succeed, it is critical that everyone involved learns from the experience.
+
+### Here are some key observations:
+
+- Target0 and Target1's instincts and decisions were validated. They did the right thing to challenge and report the request from “Sid.” They are now more empowered to challenge dubious claims in the future. Heroes of the story!
+
+- The Security Operations Team quickly responded to and triaged the incident. However, through a combination of the following, a final response was delayed:
+    - Sid’s executive assistant requested to delay action until she heard back from Sid.
+    - There was a lack of evidence indicating unauthorized access (via investigation of Slack’s audit logs).
+    - Positive confirmation from the executive assistant that Sid was in an interview (thus no physical breach). A Security Operations team member later jested:
+
+![SecOps team member joke](/images/blogimages/red-team-exercise/slack-comment.png){: .shadow.medium.center}
+
+- Communication is critical when running Red Team exercises, and a failure in communication can lead to failures in efficiency. For example:
+    - When the Red Team exercise is starting, send a notification to leadership that the activity is beginning, so that leaders can better respond to the natural panic of these engagements.
+    - Perform a Zoom review meeting with the Sr. Director of Security, VP of Engineering, and the CEO to make sure everyone is on the same page.
+
+## How did this social experiment play out?
+
+GitLab is a growing startup with lots of new employees onboarding and an evolving security organization. GitLab demonstrated their ability to be agile and security-aware, but we’ve now started a conversation on why people shouldn’t blindly follow orders due to the person's position and authority, like the CEO. That is precisely why controls like Separation of Duties [(NIST 800-53 Security Control: CA-5)](https://nvd.nist.gov/800-53/Rev4/control/AC-5) and the incident response process are so critical.
+
+This exercise allowed both the Red Team and Security Operations Team the opportunity to learn and grow together. Red Team is the robbers and Security Operations the cops, but what can happen if the robbers and cops start working together? If one of my favorite shows, "White Collar," is any indicator, we can achieve far more together than we could alone.
+
+## What did I learn from all of this?
+
+From my perspective, I expected Target0 and Target1 to report the issue and Security Operations to respond to the incident. The Red Team’s goal should be about empowering people to champion cybersecurity challenges and solutions. We may do that through adversarial means to highlight problems, but it should always be for the benefit of the employees, customer, and company. I feel like some of us in the industry forget that from time to time.
+
+Outside of the exercise, I learned the importance of [iteration](/handbook/values/#iteration)
+and a strategic concept GitLab employs called [Breadth over Depth](/company/strategy/#breadth-over-depth).
+The idea is to iterate as fast as possible to learn and grow as fast as possible. Quickly learn and grow as opposed to planning something over days and weeks.
+
+If you quickly iterate then fail or succeed, you can learn far more than if you carefully planned
+every step then execute on that plan. There is no guarantee that any plan or
+idea will succeed, no matter how much planning and thought you put into it. There is truth in
+the saying, “No plan survives first contact with the enemy.”
+
+We can’t wait for that perfect moment or take the time to develop the perfect plan because we will become stagnant and learn little otherwise. What should you do then? Rapidly iterate. Over time, you will grow far faster, be more capable, and have greater insight into your solution.

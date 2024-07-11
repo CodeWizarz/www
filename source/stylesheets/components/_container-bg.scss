@@ -1,0 +1,25 @@
+@import "../vendor/bourbon/bourbon";
+
+.container--has-bg {
+  position: relative;
+}
+
+.container-bg {
+  $lt-side-offset: $grid-gutter-width / 2;
+  @include position(absolute, 0 $lt-side-offset);
+  background-position: 50% 50%;
+  background-size: cover;
+}
+
+.container-bg--fallback-bg-color {
+  background-color: $color-gray-extra-light-alt;
+}
+
+@each $size, $max-width in (md: $screen-md-max, sm: $screen-sm-max, xs: $screen-xs-max) {
+  .container-bg--hide-bg-image-if-#{$size} {
+    @media (max-width: $max-width) {
+      // Need to override inline style for bg image
+      background-image: none !important;// sass-lint:disable-line no-important
+    }
+  }
+}

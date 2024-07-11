@@ -1,0 +1,41 @@
+---
+layout: default
+title: MVP
+description: Every release a contributor is awarded the prestigious golden fork as the Most Valuable Person (MVP). Below is the list of all MVPs and the selection process.
+canonical_path: "/community/mvp/"
+extra_css:
+  - mvp.css
+suppress_header: true
+---
+.blank-header
+  .container
+    %h1.title
+      GitLab Hall of
+      %b Fame
+    .mvp-badge
+      = image_tag "/images/mvp_badge.png"
+.container
+  %h2.block-title GitLab MVP
+  %p.description
+    Every release, GitLab team-members select a community contributor as the MVP (most valuable person) of the release and the MVP is recognized with the prestigious golden fork.
+    Contributions can range from features, design,
+    usability/accessibility, maintenance of code, documentations, translations (l10n/i18n), etc.
+    The selection process is described in the
+    #{link_to "Contributor Success Handbook", "/handbook/marketing/developer-relations/contributor-success/mvp-process.html"}
+    and the list of all MVPs is as follows:
+
+  .row
+    %dl.col-lg-10.col-lg-offset-1.col-lg-8.col-lg-offset-2
+      - data.mvps.each do |mvp|
+        %dt.col-sm-4.col-xs-12.font-weight-normal
+          - if mvp.post
+            =link_to "#{mvp.version} (#{mvp.date})", "#{mvp.post}"
+          - else 
+            = "#{mvp.version} (#{mvp.date})"
+        %dd.col-sm-8.col-xs-12
+          - if mvp.gitlab && mvp.gitlab.is_a?(Array)
+            = mvp.name.zip(mvp.gitlab).map { |name, gitlab| link_to("#{name} (@#{gitlab})", "https://gitlab.com/#{gitlab}") }.join(" and ")
+          - elsif mvp.gitlab
+            = link_to "#{mvp.name} (@#{mvp.gitlab})", "https://gitlab.com/#{mvp.gitlab}"
+          - else
+            = mvp.name

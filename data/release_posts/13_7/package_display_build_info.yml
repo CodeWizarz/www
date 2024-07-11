@@ -1,0 +1,17 @@
+features:
+  secondary:
+    - name: "Packages built with CI/CD always display build info"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/packages/package_registry/#use-gitlab-cicd-to-build-packages'
+      reporter: trizzi
+      stage: package
+      image_url: '/images/13_7/package_build_info_pipelines.png'
+      categories:
+        - 'Package Registry'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/239518'
+      description: |
+        If you've been publishing packages to the Package Registry, you might have noticed that packages built with GitLab CI/CD did not always display the commit and pipeline responsible for creating or updating your package. This might occur for a few reasons.
+
+        First, it's possible that we didn't support this functionality yet, as was the case with [Composer](https://gitlab.com/gitlab-org/gitlab/-/issues/254385) and [Conan](https://gitlab.com/gitlab-org/gitlab/-/issues/234002). Second, an issue occurred for those of you who have been updating the same version of a package from different branches or commits. A package with the same version can be published from different branches and/or commits. However, until recently, the UI displayed only the first deployment and left out any updates. In addition, the details page displayed the branch that created the package, not the most recent commit. As a result, you had to try and find this information by viewing your commit history, which was not very efficient.
+
+        Moving forward, any package created or updated with GitLab CI/CD will display commit and pipeline info in the Packages user interface. To avoid performance or UX issues, only five updates of a package will be displayed. In milestone 13.8, we will create a [design that helps you intuitively view all historical data](https://gitlab.com/gitlab-org/gitlab/-/issues/292215). In the meantime, you can use the [Packages API](https://docs.gitlab.com/ee/api/packages.html#get-a-project-package) to view the entire build history of a given package.

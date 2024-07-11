@@ -1,0 +1,134 @@
+---
+title: "3 YAML tips for better pipelines"
+window_title: "Improving the YAML File for Stronger Pipelines | GitLab"
+author: Chrissie Buchanan
+author_gitlab: cbuchanan
+author_twitter: gitlab
+categories: insights
+image_title: '/images/blogimages/yaml-tips.jpg'
+description: "Learn how to get the most out of your YAML configs."
+tags: CI/CD, DevOps
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "YAML tips for better #cicd pipelines" # optional;  If no text is provided it will use post's title.
+featured: no # reviewer should set
+postType: content marketing
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+At GitLab, we’re fans of YAML. But for all of its benefits, we’d be lying if we said YAML hasn’t caused its fair share of headaches, too.
+
+[YAML](https://yaml.org/) is used industry-wide for declarative configuration. YAML offers flexibility and simplicity, as long as you know the rules and limitations. Since YAML is platform-agnostic, knowing best practices around YAML configurations is a transferable skillset in a cloud native world.
+
+## What are the benefits of YAML?
+
+YAML is a data serialization language designed to be human-friendly. YAML is easy to use in a text editor, has a simple syntax that works across programming languages, and can store a lot of important configuration data (typically in a .yml or .yaml file).
+
+[YAML is data-oriented](https://blog.stackpath.com/yaml/) and has features derived from Perl, C, HTML, and others.
+
+Because YAML is a superset of JSON, it has built-in advantages including comments, self-referencing, and support for complex data types.
+
+A [YAML file uses declarative configuration](https://www.codeproject.com/Articles/1214409/Learn-YAML-in-five-minutes) to describe a variety of structures, such as API data structures and even deployment instructions for virtual machines and containers, to name a few.
+
+YAML is comprehensive, widely-used, and works in every type of development environment.
+
+## YAML tip #1: Let other tools do the formatting for you
+
+YAML is one of those languages where it’s minimalism is both a blessing and a curse, depending on who you ask. It also relies on the syntactically significant whitespace that is a source of [heated debate](https://wiki.c2.com/?SyntacticallySignificantWhitespaceConsideredHarmful) among developers. For a language where formatting is a king, what can developers do to make sure they stay within the rules without having to analyze every single space and indentation?
+
+Many text editors and platforms have plugins or built-in tools to check YAML configuration syntax for you.
+
+*   [Atom](http://atom.io/), the open source text editor, comes with a default YAML mode.
+*   [Red Hat YAML support](https://marketplace.visualstudio.com/items?itemName=redhat.vscode-yaml) provides YAML Language and Kubernetes syntax support to the [VS Code editor](https://code.visualstudio.com/).
+*   [OnlineYamlTools](https://onlineyamltools.com/edit-yaml) has a web-based editor that will do in a pinch. It also links to other helpful options such as converting JSON to YAML, etc.
+*   [SlickEdit](https://www.slickedit.com/products/slickedit/448-the-most-powerful-yaml-editor-in-the-world#:~:text=SlickEdit%20%2D%20The%20most%20powerful%20YAML,source%20diff%2C%20and%20much%20more.) is the self-described "most powerful YAML editor in the world" and has some helpful features to back it up (at a cost). SlickEdit offers a free trial.
+*   [Pretty YAML](https://packagecontrol.io/packages/Pretty%20YAML) is a plugin for Sublime Text 2 and 3 that allows you to format YAML files.
+
+[Linters](https://sourcelevel.io/blog/what-is-a-linter-and-why-your-team-should-use-it) are used in the development process to analyze code for stylistic and formatting errors, among other things. Teams adopt linters and other static tools by integrating them into their integrated development environment (IDE) of choice, and/or by running them as an additional step in their continuous integration (CI).
+
+In GitLab, we have a [CI lint](https://docs.gitlab.com/ee/ci/lint.html#validate-basic-logic-and-syntax) that checks the syntax of your CI YAML configuration that also runs some basic logical validations.
+
+To use the CI lint, paste a complete CI configuration (`.gitlab-ci.yml` for example) into the text box and click `Validate`:
+
+![GitLab CI lint](https://docs.gitlab.com/ee/ci/img/ci_lint.png)
+
+## YAML tip #2: Keep it simple
+
+It’s easy to overwhelm the minimalism of a YAML file by including too many details, or by being inconsistent with formatting. When it comes to YAML, less is often more.
+
+It isn’t necessary to specify every single attribute. `Job timeout` is an example of an attribute that can be left out, since this is something that is sometimes specified elsewhere. An example in GitLab is [interruptible](https://docs.gitlab.com/ee/ci/yaml/#interruptible), which is used to indicate that a job should be canceled if made redundant by a newer pipeline run. Since this defaults to `false` it’s not always necessary to include it.
+
+Some people indent gratuitously when writing YAML to help themselves visualize large chunks of data. To better visualize how data works together, it might be helpful to create a "pseudo-config" before committing the code to YAML. On the [Red Hat blog](https://www.redhat.com/sysadmin/yaml-tips), a pseudo-config is described as pseudo-code where you don't have to worry about structure or indentation, parent-child relationships, inheritance, or nesting. Just write the data down as you understand it.
+
+![Red Hat pseudo config](https://www.redhat.com/sysadmin/sites/default/files/inline-images/pseudoyaml.jpg)
+
+Once you understand how the data correlates, then you can commit it to YAML.
+
+Regardless of how you define simplicity in your workflow, try to keep YAML configs uncluttered and include only the necessary data. And if you’re not sure what data is necessary, write out a pseudo-config to help you visualize it.
+
+
+
+## YAML tip #3: Reuse config when possible
+
+Starting from scratch is a lot of wasted effort, and YAML is no exception. One of the best parts of YAML is its reusabilty, and reusing config is a way to keep files consistent within an organization.
+
+One way to [avoid duplicated configuration](https://docs.gitlab.com/ee/ci/yaml/#include) is by using the `include` keyword, which allows the inclusion of external YAML files. For example, global default variables for all projects that don’t need to be modified for every file. The `include` keyword helps to break down a YAML configuration into multiple files and boosts readability, especially for long files. It’s also possible to have template files stored in a central repository and projects included in their configuration files.
+
+`extends` is a great way to reuse some YAML config in multiple places, for example:
+
+```
+.image_template:
+  image:
+    name: centos:latest
+
+test:
+  extends: .image_template
+  script:
+    - echo "Testing"
+
+deploy:
+  extends: .image_template
+  script:
+    - echo "Deploying"
+```
+
+YAML has a handy feature called [anchors](https://docs.gitlab.com/ee/ci/yaml/yaml_optimization.html#anchors), which lets you easily duplicate content across your document. Anchors can be used to duplicate/inherit properties, and is a perfect example to be used with [hidden jobs](https://docs.gitlab.com/ee/ci/jobs/#hide-jobs) to provide templates for your jobs. When there is duplicate keys, GitLab will perform a reverse deep merge based on the keys.
+
+```
+.job_template: &job_definition  # Hidden key that defines an anchor named 'job_definition'
+  image: ruby:2.6
+  services:
+    - postgres
+    - redis
+
+test1:
+  &lt;<: *job_definition           # Merge the contents of the 'job_definition' alias
+  script:
+    - test1 project
+
+test2:
+  &lt;<: *job_definition           # Merge the contents of the 'job_definition' alias
+  script:
+    - test2 project
+```
+
+One big caveat to anchors: You can’t use anchors across multiple files when leveraging the `include` feature.
+
+Instead of building pipelines from scratch, [CI/CD pipeline templates](/blog/2020/09/23/get-started-ci-pipeline-templates/) simplify the process by having parameters already built-in. At GitLab, pipelines are defined in a `gitlab-ci.yml` file. Because our CI/CD templates come in over 30 popular languages, chances are good that we have the template you need to get started in our [CI template repository](https://gitlab.com/gitlab-org/gitlab/tree/master/lib/gitlab/ci/templates).
+
+Templates can be modified and are created to fit many use cases. To see a large `.gitlab-ci.yml` file used in an enterprise, see the [.gitlab-ci.yml file for GitLab](https://gitlab.com/gitlab-org/gitlab/blob/master/.gitlab-ci.yml).
+
+Whether you’re a YAML lover, YAML novice, or using YAML against your will, knowing some tips and tricks can make your development process a better experience. Do you have any YAML tips or recommendations? Feel free to comment down below.
+
+Curious about GitLab CI/CD and want to show off your YAML skills? [Try GitLab free for 30 days](/free-trial/).
+
+Cover image by [Harits Mustya Pratama](https://unsplash.com/@haritsmustya?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/greenhouse?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+## Related content
+[GitLab CI/CD pipeline configuration reference](https://docs.gitlab.com/ee/ci/yaml)
+
+[Unlock better DevOps with GitLab CI/CD](https://about.gitlab.com/blog/2019/10/18/better-devops-with-gitlab-ci-cd/)
+
+[Pipeline efficiency](https://docs.gitlab.com/ee/ci/pipelines/pipeline_efficiency.html)

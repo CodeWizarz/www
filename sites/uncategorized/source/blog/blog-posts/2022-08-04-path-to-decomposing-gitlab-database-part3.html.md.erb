@@ -1,0 +1,160 @@
+---
+title: "Decomposing the GitLab backend database, Part 3: Challenges and surprises"
+author: Dylan Griffith
+author_gitlab: DylanGriffith
+categories: engineering
+description: "This is the final installment in our three-part series about our yearlong project to decompose GitLab's Postgres database."
+tags: inside GitLab, design
+featured: no
+twitter_text: "The final part in our series on decomposing the GitLab backend database examines the challenges and surprises our team encountered."
+---
+_This blog post is part 3 in a three-part series. It focuses on some interesting
+low-level challenges we faced along the way, as well as some surprises we found during
+the migration._
+
+- To read about the design and planning phase, check out [part 1](/blog/2022/08/04/path-to-decomposing-gitlab-database-part1/).
+- To read about how we executed the actual migration and our results, check out [part 2](/blog/2022/08/04/path-to-decomposing-gitlab-database-part2/).
+
+## The challenge with taking GitLab.com offline
+
+One key part of our migration process was to take all systems offline that
+could potentially talk to the database. This may seem as simple as "shutting
+down the servers" but given the scale and complexity of GitLab.com's
+infrastructure this proved to be really quite complex. Here is just a subset of
+the different things we had to shut down:
+
+1. Kubernetes pods corresponding to web, API, and Sidekiq services
+2. Cron jobs across various VMs
+
+## Surprises along the way
+
+Even though we had rehearsed the migration many times in staging, there were
+still some things that caught us off-guard in production. Luckily, we had
+allocated sufficient buffer time during the migration to resolve all of these
+during the call:
+
+1. Autovacuum on our largest CI tables take a long time and can run at any
+   time. This delayed our migration as we needed to gain table locks for our
+   [write block
+   triggers](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/83211).
+   Adding these triggers requires a `ShareRowExclusiveLock` which cannot be
+   acquired while the autovacuum is running for that table. We disabled
+   some manual vacuum processes we were aware of ahead of the call but
+   autovacuum can happen at any time and our `ci_builds` table just happen to
+   have autovacuum at the time we were trying to block writes to this table. To
+   work around this we needed to temporarily disable autovacuum for the
+   relevant tables and then find the `pid` for the autovacuum process and
+   terminate this which allowed our triggers to be successfully added.
+2. Sometimes a long-running SSH session by an SRE or developer can leave open a
+   surprising database connection that needs to be tracked down and closed.
+3. Cron jobs can be run on various hosts that start rails processes or database
+   connections at any time. We had many examples that were created with
+   different purposes for database maintenance over the years, and we missed at
+   least one in our practice runs. They weren't as easy to detect on staging as
+   they may not all be configured on staging, or they run a lot faster on
+   staging. Also, our staging runs all happened on week days, but our
+   production migration happened on a weekend where it seemed we were
+   deliberately running some database maintenance workloads during low
+   utilization hours.
+4. Our Sentry client-side error tracking caused us to overload our Sentry
+   server due to many of users leaving open GitLab browser tabs. As
+   the browser tabs periodically make asynchronous requests to GitLab and get
+   errors (since GitLab.com was down), they then send all these errors to Sentry
+   and this overloaded our Sentry error server to the point we couldn't load it
+   to check for errors. This was quickly diagnosed based on the URL all the
+   requests were sent to, but it did delay our migration as checking for new
+   errors was key to determining success or failure of the migration.
+
+## Cascading replication doubles latency (triples in our case)
+
+A key initial step in our phased rollout was to move all read-only CI traffic
+to dedicated CI replicas. These were cascading replicas from the main Patroni
+cluster. Furthermore, we made the decision to create the standby cluster leader
+as a replica of another replica in the Main Patroni cluster. Ultimately this
+meant the replication process for our CI replicas was
+`Main Primary -> Main Replica -> CI Standby Leader -> CI Replica`.
+
+This change meant that our CI replicas had roughly three times as much latency
+compared with our Main replicas, which previously served CI read-only traffic.
+Since our read-only load balancing logic is based on users sticking to the primary
+until a replica catches up with the last write that they performed, users
+might end up sticking to the primary longer than they previously would have.
+This may have served to increase our load on the primary database after rolling
+out Phase 3.
+
+We never measured this impact, but in hindsight it is something we
+should have factored in and benchmarked with our gradual rollout of Phase 3.
+Additionally, we should have considered mitigating this issue by having the `CI
+Standby Leader` replicating straight from the `Main Primary` or adding the `CI
+Standby Leader` to the pool of replicas that we could service CI read-only
+traffic.
+
+## Re-balancing PGBouncer connections incrementally without saturating anything
+
+[Phase 4 of our rollout][phase4_change_request] turned out to be one of the
+trickiest parts of the migration. Since we wanted all phases (where possible)
+to be rolled out incrementally we needed some way to [solve for
+incrementally re-balancing connection pool limits][phase4_gradual_rollout_issue]
+from `GitLab -> PGBouncer -> Postgres` without exceeding the total connection
+limit of Postgres or opening too many connections to Postgres that might
+saturate CPU. This was difficult because all the connection limits were very
+well tuned, and we were close to saturation across all these limits.
+
+The gradual rollout of traffic for Phase 4 looked like:
+
+```mermaid
+graph LR;
+    PostgresMain[(PostgresMain - Limit K max_connections)]
+    GitLabRails-->|100-X % of CI queries|PGBouncerMain
+    GitLabRails-->|X% of CI queries|PGBouncerCi
+    PGBouncerMain-->|Limit N pool_size|PostgresMain
+    PGBouncerCi-->|Limit M pool_size|PostgresMain
+```
+
+We wanted to gradually increase X from 0-100. But this presented a problem, because
+the number of connections to the `PostgresMain` DB will change
+with this number.
+
+We assume it has some initial limit `K` connections, and we
+assume this limit is deliberately just high enough to handle the current
+connections from `PGBouncerMain` and not overload the CPU. We need to carefully
+tune `N` and `M` `pool_size` values across the separate PGBouncer processes to
+avoid overloading the limit K, and we also need to avoid saturating the
+Postgres server CPU with too much traffic. At the same time, we need to ensure
+there are enough connections to handle the traffic to both PGBouncer pools.
+
+We addressed this issue by taking very small steps during low
+utilization hours (where CPU and connection pools weren't near saturation) and
+doing very detailed analysis after each step. We would wait a day or so to figure out how
+many connections to move over with the following steps, based on the number of
+connections that were used by the smaller step. We also used what data we had
+early on from table-based metrics to get an insight into how many connections
+we thought we'd need to move to the CI PGBouncer pool.
+
+In the end, we did need to make small adjustments to our estimates along the way
+as we saw saturation occur, but there was never any major user-facing saturation
+incidents, as the steps were small enough.
+
+## Final thoughts
+
+We're very happy with the results of this project overall.
+
+A key objective of this project, which was hard to predict, was how the complexity of
+an additional database might impact developer productivity. They can't do
+certain types of joins and there is more information to be aware of.
+However, many months have now passed, and it seems clear now that the complexity is mostly abstracted by Rails models. With continued large number of developers contributing, we have seen
+little-to-no impact on productivity.
+
+Combining this success with the huge scalability headroom we've gained, we believe this was a great decision for GitLab.
+
+## More reading
+
+This blog series contains many links to see our early designing, planning, and
+implementation of various parts of this project. GitLab's
+[transparency value](/handbook/values/#transparency)
+means you can read all the details and get a sense of what it's like to work on
+projects like this at GitLab. If you'd like to know more or something was
+unclear please leave a comment, so we can make sure we share all our learnings.
+
+[phase4_change_request]: https://gitlab.com/gitlab-com/gl-infra/production/-/issues/6440
+[phase4_gradual_rollout_issue]: https://gitlab.com/gitlab-org/gitlab/-/issues/347203

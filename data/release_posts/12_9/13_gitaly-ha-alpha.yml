@@ -1,0 +1,37 @@
+---
+features:
+  primary:
+  - name: High Availability for Gitaly (alpha)
+    available_in: [premium, ultimate]
+    gitlab_com: false
+    documentation_link: https://docs.gitlab.com/ee/administration/gitaly/praefect.html
+    image_url: "/images/12_9/praefect-architecture.png"
+    reporter: jramsay
+    stage: create
+    categories: [Gitaly]
+    epic_url: https://gitlab.com/groups/gitlab-org/-/epics/842
+    description: |
+      For many customers, GitLab is a business critical application because an
+      outage would prevent developers from being productive, and obstruct the
+      deployment of new features and fixes. To prevent outages, GitLab can be
+      run in a [highly available
+      (HA)](https://docs.gitlab.com/ee/administration/reference_architectures/index.html)
+      configuration. The currently documented HA configuration recommends using
+      NFS. However, NFS significantly increases the latency of read and write
+      operations, which severely impacts the performance of Git operations,
+      particularly as the size of the repository grows.
+
+      Gitaly now offers experimental alpha support for high availability without
+      using NFS. **This feature should not be used in production!** There are
+      single points of failure, and unexpected data loss may occur. However, you
+      may wish to start evaluating high availability for Gitaly in a test
+      environment. Since January, we have successfully been testing on
+      GitLab.com with a small number of projects.
+
+      High Availability for Gitaly is eventually consistent, implemented as an
+      asynchronous replication queue, favoring availability over consistency. If
+      an outage occurs on a primary Gitaly node before the replication queue has
+      been drained, data loss will occur. In parallel we have begun
+      investigating [strong
+      consistency](https://gitlab.com/groups/gitlab-org/-/epics/1189) to prevent
+      such data loss scenarios.

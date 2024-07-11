@@ -1,0 +1,251 @@
+---
+title: "How to migrate Atlassian Bamboo Server's CI/CD infrastructure to GitLab CI, part one"
+author: Ivan Lychev
+author_gitlab: iLychevAD 
+categories: engineering
+description: "Theoretical reasoning and practical proposal on migrating an existing CI/CD infrastructure of some multi-component application from Bamboo Server to GitLab CI"
+tags: CI/CD, DevOps, tutorial
+guest: true
+featured: no
+postType: content marketing
+---
+
+When I faced a task of migrating from `Atlassian Bamboo Server` to `GitLab CI/CD`, I was not able to find any comprehensive information regarding something similar. So I designed a process on my own. This demo shows how to migrate a CI/CD structure for an existing multi-component application from a discontinued [Atlassian Bamboo Server](https://www.atlassian.com/migration/assess/journey-to-cloud) to [GitLab CI/CD](https://docs.gitlab.com/ee/index.html) (Community Edition).
+
+The accompanying repository is https://gitlab.com/iLychevAD/ci-cd-for-a-multi-component-app.
+
+In this first part of a two-part series, you will find a description of the current state of affairs - i.e., how the CI/CD has been organized within Bamboo Server, how the Bamboo Build and Deploy plans are designed for bootstrapping infrastructure and deploying the components of the application, and the architecture of the application itself.
+
+And in part two, we'll take a deeper look at the virtues of `GitLab CI/CD`.
+
+## Initial state
+
+(Note: This is not a description of some particular project but more a kind of compilation of several projects I worked on.)
+
+The application solution allows the client to fulfill a particular business purpose (the nature of which is not relevant here and thus not specified) and consists of more than 50 discrete components (further referred to as `applications` or just `apps` or `components`). I refrain from calling them microservices as each of them looks more like a full-fledged application communicating with other siblings using REST API and messages in Kafka topics. Some of them expose a web UI to external or internal users and some are just utility parts serving the needs of other components or performing internal operations, etc.
+
+Code for each app is stored in its own Git repository (further just `repo`). So, a `multi-repo` approach is used for them. Each app may be written in different languages and packaged as one or several OCI-images for deployment.
+
+Each app repo looks like:
+```
+📦 <some-app-git-repo>
+ ┣ 📂src <-- application source code
+ ┣ 📂docker-compose
+ ┃ ┗ 📜docker-compose.yml <-- analogue of K8s manifests
+ ┗ 📜Dockerfile <-- conventionally, "Dockerfile" name is used for OCI image specification file
+```
+
+For running the applications, the client uses an outdated orchestration system (one from pre-Kubernetes epoch). So each app repo contains a Docker-compose compatible file describing deployment directives for that outdated orchestration system (in essence, similar to Kubernetes Deployment manifests). 
+
+For all of the build and deploy activities Atlassian Bamboo Server is used. 
+
+Some details for those not familiar with the Bamboo Server - in an opinionated manner it explicitly separates so-called `build` pipelines and `deployment` pipelines. The former are supposed to build application code and produce some artifacts for further deployment (in our case those artifacts are OCI images uploaded to OCI registry and docker-compose.yml files referring to those images). The latter ones are supposed to take some particular set of artifacts and apply them to some particular `environment`. An `environment` (referred to `env` in the future for brevity) here is just an abstract deployment target characterized by a set of environment variables attached to it and exposed to the apps deployed into it. In reality, an `env` is implemented as a set of resources (virtual machines, databases, object storage locations, etc.) required by the applications.
+
+In Bamboo, one `build` pipeline usually corresponds to one `deployment` pipeline so when the latter is started it just takes the artifacts from the attached `build` pipeline as input. 
+
+The client uses a `production` env, `preproduction` env, and numerous (up to several hundreds) so-called `staging` (short-lived) envs where different development teams and software engineers can test various combinations of the apps (here we assume that they have ~80-100 distinguish components of the application solution and several hundreds of software developers which gives a lot of possible combinations and requires so many `staging` envs).
+
+Roughly, a configuration of a `deploy` pipeline consists of a specification of the source artifacts (which are provided by the attached `build` pipeline as described earlier) and a specification of the set of envs where those artifacts (effectively, an application) can be deployed to.
+
+Current installation uses sophisticated dynamic generation of envs set for each app deployment pipeline. Roughly speaking, they have a central configuration file with the list of all existing envs where for each env a list of apps allowed to be deployed to it is denoted. Each time the file is modified (i.e., an env is created or deleted), the deployment pipelines are automatically being updated so as in the result each of them contains a list of envs corresponding for each app. You will have more idea about this aspect when you have looked at the implementation section later.
+
+In the Bamboo UI this looks like:
+
+![envs_list_on_build_result_page](/images/blogimages/migration-from-atlassian-bamboo-server-to-gitlab-ci/envs_list_on_build_result_page.png)
+
+Here you can see an application build result page where on the right-hand side under the `Included in deployment project` title you can see a list of envs into which you can deploy the application. (Keep in mind that besides `build` and `deployment` pipelines, the Bamboo also uses a notion of `releases` - this is just some kind of an intermediate entity that should be created out of a build result to make it possible to deploy that build into some env). The `cloud-with-upwards-arrow` button in the `Actions` column starts a corresponding `deploy` pipeline with automatically passing the link to a build result (in a form of a `release` entity in Bamboo terminology) and the name of the env next to which the button has been clicked (the procedure of how a list of envs is created for a `deploy` pipe is described above).
+
+A concept of a `release` is specific to Bamboo Server, though it provides some amenities. For example, on the Release details page you can see a list of envs where a release has been deployed to. On the `Commits` tab you can backtrack a release to the application code in a SVC. And the `Issues` tab shows attached Jira tickets.
+
+![bamboo_release_details](/images/blogimages/migration-from-atlassian-bamboo-server-to-gitlab-ci/bamboo_release_details.png)
+Release details page
+{: .note.text-center}
+
+An env details page also enumerates releases history for this env (in scope of one particular application though as an env is specified for each deployment pipeline individually):
+
+![bamboo_env_details](/images/blogimages/migration-from-atlassian-bamboo-server-to-gitlab-ci/bamboo_env_details.png)
+Env details page 
+{: .note.text-center}
+
+And upon clicking the `cloud-with-upwards-arrow` button the Bamboo shows diff of Jira tickets and commits in respect to the previous `release` (only if both releases are made from artifacts from the same Git branch):
+
+![deploy_launch_page](/images/blogimages/migration-from-atlassian-bamboo-server-to-gitlab-ci/deploy_launch_page.png)
+Deploy launch page
+{: .note.text-center}
+
+So, in general, the current path from source control to an env for each app looks like:
+
+![svc_to_env_path](/images/blogimages/migration-from-atlassian-bamboo-server-to-gitlab-ci/svc_to_env_path.png)
+
+The Build plans are triggered automatically upon Git commits or Git tags. Most of the Deployment plans are started by the project members manually when needed. Each Deploy plan contains a step that checks if a user who started the plan has permissions to deploy into an env (for example, only members of the team which owns an env are allowed to deploy to that env and the deployment to the production env is allowed only for a set of eligible project members).
+
+## The task
+
+The task is to migrate the aforementioned design from Bamboo Server to `GitLab` while keeping a similar deployment scheme (leveraging GitLab's `Environments` feature).
+
+Also the following should be considered:
+
+ - team members (software engineers, quality assurance specialists) are supposed to be able to manage environments on their own in a user-friendly self-service manner.
+ - there should not be any discrepancy in IaC for different environments (per `12-factor apps` best practices), i.e. for any kind of an environment, be it a development or production one, the same set of IaC (here - Terraform files) should be used.
+  - the core ideas and workflows established in the previous situation (implemented with Atlassian Bamboo) should be kept to make the migration smoother for the members of the projects (also sometimes referred to as just users). 
+
+## Implementation
+
+### Implementation's GitLab groups\projects structure
+
+```
+📦 <GitLab root group>
+ ┣ 📂 apps GitLab group
+ ┃ ┣ 📃 app1 GitLab project
+ ┃ ┣  ...
+ ┃ ┗ 📃 appN GitLab project
+ ┣ 📂 ci GitLab group
+ ┃ ┣ 📃 library GitLab project
+ ┃ ┗ 📃 oci-registry GitLab project
+ ┗ 📂 infra GitLab group
+  ┣ 📃 environment-blueprints GitLab project
+  ┣ 📃 environment-set GitLab project
+  ┗ 📃 k8s-gitops GitLab project
+```
+
+*Description*:
+
+The most important content is in the `ci/library` repo (the shared ci configs) and `environment-set` repo. The other repos don't require much attention: The `k8s-gitops` purpose is not implemented and the repo is empty, the `apps` group just imitates source code for some apps, and the `ci/oci-registry` serves a role of an OCI registry for the solution.
+
+The `apps` GitLab group merely contains the apps source code per se. Each GitLab project in this group corresponds to one app. Each app repo is expected to contain the source code itself (in the `src` directory for example), a `k8s` directory with k8s manifests, and an OCI image specification file (traditionally often called `Dockerfile`). 
+
+The `ci` GitLab group contains the `ci/library` project that holds shared `.gitlab-ci.yaml` files used by other projects (in a manner similar to Jenkins' shared libraries) and the `ci/oci-registry` serves as an OCI-image registry for various images used by the demo project (it also contains a Git repository with gitlab-ci files to build some utility images with tools used in various pipelines). For simplicity, the latter stores all the images throughout all the projects of the demo, though it's clearly not the best choice for a real-life situation when different sets of images of a set of separate projects/registries should be created.
+
+The `infra` group holds applications infrastructure creation related Git repositories:
+
+The `infra/k8s-gitops` is mostly irrelevant to the topic of this demo. In this demo it's presumed that Kubernetes is used as a computation workload platform and when a k8s cluster is created for an environment all the k8s manifests are supposed to be put into this repo (where each branch corresponds to a single environment) to be consumed by a GitOps tool installed into the cluster.
+
+The `infra/environment-blueprints` holds parametrized IaC templates describing all the resources required for a full-fleged environment. In this example, the Terraform is used as an IaC tool though the principles are similar for its analogs (CloudFormation, for instance). The blueprints are parametrized in such manner that in the defaults values they hold some sensible values (most likely set to different values depending on the kind of a environment they were used to bootstrap - for example, a production env and everything else). It's implied that there might coexist several versions of the blueprints (implemented by using Git branches or Git tags) so each environment (see the next paragraph about `infra/environment-set`) can explicitly specify which version it wants to use (in case of using Terraform by specifying Git reference in the module's `source` field).
+
+Here I would like once again to highlight a digression from the best practices. For simplicity in the `infra/environment-blueprints` repo all the parts of an environment are combined into one single Terraform module (or a workspace, or a Stack in CloudFormation's terminology). In that way all the resources are always updated or changed within a single `terraform apply` command, which is cumbersome for large infrastructures containing a lot of resources. For larger infrastructures it would be more manageable to split into disparate Terraform modules (or CloudFormation Stacks, or Azure ARM Resource Groups) and thus make it possible for the infrastructure to be changed/updated in parts according to which exact components of it have changed. This might raise another question - how to manage dependencies in between such parts if they are present? For that, we would use some kind of an external (in respect to the IaC tool itself) orchestration tool like AWS Step Functions... or even GitLab's DAG feature!
+
+Finally, the `infra/environment-set` project represents an actual expected state of resources for each environment (a branch corresponds to an environment). See the README.md file in the Git repo for details. In short, each branch here is meant to contain a `main.tf` file referring to some version of the blueprints in the `infra/environment-blueprints` project, a set of Terraform files with overrides for any default variables set in the blueprints modules and other utility files like with a list of users allowed to deploy to the environment (such a list is to be checked by the deployments job in the apps projects).
+
+### **Important!**
+
+While looking at the implementation keep im mind that this solution deliberately omits some crucial aspects of any project infrastructure like security or monitoring, just for the sake of keeping this solution manageable and comprehensible. Implementing security and monitoring aspects would make the solution cumbersome and much longer to prepare. That is also true for the `k8s-gitops` repository - it's implied that in a real-life solution this would actively participate in the deployment process and hold Kubernetes clusters state in a GitOps approach but currently, this repo is just a placeholder. In the practical guide later you will see a description of the process of controlling environments using different branches in the `infra/environment-set` project. Ideally, such a workflow should use Merge Requests though for simplicity this implementation skips using MRs.
+
+Another important thing that's possible not clear in this solution is configuration management, i.e. how configuration settings unique to each environment are provided to the applications inside an environment. Well, given that our applications run within Kubernetes cluster and that the cluster state is placed into a dedicated repo (`k8s-gitops` in our case), the configuration settings situation is simple - for each app the Terraform files in the `infra/environment-blueprints` should output all the sensible configuration values for the resources (like S3 bucket names, RDS endpoint URLs, etc.). Then, using Terraform itself or some other tool to create/update an environment, an additional step would collect all those outputs, transform them into k8s ConfigMap manifests, and put them into the GitOps repo. 
+
+For the secrets, we can go several ways. The most simplistic (though not flexible and not easy for secret rotation) way is to use some kind of encryption at rest like Mozilla's SOPS so that the secrets are being encrypted when they are put into the GitOps repo and decrypted when deployed into K8s. Another (and better ?) way - do not store secrets at rest at all but use either a third-party tool like Hashicorp Vault (with dynamic secrets generation) or cloud native features like [AWS IAM Roles for Service Accounts](https://aws.amazon.com/blogs/containers/diving-into-iam-roles-for-service-accounts/).
+
+## Bootstrap the demo
+
+The accompanying repository, https://gitlab.com/iLychevAD/ci-cd-for-a-multi-component-app, contains Terraform files that enable you to install a copy of the demo structure into your own GitLab account to see it in action:
+
+`*.tf` files in the root directory and in the `tf_modules` directory describe the structure and configuration of the GitLab projects and groups. In the `repo_content` directory there is a content for the GitLab repositories in the projects. The repositories are filled with those files by the Terraform scripts.
+
+The demo was tested with GitLab Community Edition `15.0.0-pre revision 4bda1cc84df`. The Terraform scripts do not create any real resources but just imitate them using `null_resource` and `local-exec`.
+
+The bootstrapping process is conducted inside a container image (see the steps below) so it's platform-agnostic and in terms of tools all you need to spin up the demo is some containerization engine installed on your PC (i.e., Docker, Podman, etc).
+
+**Steps**:
+
+1. In the GitLab web UI manually create a root group to bootstrap the demo into (see `root_gitlab_group.tf` for a web-link why it's not possible to automate). Notice its ID - you need to provide it at the next step.
+
+2. Clone this repository.
+    Download an official Hashicorp's Terraform image and enter its interactive shell. All the further commands are supposed to be performed inside that shell:
+    
+    ```
+    docker run --rm -it --name ci-cd-for-a-multi-component-app \
+      -e TF_VAR_gitlab_token=<your GitLab account access token> \
+      -v <path to a location where to store ssh key-pairs on your PC>:/deploy-keys \
+      -e TF_VAR_deploy_key_readwrite=/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key.pub \
+      -e TF_VAR_deploy_key_readonly=/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key.pub \
+      -e TF_VAR_root_gitlab_group_id=<GitLab group ID> \
+      -v <path to the directory where you cloned the project into>:/repo -w /repo \
+      --entrypoint /bin/sh \
+      public.ecr.aws/hashicorp/terraform:1.1.9
+    ```
+    
+    Explanation:
+    
+    `-e TF_VAR_gitlab_token=<your GitLab account access token>` - Terraform's `gitlab` provider needs a GitLab access token with sufficient permissions to spin up the demo. Provide it as a Bash environment variable - `TF_VAR_gitlab_token` (see `provider.tf`). It is also used by the `upload_avatar` module.
+    
+    `-v <path to a location where to store ssh key-pairs on your PC>:/deploy-keys` - on the left-hand side here specify some directory on your local PC where you would like to store SSH keys needed for deploying the demo. Thus they are persisted even if you exit the container. See bullet point `4` for more details.
+    
+    `-e TF_VAR_deploy_key_readwrite=/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key` and
+    
+    `-e TF_VAR_deploy_key_readonly=/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key` - set the names for the aforementioned keys
+    
+    `-v <path to the directory where you cloned the project into>:/repo -w /repo` - we mount the project content from your local PC into the running container. Note that because of that the Terraform local state file will be stored inside that directory on your PC.
+
+3. Install tools - bash and curl:
+    
+    ```
+    apk add bash curl
+ 
+    /bin/bash
+    ```
+
+4. Upon bootstrapping the demo, the repositories' content is pushed into (i.e. is restored) from the `repo_content` directory. (When the demo is destroyed the content of the repositories is automatically pulled (i.e. is saved) into the same directory - probably you dont need this but I implemented that for my convinience during creating the demo.) We need to create an SSH key pair and need it be the same throughout both phases. In this step we generate it:
+    
+    ```ssh-keygen -t rsa -N '' -f /deploy-keys/ci-cd-for-a-multi-component-app-deploy-key <<< y```
+    
+    ```chmod 0400 /deploy-keys/ci-cd-for-a-multi-component-app-deploy-key```
+    
+    A trick used in `tf_modules/gitlab_project_with_restore_backup/main.tf` requires that in the host section of the SSH public key the location of the private key is specified (in a form like `filename@~/.ssh/<filename>`). Otherwise the `tf_modules/gitlab_project_with_restore_backup` won't work. Edit accordingly:
+    
+    ```sed -i -e 's|^\(ssh-rsa .*\) \(.*\)$|\1 ci-cd-for-a-multi-component-app-deploy-key@/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key|' /deploy-keys/ci-cd-for-a-multi-component-app-deploy-key.pub```
+    ```
+
+Now you can proceed with bootstrapping the demo using Terraform:
+
+Initialize Terraform by `terraform init` so it installs all the providers.
+
+Deploy the demo with Terraform by `terraform apply`.
+
+**Notice**: During Terraform execution you may see an error:
+```
+Error: POST https://gitlab.com/api/v4/projects/multi-component-app-root-group/ci/library/deploy_keys: 400 {message: {deploy_key.fingerprint_sha256: [has already been taken]}}
+
+```
+I believe this is some glitch in the GitLab API. To fix just run `terraform apply` once again until it shows no errors.
+
+After that you should see the following structure in GitLab in the root group:
+
+![gitlab_projects_tree](/images/blogimages/migration-from-atlassian-bamboo-server-to-gitlab-ci/gitlab_projects_tree.png)
+
+All the projects should be filled with files from the `repo_content` directory.
+
+Do not delete the directory with the cloned project and the files created inside it if later you would want to clean up the things. See the next section for instructions.
+
+## Cleaning up
+
+Launch a container image the same way you did for bootstrapping the demo (see the previous section). It's supposed that you didnt delete any files in `<path to a location where to store ssh key-pairs on your PC>` and `<path to the direcory where you cloned the project into>`: 
+
+```
+docker run --rm -it --name ci-cd-for-a-multi-component-app \
+  -e TF_VAR_gitlab_token=<your GitLab account access token> \
+  -v <path to a location where to store ssh key-pairs on your PC>:/deploy-keys \
+  -e TF_VAR_deploy_key_readwrite=/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key.pub \
+  -e TF_VAR_deploy_key_readonly=/deploy-keys/ci-cd-for-a-multi-component-app-deploy-key.pub \
+  -e TF_VAR_root_gitlab_group_id=<GitLab group ID> \
+  -v <path to the direcory where you cloned the project into>:/repo -w /repo \
+  --entrypoint /bin/sh \
+  public.ecr.aws/hashicorp/terraform:1.1.9
+```
+
+Install curl:
+
+```apk add curl```
+
+Do `terraform destroy`.
+
+**Notice**: You may see some errors regarding deleting the `oci-registry` project with OCI images. In that case just delete the images and remove the project manually or wait while GitLab does that itself later.
+
+Now if you want you can remove the cloned project directory and the `<path to a location where to store ssh key-pairs on your PC>` directory.
+
+If you would like to deploy the demo once again without removing the directory with the cloned repo dont forget to remove files created during the previous demo deployment, namely `terraform.tfstate` files in the root directory and `.git` directories everywhere in the `repo_content` directory.
+
+In the [second part](/blog/2022/07/11/how-to-migrate-atlassians-bamboo-servers-ci-cd-infrastructure-to-gitlab-ci-part-two/) of this tutorial, we'll look at a real-world example of how this can work.
+
+
+
+
+

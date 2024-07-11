@@ -1,0 +1,313 @@
+---
+title: "How teams can use the Gitpod integration in GitLab to speed up their development process"
+author: Michael Friedrich and Marcel van Remmerden
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: engineering
+image_title: '/images/blogimages/gitlab-gitpod-teams-development/cover-image-unsplash.jpg'
+description: "Learn about Gitpod as cloud development environment, and how its integration into Gitpod helps teams to get more efficient in their DevOps lifecycle."
+tags: integrations, collaboration, workflow
+twitter_text: 'How teams can use the @Gitpod integration in @GitLab to speed up their development process💡'
+featured: yes
+postType: dev-evangelism
+related_posts:
+  - "/blog/2021/05/20/vscode-workflows-for-working-with-gitlab/"
+  - "/blog/2021/01/25/mr-reviews-with-vs-code/"
+  - "/blog/2021/03/09/tips-for-better-code-review/"
+---
+
+Turn back time a bit and try to remember the first project you started or joined, and the onboarding experience. How long did it take to install the development environment on your local machine?
+
+We talked about our own onboarding experiences into software development, and thought about sharing our favorite tips with GitLab users.
+
+## A developer's tale
+
+Everyone starts fresh, and often best practices are just "learning by doing," requiring documentation in the same moment. Programming languages and application architectures are also different - a C++ backend environment has different requirements than a Ruby on Rails web application.
+
+Start with defining the requirements and stages. Oftentimes they are equivalent to CI/CD pipeline stages but executed in your own environment.
+
+* Compile/build the application and verify that the source code is valid ("build")
+* Run linting, unit tests, code quality checks ("test")
+* Run the application in a dev environment ("runtime test")
+* Package the application, run installation tests ("staging installation")
+* Run the installed application ("staging deployment")
+* Tag, release, and deploy the application ("release production deployment")
+
+You want to run the application in a development environment quickly, everything else with staging and deployments continues to run in your CI/CD pipelines. Their implementation and availability should be on your to-do list.
+
+Software applications can depend on existing libraries which are used by many other developers, and help speed up the development process. These dependencies need to be installed into the development environment - if that is your local macOS, Windows or Linux desktop, methods and requirements will differ.
+
+### Provision development environments
+
+Creating a development environment for many different operating systems has its disadvantages: Error messages can differ and implementation specific details do not produce the same results and require back-and-forth communication on the team. This often leads to friction and slowed down development processes.
+
+One key learning over the past decade has been to use CI/CD extensively to test different environments and operating systems, and rely on fast feedback in Merge Requests. Developers should be able to focus on their development environment without having to worry about the many production use cases and support.
+
+Virtual machines in Vagrant, and Docker containers made the generic development environment creation easier and efficient. The documentation instructed everyone to either execute `vagrant up` or `docker-compose up -d` and have the development stack ready. The road to creating Vagrant and Docker base images, including the provisioning scripts with Bash, Ansible, Puppet, etc., was and still is a huge learning process. Opinions on "good" best practices differ, and adding your preferred IDE on top of a CLI only VM or container often is an adventure on its own.
+
+Bandwidth and traffic can also come into play - each provision and software installation run may consume gigabytes of data. If the workloads and provisioning would run in the cloud, your local connection is not affected.
+
+One customer mentioned a while ago that their company policy forbids installing a local IDE without a license. The Web IDE in GitLab solves this problem for them throughout the onboarding month.
+
+### Development environment in the browser
+
+The Web IDE helps with basic programming tasks, editing the documentation or setting up the CI/CD configuration. It does not provide a fully fledged server runtime, as cloud IDE with a programming environment capable of understanding the language you are programming in would. Our vision is to explore ways to [add integrated development environments into the Web IDE](/handbook/engineering/development/incubation/server-runtime/).
+
+There are a variety of tools and environments following remote collaboration ideas and the cloud IDE approach. You can learn more in [this Twitter thread](https://twitter.com/sytses/status/1400134840754733059) from [GitLab co-founder and CEO, Sid Sijbrandij](/company/team/#sytses). One approach is [Gitpod](https://gitpod.io/), allowing you to spin a fresh environment in the cloud in seconds.
+
+Gitpod uses Visual Studio Code (VS Code) as cloud IDE, and integrates with their marketplace to install the same extensions as you would install locally in VS Code. One of the coolest things about Gitpod is that it not only spins up a fresh environment, but also allows you to install additional software or bring your own workspace container image. That way everyone uses the same pre-provisioned environment, and pair programming and debugging becomes a breeze.
+
+Next time, the same state is booted up, secured by single sign-on.
+
+## First steps with Gitpod
+
+Navigate to [gitpod.io](https://gitpod.io) and choose to `continue with GitLab` as login.
+
+If you are running a self-managed GitLab setup, ask your administrator to [enable the Gitpod integration](https://docs.gitlab.com/ee/integration/gitpod.html).
+
+Let's start with creating a VueJS application. Fork the [learn-vuejs-gitpod](https://gitlab.com/gitlab-de/playground/learn-vuejs-gitpod) project on GitLab.com.
+
+### Alternative: Start on your CLI
+
+Alternatively to forking the project, install NodeJS, npm and the `vue-cli` package, and run `vue create learn-vuejs-gitpod`. The vue command already initializes and commits based on your local Git configuration. Add the remote origin and push to a new repository on the remote GitLab server.
+
+```shell
+$ brew install node
+$ yarn add @vue/cli
+$ vue create learn-vuejs-gitpod
+
+$ cd learn-vuejs-gitpod
+$ git remote add origin https://gitlab.com/<yourusername>/learn-vuejs-gitpod.git
+$ git push -u origin main
+```
+
+GitLab will [create a private project from the git push command](https://docs.gitlab.com/ee/user/project/working_with_projects.html#create-a-new-project-with-git-push).
+
+### Start Gitpod
+
+Start Gitpod from the repository overview by selecting the dropdown switch from the Web IDE.
+
+![Gitpod VueJS Start](/images/blogimages/gitlab-gitpod-teams-development/gitpod_gitlab_start_vuejs.png)
+
+Sign into your GitLab account with SSO once asked. Accept the required permissions, and wait until the Gitpod environment is booted up.
+
+![Gitpod VueJS Overview](/images/blogimages/gitlab-gitpod-teams-development/gitpod_vuejs_overview.png)
+
+Change to the terminal and run yarn to install the dependencies and start the development server. No worries, we'll show you how to automate this in a second!
+
+```shell
+yarn install
+yarn serve
+```
+
+Gitpod detects the server listening on port 8080 and offers to make it public. Open the browser instead - it works but says `Invalid host header` because the dev server checks the host name. For running inside Gitpod containers, you need to [disable the host checks](https://github.com/gitpod-io/gitpod/issues/26#issuecomment-554058232).
+
+Let's fix this inside Gitpod in the project. Navigate into the left file tree, and add a new file called `vue.config.js` in the top level.
+
+![Gitpod VueJS Overview](/images/blogimages/gitlab-gitpod-teams-development/gitpod_vuejs_config_disable_host_checks_devserver.png)
+
+Copy the following code snippet into it
+
+```js
+// vue.config.js
+module.exports = {
+    // Rationale: https://github.com/gitpod-io/gitpod/issues/26#issuecomment-554058232
+    devServer: {
+        disableHostCheck: true
+    }
+}
+```
+
+And stop the running `yarn serve` command in the terminal by pressing `crtl+c`. Press `cursor up` to select the previous command, or type `!!` to repeat the last command followed by `enter` to start the devserver again. Voilà!
+
+![VueJs running app in Gitpod](/images/blogimages/gitlab-gitpod-teams-development/gitpod_vuejs_web_app.png)
+
+Don't forget to add and commit the new configuration file to persist the changes. Navigate into the `Source Control` section highlighting one pending change. Enter a commit message, click the check mark and approve all pending changes into the commit.
+
+![Gitpod Source Control](/images/blogimages/gitlab-gitpod-teams-development/gitpod_source_control_add_vuejs_config.png)
+
+Select the `...` menu to `push` the Git history. Gitpod will ask you for `repository read/write` permissions, walk through the forms and edit them on Gitpod itself. Navigate back to the Gitpod project interface and re-do the push.
+
+From the first success, it is not far to your first customized VueJS application. But wait, there is more to learn about Gitpod and efficient workflows!
+
+### VS Code Extensions
+
+Navigate into the `Extensions` menu and search for `gitlab workflow`. Install the extension. We recommend installing it globally for your account and all future workspaces.
+
+![Gitpod extension: GitLab workflow for VS Code](/images/blogimages/gitlab-gitpod-teams-development/gitpod_extension_gitlab_workflow.png)
+
+Next, navigate into the new GitLab menu item on the left, and configure the extension. It needs a personal access token, similar to the process with a local VS Code extension configuration. Follow the steps in the [Gitlab documentation to create a personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html#create-a-personal-access-token).
+
+![Gitpod: GitLab workflow extension config](/images/blogimages/gitlab-gitpod-teams-development/gitpod_gitlab_workflow_extension_config.png)
+
+## Speed up your own projects
+
+Using Gitpod and GitLab to develop GitLab makes it easy to contribute, but what about your own DevOps lifecycle and projects? Below are a few more examples to speed up your development with Gitpod and GitLab.
+
+Remember: You can start Gitpod without any configuration, directly from a GitLab repository. If there are additional settings needed, you can develop them while learning from the examples and documentation best practices.
+
+### Hugo Pages website live review
+
+You can use Hugo with GitLab pages to host your own private blog, for example. Hugo is a static site generator written in Go, with public Docker images already available. The deployment of [everyonecancontribute.com](https://everyonecancontribute.com/) uses the following configuration in the [.gitlab-ci.yml](https://gitlab.com/everyonecancontribute/web/everyonecancontribute.gitlab.io/-/blob/main/.gitlab-ci.yml) configuration:
+
+```yaml
+.publish: &publish
+  image: registry.gitlab.com/pages/hugo:latest
+  script:
+    - hugo
+  artifacts:
+    paths:
+    - public
+
+pages:
+  stage: publish
+  <<: *publish
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: always
+  environment:
+    name: $CI_PROJECT_NAME
+    url: https://$CI_PROJECT_NAME/
+```
+
+A local development environment to preview the website needs the Hugo binary installed. Doing the same in the browser, running the Hugo CLI command and previewing the blog post? We've found a way to provision Gitpod in the same way, using [this .gitpod.yml configuration](https://gitlab.com/everyonecancontribute/web/everyonecancontribute.gitlab.io/-/blob/main/.gitpod.yml):
+
+```yaml
+image: klakegg/hugo:debian
+
+ports:
+  - port: 1313
+
+tasks:
+  - command: hugo server -D -b $(gp url 1313) --appendPort=false
+```
+
+The Hugo container image gets pulled and the Gitpod workspace builder prepares the environment. Note that [Alpine based images do not work](https://github.com/gitpod-io/gitpod/issues/3356#issuecomment-877604994), use Debian variants instead. After starting the workspace, the tasks run the command, and expose a port. The port binding needs to be the external URL of the pod, not localhost. `gp url 1313` builds the exact URL, and binds the socket to the Hugo server, making the pod URL publicly accessible for reviews.
+
+![Gitpod: Hugo website](/images/blogimages/gitlab-gitpod-teams-development/gitpod_hugo_everyonecancontribute_com.png)
+
+From there, you can switch branches in Gitpod, and immediately verify the changes.
+
+### VueJS with custom container image
+
+Getting started with VueJS in a new project with the `vue-cli` package is very convenient and the Gitpod docs have a [guide](https://www.gitpod.io/docs/languages/vue/#vue-cli) ready. The default `gitpod/workspace-full` image does not provide the `vue cli` package. You can extend the container image by using your [custom .gitpod.Dockerfile](https://www.gitpod.io/docs/config-docker#configure-a-custom-dockerfile) - Gitpod takes care of building the image first, and later starts the workspace based on it.
+
+```yaml
+FROM gitpod/workspace-full
+
+RUN yarn add @vue/cli
+```
+
+The `.gitpod.yml` configuration file needs to be instructed to build and use a custom image. On startup, the `tasks` section runs the initial dependency installation, and starts the development environment with `yarn serve`. The server listens on port 5000 by default, this is what gets [exposed](https://www.gitpod.io/docs/config-ports), and instructed to open as call-to-action in the browser.
+
+
+```yaml
+image:
+  file: .gitpod.Dockerfile
+
+tasks:
+  - init: yarn install
+    command: yarn serve
+
+ports:
+  - port: 5000
+    onOpen: open-browser
+```
+
+You can combine Gitpod for previewing the website with the production deployment using the [five minute production app deployment template](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template) shown in [this project](https://gitlab.com/gitlab-de/playground/5-min-prod-app-vuejs). GitLab takes care of provisioning a free AWS EC2 instance, TLS certificates and domain handling.
+
+### More Gitpod workspace images
+
+Gitpod provides many [ready-to-use workspace images](https://github.com/gitpod-io/workspace-images). In order to use them, create the `.gitpod.yml` file with this content:
+
+```yaml
+image:
+  file: .gitpod.Dockerfile
+```
+
+Create a new `.gitpod.Dockerfile` file and add the import from the desired workspace image.
+
+```yaml
+FROM gitpod/workspace-mysql
+```
+
+If you need to install additional software, note that the full workspace image is based on Debian and therefore you'll need to use the `apt` package manager. The following command updates the package index, and clears the cache after installation to keep the image clean.
+
+```
+RUN sudo apt update && sudo apt install -y PACKAGENAME && sudo rm -rf /var/lib/apt/lists/*
+```
+
+If you are not sure about the package name, run Docker locally and search for the package name. Fair warning: The `gitpod/workspace-full` image is huge, use the base image `debian:latest` instead.
+
+```shell
+$ docker run -ti debian:latest bash
+$ apt search POSSIBLENAME
+```
+
+You can learn more  the [workspace image repository](https://github.com/gitpod-io/workspace-images) to learn more about the Dockerfile configuration used by the builder.
+
+## Do more with Gitpod
+
+### Merge request code reviews
+
+The GitLab workflow extension comes with more super powers:
+
+* Access the project and Merge Requests
+* Check the CI/CD pipeline status directly in Gitpod
+* Perform MR code reviews in Gitpod and take advantage of [VS Code workflows](/blog/2021/01/25/mr-reviews-with-vs-code/)
+
+![Gitpod: MR Code Reviews with the GitLab Workflow extension website](/images/blogimages/gitlab-gitpod-teams-development/gitpod_vs_code_gitlab_workflow_extension_mr_code_reviews.png)
+
+### Pre-install VS Code Extensions
+
+In order to ensure specific [VS Code extensions](https://www.gitpod.io/docs/vscode-extensions/) are installed, you can define them in the `.gitpod.yml` configuration file in the repository. Example from the [GitLab project](https://gitlab.com/gitlab-org/gitlab/-/blob/master/.gitpod.yml#L79):
+
+```yaml
+vscode:
+  extensions:
+    - rebornix.ruby@0.28.0
+    - wingrunr21.vscode-ruby@0.27.0
+    - karunamurti.haml@1.3.1
+    - octref.vetur@0.34.1
+    - dbaeumer.vscode-eslint@2.1.8
+    - gitlab.gitlab-workflow@3.24.0
+```
+
+### Learn new programming languages: Rust
+
+Gitpod allows you to start a fresh pod environment, pause on idle, and continue at a later point. The default workspace environment image already includes the [Rust compiler](https://www.gitpod.io/docs/languages/rust), which means that you can immediately [start learning Rust](https://doc.rust-lang.org/rust-by-example/).
+
+Create a new project called `learn-rust` and open Gitpod from the repository view. Add a new file on the left tree view called `hello.rs` and add the following content:
+
+```rust
+fn main() {
+	println!("Hello from GitLab! 🦊");
+}
+```
+
+Change into the terminal and run the following command:
+
+```shell
+$ rustc hello.rs
+```
+
+We started learning Rust together in an [#EveryoneCanContribute cafe](https://everyonecancontribute.com/post/2020-10-07-cafe-3-gitpod-gitlab-rust/) in October 2020 including [workshop slides with exercises](https://docs.google.com/presentation/d/1t1FdHh04TAOg9WITqRFJHz1YFxMbsQeekN8th1UfFcI/edit). We continued with [Rocket.rs](https://everyonecancontribute.com/post/2021-06-30-cafe-36-rust-rocket-prometheus/) as web app and additional Prometheus monitoring metrics in June 2021. You can watch the recordings to follow the learning process, the mistakes we made on the way, and the first success.
+
+### How to contribute to GitLab with Gitpod
+
+A more complex development environment is GitLab itself. The [architecture](https://docs.gitlab.com/ee/development/architecture.html) involves many different components, and the development environment requires you to install several dependencies in Ruby, NodeJS, Go, and backend applications. The GitLab Development Kit (GDK) describes the steps in detail - in order to get everything up and running, you need to plan for a 30 minutes to three hour process, depending on the compute power and bandwidth.
+
+Early in the process of adopting Gitpod for GitLab team members, the groundwork with the base image and bootstrap script took the majority of the preparation time. You can learn more about the integration process in [this issue request](https://gitlab.com/gitlab-org/gitlab-development-kit/-/issues/1076).
+
+> It's already possible to try out how the setup works by opening Gitpod, which after waiting for the setup to finish (six to eight minutes) will bring you the Gitpod UI with the GDK fully running and ready for you to make changes and commit. As soon as that setup is finished, you can switch to whatever branch you want, either from the Gitpod UI or via the terminal.
+
+The [GDK documentation for Gitpod](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/doc/howto/gitpod.md) guides you through the required steps. **Important**: You need to start Gitpod from the [gitlab-org/gitlab](https://gitlab.com/gitlab-org/gitlab/) project (as team member, as contributor, please fork the repository). Additional features, such as a local GitLab runner, feature flags, Advanced search, etc., must be [enabled manually](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/doc/howto/gitpod.md#configure-additional-features).
+
+![GitLab Development Kit running in Gitpod](/images/blogimages/gitlab-gitpod-teams-development/gitpod_gitlab_gdk_running.png)
+
+### Everyone can contribute
+
+Ready? Start contributing to your favorite OSS project, and connect with your teams for an all-remote pair programming session using Gitpod! :-)
+
+Cover image by [Thomas Lipke](https://unsplash.com/photos/oIuDXlOJSiE) on [Unsplash](https://unsplash.com)
+{: .note}

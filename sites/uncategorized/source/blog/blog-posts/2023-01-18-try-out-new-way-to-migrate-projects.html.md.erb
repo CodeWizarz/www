@@ -1,0 +1,95 @@
+---
+title: "GitLab project migration and automation - a perfect pair for faster, easier transfers"
+author: Magdalena Frankiewicz
+author_gitlab: m_frankiewicz
+categories: devsecops-platform
+image_title: '/images/blogimages/migration.jpg' 
+description: "Learn how our new direct transfer feature, in beta, is speeding migrations."
+tags: features, news, product, workflow  
+featured: no 
+postType: product 
+---
+
+Since Version 14.3, GitLab has supported [migrating GitLab groups by direct transfer](https://docs.gitlab.com/ee/user/group/import/#migrate-groups-by-direct-transfer-recommended), where, rather than manually uploading export files, data is transferred directly from the source instance to the destination instance. We have been working to extend this functionality to projects and are including the ability to migrate projects by direct transfer as a beta in GitLab 15.8.
+
+This beta feature is **available to everyone**, enabled by default on GitLab.com and with [some configuration](#availability-of-the-feature)
+on self-managed GitLab instances.
+
+## Benefits of the direct transfer method
+
+Migrating by direct transfer enables you to easily migrate GitLab group and project resources between GitLab instances and within the same GitLab
+instance, using either the UI or API.
+
+This is a major improvement from migrating [groups](https://docs.gitlab.com/ee/user/group/import/#migrate-groups-by-uploading-an-export-file-deprecated) and [projects using file exports](https://docs.gitlab.com/ee/user/project/settings/import_export.html) because:
+
+- You don't need to manually export each individual group and project to a file and then import all those export files to a new location. Now any top-level group you have the Owner role for (plus subgroups when using API) and all its projects can be migrated automatically, making your work more efficient.
+- When migrating from GitLab Self-Managed to GitLab.com, user associations (such as comment author) previously were linked to the user who ran the import. Migration using direct transfer maps users and their contributions correctly, provided [a few conditions are met](https://docs.gitlab.com/ee/user/group/import/#preparation).
+
+## Availability of the feature
+
+The beta release for migrating GitLab projects with top-level groups by direct transfer is available on GitLab.com. You can migrate from a self-managed GitLab instance to GitLab.com or within GitLab.com right now!
+
+GitLab Self-Managed users have access to migrating projects by direct transfer beta, too. Administrators need to enable:
+
+- an [application setting](https://docs.gitlab.com/ee/administration/settings/visibility_and_access_controls.html#enable-migration-of-groups-and-projects-by-direct-transfer) for migrating groups
+~~- the `bulk_import_projects` [feature flag](https://docs.gitlab.com/ee/administration/feature_flags.html), for migrating projects in the groups~~
+
+We have removed that feature flag in GitLab 15.10, so only the application setting needs to be enabled.
+
+This change enables GitLab Dedicated instances to take advantage of the feature.
+
+We recommend upgrading self-managed instances to the latest version possible before migrating groups and projects.
+
+## Trying the new feature out
+
+To get started with the new feature, you can either [read the documentation](https://docs.gitlab.com/ee/user/group/import/#migrate-groups-by-direct-transfer-recommended) or follow the
+steps below.
+
+1. Make sure the [feature is available](#availability-of-the-feature) to you.
+1. Generate or copy a [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) with the `api` scope on your source GitLab instance. Both `api` and `read_repository` scopes are required when migrating from GitLab 15.0 and earlier.
+1. On the top navigation, select **+**, then **New group**, and then **Import group**.
+1. Enter the URL of your source GitLab instance.
+1. Enter the personal access token for your source GitLab instance and select **Connect instance**.
+  ![Screenshot of connecting the source instance](/images/blogimages/migrate-gitlab-projects-images/connect-source-instance.png){: .shadow}
+1. Select the groups to import from the top-level groups on the connected source instance you have the Owner role for. All the projects within chosen groups can be migrated too! Choose from the dropdown the group you want to migrate to for each group you have selected. Adjust the newly created group name, if needed.
+  ![Screenshot of choosing groups to import](/images/blogimages/migrate-gitlab-projects-images/choose-groups-to-import.png){: .shadow}
+1. Next to the groups you want to import, select **Import with projects**. The **Status** column shows the import status of each group. If you leave the page open, it updates in real time.
+1. After a group has been imported, select its GitLab path to open the imported group.
+
+For more information about migrating by direct transfer (for example, what resources are migrated and [group import history](https://docs.gitlab.com/ee/user/group/import/index.html#group-import-history)), see our [documentation](https://docs.gitlab.com/ee/user/group/import/index.html).
+
+## What about migrating projects using file exports? 
+
+Once the migrating projects by direct transfer feature is ready for production use at any scale, migrating groups and projects using file exports
+will be disabled by a feature flag and only migrating groups and projects by direct transfer will be available in the UI and API.
+
+Because migrating by direct transfer requires network connection between instances or GitLab.com, customers that are using air-gapped networks with no
+network connectivity between their GitLab instances will need to reenable migrating using file exports. They will be able to use migrating groups and
+projects by direct transfer after we extend this solution to [also support offline instances](https://gitlab.com/groups/gitlab-org/-/epics/8985).
+
+We will not fully remove migrating using file exports until we support all our customers with a new solution.
+
+## What's next for migrating by direct transfer method 
+
+Of course, we're not done yet! We will be improving the direct transfer method before we come out of beta. We're working on:
+
+- Making the migration [efficient](https://gitlab.com/groups/gitlab-org/-/epics/8983) and [reliable](https://gitlab.com/groups/gitlab-org/-/epics/8927)
+  for large projects.
+- Improving [feedback during migration and when migration is finished](https://gitlab.com/groups/gitlab-org/-/epics/8984).
+
+Next, we will be focusing on:
+
+- Enabling more granular imports, where you'll be able to:
+  - Migrate any group in the UI, not only top-level ones. Migrating subgroups is currently limited to the API.
+  - Choose which projects within a group you want to migrate.
+- Importing [project relations not yet included in migration](https://gitlab.com/groups/gitlab-org/-/epics/9319).
+- Automatically [migrating users](https://gitlab.com/groups/gitlab-org/-/epics/4616).
+
+Details about the migrating by direct transfer roadmap can be found on our [direction page](https://about.gitlab.com/direction/manage/import_and_integrate/importers/).
+
+We are excited about this roadmap and hope you are too! We want to hear from you. What's the most important missing piece for you? What else can we improve? Let us know in the [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/284495) and we'll keep iterating!
+
+**Disclaimer:** This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab.
+
+_Cover photo by [Chris Briggs](https://unsplash.com/@cgbriggs19?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://www.unsplash.com)_
+  

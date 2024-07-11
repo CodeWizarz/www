@@ -1,0 +1,18 @@
+---
+features:
+  top:
+  - name: "Gitaly Cluster for high availability Git storage"
+    available_in: [core, starter, premium, ultimate]
+    gitlab_com: false
+    documentation_link: 'https://docs.gitlab.com/ee/administration/gitaly/praefect.html'
+    image_url: '/images/13_0/praefect-architecture.png'
+    reporter: jramsay
+    stage: create
+    categories: [Gitaly]
+    epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/842'
+    description: |
+      GitLab now supports highly available Git storage without using NFS. High Availability (HA) configurations improve the availability of important systems, like Git storage, by removing single points of failure, detecting outages, and automatically switching to a replica. This means that an individual component of the system can fail without causing the end user to experience an outage. Access to Git repositories is critical to developers and businesses, because when an outage occurs, developers can't push code, and deployments are blocked.
+
+      Internally, Git repository storage is handled by [Gitaly](/blog/2018/09/12/the-road-to-gitaly-1-0/), and now Praefect too. Praefect is a new router and transaction manager we built for Gitaly to coordinate leader election and asynchronous replication. When using a Gitaly Cluster, requests for Git data are routed through one of multiple Praefect nodes to a Gitaly node. This means that there are always multiple warm replicas ready to take over if an outage occurs.
+
+      In the future we plan to support [strong consistency](https://gitlab.com/groups/gitlab-org/-/epics/1189), so that write operations succeed on multiple Gitaly nodes, before responding with a success signal, and support [horizontally distributing reads](https://gitlab.com/groups/gitlab-org/-/epics/2013) so that CPU and memory resources can be better scaled.

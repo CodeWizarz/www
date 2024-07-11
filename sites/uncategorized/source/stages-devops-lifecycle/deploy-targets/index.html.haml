@@ -1,0 +1,45 @@
+---
+layout: default
+title: Supported GitLab Application Deployment Targets
+description: GitLab supports a wide variety of places where your applications can live.
+canonical_path: "/stages-devops-lifecycle/deploy-targets/"
+suppress_header: true
+extra_css:
+  - applications.css
+extra_js:
+  - applications/broken_image_placeholder.js
+  - scroll_to_top.js
+---
+.wrapper
+  .simple-header
+    %h1 Application Deployment Targets
+  .gitlab-content-container
+    .js-app-list.affix-threshold
+      .applications-info-container.container.flex-container.flex-wrap-md.full-width
+        %p.application-info
+          No matter where your applications live, GitLab provides a powerful set of tools to keep your deployments simple. Whether you are deploying applications to embedded systems, on-premise servers, Raspberry Pi devices, mainframes, virtual machines, Kubernetes clusters, or FaaS offerings, we've got you covered. Check out some of the highlighted deployment targets below, and feel free to add to this list if your favorite is not currently listed!
+      - data.deploy_targets.each do |category|
+        %h2.category-title.js-category-title= category.title.split.map(&:capitalize).join(' ')
+        .category-applications{ id: category.id }
+          - category.deploy_targets.each do |deploy_target|
+            .application.tile
+              .app-image-container
+                - fullpath = Dir.glob("#{monorepo_root}/source/images/applications/apps/" + deploy_target.title.parameterize.underscore + '.{jpg,jpeg,png}').to_s
+                - buildpath = JSON.parse(fullpath).join(', ').split('source')[1]
+                %img.app-image{ data: { src: "#{image_path(buildpath)}", alt: "#{deploy_target.title} logo image" } }
+              %h4.js-application-title
+                = deploy_target.title
+              %p
+                = deploy_target.content
+              - if deploy_target.links
+                - deploy_target.links.each do |app_link|
+                  %a{href: app_link.url, title: app_link.title, class: 'link', target: '_blank', rel: 'noopener noreferrer', :"data-ga-name" => app_link.title, :"data-ga-location" => "body"}
+                    = app_link.title
+                  %br
+
+    .js-scroll-to-top.scroll-to-top
+      %i.fa.fa-chevron-up
+
+%p.text-center.trademark All logos and trademarks are the property of their respective owners.
+
+%script#js-placeholder-image{ type: 'text/template' }= partial '/images/applications/apps/placeholder.svg'

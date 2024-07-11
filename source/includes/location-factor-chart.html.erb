@@ -1,0 +1,95 @@
+<script src="/javascripts/libs/moment.min.js" type="text/javascript"></script>
+<script src="/javascripts/libs/Chart.min.js" type="text/javascript"></script>
+
+<h2><%= department %> Location Factor</h2>
+
+<canvas id="<%= unique_id %>" width="400" height="200"></canvas>
+
+<script>
+window.addEventListener('load', function() {
+  var ctx = document.getElementById('<%= unique_id %>').getContext('2d');
+
+  var myChart = new Chart(ctx, {
+    type: 'line',
+      data: {
+        datasets : [
+        {
+          label : 'People location factor rolling average',
+          fill: false,
+          lineTension: 0,
+          borderColor: 'blue',
+          data : [ <% people_rolling_average.each{ |person| concat "{ t: new Date('#{person[0]}'), y: #{person[1]} }," } %> ]
+        }, {
+          label : 'Vacancy location factor rolling average',
+          fill: false,
+          lineTension: 0,
+          borderColor: 'lightblue',
+          data : [ <% vacancy_rolling_average.each{ |vacancy| concat "{ t: new Date('#{vacancy[0]}'), y: #{vacancy[1]} }," } %> ]
+        }, {
+          label : 'People location factors',
+          fill: false,
+          lineTension: 0,
+          borderColor: 'red',
+          data : [ <% people.each{ |person| concat "{ t: new Date('#{person[0]}'), y: #{person[1]} }," } %> ]
+        }, {
+          label : 'Vacancy location factors',
+          fill: false,
+          lineTension: 0,
+          borderColor: 'pink',
+          data : [ <% vacancies.each{ |vacancy| concat "{ t: new Date('#{vacancy[0]}'), y: #{vacancy[1]} }," } %> ]
+        }
+      ]
+    },
+    options: {
+      scales: {
+        xAxes: [{
+          type: 'time',
+          time : {
+            parser: 'YYYY-MM-DD'
+          }
+        }],
+        yAxes: [{
+          scaleLabel: {
+            display: true,
+            labelString: 'Location Factor'
+          }
+        }]
+      }
+    }
+  });
+});
+</script>
+
+<% if people_with_no_location_factor.count > 0 %>
+<h3><%= department %> people with no location factor</h3>
+<p>The following people in <%= department %> do not have a location_factor property set in team.yml. They are not included in chart above.</p>
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Role</th>
+  </tr>
+  <% people_with_no_location_factor.each do |person| %>
+  <tr>
+    <td><%= person.name %></td>
+    <td><%= person.role %></td>
+  </tr>
+  <% end %>
+</table>
+<% end %>
+
+<% if vacancies_with_no_location_factor.count > 0 %>
+<h3><%= department %> vacancies with no location factor</h3>
+<p>The following vacancies in <%= department %> do not have a location_factor property set in team.yml. They are not included in chart above.</p>
+<table>
+  <tr>
+    <th>Slug</th>
+    <th>Role</th>
+  </tr>
+  <% vacancies_with_no_location_factor.each do |vacancy| %>
+  <tr>
+    <td><%= vacancy.slug %></td>
+    <td><%= vacancy.role %></td>
+  </tr>
+  <% end %>
+</table>
+<% end %>

@@ -1,0 +1,16 @@
+---
+features:
+  secondary:
+  - name: "Caching of Git info/refs"
+    available_in: [core, starter, premium, ultimate]
+    gitlab_com: true
+    documentation_link: 'https://gitlab.com/gitlab-org/gitaly/blob/master/doc/design_diskcache.md'
+    reporter: jramsay
+    stage: create
+    categories:
+    - Gitaly
+    issue_url: 'https://gitlab.com/gitlab-org/gitaly/-/issues/2525'
+    description: |
+      When fetching changes from a Git repository, the server advertises a list of all the branches and tags in the repository, known as refs. In some instances, we have observed up to 75% of all requests to the GitLab web server are requests for the refs. In the best case, when all the refs are packed, this is an inexpensive operation. However, when there are unpacked refs, Git must iterate over the unpacked refs. This causes additional disk I/O, which is slow when using high latency storage like NFS.
+
+      In GitLab 12.10, `info/refs` are cached to improve the performance of ref advertisement and decrease the pressure on Gitaly in situations where refs are fetched very frequently. In testing this feature on GitLab.com, we observed read operations outnumber write operations 10 to 1, and saw median latency decrease by 70%. For GitLab instances using NFS for Git storage, we expect even greater improvements.

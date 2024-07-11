@@ -1,0 +1,96 @@
+---
+title: Define input parameters to includable CI/CD configuration files
+author: Itzik Gan-Baruch
+author_gitlab: iganbaruch
+author_twitter: itzikgb
+categories: engineering
+image_title: '/images/blogimages/migration-data.jpg'
+description: "This is the first milestone of the long-term roadmap of the CI/CD Components Catalog roadmap."
+tags: tutorial, DevOps, CI/CD
+featured: yes
+twitter_text: "Introducing a new feature that allows users to define input parameters for includable configuration files. This development is the first milestone of the long-term roadmap of the CI/CD Components Catalog."
+postType: dev-evangelism 
+---
+
+In GitLab 15.11, we introduced an exciting new feature that allows users to [define input parameters for includable configuration files](/releases/2023/04/22/gitlab-15-11-released/#define-inputs-for-included-cicd-configuration). With the ability to use input parameters in [CI templates](https://docs.gitlab.com/ee/development/cicd/templates.html), you can replace any keyword in the template with a parameter, including stage, script, or job name. For example, you can add a prefix to all of the jobs to better isolate them from the pipeline into which you are including the configuration.
+
+These input parameters can be declared as mandatory or optional for each configuration file, reducing the need for global variables and making your CI/CD templates more robust and isolated. The input parameters are scoped to the included configuration only, which means they have no impact on the rest of the pipeline. This allows you to declare and enforce constraints, for example by enforcing mandatory inputs for templates.
+
+This development is the first milestone of the long-term roadmap of the [CI/CD Components Catalog](https://gitlab.com/groups/gitlab-org/-/epics/7462), a new feature that will allow users to search and reuse single-purpose CI/CD configuration units with specific parameters for their use case. If you want to learn more about this exciting new development, you can read our [blog post about our CI templates feature](/blog/2023/05/01/how-to-build-reusable-ci-templates/).
+
+In this technical blog post, we will provide step-by-step instructions on how to define CI/CD templates with input parameters and how to use them when including templates.
+
+## Step 1: Create a template YAML document
+The first step is to create a template YAML document that describes what input arguments can be used with the template. The second part of the template is the definition of the jobs that may include references to values using the interpolation format `$[[ inputs.input-name ]]`. You should use three dash lines between the two parts.
+
+Here is an example of a deploy-template.yml:
+
+```yaml
+spec:
+  inputs:
+    website:
+    environment:
+      default: test
+---
+deploy:
+  stage: deploy
+  script: echo "deploy $[[ inputs.website ]] to $[[ inputs.environment ]]"
+```
+
+In this template, we have defined two input parameters: website and environment. The environment parameter has a default value. In the content section, we define a job that interpolates the input arguments.
+
+## Step 2: Include the template in the CI configuration
+In your main CI configuration file `.gitlab-ci.yml`, include the template and add input parameters using the `inputs` keyword.
+
+Here is an example of including the `deploy-template.yml` with input parameters:
+
+```yaml
+include:
+  - local: deploy-template.yml
+    inputs:
+      website: my-website.example.com
+```
+
+In this example, we included a local template in our project. Note: You can use `inputs` with the other [include types](https://docs.gitlab.com/ee/ci/yaml/index.html#include) such as `include:project`, `include:template`, `include:remote`.
+
+In the below example, we use inputs to add a prefix to jobs name, and make the stage dynamic as well.
+
+```yaml
+spec:
+  inputs:
+    website:
+    environment:
+      default: staging
+    stage:
+      default: test
+    job_prefix:
+      default: ""
+---
+"$[[ inputs.job_prefix ]]deploy":
+  stage: $[[ inputs.stage ]]
+  script: echo "deploy $[[ inputs.website ]] to $[[ inputs.environment ]]"
+```
+
+Then we can include it from the `.gitlab-ci.yml` with the input parameters:
+
+```
+include:
+  - local: deploy-template.yml
+    inputs:
+      stage: deploy
+      website: http://example.com
+      environment: production
+      job_prefix: "my-app-"
+```
+
+You can [fork](https://gitlab.com/tech-marketing/ci-interpolation-example) this project, which uses the above examples:
+
+- [Dynamic job](https://gitlab.com/tech-marketing/ci-interpolation-example/-/blob/main/dynamic-job.yml)
+- [Dynamic script](https://gitlab.com/tech-marketing/ci-interpolation-example/-/blob/main/deploy-template.yml)
+- [Main CI configuration](https://gitlab.com/tech-marketing/ci-interpolation-example/-/blob/main/.gitlab-ci.yml)
+
+For more information, please use our [online documentation](https://docs.gitlab.com/ee/ci/yaml/includes.html#define-input-parameters-with-specinputs).
+
+That's it! You have successfully created CI templates that accept inputs and used them in a pipeline configuration. By using templates with inputs, you can simplify pipeline configuration and make templates more modular and reusable.
+
+Thank you to [Fabio Pitino](https://gitlab.com/fabiopitino) and [Grzegorz Bizon](https://gitlab.com/grzesiek) for their content reviews.

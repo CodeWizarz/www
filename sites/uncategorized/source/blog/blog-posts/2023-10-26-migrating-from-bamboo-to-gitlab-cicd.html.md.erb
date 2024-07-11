@@ -1,0 +1,437 @@
+---
+title: "How to migrate from Bamboo to GitLab CI/CD"
+author: Abubakar Siddiq Ango 
+author_gitlab: abuango 
+author_twitter: sarki247  
+categories: DevSecOps
+image_title: '/images/blogimages/securitylifecycle-light.png'
+description: "With the fast approaching EOL of Atlassian Server products, including Bamboo, this blog post explains how users of Bamboo can migrate to GitLab CI/CD."
+tags: DevSecOps, DevSecOps platform
+guest: false 
+twitter_text: "With the fast approaching EoL of Atlassian Server products, including Bamboo, learn how you can migrate from Bamboo to GitLab CI/CD."
+featured: yes
+postType: dev-evangelism 
+---
+_Atlassian is ending support for all Server products in February 2024. [Learn more about the benefits of migrating from Atlassian to GitLab here](https://about.gitlab.com/move-to-gitlab-from-atlassian/)._
+
+The clock is ticking towards the February 15, 2024, [end-of-life date Atlassian has set for their Server products](https://about.gitlab.com/blog/2023/09/26/atlassian-server-ending-move-to-a-single-devsecops-platform/). Users whose workflows rely on on-premises deployments of Atlassian Server products are faced with the choice of upgrading to Atlassian’s Data Center or Cloud products or finding alternatives. 
+
+One of the Atlassian products that is impacted is Bamboo, a CI/CD solution. Whether you're simply looking for a new CI/CD tool or you're looking to consolidate your entire toolchain, the Atlassian Server end of life is a great opportunity to make the move to GitLab to take advantage of the automation, scalability, and security of an end-to-end DevSecOps platform.
+
+In this blog post, we'll cover the steps you can take to migrate your Bamboo CI/CD setup to GitLab CI/CD.
+
+## How is GitLab CI/CD different from Bamboo?
+
+### Organization
+
+Bamboo is structured around Projects and Plans. CI/CD jobs are grouped into stages, which are defined in a Bamboo plan along with other configurations that determine how jobs run. Bamboo projects are used to organize plans, which are classified into Build and Deployment plans. 
+
+As the name implies, Build plans can be configured to pull code from configured repositories and generate artifacts. These artifacts are picked by jobs defined in Deployment plans and are deployed to environments configured in Bamboo. Bamboo jobs are also composed of tasks, which can be a script, a task to pull code from a repository, or a task specific to a technology.
+
+You also need to add code repositories to a Bamboo plan or a project, making it available to all plans under it, and set triggers for how Bamboo detects changes and runs builds.
+
+GitLab is organized differently. Everything is in a single platform, with your CI/CD configuration provided as part of your code in a `.gitlab-ci.yml` file, from a group’s compliance pipeline configuration, or Auto DevOps when enabled and the `.gitlab-ci.yml` file is not found in a project.
+
+Gitlab CI/CD configurations are composed of jobs, grouped into stages. How the jobs are triggered can be controlled by CI/CD `rules` and there is no separate configuration for deployments. Deployment jobs can be defined in the same CI/CD script in a `deploy` stage, with the [deployment environment](https://docs.gitlab.com/ee/ci/environments/) set.
+
+
+### Agents vs Runners
+
+Bamboo uses [Agents](https://confluence.atlassian.com/confeval/development-tools-evaluator-resources/bamboo/bamboo-remote-agents-and-local-agents)
+to run builds and deployments. These can be local agents running on the Bamboo server or
+remote agents running external to the server. GitLab uses a similar concept to agents,
+called [GitLab Runner](https://docs.gitlab.com/runner/), which uses [executors](https://docs.gitlab.com/runner/executors/)
+to run builds. Examples of executors include SSH, Docker, and Kubernetes. You can choose to
+use GitLab [SaaS runners](https://docs.gitlab.com/ee/ci/runners/) or deploy your own [self-managed runners](https://docs.gitlab.com/runner/install/index.html).
+
+### Bamboo Specs vs .gitlab-ci.yml file
+
+Bamboo is largely configured via the Bamboo UI but can also be configured as code using Bamboo Specs. Bamboo Specs can be defined using Java and other JVM languages or using YAML, with Java having more complete feature coverage than YAML. Bamboo Specs can be defined and stored in spec repositories, then linked to Bamboo projects.
+
+The `.gitlab-ci.yml` file is central to the CI/CD workflow in GitLab. When included in a project, the defined configurations are executed against the project; otherwise, [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/) automatically builds and deploys your application, when enabled. Templates and CI/CD components can also be added to `.gitlab-ci.yml` for complex use cases.
+
+## How GitLab steps up your workflow
+
+In addition to building and deploying your application, GitLab provides a suite of features that allows for building secure applications fast and efficiently. These include:
+
+- [Application security](https://docs.gitlab.com/ee/user/application_security/): GitLab analyzes your application across the stages of the software development lifecycle with security scans such as Static Application Security Testing (SAST), Secret Detection, Infrastructure as Code (IaC) Scanning, Dependency Scanning, License Scanning, Coverage-guided Fuzz Testing, Container Scanning, API Security, Dynamic Application Security Testing (DAST), and Operational Security Scanning.
+- Compliance and security policies: Understanding the results of security scans and putting policies in place is crucial to ensuring secure applications. You can set up Scan Execution or Result policies to ensure additional scans or approval requirements are added to comply with regulatory or self-imposed requirements.
+- [CI/CD catalog](https://docs.gitlab.com/ee/ci/components/catalog.html): Parts of CI/CD configurations that are used across multiple projects can be turned into [components](https://docs.gitlab.com/ee/ci/components/index.html#components-repository) stored in component repositories that are discoverable in the CI/CD catalog.
+- Packages and registries: Custom or local replicas of popular packages can be hosted with the [GitLab Package Registry](https://docs.gitlab.com/ee/user/packages/package_registry/index.html). You can also host container images with the [GitLab Container Registry](https://docs.gitlab.com/ee/user/packages/container_registry/index.html) and Terraform modules with the [GitLab Terraform Module Registry](https://docs.gitlab.com/ee/user/packages/terraform_module_registry/index.html). If you frequently use public images or packages, you can use the [Dependency Proxy](https://docs.gitlab.com/ee/user/packages/dependency_proxy/index.html) to maintain a local cache.
+
+[Learn more about other ways to automate your entire workflow with GitLab CI/CD](https://about.gitlab.com/solutions/continuous-integration/).
+
+## Convert Bamboo Specs to .gitlab-ci.yml script
+
+For the purpose of this blog post, we will focus on [Bamboo YAML Specs](https://docs.atlassian.com/bamboo-specs-docs/9.3.0/specs.html?yaml). You can export your Bamboo Plans as YAML Spec — [learn more here](https://confluence.atlassian.com/bamboo/exporting-existing-plan-configuration-to-bamboo-yaml-specs-1018270696.html). Now, lets walk through converting your Bamboo YAML Specs into GitLab CI/CD configuration.
+
+### Container image
+
+First is defining the container image of the container your jobs will run in. By default, Bamboo uses Agents, which depend on how the host machines are configured. You can replicate the Agent’s environment into a container image hosted in the [GitLab Container Registry](https://docs.gitlab.com/ee/user/packages/container_registry/).  
+
+If you already run Bamboo jobs in a container image, it will look like this in your spec:
+
+```yaml
+---
+version: 2
+# ...
+docker: ubuntu
+```
+
+This might be defined at the plan or job level. You can define it in GitLab as follows:
+
+```yaml
+image: ubuntu
+```
+
+[Learn more about running CI/CD jobs in containers here](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html). If your use case does not include containers, you can explore [other executors](https://docs.gitlab.com/runner/executors/).
+
+### Stages
+
+In Bamboo, stages and their list of jobs are defined first, before the job definitions:
+
+```yaml
+version: 2
+stages:
+  - First Stage:
+      jobs:
+        - Job 1A 
+        - Job 1B
+  - Second Stage:
+      jobs:
+        - Job 2A 
+        - Job 2B
+
+Job 1A:
+  tasks:
+    - clean
+    - script
+        - touch file1A.txt
+
+Job 1B:
+  tasks:
+    - clean
+    - script
+        - touch file1B.txt
+
+Job 2A:
+  tasks:
+    - clean
+    - script
+        - touch file2A.txt
+
+Job 2B:
+  tasks:
+    - clean
+    - script
+        - touch file2B.txt
+```
+
+In GitLab, you list your stages in the order in which you want their jobs to run:
+
+```yaml
+stages:
+  - build
+  - test
+  - deploy
+
+job1:
+  stage: build
+  script:
+    - echo "This job compiles code."
+
+job2:
+  stage: test
+  script:
+    - echo "This job tests the compiled code. It runs when the build stage completes."
+
+job3:
+  script:
+    - echo "This job also runs in the test stage".
+
+job4:
+  stage: deploy
+  script:
+    - echo "This job deploys the code. It runs when the test stage completes."
+  environment: production
+```
+
+All the jobs in a stage run in parallel and when they succeed, execution proceeds to the next stage. This only changes in complex pipelines where a job depends on another using [`needs`](https://docs.gitlab.com/ee/ci/yaml/index.html#needs).
+
+### Variables
+
+Bamboo has System, Global, Project, Plan, and Build-specific variables, which can be accessed using the format `${system.variableName}` for system variables and `${bamboo.variableName}` for others. Periods (.) are replaced by underscores (_) when variables are accessed in scripts.
+
+```yaml
+version: 2
+# ...
+variables:
+  username: admin
+  releaseType: milestone
+
+Default job:
+  tasks:
+    - script: echo 'Release Type is $bamboo_releaseType'
+```
+
+In GitLab, variables can be defined at group, project, CI Script, and job levels. In GitLab self-managed and GitLab Dedicated, administrators can define variables at the instance level. GitLab allows protecting, masking, and expanding variables. Protected variables are only accessible for pipelines running against the default or protected branches. [Learn more about CI/CD variables](https://docs.gitlab.com/ee/ci/variables/index.html) and [where you can use them](https://docs.gitlab.com/ee/ci/variables/where_variables_can_be_used.html).
+
+Here is an example:
+
+```yaml
+variables:
+  GLOBAL_VAR: "A global variable"
+
+job1:
+  variables:
+    JOB_VAR: "A job variable"
+  script:
+    - echo "Variables are '$GLOBAL_VAR' and '$JOB_VAR'"
+
+job2:
+  script:
+    - echo "Variables are '$GLOBAL_VAR' and '$JOB_VAR'"
+```
+
+### Build Jobs
+
+Bamboo Build Jobs are composed of tasks, each of which is a small unit of work that can be anything from checking out source code to injecting variables or running a script.
+
+```yaml
+version: 2
+stages:
+  - Run Tests:
+      jobs:
+        - Test Ruby 
+
+Test Ruby :
+  key: TEST
+  tasks:
+  - checkout:
+      force-clean-build: false
+      description: Checkout Default Repository
+  - script:
+      interpreter: SHELL
+      scripts:
+      - |-
+        ruby -v  # Print out ruby version for debugging
+        bundle config set --local deployment true  
+        bundle install -j $(nproc)
+        rubocop
+        rspec spec
+      description: run bundler & rspec
+
+```
+
+In this example, the plan has two tasks, checkout and script. The checkout tasks pull an updated version of the code repository, which is made available for the script task to execute its commands against. 
+
+[Jobs in GitLab](https://docs.gitlab.com/ee/ci/jobs/) are composed of script commands:
+
+```
+image: ruby:latest
+
+stages:
+  - test
+
+rspec:
+  stage: test
+  script:
+    - ruby -v
+    - bundle config set --local deployment true 
+    - bundle install -j $(nproc)
+    - rubocop
+    - rspec spec
+```
+
+In the example above, the stage the job belongs to is specified with the `stage` keyword and the commands to be executed by the GitLab runner for the job are listed under `script`.
+
+In Bamboo, you can use [executables](https://confluence.atlassian.com/bamboo/defining-a-new-executable-capability-289277164.html), such as Ant, Maven, or PHPUnit, in a task to build your application. In GitLab, you can package the binaries you need in a custom container image and use it as your CI/CD image.
+
+### Deployment jobs
+
+In Bamboo, Deployment projects organize software releases or environments applications are deployed to. A deployment plan can have a release definition:
+
+```yaml
+---
+version: 2
+
+deployment:
+  name: Release Software
+  source-plan: BUILD-APP
+
+release-naming: release-1.1
+```
+
+For releases, you specify the plan it should get the generated artifacts from. And for deployment for environments:
+
+```yaml
+---
+version: 2
+# ...
+environments:
+  - Test
+  - QA
+  - Prod
+
+Test:
+  tasks:
+    - clean
+    - artifact-download:
+        destination: /workdir
+```
+
+In GitLab CI/CD, you can create a [deployment job](https://docs.gitlab.com/ee/ci/jobs/#deployment-jobs)
+that deploys to an [environment](https://docs.gitlab.com/ee/ci/environments/index.html) or create a [release](https://docs.gitlab.com/ee/user/project/releases/).
+For deploying to an environment, you use the [`environment`](https://docs.gitlab.com/ee/ci/yaml/#environment) keyword:
+
+```yaml
+deploy-to-production:
+  stage: deploy
+  script:
+    - # Run Deployment script
+    - ./.ci/deploy_prod.sh
+  environment:
+    name: production
+```
+
+If you are creating a release instead, you use the [`release`](https://docs.gitlab.com/ee/ci/yaml/#release)
+keyword along with the [release-cli](https://gitlab.com/gitlab-org/release-cli/-/tree/master/docs)
+tool to create releases for [Git tags](https://docs.gitlab.com/ee/user/project/repository/tags/).
+The `release` section is executed after the `script` section, which must exist.
+If you don’t have any script commands to run, you can put a placeholder command;
+for example, `echo` a message.
+
+```yaml
+release_job:
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  rules:
+    - if: $CI_COMMIT_TAG                  # Run this job when a tag is created manually
+  script:
+    - echo "Building release version"
+  release:
+    tag_name: $CI_COMMIT_TAG
+    name: 'Release $CI_COMMIT_TAG'
+    description: 'Release created using the release-cli.'
+```
+
+### Rules and workflows
+
+In Bamboo, triggers can be used to control how Jobs are executed. Triggers can be a periodic poll of the repository for changes or a webhook that notifies Bamboo of changes to the repository. Trigger conditions can be enabled in the Bamboo web UI to make sure the build only runs if other plans are passing.
+
+Example of a trigger:
+
+```yaml
+---
+version: 2
+triggers:
+  - polling: 130
+  - cron: 0 * * * ? *
+```
+
+In GitLab, [CI/CD pipelines](https://docs.gitlab.com/ee/ci/pipelines/) can be triggered by a commit/push, a merge, manually, on schedule, or with [pipeline subscriptions](https://docs.gitlab.com/ee/ci/pipelines/#trigger-a-pipeline-when-an-upstream-project-is-rebuilt). Jobs in a pipeline can further be controlled using `rules` or `workflow`. Learn more about [Job Control](https://docs.gitlab.com/ee/ci/jobs/job_control.html) and [pipeline workflows](https://docs.gitlab.com/ee/ci/yaml/workflow.html#) in GitLab CI/CD. 
+
+Here's an example using `rules` in GitLab CI/CD:
+
+```yaml
+workflow:
+  rules:
+    - changes:
+      - .gitlab/**/**.md
+      when: never
+```
+ In this example, pipelines are never executed when `.md` files changed in the `.gitlab` folder.
+
+
+#### Artifacts
+
+You can define Job artifacts using the `artifacts` keyword in both GitLab and Bamboo.
+
+In Bamboo, artifacts can be defined as follows:
+
+```yaml
+---
+version: 2
+# ...
+  artifacts:
+    -
+      name: Test Reports
+      location: target/reports
+      pattern: '*.xml'
+      required: false
+      shared: false
+    -
+      name: Special Reports
+      location: target/reports
+      pattern: 'special/*.xml'
+      shared: true
+```
+
+In the Bamboo Spec above, artifacts are defined with a name, location, pattern, and optionally
+the ability to share the artifacts with other jobs or plans. You can go further to define jobs that
+can subscribe to the artifact.
+
+`artifact-subscriptions` is used to access artifacts from another job in the same plan:
+
+```yaml
+Test app:
+  artifact-subscriptions:
+    -
+      artifact: Test Reports
+      destination: deploy
+```
+
+`artifact-download` is used to access artifacts from jobs in a different plan.
+
+```yaml
+---
+version: 2
+# ...
+  tasks:
+    - artifact-download: 
+        source-plan: PROJECTKEY-PLANKEY
+```
+
+You need to provide the key of the plan you are downloading artifacts from in the `source-plan` keyword.
+
+In GitLab, all artifacts from completed jobs in the previous stages are downloaded by default.
+Here is an example of an artifact definition in GitLab:
+
+```yaml
+pdf:
+  script: xelatex mycv.tex
+  artifacts:
+    name: "pdf-files"
+    public: false
+    untracked: true
+    paths:
+      - pdfs/
+    exclude:
+      - pdfs/*.tex
+```
+
+In the CI/CD script above:
+
+- The name of the artifact is specified laterally. You can choose to make it dynamic by using a CI/CD variable.
+- The `public` keyword is used to set whether the artifact should be publicly available. This is not enabled by default
+  on self-managed GitLab instances. An administrator can enable it with the [feature flag](https://docs.gitlab.com/ee/administration/feature_flags/)
+  named `non_public_artifacts`.
+- You can set the `untracked` to include or exclude Git untracked files along with those specified using `paths`.
+
+Read more about GitLab CI/CD [job artifacts](https://docs.gitlab.com/ee/ci/jobs/job_artifacts.html).
+
+
+## How to plan your migration
+
+Planning a migration to Gitlab CI/CD from Bamboo doesn't start with converting your Bamboo plan to GitLab CI/CD scripts. It starts with aligning with your leadership and stakeholders and clearly communicating the vision of the migration. [Check out our documentation to learn more about managing organizational changes](https://docs.gitlab.com/ee/ci/migration/plan_a_migration.html). Once you have the necessary buy-in, you can proceed with the following steps:
+
+- [Import your projects](https://docs.gitlab.com/ee/user/project/import/) to GitLab.
+- Identify the necessary binaries and build tools needed to build your application, along with their dependencies.
+- Define the flow of your pipeline, which jobs depend on each other, and the necessary triggers.
+- Learn more about [key GitLab CI/CD features](https://docs.gitlab.com/ee/ci/index.html).
+- Identify the credentials and variables needed in your pipeline and define them in the variable section of your project's CI/CD settings or using a secret manager.
+- Follow [this tutorial](https://docs.gitlab.com/ee/ci/quick_start/index.html) to create your first GitLab pipeline; you can also explore more [complex pipelines](https://docs.gitlab.com/ee/ci/quick_start/tutorial.html).
+- Iterate and test your GitLab CI/CD pipelines and review [.gitlab-ci.yml keyword reference](https://docs.gitlab.com/ee/ci/yaml/index.html).
+
+
+Ready to make the move? [We’re here to help](https://about.gitlab.com/sales/).

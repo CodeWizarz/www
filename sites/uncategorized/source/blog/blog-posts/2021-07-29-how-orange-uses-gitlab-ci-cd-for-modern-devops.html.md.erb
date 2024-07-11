@@ -1,0 +1,214 @@
+---
+title: "How Orange made a first step toward CI/CD standardization with GitLab"
+description: "Find out how Orange made a first step toward CI/CD standardization with GitLab"
+author: Pierre Smeyers
+author_gitlab: pismy
+author_twitter: pismy
+categories: open source
+image_title: '/images/blogimages/oranges.jpg'
+tags: DevOps, open source, CI
+guest: true
+twitter_text: "How Orange moved toward CI/CD standardization using @GitLab" # optional;  If no text is provided it will use post's title.
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/04/07/how-the-open-source-community-can-build-more-accessible-products/"
+  - "/blog/2021/03/23/how-you-contribute-to-gitlabs-open-devops-platform/"
+  - "/blog/2020/12/02/pre-filled-variables-feature/" # please see related posts section below for details
+merch_banner: merch_three
+---
+
+CI/CD is a foundational piece to modern software development. It's a major brick in the [DevOps](/topics/devops/) "Automation" pillar and every company involved in IT has to implement CI/CD or they're already quite far behind the curve.
+
+But [implementing CI/CD](/topics/ci-cd/) can be challenging especially for growing or large companies. Some of those challenges include:
+
+* DevOps expertise and technical skills
+* [DevSecOps](/topics/devsecops/)
+* Standardization
+
+## Three key hurdles that come with implementing CI/CD
+
+This blog post unpackes these challenges and explains how [Orange](https://orange.com/) overcame them using GitLab.
+
+### DevOps and technical skills
+
+No matter which CI/CD tool you're using, it requires some amount of expertise to implement it right.
+
+**DevOps expertise** is important because your team needs some experience with Git workflows, deployment, environments, secrets management, etc. You can't ask a complete rookie to implement a state-of-the art DevOps pipeline without expertise or experience.
+
+**Technical skills** are also important for implementing CI/CD. Any professional can tell you that getting started tutorials are insufficient. We inevitably need advanced functions, and that requires knowing the tool pretty well. This is particularly true with GitLab CI/CD, which is a fantastic functionally rich tool. GitLab CI/CD is constantly evolving, which creates an ongoing burden for projects that want to integrate new tooling as they go.
+
+### DevSecOps
+
+DevOps is all about finding the right balance between shortening the cycle and maximizing your confidence.
+
+[DevSecOps tools](/solutions/dev-sec-ops/) are a keystone in maximizing our confidence because they detect issues with things like security, code quality, and compliance, etc., almost instantly. But DevSecOps tools are evolving quickly and today's Docker container scanner tools can be replaced by newcomers in just a few months.
+
+Also, having each development team in the company choose and integrate various DevSecOps tools doesn't make sense and will be a waste of time and resources. Going this route means most developers won't use any DevSecOps tool because the opportunity cost isn't worth the time and effort.
+
+### Standardization
+
+The last challenge in implementing CI/CD at a large company is the lack of standardization.
+
+GitLab CI/CD - as with most other CI/CD tools - is mainly a sophisticated scheduler, allowing a team to define technical tasks and their sequence. GitLab CI/CD cares little about the nature of these tasks, and does not give any clues as to the "right" way to build a DevOps pipeline. The consequence of this is that every company, project team, and developer will implement a DevOps pipeline their own way, in a manner that is probably significantly different from their colleagues'.
+
+As a lifelong Javaist, I like to compare the current situation in CI/CD with what was the Java build in the pre-Maven era. Back then, we used non-structuring tools such as [Make](https://en.wikipedia.org/wiki/Make_(software)) or [Apache Ant](https://en.wikipedia.org/wiki/Apache_Ant). Each project created its own build system, adopted its own conventions, code, and resource files structure. In short, it was a happy mess with everyone reinventing the wheel. When joining another project, a user had to ask: "How does the build work here?".
+
+In 2004, Maven was released (and Gradle three years later). For a while, there were heated debates between the proponents of standardization and the defenders of expertise and customization. Today it would not occur to anyone to build a Java project with anything other than Maven or Gradle. Now, if I join a project developed in Java, I will immediately know how files are organized and how the project is built. Java build is now standardized.
+
+I believe that CI/CD ought to go a similar route: tools should offer a more opinionated framework so that CI/CD too becomes a non-topic.
+
+## How a single GitLab feature changed the game for Orange
+
+At Orange - probably like many other companies involved in IT - we struggled with the three challenges summarized above.
+
+Then in January 2019, the [`include`](https://docs.gitlab.com/ee/ci/yaml/#include) feature was released in the [Community Edition (version 11.7) of GitLab](/releases/2019/01/22/gitlab-11-7-released/):
+
+```yaml
+include:
+  - project: a-path/to-some-project'
+    file: '/very-smart-template.yml'
+```
+
+This feature finally gave us the ability to develop and share state-of-the-art GitLab CI/CD pipeline templates!
+
+So that's what we did.
+
+For two years, a handful of DevOps/security/languages/cloud experts developed ready-to-use GitLab CI/CD pipeline templates. This personal initiative quickly became recognized as an internal project, attracting more users and contributors, bringing the community to 1000+ members as of June 2021, and leveraging about 30 available templates. The visible effect of this increasing adoption is the beginning of a **CI/CD standardization at Orange**.
+
+We were so happy with our results and convinced that it's a general need that we open sourced our templates under the name ["to be continuous"](https://to-be-continuous.gitlab.io/doc/).
+
+![To be continuous logo](/images/blogimages/orange_tbc.jpg){: .shadow}
+The "to be continuous" logo.
+{: .note.text-center}
+
+### What is in *to be continuous*?
+
+For now, *to be continuous* has 26 templates of six kinds:
+
+* **Build & Test**: Angular, Bash, Go, Gradle, Maven, MkDocs, Node.js, PHP, Python
+* **Code Analysis**: Gitleaks, SonarQube
+* **Packaging**: Docker
+* **Infrastructure** (IaC): Terraform
+* **Deploy & Run**: Ansible, Cloud Foundry, Google Cloud, Helm, Kubernetes, OpenShift, S3 (Simple Storage Service)
+* **Acceptance**: Cypress, Postman, Puppeteer, Robot Framework, SSL test, k6
+* **Others**: semantic-release
+
+*To be continuous* is thoroughly documented:
+
+* [Basic notions and philosophy](https://to-be-continuous.gitlab.io/doc/understand/)
+* [General usage principles](https://to-be-continuous.gitlab.io/doc/usage/)
+* How to use *to be continuous* in a [self-managed instance of GitLab](https://to-be-continuous.gitlab.io/doc/self-managed/basic/)
+* Every template also has [its own documentation](https://to-be-continuous.gitlab.io/doc/ref/angular/)
+
+To get started quickly, *to be continuous* provides an [interactive configurer](https://to-be-continuous.gitlab.io/kicker/) (aka *"kicker"*) that allows generating the `.gitlab-ci.yml` file simply by selecting the technical characteristics of your project.
+
+Finally, *to be continuous* exposes several [example projects](https://gitlab.com/to-be-continuous/samples), illustrating how to use the templates in production-like projects, combining multiple templates.
+
+### A quick glance at *to be continuous*
+
+There are tons of resources to get started with *to be continuous*. But here is a quick example to get the taste of it.
+
+Here is the `.gitlab-ci.yml` file for a project:
+
+* Developed in Java 11 (built with Maven)
+* Code analysis with SonarQube
+* Packaged as a Docker image
+* Deployed to Kubernetes cluster
+* GUI tests with Cypress
+* API tests with Postman (Newman)
+
+```yaml
+include:
+  # Maven template
+  - project: "to-be-continuous/maven"
+    ref: "1.4.2"
+    file: "templates/gitlab-ci-maven.yml"
+  # Docker template
+  - project: "to-be-continuous/docker"
+    ref: "1.2.0"
+    file: "templates/gitlab-ci-docker.yml"
+  # Kubernetes template
+  - project: "to-be-continuous/kubernetes"
+    ref: "1.2.0"
+    file: "templates/gitlab-ci-k8s.yml"
+  # Cypress template
+  - project: "to-be-continuous/cypress"
+    ref: "1.2.0"
+    file: "templates/gitlab-ci-cypress.yml"
+  # Postman template
+  - project: "to-be-continuous/postman"
+    ref: "1.2.0"
+    file: "templates/gitlab-ci-postman.yml"
+
+# Global variables
+variables:
+  # Explicitly define the Maven + JDK version
+  MAVEN_IMAGE: "maven:3.8-openjdk-11"
+
+  # Enables SonarQube analysis (on sonarcloud.io)
+  SONAR_URL: "https://sonarcloud.io"
+  # organization & projectKey defined in pom.xml
+  # SONAR_AUTH_TOKEN defined as a secret CI/CD variable
+
+  # Kubernetes
+  K8S_KUBECTL_IMAGE: "bitnami/kubectl:1.17" # client version matching my cluster
+  K8S_URL: "https://k8s-api.my.domain" # Kubernetes Cluster API url
+  # K8S_CA_CERT & K8S_TOKEN defined as secret CI/CD variables
+  # enable review, staging & prod
+  K8S_REVIEW_SPACE: "non-prod"
+  K8S_STAGING_SPACE: "non-prod"
+  K8S_PROD_SPACE: "prod"
+
+  # Cypress & Postman: enable test on review aps
+  REVIEW_ENABLED: "true"
+
+# Pipeline steps
+stages:
+  - build
+  - test
+  - package-build
+  - package-test
+  - review
+  - staging
+  - deploy
+  - acceptance
+  - publish
+  - production
+  ```
+
+This fully declarative file produces the following **development pipeline** (any feature branch):
+
+![Screenshot of development pipeline](/images/blogimages/orange_development_pipeline.jpg){: .shadow}
+
+... and the following **production pipeline** (`master` or `main` depending on your preferences):
+
+![Screenshot of production pipeline](/images/blogimages/orange_production_pipeline.jpg){: .shadow}
+
+Although they look pretty much the same, they aren't:
+
+* While the production pipeline privileges sureness and completeness, development pipelines privilege short cycles and developer experience. While code analysis jobs and acceptance tests are blocked in production, they only generate a non-blocking warning in development in case of failure.
+* The production pipeline deploys to the staging environment before deploying to production (provided acceptance tests are green). Development pipelines may deploy to a dynamically generated review environment (optional).
+* Developers may prefer to use a single integration environment (associated with the develop branch) instead of one review app per feature branch. The default behavior of the integration pipeline is much closer to the production one.
+
+What you can't see:
+
+* Java unit tests are automatically executed, their report is [integrated to GitLab](https://docs.gitlab.com/ee/ci/unit_test_reports.html), with [code coverage](https://docs.gitlab.com/ee/ci/yaml/#coverage) too.
+* SonarQube integration automatically uses [branch analysis](https://docs.sonarqube.org/latest/branches/overview/) or [MR analysis](https://docs.sonarqube.org/latest/analysis/pull-request/) (with MR decoration) depending on the context.
+* Kubernetes environments are obviously [integrated to GitLab](https://docs.gitlab.com/ee/ci/environments/) too.
+* [Review apps](https://docs.gitlab.com/ee/ci/review_apps/index.html) can be cleaned-up manually or automatically on branch deletion.
+* Cypress and Postman tests reports are also [integrated to GitLab](https://docs.gitlab.com/ee/ci/unit_test_reports.html).
+* Docker uses the Kaniko build by default but it might be configured to use Docker-in-Docker instead. It uses the GitLab registry by default but can be configured to use any other registry.
+* Each template integrates the most appropriate DevSecOps tools: [kube-score](https://kube-score.com/) for Kubernetes, [hadolint](https://github.com/hadolint/hadolint) for Docker, [OWASP Dependency-Check](https://jeremylong.github.io/DependencyCheck/) for Maven, among others.
+* All those templates combine themselves gracefully. For example, Kubernetes may simply deploy the Docker image built upstream; Cypress and Postman tests automatically test the application deployed in the upstream jobs; Kubernetes could be replaced with OpenShift, GCP or any other supported hosting technology, it would behave the same.
+
+## Contribute to *to be continuous*
+
+[to be continuous](https://to-be-continuous.gitlab.io/doc) is out and eagerly waiting for users and contributors.
+
+Have a look and share your feedback. Whether you like our choices or not, we want to hear from you. Your inputs are even more valuable to help us improve *to be continuous* and cover as many use cases as possible.
+
+But anyway, never forget this: [`include`](https://docs.gitlab.com/ee/ci/yaml/#include) is undoubtedly the feature that makes CI/CD standardization possible in your company (and beyond).
+
+Cover image by [Graphic Node](https://unsplash.com/@graphicnode) on [Unsplash](https://unsplash.com/photos/yi1YB_FubH8)
+{: .note}

@@ -1,0 +1,95 @@
+---
+title: "Zero Trust at GitLab: Implementation challenges (and a few solutions)"
+author: Mark Loveless
+author_gitlab: mloveless
+author_twitter: simplenomad
+categories: security
+image_title: '/images/blogimages/jpvalery-9pLx0sLli4unsplash.jpg'
+description: "Implementing change in an already working environment always brings its fair share of growing pains. What happens when that change is Zero Trust?"
+tags: inside GitLab, security, zero trust
+twitter_text: "Implementing change in an already working environment brings its fair share of growing pains. What happens when that change is #ZeroTrust?"
+postType: content marketing
+---
+
+Update: This is part 5 of an ongoing [Zero Trust series](/blog/tags.html#zero-trust). See our next and final post in this series: [Zero Trust at GitLab: Where do we go from here?](/blog/2019/10/15/zero-trust-at-gitlab-where-do-we-go-from-here/).
+{: .alert .alert-info .note}
+
+
+*Zero Trust is the practice of shifting access control from the network perimeter to the assets, individuals, and the respective endpoints. For GitLab, Zero Trust means that all users and devices trying to access an endpoint or asset within our GitLab environment will need to authenticate and be authorized. This is part five of a multi-part series.*
+
+Check out these other posts to get up to speed:
+* Part one: [The evolution of Zero Trust](/blog/2019/04/01/evolution-of-zero-trust/)
+* Part two: [Zero Trust at GitLab: Problems, goals, and coming challenges](/blog/2019/08/09/zero-trust-at-gitlab-problems-goals-challenges)
+* Part three: [Zero Trust at GitLab: The data classification and infrastructure challenge](/blog/2019/08/21/zero-trust-at-gitlab-the-data-classification-and-infrastructure-challenge/)
+* Part four: [Zero Trust at GitLab: Mitigating challenges with data zones and authentication scoring](/blog/2019/09/06/zero-trust-at-gitlab-data-zones-and-authentication-scoring/)
+
+As with most things at GitLab, we’re taking a very open approach to implementing Zero Trust. We’ve tackled everything from the evolution of Zero Trust to the expected challenges and our planned work-arounds.  However, maybe we haven’t yet addressed a ZTN related topic, question or consideration that you’re interested in discussing.
+
+We’ve been discussing how Zero Trust Networking (ZTN) presents GitLab with a series of challenges, and have suggested a few mitigation strategies. In order to fully understand some of these challenges and how to approach them we’ll need to drop a bit deeper into the details.
+
+## Immediate Challenges
+
+The first major hurdle that comes with discussing Zero Trust Networking (ZTN) is a classic one: Getting the plan implemented. Any security professional who has tried to implement changes to an already working environment has experienced these growing pains. GitLab is an extremely forward-thinking organization and we're constantly implementing massive changes to our software. But this still doesn’t mean everyone welcomes every change with open arms.
+
+Currently, things work. We have an environment that is remarkably stable and pretty secure despite all the changes. When the security department starts rumbling about certain types of changes, there is resistance. So we have to look at things a bit differently to get some of our ideas implemented. How do we do this?
+
+## Real Problems
+We’ve previously discussed areas where we anticipated problems, but what we really need to do is look at existing problems and work out solutions. If we can get some hash marks in the “win” column for ZTN, it helps prove that ZTN is a rational approach for security. If we can solve some pressing problems along the way (or make older, less robust solutions better) it improves the general appeal for ZTN. It is one thing to expect resistance, it is another to encounter it. Security changes need to make things easier for the end-user, otherwise, the end-user will fight and try to bypass what are perceived as roadblocks to productivity. We can’t make every single person happy, but we can try to make as many users as happy as possible while making every single person a bit safer. That said, we encountered a bit of resistance in a few areas.
+
+### User identity
+In the past, we’ve had issues with provisioning user accounts – we’d need to get a team member set up in all of the systems as quickly as possible. When the entire company had 35 people this was not that great of a burden. But right now the Security Department alone has 35+ people (and counting, we’re [hiring](/jobs/), hint hint) and we’ve had times where 35 people started at GitLab in a single week.
+
+We’re growing! Any time we make changes to the process of user-identity, we have to keep in mind that most of the departments are more concerned with provisioning new users than actual user identity. Their main goal is to get new team members productive as quickly as possible, so access to systems immediately is crucial. Ideally, any solution for user-identity should work seamlessly with the entire user lifecycle – provisioning through deprovisioning – without disruption to company productivity.
+
+### Device management
+We have issues with both device identification and device management. We need to strike a balance between ensuring team members have access to the tools they need to perform their jobs, and simply allowing team members to use whatever computing device they want to complete tasks and maintain productivity. Interestingly, this is one area where GitLab’s distinctive background as a company has created a rather unique challenge. We started as an open source project and only in the last couple of years have we been purchasing laptops for team members (for years it was [BYOD](https://en.wikipedia.org/wiki/Bring_your_own_device)). To help in this area, we’ve [standardized](/handbook/business-technology/team-member-enablement/onboarding-access-requests/#laptops) what the company will purchase for new team members (and older team members are certainly eligible for new systems). Having a standard platform is great. Our issue here is both a cultural one as well as a practical one.
+
+Since our roots are in BYOD, we cannot simply turn off BYOD overnight. In fact, I see a lot of benefits to BYOD in certain scenarios – typing up blog posts on a tablet in a coffee shop seems fine, code commits to critical systems are not. Anyone can contribute – that is a cultural core belief and our [mission](/company/mission/#mission) at GitLab. We have team members as well as non-employees that contribute to our code base, our handbook, and everything else we do. We don’t have some of the normal corporate standardization that a typical brick-and-mortar company might have, such as using the corporate-issued-laptop only with asset tracking and patch management built-in, forbidding the use of BYOD, and so on. We do have policies in place, but they are not proactively enforced because we lack the asset management solutions at the moment to do so at the level we desire.
+
+As a security professional, I am thrilled we have standardized on Linux as our main infrastructure platform, Macs for team members, and engineering team members have a choice of Mac or Linux for the work laptop. No Microsoft Windows.
+
+However, trying to find a solution for asset management for our chosen platforms is a challenge. Most vendor solutions are Windows and Mac or Windows and Linux. There are some vendor solutions that support both Mac and Linux, but are often the more “Windows and Mac, and well, sort of Linux if you only run this ancient binary that dates back to an acquisition three years ago, I think Alice is still here from that acquisi- no wait she left” flavor.
+
+I haven’t even discussed phones. These are commonly used for various methods of multi-factor authentication, although we don’t currently have a good way to ensure the phones used for MFA are secured and fully patched. And many team members access work applications on their phones – email, Slack, Zoom, and Expensify, to name a few.
+
+### Sprawling infrastructure
+To complicate things we have hundreds of servers/containers/instances on numerous cloud offerings spread around the world, and dozens of cloud-based “Something-or-other as a Service” offerings we use as a company. While we don’t administer all systems via [SSH](https://en.wikipedia.org/wiki/Secure_Shell) ([Chef](https://www.chef.io/) and [Knife](https://docs.chef.io/knife.html) are used heavily in our environment) there are still challenges with provisioning, and that we’re currently unable to enforce two factor for SSH. Yes, we can use Yubikeys to store keys and a few other tricks for SSH access, but getting things set up for team members to administer these systems is daunting.
+
+## Wins
+A lot of our problems with identity management at GitLab were solved by [implementing Okta](/handbook/business-technology/okta/#how-is-gitlab-using-okta), and entire departments were thrilled. Provisioning steps that took days had been reduced to minutes. [Okta](https://en.wikipedia.org/wiki/Okta_(identity_management)) has a number of features that supported our vision of ZTN, so if we can solve some ZTN problems with Okta, we’re doing it with a proven solution that people already use. If we can solve a problem with Okta it will be a much easier “sell” to the various impacted departments, and since we can implement a lot of our ZTN model with Okta, it is a win-win situation.
+
+While the Security Team felt that a number of security problems were solved with Okta, this was not how the product was “sold” to the rest of the company. The ZTN benefits were pitched as business solutions to existing business problems to the various business and application owners in GitLab – meeting provisioning and compliance needs. It was not sold as a security solution, and this approach worked well.
+
+Our use of Chef along with Knife has been a massive help with infrastructure changes, and has simplified a lot of the usual drudgery associated with system administration. For example, pushing code changes out to multiple systems is much simpler.
+
+_Can we apply any of the wins to our existing challenges?_
+
+### Enforcing Okta Everywhere
+
+By trying to get the numerous SaaS solutions we use to only be accessed via Okta, we are looking to solve 70% (a WAG at best) of our issues in the SaaS area. This does not address everything. Some of the access to these systems requires not just traditional web-based access but API access as well. Not all systems integrate with Okta, or API access is completely separate, but this approach is working so far and things have gone reasonably well where Okta is implemented.
+
+### Linux-based Infrastructure
+In the sprawling [infrastructure](/handbook/engineering/infrastructure/) arena, our greatest challenge is that some of our most critical assets are administered via SSH. As a result, we have issues with provisioning, deprovisioning, and enforcing other aspects of authentication that we take for granted with web-based assets. We are seriously looking at leveraging Okta and their [Advanced Server Access](https://www.okta.com/products/advanced-server-access/) (ASA) product, which looks like we could integrate SSH accounts into the Okta mix. Using ASA could allow for provisioning of a new administrator via group assignment. Since we get multi-factor, enforcement of GeoIP, and a few other bells and whistles via Okta, by using ASA we could resolve one of the hardest problems we currently face. This has the added benefit of making the compliance and auditing folk happy, to say nothing of just general time-savings.
+
+While ASA (and any similar product) requires we install software on the server side, we do have Chef and Knife to help with deployment. Rollout could happen quickly. Our main issues here would be performance impact and client software distribution, although a regulated testing period and a decent rollout plan could help solve those issues.
+
+### All those devices
+This one is ugly. While moving more and more systems into Okta helps, it also emphasizes our biggest weakness – device management. After importing Okta logs into other systems for analysis, we can see what our team members are using to access GitLab assets. The good news is the majority of team members are using company-issued laptops, although we are not sure what patch level or configurations are in place. We do have company standards, but we do not have the level of control we’d like to ensure these standards are met. For example, we’d like to ensure that all team member systems accessing critical information ([RED data](/handbook/security/data-classification-standard.html#data-classification-levels)) are doing it from a company-issued system that is up-to-date on patches and is properly configured. We’d prefer to do it at the time of authentication, and not after the fact via log mining.
+
+Phones are already a touchy subject, since this is the main BYOD device allowed on most corporate networks. We use Expensify, and I cannot imagine using it without the phone app even though it is possible. I love using Okta Verify on my phone, and approving push multi-factor from my Apple Watch. I know Okta has some potential solutions, but unless there is a solution from any vendor that is BYOD friendly instead of full takeover MDM, I can’t imagine successfully selling it to fellow team members.
+
+The main issue here is that device management is an important part of ZTN, and the tools to make this happen at the quality level we’d like don’t seem to exist. As stated earlier, we have a mixture of Mac and Linux desktops so we’d like one solution to make this happen, not two.
+
+## Conclusion
+We did not intend for this blog post to be an Okta commercial, but it does happen to meet our needs for part of this whole ZTN equation. We’re still searching for a solution for asset management. I wish I could claim this was not a commercial for an asset management solution, because that is quite the challenge.
+
+While we still have a long way to go, we have a better handle on direction. Our points of resistance – both from team members impacted by change and technological limits based upon our environment – are showing where we need to focus but also how we need to approach things. Finding cultural and technological areas where we are doing well are huge strengths we can leverage, and by focusing our efforts on those areas, more of our environment benefits from Zero Trust.
+
+If you’re implementing ZTN and have similar (or different) problems, I’d love to discuss. If you’ve got thoughts or a question, comment below, we’d love to hear from you.
+
+
+*Special shout-out to the entire security team for their input on this blog series.*
+
+Photo by [Jp Valery](https://unsplash.com/@jpvalery?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+

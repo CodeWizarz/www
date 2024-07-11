@@ -1,0 +1,124 @@
+---
+title: "Learn Python with Pj! Part 2 - Lists and loops"
+author: Pj Metz
+author_gitlab: PjMetz
+author_twitter: MetzinAround
+categories: engineering
+tags: careers, devops, growth
+description: Follow along as our education evangelist Pj Metz learns about lists
+  and loops in the second of this multipart series.
+image_title: /images/blogimages/python.jpg
+twitter_text: "@MetzinAround is learning Python and taking us along for the
+  ride. Here's part 2!"
+---
+We’re back with another article about my journey to learn Python. Check out the [first article](/blog/2022/02/08/learn-python-with-pj-part-1/) if you want to see what I’ve already learned. Today we’re talking about lists and loops, two important parts of all programming languages. Let’s check them out. 
+
+## Lists
+
+Lists are a way to store information that can be accessed later. They are similar to arrays in other languages. A list is a named collection of other elements inside brackets that can be accessed by an index number. 
+
+``` python
+#I will be using this list for all our examples, and, yes, these are some of my favorite musical acts pulled directly from my Spotify 2021 wrapped. 
+favorite_music = ['The Midnight', 'Night Tempo', 'St. Lucia'] 
+```
+
+In this list, each element of the list can be accessed by an index number. Like many other languages, python is zero-indexed, meaning the first element is at index 0. So favorite_music[0] is “The Midnight”, favorite_music[1] is “Night Tempo”, and so on. 
+
+Something interesting about lists in Python is that a negative 1 index number will give you the last element in the list. Negative 2 will give you the second to last, and so on. As far as I can tell, this isn’t possible in other languages: Negative 1 indices will return errors or `undefined` in arrays or lists in other languages. I imagine a scenario where we’ve just added something to a list and need to access it immediately. We could use the negative index number to access the most recently added element. 
+
+Python comes with several built-in methods to be used with lists. Some of them have the list passed in as an argument, some are added to the list with a `.` so it can be used. These methods will change the list or return some kind of information about the list. Below are a few I found useful, but a more complete explanation of available methods is [available here](https://docs.python.org/3/tutorial/datastructures.html). 
+
+### .pop()
+
+Pop allows you to remove a specific element in a list as well as return it at the same time, meaning this can be set to a variable. To specify the element, use the desired index number inside the parentheses to remove it. 
+
+```python
+best_synthwave = favorite_music.pop(0)
+
+#returns ‘['Night Tempo', 'St. Lucia']’
+print(favorite_music)
+
+#returns 'The Midnight'
+print(best_synthwave)
+```
+### .append() and .insert()
+
+Append allows you to add an element to a list. Put the element in the parenthesis. The element is added to the end of the list. Insert allows you to say exactly where you would like the element inserted. The first argument is the index you would like to replace, and the second argument is the element to insert. 
+
+```python
+favorite_music.append('Turnstile') 
+
+#This will print ['The Midnight', 'Night Tempo', 'St. Lucia', 'Turnstile']
+print(favorite_music)
+
+favorite_music.insert(1, 'Kendrick Lamar')
+#This will print 'The Midnight', 'Kendrick Lamar', 'Night Tempo', 'St. Lucia', 'Turnstile'] 
+#Turnstile is still there since we appended it before. 
+print(favorite_music)
+```
+
+### len()
+
+Len gets the length of the object passed into it. This is important since you can know exactly how many elements are in a list, which is useful for control flow as well as loops. 
+
+```python
+length_of_music = len(favorite_music)
+
+#working with the original list will print “3”
+print(length_of_music)
+```
+Notice that it prints how many elements are in the list, not how many indices. I have to work to make sure to keep those two ideas separate. So there are three elements in the list, but the indices are [0], [1], and [2]. 
+
+
+## Loops
+
+Loops work very much the same way they do in other languages, but like I’ve seen with the rest of Python, the syntax is more readable and the code just looks a bit cleaner. The two main ways to use loops with Python are `for` and `while`. 
+
+### for
+
+For is used when you want to iterate through each element in an object. The syntax you use here creates a kind of one-time use variable that is then used in the code block in a variety of ways. Let’s say you want to print each band from the favorite_music list from before. 
+
+```python
+for band in favorite_music:
+  print(band)
+```
+
+This would print each band on its own line. If you call print() on favorite_music, it would print the array inside of brackets. You can perform logic inside of for loops to only return certain items. Say you want to only print bands that have “night” in the name:
+
+```python
+for band in favorite_music:
+    lower_case_band = band.lower()
+    if lower_case_band.__contains__('night'):
+      print(band)
+```
+
+Note: I put all the strings into lower case so we could match cases. Also, I found the contains method on the internet and the example had two underscores on either side. It made my code work whereas without the underscores it did not work. Like I said in the first article, I’m new here and don’t know why it did that.
+
+**EDIT March 7, 2022:** According to commenter "Glen666" in the comments, the easier way to check if something is contained in another object is to use the `in` operator. It would look like this: 
+
+```python
+for band in favorite_music:
+  lower_case_band = band.lower()
+  if "night" in lower_case_band:
+    print(band)
+```
+Thanks for catching this. I hadn't learned `in` yet so this makes it a bit easier! 
+
+### while
+
+While creates a loop that goes as long as certain criteria are being satisfied, usually a logic expression. If you want some code to run six times, you could use a while loop. 
+
+```python
+i = 0
+#This prints the string below 6 times. 
+while i < 7:
+  print('The Midnight is my favorite band of all time.')
+  i += 1
+```
+
+This is useful if you want code to run the whole time some circumstance is true, whether it’s a date, another process is running, or anything of the sort. 
+
+**EDIT March 7, 2022:** Thanks to user "magicolf" in the comments! They let me know that there's an error here where it prints 7 times instead of 6. Because i is declared as `0` first, the loop will actually print seven times. It's easy to make mistakes like this all the time, so I appreciate you letting me know, magicolf! 
+
+Loops are some of my favorite things to write so far. It’s like a little puzzle to figure out when you need to iterate through a list or string to make something happen at a specific time. The hardest part about loops is getting used to the logic of it. Python made this easier for me in that loops feel very natural to read. On top of that, I’m getting used to the indentation that I felt was so strange last time. I’ve spent about 30 or so hours working on it so far, and It’s starting to feel very natural. Hopefully, I can keep this up as we move on to the [next learning modules](https://about.gitlab.com/blog/2022/04/04/learn-python-with-pj-part-3/)! 
+

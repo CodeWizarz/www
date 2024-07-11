@@ -1,0 +1,39 @@
+---
+deprecations:
+- feature_name: "Migrate from SAST_DEFAULT_ANALYZERS to SAST_EXCLUDED_ANALYZERS"
+  reporter: tmccaslin
+  due: June 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/229974'
+  description: |
+    Until GitLab 13.9, if you wanted to avoid running one particular GitLab SAST analyzer, you needed to remove it from the [long string of analyzers in the `SAST.gitlab-ci.yml` file](https://gitlab.com/gitlab-org/gitlab/-/blob/390afc431e7ce1ac253b35beb39f19e49c746bff/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L12) and use that to set the [`SAST_DEFAULT_ANALYZERS`](https://docs.gitlab.com/ee/user/application_security/sast/#docker-images) variable in your project's CI file. If you did this, it would exclude you from future new analyzers because this string hard codes the list of analyzers to execute. We avoid this problem by inverting this variable's logic to exclude, rather than choose default analyzers. 
+    Beginning with 13.9, [we migrated](https://gitlab.com/gitlab-org/gitlab/-/blob/14fed7a33bfdbd4663d8928e46002a5ef3e3282c/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L13) to `SAST_EXCLUDED_ANALYZERS` in our `SAST.gitlab-ci.yml` file. We encourage anyone who uses a [customized SAST configuration](https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings) in their project CI file to migrate to this new variable. If you have not overridden `SAST_DEFAULT_ANALYZERS`, no action is needed. The CI/CD variable `SAST_DEFAULT_ANALYZERS` will be removed in GitLab 14.0, which will release on June 22, 2021.
+- feature_name: "Remove secret_detection_default_branch job"
+  reporter: tmccaslin
+  due: June 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/297269'
+  description: |
+    To ensure Secret Detection was scanning both default branches and feature branches we introduced two separate secret detection CI jobs in our managed [`Secret-Detection.gitlab-ci.yml`](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/Secret-Detection.gitlab-ci.yml) template. These two CI jobs, `secret_detection_default_branch` and `secret_detection`, created confusion and complexity in the CI rules logic. As part of this deprecation, we are moving the `rule` logic into the `script` section which will determine how the `secret_detection` job is run (historic, on a branch, commits, etc).
+    If you override or maintain custom versions of `SAST.gitlab-ci.yml` or `Secret-Detection.gitlab-ci.yml`, you must update your CI templates. We strongly encourage [inheriting and overriding our managed CI templates](https://docs.gitlab.com/ee/user/application_security/secret_detection/#custom-settings-example) to futureproof your CI templates. We will stop supporting the old `secret_detection_default_branch` job with GitLab 14.0, releasing June 22, 2021. 
+- feature_name: "Remove SAST analyzer SAST_GOSEC_CONFIG variable in favor of
+    custom rulesets"
+  reporter: tmccaslin
+  due: June 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/301215'
+  description: |
+    With the release of [SAST Custom Rulesets](https://docs.gitlab.com/ee/user/application_security/sast/#customize-rulesets) in GitLab 13.5 we allow greater flexibility in configuration options for our Go analyzer (GoSec). As a result we no longer plan to support our less flexible [`SAST_GOSEC_CONFIG`](https://docs.gitlab.com/ee/user/application_security/sast/#analyzer-settings) analyzer setting. This variable was deprecated in GitLab 13.10. 
+    If you override or leverage `SAST_GOSEC_CONFIG` in your CI file, you will need to update your SAST CI configuration or pin to an older version of the GoSec analyzer. We strongly encourage [inheriting and overriding our managed CI templates](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) to future proof your CI templates. We will remove the old `SAST_GOSEC_CONFIG variable` in GitLab 14.0, releasing June 22, 2021. 
+- feature_name: "Deprecating Global `SAST_ANALYZER_IMAGE_TAG` in SAST CI template"
+  reporter: tmccaslin
+  due: June 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/301216'
+  description: |
+    With the maturity of GitLab Secure scanning tools, we've needed to add more granularity to our release process. Currently, GitLab shares a major version number for [all our analyzers and tools](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks). This requires all tools to share a major version and prevent the use of [semantic version numbering](https://semver.org/). Beginning in 14.0 GitLab SAST will deprecate the `SAST_ANALYZER_IMAGE_TAG` global variable in our managed SAST.gitlab-ci.yml CI template in favor of the analyzer job variable setting the 'major.minor' tag in the SAST vendored template. Each analyzer job will have a scoped `SAST_ANALYZER_IMAGE_TAG` variable which will be actively managed by GitLab and set to the 'major.minor' tag for the respective analyzer. To pin to a specific version you simply change the variable value to the specific version tag. 
+    If you override or maintain custom versions of `SAST.gitlab-ci.yml` you will want to update your CI templates to stop referencing the global `SAST_ANALYZER_IMAGE_TAG` and move it to a scoped analyzer job tag. We strongly encourage [inheriting and overriding our managed CI templates](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) to future proof your CI templates. This change will allow you to instead override with a pinned `major.minor` version to more granular control future analyzer updates. This change will happen with GitLab 14.0 releasing June 22, 2021. 
+    This deprecation and planned removal changes our [previously announced plan](https://about.gitlab.com/releases/2021/02/22/gitlab-13-9-released/#pin-static-analysis-analyzers-and-tools-to-minor-versions) to Pin the Static Analysis tools.
+- feature_name: "Dropping support for SAST scanning of Go projects without Go modules enabled"
+  reporter: tmccaslin
+  due: June 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/327735'
+  description: |
+    As part of maintaining our Go SAST analyzer GoSec, we need to upgrade to Go 1.16. This means that we will no longer scan projects that do not have [Go modules enabled](https://blog.golang.org/using-go-modules), which drops support for Go versions prior to 1.11. If you require scanning of older Go projects you can [override our managed CI templates](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) and pin the Go analyzer to [v2.20.0](https://gitlab.com/gitlab-org/security-products/analyzers/gosec/-/blob/master/CHANGELOG.md#v2200).
+

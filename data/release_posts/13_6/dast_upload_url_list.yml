@@ -1,0 +1,14 @@
+features:
+  secondary:
+    - name: "Use a URL path list to guide DAST scans"
+      available_in: [ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/application_security/dast/#available-variables'
+      reporter: derekferguson
+      stage: secure
+      categories:
+        - 'DAST'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/214120'
+      description: |
+        DAST web testing within GitLab has always been dependent on a successful spider session to crawl the site and find the pages that the DAST scanner should test. This works in a large number of cases, but it can cause problems when a site has hidden pages, sections of a site aren't linked to each other, or if the spider reaches the time limit for it to stop looking for pages. If the response time of the site is slow, due to being on a development instance or any other number of situations, the last scenario can significantly reduce the coverage of the DAST test when it scans for vulnerabilities.
+
+        In order to reduce the issues related to spidering and allow users to control exactly what parts of a site are tested during a DAST scan, we have introduced a way for a URL list to be used to guide the scan, instead of the results of the DAST spider. Using the new variable `DAST_PATHS`, you can include a list of paths within the website specified in the `DAST_WEBSITE` variable for the scanner to cover. This comma separated list will act as the guide and allow pages to be covered that may not have been found by the spider. This will also allow you to use existing site maps, exported as a comma separated list, to make sure that the DAST scan covers every page you wish to test.

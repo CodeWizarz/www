@@ -1,0 +1,936 @@
+features:
+  top:
+    - name: Visual Reviews
+      available_in: [starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/ci/review_apps/index.html#visual-reviews-starter'
+      image_url: "/images/12_0/visual-review-apps.png"
+      reporter: brendan
+      stage: verify
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/10761'
+      description: |
+        GitLab gives users the ability to automatically create [review
+        apps](https://docs.gitlab.com/ee/ci/review_apps/) for each merge request.
+        This allows anyone to see how the design or UX has been changed.
+
+        In GitLab 12.0, we are expanding the ability to discuss those changes by
+        bringing the ability to insert
+        [visual review tools](https://gitlab.com/gitlab-org/gitlab-ee/issues/10761)
+        directly into the Review App itself. With a small code snippet, users can enable
+        designers, product managers, and other stakeholders to quickly provide
+        feedback on a merge request without leaving the app.
+
+  primary:
+    - name: "Project dependency list"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#dependency-list"
+      image_url: "/images/12_0/dependency-list.png"
+      reporter: NicoleSchwartz
+      stage: secure
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/10075"
+      description: |
+        You can now easily access a project's Dependency List (sometimes
+        referred to as a Bill of Materials or BOM) from the left sidebar menu.
+
+        The BOM indicates what components are included in your project, and often
+        is requested by Security teams and Compliance teams. In addition to being
+        able to view the report, you can also export the report to JSON.
+
+    - name: "Restrict access by IP address"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/group/index.html#ip-access-restriction-ultimate"
+      image_url: "/images/12_0/restrict-group-by-ip.png"
+      reporter: jeremy
+      stage: manage
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/1985"
+      description: |
+        Compliance-minded organizations may want to prohibit traffic from outside
+        IP addresses from accessing company resources. This is especially helpful
+        for organizations using VPNs, as you're now able to restrict traffic from
+        outside a specified subnet from accessing a group's resources in the GitLab UI.
+
+        Configurable at the group level on both self-managed and GitLab.com, maintaining tight control
+        over your organization's most valued code just became easier than ever.
+
+    - name: "File syncing to Web Terminal"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/web_ide/#file-syncing-to-web-terminal"
+      video: "https://www.youtube.com/embed/BXQGSDz8xqw"
+      image_url: "/images/12_0/sync-webide-cirunner.png"
+      reporter: kai
+      stage: create
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/5276"
+      description: |
+       In GitLab 12.0, changes made in the Web IDE will now be synced to the Web Terminal. User changes made
+       in the Web IDE can now be tested within the Web Terminal before committing them to the project.
+
+       This feature also helps to lower the barrier to entry for new contributors as they'll be able to view,
+       edit, and test without installing local dependencies for a project.
+
+       Please note that GitLab.com only supports Interactive Web Terminals through Private Runners.
+
+    - name: "Git integration for JupyterHub"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/clusters/applications.html#jupyter-git-integration"
+      image_url: "/images/12_0/jupyter-git.png"
+      reporter: danielgruesso
+      stage: deploy
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/47138"
+      description: |
+        Deploying JupyterHub via GitLab's Kubernetes integration provides an easy way to get started with
+        Jupyter notebooks, which can be used to create and share documents that contain live code, visualizations, and even runbooks.
+
+        Starting with GitLab 12.0, JupyterLab’s Git extension is automatically provisioned and configured when installing JupyterHub
+        onto your Kubernetes cluster. This integration enables full version control of your notebooks as well as issuance of Git
+        commands within Jupyter. Git commands can be issued via the Git tab on the left panel or via Jupyter’s command line prompt.
+
+  secondary:
+    - name: "Multiple extends support in .gitlab-ci.yml"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/ci/yaml/#extends"
+      reporter: brendan
+      stage: verify
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/53134"
+      description: |
+        The `extends` keyword allows users to keep their GitLab CI/CD code [dry](https://dev.to/michalbryxi/how-to-dry-your-gitlab-ciyml-16pc).
+        Using extends to condense common sections of code is a frequently used feature for advanced users of GitLab CI/CD,
+        and is used by our own teams to [build GitLab](https://gitlab.com/gitlab-org/gitlab-ce/blob/master/.gitlab/ci/rails.gitlab-ci.yml)
+        as well as our [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/) features.
+
+        In GitLab 12.0, we're very happy to welcome a contribution from [Lumi Akimova](https://gitlab.com/qwolphin) to improve this feature
+        by allowing users to include multiple `extends` snippets in a single job and,
+        with multiple `extends`, you can now achieve streamlined and dry CI configuration.
+
+        Thanks Lumi!
+
+    - name: "Sequential merge trains"
+      available_in: [premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/ci/merge_request_pipelines/#merge-trains-premium"
+      image_url: "/images/12_0/enable-merge-trains.png"
+      reporter: cstasik
+      stage: deploy
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/9186"
+      description: |
+        With the 12.0 release we're introducing a new way to keep your `master` or
+        release branches green: merge trains. Merge trains build on our
+        [pipelines for merge requests/results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/#pipelines-for-merged-results)
+        feature by allowing you to queue up pipelines in sequence.
+
+        For this first iteration, it's important to note that merge train pipelines
+        run in sequence (one at a time) so, depending on the frequency and duration
+        of your pipelines, it may or may not be appropriate to enable this feature yet for your team.
+        {: .alert .alert-info}
+
+        In the future we plan to enable it by default, but we want to have
+        [parallelization support](https://gitlab.com/gitlab-org/gitlab-ee/issues/11222) in
+        place first to make it more accessible to more teams.
+
+    - name: "Collapsible job logs"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/ci/pipelines/index.html#expand-and-collapse-job-log-sections"
+      image_url: "/images/12_0/job-log-collapse.png"
+      reporter: brendan
+      stage: verify
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/14664"
+      description: |
+        In GitLab 12.0, we're adding the ability to expand and collapse the log output from GitLab CI/CD jobs.
+        This will allow users to more easily debug certain steps in the job, and provide a great overview of the steps when desired -
+        or a detailed view if you want to see the entire output.
+
+        This originally started as a community contribution from [Matthias van de Meent](https://gitlab.com/matthias.vandemeent).
+        Thank you Matthias for your contribution!
+
+    - name: "Group-specific notification email addresses"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/profile/notifications.html"
+      image_url: "/images/12_0/notifs1.png"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/8111"
+      description: |
+        In 12.0, we have added the ability to select a separate email address for group notifications.
+        This now allows users to separate group notifications to different email addresses. For example, a work email address
+        for a work group and a personal email address for personal groups.
+
+    - name: "Vulnerability database available for viewing and accepting contributions"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#contributing-to-the-vulnerability-database"
+      reporter: NicoleSchwartz
+      stage: secure
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/11169"
+      description: |
+        Our vulnerability database project can now be viewed [here](https://gitlab.com/gitlab-org/security-products/gemnasium-db).
+        You can view the entries and verify the vulnerabilities you are most interested are a part of our checks.
+
+        In addition, [here are guidelines](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#contributing-to-the-vulnerability-database)
+        on how you can contribute to help make the vulnerability database more robust.
+
+    - name: "Add a reason when dismissing vulnerabilities"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/application_security/#adding-a-dismissal-reason"
+      image_url: "/images/12_0/comment-on-dismiss.png"
+      reporter: NicoleSchwartz
+      stage: secure
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/12234"
+      description: |
+        When dismissing a vulnerability identified by our scanners, there is now a
+        field available to add a reason detailing why this vulnerability was dismissed.
+
+        This will allow security teams and developers to be able to review the
+        history and understand why items were not remediated.
+
+    - name: "Lock all memberships to LDAP"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: "https://docs.gitlab.com/ee/administration/auth/ldap/index.html#global-group-memberships-lock"
+      reporter: jeremy
+      stage: manage
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/4354"
+      description: |
+        Organizations leaning on LDAP typically [synchronize](https://docs.gitlab.com/ee/administration/auth/ldap/index.html#group-sync)
+        it with GitLab for permissions management.
+
+        In GitLab 12.0, instances can now prevent permissions changes outside of LDAP by
+        non-admins with an instance-level setting. With this approach, compliance-minded organizations can use this option to ensure
+        that the permissions in LDAP are reflected on the instance - and aren't modifiable by users who aren't instance admins.
+
+    - name: "Prevent non-admins from deleting projects"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: "https://docs.gitlab.com/ee/administration/settings/visibility_and_access_controls"
+      image_url: "/images/12_0/prevent-project-deletion.png"
+      reporter: jeremy
+      stage: manage
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/5615"
+      description: |
+        Compliance-minded organizations may wish to ensure that projects - which may include important code in a repository - can only be
+        archived, rather than deleted and permanently lost.
+
+        With an instance-level setting to prevent project deletion by non-admins,
+        instance administrators can feel more secure knowing that projects are being
+        [archived](https://docs.gitlab.com/ee/user/project/settings/#archiving-a-project)
+        and retained.
+
+
+    - name: "GitLab Insights"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/insights/index.html"
+      image_url: "/images/12_0/insights-panel.png"
+      reporter: meks
+      stage: manage
+      issue_url: "https://gitlab.com/groups/gitlab-org/-/epics/725"
+      description: |
+        GitLab Insights introduced in GitLab Ultimate 11.9 (feature flag) is now Generally Available (GA) in GitLab Ultimate 12.0.
+
+        Configure the Insights that matter for your projects to explore data such as triage hygiene, issues created/closed per a given period, average time for merge requests to be merged and much more.
+
+    - name: "Email notifications for broken master builds"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/api/services#pipeline-emails"
+      image_url: "/images/12_0/failed-pipeline-email.png"
+      reporter: brendan
+      stage: verify
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/61721"
+      description: |
+        The GitLab [Pipeline Emails](https://gitlab.com/gitlab-org/gitlab-ce/issues/61721) service integration allows users to create
+        email alerts on build completion and failure to a list of recipients.
+        Previously, users could only subscribe to all build failures.
+
+        In GitLab 12.0, we have added the option to only
+        send the failure notification on the default branch for the project (e.g. `master`).
+
+        Thank you to [Peter Marko](https://gitlab.com/petermarko) for this contribution!
+
+    - name: "Improved support for passing variables to downstream pipelines"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/ci/multi_project_pipelines.html#passing-variables-to-a-downstream-pipeline"
+      reporter: brendan
+      stage: verify
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/60716"
+      description: |
+        In GitLab 11.8, we introduced the ability to [trigger](https://docs.gitlab.com/ee/ci/multi_project_pipelines.html#triggering-a-downstream-pipeline-using-a-bridge-job)
+        a downstream pipeline from an upstream bridge job.
+        We also introduced basic support for passing variables to the downstream pipeline.
+
+        With GitLab 12.0, we support passing current environmental variables to the downstream pipeline as well.
+        This allows users to provide context to the downstream pipeline as well as to the commit,
+        merge request, or other details from the pipeline that triggered it.
+
+    - name: "Faster shallow clones by default for all new projects in GitLab CI/CD"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/pipelines/settings#git-shallow-clone"
+      reporter: brendan
+      stage: verify
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/59688"
+      description: |
+        Since GitLab 8.9, GitLab CI/CD has supported shallow [git clones](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---depthltdepthgt)
+        by specifying the `GIT_DEPTH` variable in your job definition.
+
+        In GitLab 12.0, we've added the ability to set this depth at the project level - enabling project maintainers to default to
+        a shallow clone if desired. Shallow Git clones are faster than cloning the entire Git repository every time,
+        and if your CI/CD jobs are set up to build the latest, often a shallow clone is sufficient.
+
+        Also in GitLab 12.0, new projects created in GitLab will, by default, have a `GIT_DEPTH` setting of `50` when they are created.
+        This sensible default will help users have faster clone and build times with GitLab CI/CD,
+        while still allowing advanced users to change this setting if required for different types of CI/CD use cases.
+
+    - name: "Dependency proxy is enabled per-group by default"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: "https://docs.gitlab.com/ee/user/packages/dependency_proxy/index.html"
+      image_url: "/images/12_0/group_dependency_proxy.png"
+      reporter: trizzi
+      stage: package
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/11638"
+      description: |
+        In GitLab 11.11, we launched the MVC of the [dependency proxy](https://docs.gitlab.com/ee/user/packages/dependency_proxy/index.html),
+        which allows users to download and cache Docker images for faster, more reliable downloads.
+
+        In GitLab 12.0, we have enabled the feature by default at the group level.
+
+    - name: "Maven template now automatically pushes to the Maven Repository"
+      available_in: [premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/packages/maven_repository/index.html"
+      reporter: trizzi
+      stage: package
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/10051"
+      description: |
+        Java developers need an easy way to build and manage their dependencies with GitLab's CI/CD pipelines.
+
+        In GitLab 12.0, we have modified the bundled `Maven.gitlab-ci.yml` template to
+        easily allow users to upload and manage their Java dependencies to the GitLab Maven Repository from their CI/CD pipelines.
+
+    - name: "Developers now can delete tags from the Container Registry via API"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/api/container_registry.html#delete-a-repository-tag"
+      reporter: trizzi
+      stage: package
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/58271"
+      description: |
+        The Container Registry API allows GitLab users to easily manage their registry programmatically.
+
+        With GitLab 12.0, we have updated the [permissions model](https://docs.gitlab.com/ee/user/permissions.html#project-members-permissions)
+        to allow Developers to delete a tag.
+
+    - name: "Git object deduplication (Beta)"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/administration/repository_storage_types.html#hashed-object-pools"
+      reporter: jramsay
+      stage: create
+      issue_url: "https://gitlab.com/groups/gitlab-org/-/epics/189"
+      description: |
+        Forking workflows make it easy to contribute to any project by
+        creating a copy of the upstream project to work on before opening a
+        merge request to merge your changes into the upstream project. For
+        popular projects, the server side storage requirements needed for
+        thousands of copies accumulate quickly and increase hosting costs.
+
+        In GitLab 12.0, object deduplication can be enabled by instance
+        administrators using the `object_pools` feature flag. When enabled,
+        creating a fork of a public will also create an object pool and use
+        [`objects/info/alternates`](https://git-scm.com/docs/gitrepository-layout#Documentation/gitrepository-layout.txt-objectsinfoalternates)
+        to reduce the storage requirements of forks.
+
+        Object deduplication requires hashed storage to be enabled, and for
+        the parent project to be using hashed storage. Existing forks are not
+        currently migrated to object pools automatically – for updates follow
+        [gitaly#1560](https://gitlab.com/gitlab-org/gitaly/issues/1560).
+
+        In an upcoming release, we will also implement
+        [fast forking](https://gitlab.com/groups/gitlab-org/-/epics/607)
+        by directly creating the fork in a deduplicated state. Currently the
+        fork is first created, then deduplicated.
+
+        Object deduplication has been enabled on GitLab.com since 30 May 2019,
+        but it remains off by default for self-managed instances because of a
+        [duplicate bitmap warning](https://gitlab.com/gitlab-org/gitaly/issues/1728)
+        shown when fetching. This issue is fixed in 12.0 but the feature flag
+        could not be removed in time for this release.
+        {: .alert .alert-info}
+
+    - name: "Enabled Git bitmap hash cache to speedup repacking"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://git-scm.com/docs/git-config/2.21.0#Documentation/git-config.txt-packwriteBitmapHashCache"
+      reporter: jramsay
+      stage: create
+      issue_url: "https://gitlab.com/gitlab-org/gitaly/issues/1520"
+      description: |
+        In GitLab 12.0, when repacking Git repositories, a bitmap hash cache will be
+        saved in the bitmap index. The cache improves repack performance,
+        particularly when using delta islands.
+
+        Note that versions of JGit prior to 3.5.0 are incompatible with the bitmap
+        hash cache.
+        {: .alert .alert-info}
+
+    - name: "Validate Kubernetes credentials provided at cluster creation"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/clusters/#adding-an-existing-kubernetes-cluster"
+      image_url: "/images/12_0/cluster-validation.png"
+      reporter: danielgruesso
+      stage: deploy
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/55447"
+      description: |
+        Adding a Kubernetes cluster manually requires entering multiple data points and can be error prone. In order to effectively surface
+        access and permission issues when adding a cluster manually, the kubernetes
+        integration will now validate the reachability of the API URL as well as the validity of both then cluster token and CA certificate.
+
+        Relevant alerts will be presented when an issue is encountered.
+
+    - name: "Use GitLab Serverless with existing Knative installations"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/clusters/serverless/#using-an-existing-installation-of-knative"
+      reporter: danielgruesso
+      stage: deploy
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/58941"
+      description: |
+        Prior to this release, GitLab Serverless features could only be used when installing Knative via GitLab.
+        With GitLab 12.0, existing installations of Knative can now take advantage of GitLab Serverless. Simply [add the existing
+        cluster manually](https://docs.gitlab.com/ee/user/project/clusters/#adding-an-existing-kubernetes-cluster),
+        add the relevant Serverless templates to your project, and GitLab will do the rest.
+
+        This means you can now use GitLab Serverless with hosted Knative offerings, such
+        as Google's [Cloud Run on GKE](https://cloud.google.com/run/) or IBM's
+        [hosted Knative service](https://cloud.ibm.com/docs/containers?topic=containers-serverless-apps-knative).
+
+    - name: "Link and access a Zoom meeting from an issue"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/issues/associate_zoom_meeting.html"
+      image_url: "/images/12_0/link_zoom_call_in_issue.png"
+      reporter: sarahwaldner
+      stage: monitor
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/62966"
+      description: |
+          In GitLab 12.0, we have made it easy to collaborate with teammates on an issue via a Zoom conference call.
+          Paste a Zoom meeting link in the description of an issue.
+          GitLab will detect the link and display a "Join Zoom meeting" button at the top underneath the title surfacing it to all collaborators.
+
+    - name: "Link to external dashboards from environment dashboards"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/operations/metrics/dashboards/settings.html"
+      image_url: "/images/12_0/external_dashboard_link.png"
+      reporter: kencjohnston
+      stage: monitor
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/57171"
+      description: |
+          Operations teams often use more complex metrics dashboards for visualizing the state of their environments.
+
+          Starting in GitLab 12.0, you can now supply and easily access your external dashboards directly from within GitLab's environment dashboards.
+
+    - name: "Notifications for shared CI runner limits on GitLab.com"
+      available_in: [free, bronze, silver, gold]
+      documentation_link: "https://docs.gitlab.com/ee/subscriptions/#ci-pipeline-minutes"
+      reporter: tipyn
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/11629"
+      description: |
+        Group owners on GitLab.com will now be notified via email to let them know that
+        the group's CI Minutes Usage Quota has expired, with instructions on how to purchase more CI Minutes.
+
+    - name: "Add ability to query epics in GraphQL"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/api/graphql/#available-queries"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/63370"
+      description: |
+        GraphQL APIs allows users to request exactly the data they need, making it
+        possible to get all required data in a limited number of requests.
+
+        In this release, GitLab is now supporting the ability to query epics in the
+        GraphQL API.
+
+    - name: "Issue API now responds with task completion statistics"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/api/issues.html"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/51636"
+      description: |
+        Users are able to define tasks in issues and this information is surfaced in various places throughout the application.
+
+        In GitLab 12.0, users will now have the ability to return task progress information through the API.
+
+    - name: "New threaded discussion design"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/discussions/"
+      image_url: "/images/12_0/discussion.png"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/62124"
+      description: |
+        Our existing design for discussions for merge requests and issues involved many boxes and borders, often times
+        making it difficult to follow the conversation.
+
+        In GitLab 12.0, we introduced a redesign to enhance the user experience of discussions.
+
+    - name: "Additional issue stats from the issues API"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/api/issues_statistics.html"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/63371"
+      description: |
+        Users have been unable to get detailed issue statistics from the issues API.
+
+        In GitLab 12.0, we are adding the ability to return counts of issues for all, closed, and opened states.
+
+    - name: "Enhancements for system notes for adding and removing epic relationships"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/group/epics/"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/7329"
+      description: |
+        Changes in epic relationships have not been recorded as system notes in the discussion feed of an epic.
+
+        In GitLab 12.0, system notes are now recorded for when epic relationships for parent and sub-epics are added or removed.
+
+    - name: "Add and remove child epics via quick actions"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/project/quick_actions.html#quick-actions-for-epics-ultimate"
+      reporter: ebrinkman
+      stage: plan
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/7330"
+      description: |
+        Child epics cannot currently be added or removed from parent epics via quick actions.
+
+        In GitLab 12.0, we have added the ability to add and remove child epics
+        via the `/child_epic` and `/remove_child_epic` quick action commands.
+
+    - name: "No longer require Docker in Docker for DAST"
+      available_in: [ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/application_security/dast/"
+      reporter: NicoleSchwartz
+      stage: secure
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ee/issues/10798"
+      description: |
+        Dynamic Application Security Testing (DAST) no longer requires the use of Docker in Docker to run.
+        As a result, the DAST Docker image (3GB) will now be cached on Runners.
+
+        Note that the image is updated weekly, so the cache will be invalidated every Monday.
+        {: .alert .alert-info}
+
+    - name: "Support for AsciiDoc include directive"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: "https://docs.gitlab.com/ee/user/asciidoc.html#includes"
+      reporter: jramsay
+      stage: create
+      issue_url: "https://gitlab.com/gitlab-org/gitlab-ce/issues/18045"
+      description: |
+        The AsciiDoc markup format supports declaratively including content
+        from other files, allowing unnecessary duplication to be removed from
+        documents. The AsciiDoctor implementation presumes a local file system,
+        not a Git repository, preventing includes from being rendered when
+        viewing an AsciiDoc file inside GitLab.
+
+        In GitLab 12.0, the include directive (`include::example.adoc[]`) is
+        now supported, allowing text files in the same branch or tag to be
+        included when viewed in GitLab.
+
+        Thanks [Guillaume Grossetie](https://gitlab.com/g.grossetie) for your
+        [contribution](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/28417)!
+
+    - name: GitLab Runner 12.0
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/runner'
+      documentation_text: "Read through the documentation of GitLab Runner"
+      description: |
+        We're also releasing GitLab Runner 12.0 today! GitLab Runner is the open source project
+        that is used to run your CI/CD jobs and send the results back to GitLab.
+
+        ##### Most interesting changes:
+
+        - [Docker Credentials helper support](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1386)
+        - [Add configuration of access_level for runners on registration](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1323)
+        - [Allow configuration of Pod Security Context by Kubernetes Executor](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1036)
+        - [Make PowerShell default for new registered Windows shell executors](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1406)
+        - [Support windows docker volumes configuration](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1269)
+
+        As mentioned in previous posts, with version GitLab Runner 12.0, we're also removing a few previously deprecated things:
+
+        - [Remove deprecated clone/fetch command](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1372)
+        - [Remove deprecated git clean strategy](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1370)
+        - [Remove support for deprecated metrics_server setting](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1368)
+        - [Remove support for deprecated entrypoint configuration for K8S](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1369)
+        - [Remove support for deprecated S3 cache configuration](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1367)
+        - [Remove support for deprecated distributions](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1130)
+        - [Remove old docker helper image commands](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1373)
+
+        A list of all changes can be found in GitLab Runner's [CHANGELOG](https://gitlab.com/gitlab-org/gitlab-runner/blob/v12.0.0/CHANGELOG.md).
+
+    - name: "Omnibus improvements"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: "https://docs.gitlab.com/omnibus/"
+      reporter: ebrinkman
+      description: |
+        We continue to improve the GitLab Omnibus with every release.
+
+        Some of the improvements in GitLab 12.0 are:
+
+        - GitLab 12.0 includes [Mattermost 5.11](https://mattermost.com/blog/mattermost-5-11/),
+          an [open source Slack-alternative](https://mattermost.com/) whose newest release includes a new remote CLI tool, plus much more.
+          This version also includes [security updates](https://mattermost.com/security-updates/) and upgrading from earlier versions is recommended.
+        - [Enabling JSON logging by default](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/4102).
+        - Grafana service is now enabled by default in omnibus-gitlab packages. Also, [OAuth authentication](https://docs.gitlab.com/omnibus/settings/grafana.html#using-gitlab-as-an-oauth-provider)
+          is now automatically enabled between Grafana and GitLab.
+        - [Improved GitLab metrics with directly instrumented ruby metrics](https://gitlab.com/gitlab-org/gitlab-ce/issues/60303)
+
+    - name: "Performance improvements"
+      available_in: [core, starter, premium, ultimate]
+      performance_url: https://gitlab.com/groups/gitlab-org/merge_requests?scope=all&utf8=%E2%9C%93&state=merged&label_name%5B%5D=performance&milestone_title=12.0
+      reporter: multiple
+      description: |
+        We continue to improve the performance of GitLab with every release
+        for GitLab instances of every size.
+
+        Some of the improvements in GitLab 12.0 are:
+
+        - [Make epics list page more efficient](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/13904)
+        - [Avoid hitting the database for Elasticsearch results](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/12691)
+        - [Avoid hitting Elasticsearch twice for search results](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/13120)
+        - [Submit documents to ElasticSearch index in bulk](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/13917)
+        - [Cache rendered Markdown in commit messages to improve performance of listing commits](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/29054)
+        - [Improve performance of repository size limit check on each push](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/13460)
+        - [Improve performance when loading an issue or merge request with a long description](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/28597)
+        - [Improve performance of merge requests with suggested changes](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/29027)
+        - [Improve performance and reduce CPU usage of clones by using delta islands when repacking Git repositories](https://gitlab.com/gitlab-org/gitaly/merge_requests/1267)
+        - [Improve peformance of monitoring charts](https://gitlab.com/gitlab-org/gitlab-ce/issues/58516)
+        - [Fix Git N + 1 on ListLastCommit RPC](https://gitlab.com/gitlab-org/gitaly/merge_requests/1253)
+        - [Improve Git code search performance by using `--perl-regexp`](https://gitlab.com/gitlab-org/gitaly/merge_requests/1241)
+        - [Improve performance of `JobsController` by fixing Git N + 1](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/28093)
+
+mvp:
+  fullname: "Wolphin"
+  gitlab: q_wolphin
+  description: |
+    Wolphin's [contribution to GitLab 12.0](#multiple-extends-support-in-gitlab-ciyml)
+    adds multiple extends support to GitLab's CI, making an already powerful primitive even more spectacular.
+
+    Thanks so much to Wolphin for the contribution!
+
+cover_img:
+  image_url: "https://unsplash.com/photos/Q1p7bh3SHj8"
+  licence: Free
+  licence_url: "https://unsplash.com/license"
+
+cta:
+  - title: "Join us for an upcoming event"
+    link: '/events/'
+
+upgrades:
+  - reporter: fzimmer
+    description: |
+      - GitLab 12.0 merges the database changes made by Enterprise Edition over the years into Community Edition.
+        As part of this work, we have also removed various old migrations. Users upgrading to their GitLab installation
+        must first upgrade to the latest 11.11 patch release, then upgrade to 12.0.0. When upgrading to a future version such as 12.3.0,
+        users must first upgrade to the latest 11.11 patch release as per our [recommended upgrade paths](https://docs.gitlab.com/ee/policy/maintenance.html#upgrade-recommendations). Failing to do so may result in migrations not being applied, which could lead to application errors.
+        Omnibus installations already enforce upgrading to 12.0.0, and GitLab Helm Chart enforces a similar [upgrade path](https://docs.gitlab.com/charts/releases/2_0.html). Installations from source will have to take care of this manually.
+      - GitLab 12.0 will use [Hashed Storage](https://docs.gitlab.com/ee/administration/repository_storage_types.html#hashed-storage) by default.
+        This only affects new installations.
+      - GitLab 12.0 will [automatically upgrade the PostgreSQL version to 10.7](https://docs.gitlab.com/omnibus/settings/database.html#upgrade-packaged-postgresql-server).
+        - Users have the ability to skip the auto upgrade of PostgreSQL 10.7 creating `/etc/gitlab/disable-postgresql-upgrade`.
+        - If you use [GitLab Geo](https://docs.gitlab.com/ee/administration/geo/index.html),
+          the automatic PostgreSQL upgrade will be skipped on both the `primary` and all `secondary` nodes. We will [provide an upgrade path for Geo users in 12.1](https://gitlab.com/gitlab-org/gitlab-ee/issues/12164).
+      - GitLab 12.0 will [enable JSON logging by default](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/4102).
+        We have also added documentation on how to [retain previous log format settings](https://docs.gitlab.com/omnibus/settings/logs.html#text-logging)
+        where JSON is not desired.
+      - Further information related to important Omnibus upgrade information in the [documentation](https://docs.gitlab.com/omnibus/update/gitlab_12_changes.html).
+
+deprecations:
+  - feature_name: "GitLab 9.x now out of support scope"
+    due: Jun. 22, 2019
+    reporter: jeremy
+    description: |
+      As we introduce a new major version of GitLab, GitLab 9.x now falls outside of [our scope of support](https://about.gitlab.com/support/statement-of-support/#out-of-scope). We invite customers to upgrade to at least GitLab 10.0 to benefit from our [Support team's](https://about.gitlab.com/support/) assistance.
+
+  - feature_name: "GitLab Geo requires Hashed Storage in GitLab 12.0"
+    due: Jun. 22, 2019
+    reporter: fzimmer
+    description: |
+      With GitLab 12.0, GitLab Geo [requires Hashed Storage](https://gitlab.com/gitlab-org/gitlab-ee/issues/8690)
+      to mitigate race conditions on secondary nodes. Please use `sudo gitlab-rake gitlab:geo:check`
+      to see if [Hashed Storage](https://docs.gitlab.com/ee/administration/repository_storage_types.html#hashed-storage) is enabled and all projects are migrated. See the
+      documentation on [how to migrate to Hashed Storage](https://docs.gitlab.com/ee/administration/repository_storage_types.html#how-to-migrate-to-hashed-storage).
+
+      This was also noted in [previously](https://gitlab.com/gitlab-org/gitlab-ce/issues/40970).
+
+      In GitLab [11.5](https://gitlab.com/groups/gitlab-org/-/milestones/20), we added [this
+      requirement to the Geo documentation](https://gitlab.com/gitlab-org/gitlab-ee/issues/8053).
+
+      With GitLab [11.6](https://gitlab.com/groups/gitlab-org/-/milestones/21),
+      `sudo gitlab-rake gitlab:geo:check` checks [that Hashed
+      Storage is enabled and all projects are migrated](https://gitlab.com/gitlab-org/gitlab-ee/issues/8289). If
+      you are using Geo, please run this check and migrate as soon as possible.
+
+      In GitLab [11.8](https://gitlab.com/groups/gitlab-org/-/milestones/23), [a
+      permanently dismissable warning](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/8433) is displayed on the
+      **Admin Area › Geo › Nodes** page if the above checks are not resolved.
+
+  - feature_name: "GitLab Geo requires PostgreSQL Foreign Data Wrapper in GitLab 12.0"
+    due: Jun. 22, 2019
+    reporter: fzimmer
+    description: |
+      In GitLab 12.0, Geo requires PostgreSQL [Foreign Data Wrapper](https://docs.gitlab.com/ee/development/geo.html#foreign-data-wrapper),
+      raising the minimum PostgreSQL version to 9.6. GitLab Geo uses PostgreSQL Foreign Data Wrapper to query data from different PostgreSQL instances.
+      This is needed for [Geo Log Cursor](https://docs.gitlab.com/ee/development/geo.html#geo-log-cursor), as this significantly improves the performance
+      of some synchronization operations. Foreign Data Wrapper also improves the performance of the Geo node status queries. For large projects, the legacy
+      queries had unacceptable performance.
+
+      See how to set PostgreSQL Foreign Data Wrapper up in [the Geo database replication documentation](https://docs.gitlab.com/ee/administration/geo/index.htmldatabase.html).
+
+  - feature_name: "Remove use of `app` as matching mechanism for Kubernetes deploy boards"
+    due: Jun. 22, 2019
+    reporter: Daniel Gruesso
+    description: |
+      In GitLab 12.1, we will remove the `app` label matching for the Kubernetes deployment
+      selector (removal was originally scheduled for 12.0). As part of GitLab 11.10, we introduced a [new matching mechanism](https://gitlab.com/gitlab-org/gitlab-ee/issues/9221)
+      which uses `app.gitlab.com/app` and `app.gitlab.com/env` to show deployments on deploy boards.
+
+      In order to see these deployments in your deploy boards, all you need to do is push a new
+      deployment and GitLab will use the new labels for your deployments.
+
+  - feature_name: "Removal of `AUTO_DEVOPS_DOMAIN` environment variable"
+    due: Jun. 22, 2019
+    reporter: danielgruesso
+    description: |
+      The new `KUBE_INGRESS_BASE_DOMAIN` environment variable was
+      [introduced as part of GitLab 11.8](https://gitlab.com/gitlab-org/gitlab-ce/issues/52363). It is no longer
+      necessary to use `AUTO_DEVOPS_DOMAIN` to define multiple domains as these can now be defined individually on the cluster page.
+
+  - feature_name: "Remove Kubernetes service template"
+    due: Jun. 22, 2019
+    reporter: Daniel Gruesso
+    description: |
+      In GitLab 12.1, we plan to remove the instance-level Kubernetes service
+      template in favor of the [instance-level](https://gitlab.com/gitlab-org/gitlab-ce/issues/39840)
+      cluster functionality introduced in GitLab 11.11.
+
+      Any self-managed instance making use of the service template will be migrated to an
+      instance-level cluster as part of upgrading to GitLab 12.0.
+
+  - feature_name: "Remove support for `skip_auto_migrations` file"
+    due: Jun. 22, 2019
+    reporter: ebrinkman
+    description: |
+      In GitLab 12.0, we are completely [removing support for `skip_auto_migrations` file](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/3787).
+      This was previously deprecated in GitLab 10.6.
+
+  - feature_name: "Remove Prometheus 1.x support"
+    due: Jun. 22, 2019
+    reporter: ebrinkman
+    description: |
+      In GitLab 12.0, we are completely [removing support for Prometheus 1.x](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/3797).
+
+  - feature_name: "Deprecation of openSUSE 42.3"
+    due: Jun. 22, 2019
+    reporter: ebrinkman
+    description: |
+      openSUSE 42.3 reaches end of life on June 30, 2019. We will continue to [build packages](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/4395)
+      for it until GitLab 12.1, with plans to drop support in GitLab 12.2.
+
+  - feature_name: "Deprecate legacy code paths in GitLab Runner"
+    due: Jun. 22, 2019
+    reporter: brendan
+    description: |
+      Since GitLab 11.9, GitLab Runner has been using a [new
+      method](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1203)
+      for cloning/fetching the repository. Currently, GitLab
+      Runner will use the old method if the new one is not supported. Please see [this
+      issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4069) for
+      additional details.
+
+      In GitLab 11.0, we changed how the metrics server is configured for GitLab
+      Runner. `metrics_server` has been removed in favor of `listen_address`
+      in GitLab 12.0. Please see [this issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4072) for
+      additional details.
+
+      In 11.3, GitLab Runner started supporting [multiple cache
+      providers](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/968).
+      This resulted in new settings for [S3-specific
+      configuration](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnerscaches3-section).
+      In the [documentation](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runnerscache-section),
+      there is a table of what changed, and how to migrate to the new
+      configuration. Please see [this
+      issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4070) for
+      additional details.
+
+      These paths are no longer available in GitLab 12.0. As a user, you don't have to change
+      anything apart from making sure the GitLab instance is running 11.9+
+      when upgrading to GitLab Runner 12.0.
+
+  - feature_name: "Deprecate entrypoint feature flag for GitLab Runner"
+    due: Jun. 22, 2019
+    reporter: brendan
+    description: |
+      In GitLab 11.4, GitLab Runner introduced a feature flag
+      [`FF_K8S_USE_ENTRYPOINT_OVER_COMMAND`](https://docs.gitlab.com/runner/configuration/feature-flags.html#available-feature-flags)
+      in order to fix issues like
+      [#2338](https://gitlab.com/gitlab-org/gitlab-runner/issues/2338) and
+      [#3536](https://gitlab.com/gitlab-org/gitlab-runner/issues/3536).
+
+      In GitLab 12.0, we switch to the correct behavior as if the feature flag was
+      turned off. Please see [this
+      issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4073) for
+      additional details.
+
+  - feature_name: "Deprecate support of Linux distributions that reached EOL for GitLab Runner"
+    due: Jun. 22, 2019
+    reporter: brendan
+    description: |
+      Some Linux distributions in which you could install GitLab Runner have reached
+      End of Life support.
+
+      In GitLab 12.0, GitLab Runner no longer distributes packages to those Linux distributions.
+      A full list of distributions that are no longer supported can be found in our
+      [documentation](https://docs.gitlab.com/runner/install/linux-repository.html).
+
+      Thanks [Javier Jardón](https://gitlab.com/jjardon) for your
+      [contribution](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1130)!
+
+  - feature_name: "Remove legacy GitLab Runner helper commands"
+    due: Jun. 22, 2019
+    reporter: brendan
+    description: |
+      As part of adding support for [Windows Docker executor](https://gitlab.com/groups/gitlab-org/-/epics/535), we had to
+      deprecate some old commands that are used for the [helper
+      image](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#helper-image).
+
+      In GitLab 12.0, GitLab Runner starts using the new commands. This only
+      affects users who are [overriding the helper
+      image](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#overriding-the-helper-image).
+      Please see [this
+      issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4013) for
+      additional details.
+
+  - feature_name: "Remove legacy Git clean mechanism from GitLab Runner"
+    due: Jun. 22, 2019
+    reporter: brendan
+    description: |
+      With GitLab Runner 11.10, [we introduced a way](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/1281)
+      to configure how `git clean` command is being executed by Runner. Additionally, the new cleanup strategy
+      removes the usage of `git reset` and moves the `git clean` command after the checkout step.
+
+      In GitLab Runner 12.0, GitLab Runner drops support for the legacy cleanup strategy and removes the
+      ability to restore it with a feature flag. Please see [this issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4175)
+
+  - feature_name: "Secure License Management renamed to License Compliance in GitLab 12.0"
+    due: Jun. 22, 2019
+    reporter: NicoleSchwartz
+    description: |
+      License Management is being renamed to better align with common industry vernacular starting in GitLab 12.0.
+      The purpose of License Compliance is to analyze your application to track which licenses are used by third-party components,
+      like libraries and external dependencies, and check that they are compatible with your project's licensing model.
+
+      License Compliance is part of our [Secure Composition Analysis group](/handbook/product/categories/#composition-analysis-group).
+
+  - feature_name: "Deprecated variables and argument for manual configurations of `.gitlab-ci.yml` when using Secure features"
+    due: Jun. 22, 2019
+    reporter: NicoleSchwartz
+    description: |
+      If you have manually configured your `.gitlab-ci.yml` configuration file to use the:
+
+      - Command line argument `--auth-first-page`, you need to remove this argument as it is no longer supported.
+      - `DEP_SCAN_DISABLE_REMOTE_CHECKS` flag variable, you need to remove this as it is no longer supported.
+      - `sast_container` value in `GITLAB_FEATURES` environment variable, you must change to use `container_scanning` instead.
+
+      If you have manually configured your `.gitlab-ci.yml` configuration file, verify that you are using the
+      [new report syntax](https://docs.gitlab.com/ee/ci/yaml/#artifactsreports).
+      All Secure features are dependant on the reports being available in the expected location. If you do not update to the
+      [new report syntax](https://docs.gitlab.com/ee/ci/yaml/#artifactsreports),
+      all Secure features will stop working.
+
+      If you utilize [vendored templates](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#including-the-provided-template)
+      instead of manual configuration, your configuration will be kept up to date with variable and argument changes.
+
+  - feature_name: "No maintained manual Secure configuration snippet from GitLab 12.0"
+    due: Jun. 22, 2019
+    reporter: NicoleSchwartz
+    description: |
+      We will no longer update the Secure
+      [manual configuration snippet](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#manual-job-definition-for-gitlab-115-and-later)
+      in the documentation that is utilized when you are configuring Secure features in your project pipeline.
+
+      Please use vendored template inclusion for Secure in your .gitlab-ci.yml configuration by using
+      [include:   template: Dependency-Scanning.gitlab-ci.yml](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#including-the-provided-template).
+
+  - feature_name: "3DES is now disabled on GitLab.com Pages by default"
+    due: Jun. 22, 2019
+    reporter: cstasik
+    description: |
+      GitLab.com Pages previously allowed 3DES, which is [being deprecated](https://csrc.nist.gov/news/2017/update-to-current-use-and-deprecation-of-tdea).
+
+      To mitigate this, going forward 3DES will be disabled by default. This should not change anything for users of modern browsers,
+      but some users of Internet Explorer versions 7 and 8 running on the Windows XP operating system may be impacted.
+
+  - feature_name: "Remove support for MySQL in GitLab 12.1"
+    due: Jul. 22, 2019
+    reporter: kencjohnston
+    description: |
+      GitLab 12.0 is the last version with [support for MySQL (and MariaDB)](https://gitlab.com/gitlab-org/gitlab-ce/issues/52442).
+      Users will need to [migrate](https://docs.gitlab.com/ee/update/mysql_to_postgresql.html)
+      to PostgreSQL in order to utilize future versions. MySQL has been considered deprecated and
+      support for it was previously limited to Enterprise Edition Starter and Premium.
+
+      If you are a GitLab customer using MySQL, please [contact our customer support team](https://support.gitlab.com/)
+      for assistance with the migration.
+
+  - feature_name: "Sentry settings for error reporting and logging will be removed from the UI in GitLab 12.1"
+    due: Jul. 22, 2019
+    reporter: bufferoverflow
+    description: |
+      These settings will be removed from the UI in GitLab 12.1 and have been made available within `gitlab.yml` in GitLab 11.11. In addition, you will be able to define a Sentry Environment to differentiate between multiple deployments like development, staging, and production. See [gitlab-ce#49771](https://gitlab.com/gitlab-org/gitlab-ce/issues/49771) for more details.
+
+  - feature_name: "Group project templates fixed to Silver/Premium tier"
+    due: Aug. 22, 2019
+    reporter: jeremy
+    description: |
+      When we introduced [group-level project templates](https://docs.gitlab.com/ee/user/group/custom_project_templates.html)
+      in GitLab 11.6, we unintentionally made this Premium/Silver feature available at any tier.
+
+      We [fixed this bug](https://gitlab.com/gitlab-org/gitlab-ee/issues/10926)
+      in GitLab 11.11 by giving any existing users/instances lower than Silver/Premium
+      a grace period of three months.
+
+      On August 22nd, 2019, this grace period will expire and group project
+      templates will require Silver/Premium or higher as documented.
+
+  - feature_name: "License Management will use Python 3 as the default in GitLab 12.2"
+    due: Aug. 22nd, 2019
+    reporter: NicoleSchwartz
+    description: |
+      Python 3 will become the default version used by the Secure stage License Management.
+
+      Users with Python 2 will need to set the CI variable `LM_PYTHON_VERSION` to "2" if they are self-managed when they start using GitLab 12.2.
+      Users with Python 3 can change the CI variable `LM_PYTHON_VERSION` to "3" today.
+
+  - feature_name: "Deprecate support for Windows batch"
+    due: Sep. 22, 2019
+    reporter: brendan
+    description: |
+      In GitLab 12.3, we plan to deprecate support for Windows batch command line jobs in the GitLab Runner (e.g. `cmd.exe`)
+      in favor of extended and expanding support for Windows PowerShell.
+
+      This will align our vision for enterprise DevOps with Microsoft's position that PowerShell is the right technology
+      to automate enterprise applications in Windows-based environments.
+
+      For users that may still want to run items against `cmd.exe`, those commands can be invoked from PowerShell,
+      but we will not provide direct support for Windows batch as there are a number of inconsistencies in batch
+      which results in a high cost for maintainability and development.
+
+  - feature_name: "Deprecation of job directory caching in GitLab Runner with Docker executor"
+    due: Sep. 22, 2019
+    description: |
+      With GitLab Runner 11.10, we've changed what part of the job directory is cached in a shared volume
+      when Docker and Docker Machine executors are used. Instead of caching only the parent directory of the
+      job working directory, GitLab Runner is now caching the whole base directory configured with
+      `builds_dir`. Because it is a behavior change, we've added a feature flag that allows to control
+      whether the new or old behavior should be used.
+
+      With GitLab Runner 12.3, we will remove the feature flag and the old behavior. Please see
+      [this issue](https://gitlab.com/gitlab-org/gitlab-runner/issues/4180).
+
+  - feature_name: "Python 2 support in Secure License Management will be deprecated by end of the year"
+    due: Dec. 22nd, 2019
+    reporter: NicoleSchwartz
+    description: |
+      Support for Python 2 would be dropped in a future GitLab release due to Python 2.7 reaching the [end of its life](https://pythonclock.org/) on January 1st, 2020.

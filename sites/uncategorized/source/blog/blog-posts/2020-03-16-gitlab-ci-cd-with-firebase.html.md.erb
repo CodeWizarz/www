@@ -1,0 +1,99 @@
+---
+title: "How to leverage GitLab CI/CD for Google Firebase"
+author: Brendan O’Leary
+author_gitlab: brendan
+author_twitter: olearycrew
+categories: engineering
+image_title: '/images/default-blog-image.png'
+description: "Firebase is a powerful backend-as-a-service tool and when combined with GitLab it can be easy to enable continuous deployment of database, serverless and apps."
+tags: CI/CD, cloud native, integration,
+postType: dev-evangelism
+twitter_text: "Combine @gitlab CI/CD with Firebase for a powerful full-stack DevOps platform." 
+---
+
+Building mobile apps can be painful - especially when it comes to finding a way to provide all the tooling needed to make the application feasible without becoming an expert in many different disciplines. [Firebase from Google](https://firebase.google.com/) aims to take away that burden by providing an app deployment platform and a BaaS or Backend-as-a-Service. While the offerings can vary greatly, most BaaS providers include a database, object storage, push notifications and some sort of hosting package. Firebase goes beyond this and provides user authentication built-in as well as [serverless](/topics/serverless/) functions, telemetry, and Google tools for growth.  
+
+Those tools are very appealing to mobile and even web-app developers and Firebase has been successful in that market with customers including The New York Times, Lyft and Duolingo just to name a few. But even with all of the fantastic BaaS tools Firebase brings to bear on a project, it is critical to have source code management and [CI/CD tools](/topics/ci-cd/) to match. As Firebase configuration for important settings such as database security, serverless functions, and hosting can all be stored “as-code” inside your application’s repository, GitLab paired with Firebase can make for a powerful duo.
+
+## Our app
+
+Our application will be a relatively simple link shortener for use with the domain [labwork.dev](https://labwork.dev). In order to build a link shortener, we’ll need the ability to log users in, a database for storing the links and a way to redirect folks coming with the short links to the longer website. Firebase comes with these items packaged together - which should make it relatively painless to stand up (famous last words right?).
+
+I plan on covering the application in more detail in the future, or if you want to jump to the end you can find the [completed project here](https://gitlab.com/brendan-demo/labwork/homepage/). For now, I wanted to at least introduce the architecture plan. I’ll use [Vue.js](https://vuejs.org) for the frontend. Vue.js is a web application that lets users log in using Firebase Authentication. Once logged in, users will have access to a form that allows them to create new short URLs. That form will call a Firebase Function that checks to see if the shortcode requests already exist (or create a random hash if not specified). If the shortcode is unique, the function adds the shortcode and longer URL to the `urls` collection in Firestore and returns okay.  
+
+Once the shortcode is in the database, I’ll use another cloud function to retrieve the long URL associated with it. Firestore has a great feature that allows you to redirect traffic based on a pattern to a specified function, and I’ll use this so that anything that comes to `/go/{shortcode}` gets magically redirected to the correct long URL.
+
+![Basic Architecture Diagram](/images/blogimages/firebase_01.png){: .shadow.large.center}
+
+## Add Firebase to the project
+
+Once we have this architecture finalized, and have built the skeleton of the project and are ready to start deploying and testing, it’s time to add Firebase to our project. Firebase provides a [very helpful CLI tool](https://github.com/firebase/firebase-tools) for getting started here and we’ll use that to begin.
+
+The first command `firebase init` starts the project initialization process.
+
+![Output of firebase init command](/images/blogimages/firebase_02.png){: .shadow.large.center}
+
+From there, you can select which services you want to use with this project. You’ll also be able to decide to create a new Firebase project, or use one you previously created in the [Firebase console](https://console.firebase.google.com/). You also can select where to store the configuration files. I’ll add a folder called `firebase-config` to store all of these files. Now you are able to source control all changes to your Firebase architecture - from indexes to security rules - all in the same repository as your project.
+
+![Firebase config files](/images/blogimages/firebase_03.png){: .shadow.large.center}
+
+You can see all of the changes required to add Firebase to the project [in this merge request](https://gitlab.com/brendan-demo/labwork/homepage/-/merge_requests/1).
+
+## Deploy project to Firebase
+
+Now that Firebase is installed in our project folder and configured, we’re ready to deploy for the first time. In order to deploy the Vue.js portion of the project, we first need to build it to production HTML, CSS and Javascript. So before deployment, run the `yarn build` command.  This will output the build to the `dist` folder by default, and I’ve configured Firebase to recognize that directory as the hosting direction in the `firebase.json`.
+
+![Firebase.json example](/images/blogimages/firebase_04.png){: .shadow.large.center}
+
+Once the project is built, running a simple `firebase deploy` will deploy ALL of the features of the project to Firebase: the security rules and indexes for Firestore, the Firebase Functions and the Vue.js project to Firebase Hosting.
+
+If desired, we can also chose to deploy just a particular part of the project with the `--only` flag. For example, to only deploy a new version of the functions, we can say 
+
+`firebase deploy --only functions`
+
+This is a feature that we’ll combine with GitLab CI/CD in the next step to make our deployments as efficient as possible.
+
+## Automate deployments with GitLab CI/CD
+
+Now that we have the project deploying, we can automate that deploy process so that we don’t have to be at our computer authenticated to Firebase in order to deploy new changes. The steps to automate the deploy are relatively painless and include: (1) acquire a Firebase API key to use during deployment, (2) setup the `.gitlab-ci.yml` file to install the firebase CLI before running any other steps and (3) issue the deployment commands for each part of the infrastructure depending on the change in a particular commit to the main branch.
+
+First, we need an API key so that GitLab CI/CD can authenticate to Firebase and perform the deploy. To get the API key, we can run `firebase login:ci` from the same place we were deploying the application previously. This will provide a key that looks something like `` which we’ll add to GitLab.
+
+When you enter `firebase login:ci`, open the URL provided in your browser. That will open a Google authentication page; then log in with your Google account and click `Allow`.  Then return to the terminal and you’ll see the authentication code.
+
+![Output of firebase login:ci command](/images/blogimages/firebase_05.png){: .shadow.large.center}
+
+Once you’ve successfully authenticated and obtained the token, go to your project on GitLab and go to Settings -> CI/CD -> Variables. Here’s where we’ll add the token as an environmental variable to be used in our deployment jobs. The key is `FIREBASE_TOKEN` and then the value is the token that was printed to your terminal. I’ve made mine both a [protected](https://docs.gitlab.com/ee/ci/variables/#protected-environment-variables) and [masked](https://docs.gitlab.com/ee/ci/variables/#masked-variables) variable. That means the variable will only be exposed to protected branches and if it’s accidentally echoed to the job output, GitLab will hide it from leaking into there.
+
+![Varaiable configuration screen in GitLab](/images/blogimages/firebase_06.png){: .shadow.large.center}
+
+Now we can start on the configuration for our `.gitlab-ci.yml`.  At the top of the file I’m going to set the default image to be the current node alpine image from Docker hub:
+
+```yaml
+image: node:12.13.0-alpine
+```
+
+Next, I’ll create a `before_script` that will install the firebase CLI before running any jobs in the file. In the future, I could bundle that CLI into my own custom Docker image to avoid doing this every time, but for now I’ll go with the boring solution.
+
+```yaml
+before_script:
+  - npm i -g firebase-tools
+```
+
+For the build steps, I want to create a separate job for each part of the infrastructure: Firestore, Functions and the Vue app into Firebase Hosting. To do this, I’m going to utilize the ﻿﻿[`only:`](https://docs.gitlab.com/ee/ci/yaml/#only--except) feature to only deploy that part of the infrastructure impacted by changes and that have been merged to master. For example, we’ll only deploy the Firebase Functions when something changes in the `/functions` on the `master` branch
+
+```yaml
+deploy-functions:
+  stage: deploy
+  script:
+    - cd functions
+    - npm install
+    - cd ..
+    - firebase deploy --only functions --token $FIREBASE_TOKEN
+  only:
+    refs:
+      - master
+    changes:
+      - functions/**/*
+```
+We’ll repeat this same pattern for both Firestore and the Hosting project, adding the `yarn build` step before deploying hosting each time. Once that’s completed, every time a merge request is accepted, GitLab CI/CD will automatically deploy the changes into our live production application. You can view the [completed `.gitlab-ci.yml` here](https://gitlab.com/brendan-demo/labwork/homepage/-/blob/master/.gitlab-ci.yml), or check out the link shortener for yourself (and try and [Rick Roll](https://labwork.dev/go/30201a) your friends at [labwork.dev](https://labwork.dev)).

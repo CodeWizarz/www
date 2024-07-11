@@ -1,0 +1,161 @@
+---
+title: "Caching Docker images to reduce the number of calls to Docker Hub from your CI/CD infrastructure"
+author: Steve Azzopardi
+author_gitlab: steveazz
+author_twitter: steveazz_
+categories: news
+description: "Docker announced it will be rate-limiting the number of pull requests to the service in its free plan. We share strategies to mitigate the impact of the new pull request limits for users and customers that are managing their own GitLab instance."
+tags: news
+related_posts:
+  - "/blog/2020/11/18/docker-hub-rate-limit-monitoring/"
+  - "/blog/2020/10/30/minor-breaking-change-dependency-proxy/"
+  - "/blog/2020/12/15/dependency-proxy-updates/"
+---
+
+On Aug. 24, 2020, [Docker announced changes to its subscription model](https://www.docker.com/blog/scaling-docker-to-serve-millions-more-developers-network-egress/) and a move to consumption-based limits. These rate limits for pulls of Docker container images go into effect on Nov. 1, 2020. For pull requests by anonymous users, this limit is now 100 pull requests per six hours; authenticated users have a limit of 200 pull requests per six hours.
+
+As members of the global DevOps community, we have all come to rely on Docker as an integral part of [CI/CD processes](/topics/ci-cd/). So it is with no surprise that at GitLab, we have heard from several community members and customers seeking guidance on how the Docker pull rate limit change may affect their environments and CI/CD workflows.
+
+## Use a registry mirror
+
+You can use the Registry Mirror feature to the number of image pull requests generated against Docker Hub. When the mirror is configured and GitLab Runner instructs Docker to pull images,
+Docker will check the mirror first; if it's the first time the image is being pulled, a connection will be made to Docker Hub. Subsequent requests of that image will then use your mirror storage instead of connecting to Docker Hub. More [details on how it works can be found
+here](https://docs.docker.com/registry/recipes/mirror/#how-does-it-work).
+
+## If you are a user or customer on GitLab SaaS
+
+For Shared Runners on GitLab.com we utilize Google's Docker Hub images mirror. This means that GitLab.com Shared Runner users' CI jobs won't be affected by the new pull policy. We will continue to monitor the impact of the changes once they go into effect at Docker.
+
+## If you self-host GitLab Runners
+
+First of all, check if your cloud or hosting provider doesn't already provide an image Registry Mirror. If they do, it will be probably the easiest and most performant option. If for any reason a hosted Registry Mirror can't be used the administrator can
+install their own [Docker Hub mirror](https://docs.docker.com/registry/recipes/mirror).
+
+### Start the registry mirror
+
+Please follow the instructions in the [GitLab documentation](https://docs.gitlab.com/runner/configuration/speed_up_job_execution.html#docker-hub-registry-mirror):
+
+1. Log in to a dedicated machine where the container registry proxy will be running
+1. Make sure that [Docker Engine](https://docs.docker.com/install/) is installed
+   on that machine
+1. Create a new container registry:
+
+   ```shell
+   docker run -d -p 6000:5000 \
+       -e REGISTRY_PROXY_REMOTEURL=https://registry-1.docker.io \
+       --restart always \
+       --name registry registry:2
+   ```
+
+   You can modify the port number (`6000`) to expose the registry on a
+   different port. This will start the server with `http`. If you want
+   to turn on TLS (`https`) follow the [official
+   documentation](https://docs.docker.com/registry/configuration/#tls).
+
+1. Check the IP address of the server:
+
+   ```shell
+   hostname --ip-address
+   ```
+
+   You should preferably choose the private networking IP address. The
+   private networking is usually the fastest solution for internal
+   communication between machines of a single provider (DigitalOcean,
+   AWS, Azure, etc.) Typically the use of a private network is not
+   accounted for in your monthly bandwidth limit.
+
+1. Docker registry will be accessible under `MY_REGISTRY_IP:6000`
+
+### Configure Docker to use it
+
+The final part is to have the `dockerd` process configured so that it
+uses your mirror when `docker pull` runs.
+
+### Docker
+
+Either pass the `--registry-mirror` option when starting the Docker
+daemon `dockerd` manually, or edit `/etc/docker/daemon.json` and add the
+`registry-mirrors` key and value, to make the change persistent.
+
+```json
+{
+  "registry-mirrors": ["http://registry-mirror.example.com"]
+}
+```
+
+### `docker+machine` executor
+
+Update the GitLab Runner configuration file `config.toml` to specify
+[`engine-registry-mirror` inside of `MachineOptions`
+settings](https://docs.gitlab.com/runner/configuration/autoscale.html#distributed-container-registry-mirroring).
+
+### [Docker-in-Docker](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#use-docker-in-docker-workflow-with-docker-executor) to build Docker images
+
+There are different ways to achieve this, and it depends on your configuration.
+An extensive list can be found in our [documentation](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#enable-registry-mirror-for-dockerdind-service).
+
+## Verify that it is working
+
+### Make sure that Docker is configured to use the mirror
+
+If you run `docker info` where `dockerd` is configured to use the mirror
+you should see the following in the output:
+
+```
+ ...
+ Registry Mirrors:
+  http://registry-mirror.example.com
+ ...
+```
+
+### Check registry catalog
+
+The [Docker registry API](https://docs.docker.com/registry/spec/api/)
+can show you which repository it has cached locally.
+
+Given that we ran `docker pull node` for the first time with `dockerd`
+configured to use the mirror we can see it [by listing the
+repositories](https://docs.docker.com/registry/spec/api/#listing-repositories).
+
+```shell
+curl http://registry-mirror.example.com/v2/_catalog
+
+{"repositories":["library/node"]}
+```
+
+### Check registry logs
+
+When you are pulling images you should see logs coming through about the
+request information by running `docker logs registry`, where `registry`
+is the name of the container running the mirror.
+
+```shell
+...
+time="2020-10-30T14:02:13.488906601Z" level=info msg="response completed" go.version=go1.11.2 http.request.host="192.168.1.79:6000" http.request.id=8e2bfd60-db3f-49a3-a18f-94092aefddf9 http.request.method=GET http.request.remoteaddr="172.17.0.1:57152" http.request.uri="/v2/library/node/blobs/sha256:8c322550c0ed629d78d29d5c56e9f980f1a35b5f5892644848cd35cd5abed9f4" http.request.useragent="docker/19.03.13 go/go1.13.15 git-commit/4484c46d9d kernel/4.19.76-linuxkit os/linux arch/amd64 UpstreamClient(Docker-Client/19.03.13 \(darwin\))" http.response.contenttype="application/octet-stream" http.response.duration=6.344575711s http.response.status=200 http.response.written=34803188
+172.17.0.1 - - [30/Oct/2020:14:02:07 +0000] "GET /v2/library/node/blobs/sha256:8c322550c0ed629d78d29d5c56e9f980f1a35b5f5892644848cd35cd5abed9f4 HTTP/1.1" 200 34803188 "" "docker/19.03.13 go/go1.13.15 git-commit/4484c46d9d kernel/4.19.76-linuxkit os/linux arch/amd64 UpstreamClient(Docker-Client/19.03.13 \\(darwin\\))"
+time="2020-10-30T14:02:13.635694443Z" level=info msg="Adding new scheduler entry for library/node@sha256:8c322550c0ed629d78d29d5c56e9f980f1a35b5f5892644848cd35cd5abed9f4 with ttl=167h59m59.999996574s" go.version=go1.11.2 instance.id=f49c8505-e91b-4089-a746-100de0adaa08 service=registry version=v2.7.1
+172.17.0.1 - - [30/Oct/2020:14:02:25 +0000] "GET /v2/_catalog HTTP/1.1" 200 34 "" "curl/7.64.1"
+time="2020-10-30T14:02:25.954586396Z" level=info msg="response completed" go.version=go1.11.2 http.request.host="127.0.0.1:6000" http.request.id=f9698414-e22c-4d26-8ef5-c24d0923b18b http.request.method=GET http.request.remoteaddr="172.17.0.1:57186" http.request.uri="/v2/_catalog" http.request.useragent="curl/7.64.1" http.response.contenttype="application/json; charset=utf-8" http.response.duration=1.117686ms http.response.status=200 http.response.written=34
+```
+
+## Alternatives to Docker Hub mirrors
+
+Setting up a Docker registry mirror can also increase your
+infrastructure costs. With the [Docker Hub rate
+limits](https://docs.docker.com/docker-hub/download-rate-limit/) it
+might be useful to authenticate pulls instead of having your rate
+limit increased or no rate limit at all (depending on your
+subscription).
+
+There are different ways to authenticate with Docker Hub on Gitlab CI and
+it's [documented in
+detail](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#define-an-image-from-a-private-container-registry).
+A few examples:
+
+1. `DOCKER_AUTH_CONFIG` variable provided.
+1. `config.json` file placed in `$HOME/.docker` directory of the user running GitLab Runner process.
+1. Run `docker login` if you are using [Docker-in-Docker](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#use-docker-in-docker-workflow-with-docker-executor) workflow.
+
+### In summary
+
+As you can see, there are several ways you can adapt to the new Docker Hub rate limits and we encourage our users to choose the right one for their organization's needs. Along with the options described in this post, there's also the option of staying within the GitLab ecosystem using the [GitLab Container Proxy, which will soon be available to Core users](/blog/2020/10/30/minor-breaking-change-dependency-proxy/).

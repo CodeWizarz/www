@@ -1,0 +1,30 @@
+---
+title: "Git Protocol v2 now enabled for SSH on GitLab.com"
+author: James Ramsay
+author_gitlab: jramsay
+author_twitter: gitlab
+categories: engineering
+description: "Fetch faster using Git Protocol v2 – here's how."
+tags: git, production, releases
+postType: product
+---
+
+GitLab added support for [Git Protocol v2 over HTTP and SSH in GitLab 11.4](/releases/2018/10/22/gitlab-11-4-released/#git-protocol-v2), and enabled Protocol v2 over HTTP on GitLab.com, but not for SSH. On Nov. 23, we enabled [Git Protocol v2 over SSH on GitLab.com](https://gitlab.com/gitlab-com/gl-infra/infrastructure/issues/5244). You can view Git Protocol usage on our [public dashboard](https://dashboards.gitlab.com/d/pqlQq0xik/git-protocol-versions?refresh=5m&orgId=1).
+
+Git Protocol v2 is supported from Git v2.18.0 and is opt-in. To enable globally, run `git config --global protocol.version 2`.
+
+## What Git Protocol v2 means for you
+
+Git 2.18 introduced support for Protocol v2, which defines how clones, fetches, and pushes are communicated between the client (your computer) and the server (GitLab). The new [wire protocol](https://www.kernel.org/pub/software/scm/git/docs/technical/pack-protocol.html) improves the performance of fetch commands and enables future protocol improvements. [Read more about Protocol v2](https://opensource.googleblog.com/2018/05/introducing-git-protocol-version-2.html) in the release post by the author of the change.
+
+To see the reduction in network traffic with Protocol v2 you can run the commands below:
+
+```
+# Original Git wire protocol
+GIT_TRACE_PACKET=1 git -c protocol.version=0 ls-remote git@gitlab.com:gitlab-org/gitlab-ce.git master
+
+# New Git wire protocol v2
+GIT_TRACE_PACKET=1 git -c protocol.version=2 ls-remote git@gitlab.com:gitlab-org/gitlab-ce.git master
+```
+
+In moving from Protocol v0 to v2, on this repo the number of lines ("packets") sent behind the scenes drops from over 36,000 to fewer than 30.

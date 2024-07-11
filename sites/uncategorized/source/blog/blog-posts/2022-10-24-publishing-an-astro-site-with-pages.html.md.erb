@@ -1,0 +1,215 @@
+---
+title: How to publish your Astro Site with GitLab Pages
+author: Janis Altherr
+author_gitlab: janis
+image_title: /images/blogimages/astro-pages/shot-by-cerqueira-0o_GEzyargo-unsplash.jpg
+categories: engineering
+tags: tutorial, integration, product
+description: Learn how to deploy an Astro Site with GitLab Pages.
+postType: engineering
+twitter_text: Astro is an incredible new framework to build Jamstack sites. And it works so well with @gitlab Pages!
+---
+
+Astro is an amazing new framework to create content-focused static sites and GitLab Pages is a great way to deploy a site built with Astro. Here's a step-by-step guide on how to build and deploy an Astro Site with GitLab Pages.
+
+## Create the project locally
+
+First, create the Astro Project locally using the Astro CLI.
+
+Note: Even though we're offering a [project template](https://gitlab.com/pages/astro),
+we recommend using the CLI locally to scaffold your project. This ensures you can create your project with the latest defaults.
+
+```shell
+npm create astro@latest
+```
+
+Now follow the CLI instructions. As part of the setup, Astro will create the
+project folder for you. During the course of the setup Astro will ask whether you'd like to initialize a new Git repository. Answer this with `y` (yes).
+
+Once the Astro CLI is done scaffolding your project, `cd` into the new folder:
+
+```shell
+cd <your-project>
+```
+
+## Configure Astro for GitLab Pages
+
+Astro comes with a few defaults that are incompatible with GitLab Pages. So before continuing, we need to set up a compatible config.
+Edit your `astro.config.mjs` to include the following:
+
+```javascript
+// astro.config.mjs
+import { defineConfig } from 'astro/config';
+
+// https://astro.build/config
+export default defineConfig({
+  // GitLab Pages requires exposed files to be located in a folder called "public".
+  // So we're instructing Astro to put the static build output in a folder of that name.
+  outDir: 'public',
+
+  // The folder name Astro uses for static files (`public`) is already reserved
+  // for the build output. So in deviation from the defaults we're using a folder
+  // called `static` instead.
+  publicDir: 'static',
+});
+```
+
+Why are we doing this? GitLab Pages is a way to publish some files in a
+repository, no matter what build tool you used to generate them. Unlike with
+other deployment tools the exposed files and the source code can live 
+together in one place. So to ensure you don't accidentally expose sensitive
+files we're requiring you to consciously put them into a
+folder named "public".
+
+By default, Astro uses `public` for something different – the static 
+assets. So we have to change that behavior. The above config tells Astro
+that we'll put the static files in a folder named `static` and want the _output_
+files to be put in a folder named, as required, `public`.
+
+Astro already generated that assets folder under the old name while
+scaffolding, so we'll have to rename it. Inside your Astro project folder, run:
+
+```shell
+mv public static
+```
+
+Depending on your project configuration, GitLab Pages will deploy your site 
+at a URL that follows the format simlar to `https://<user-or-group>.gitlab.
+io/<project-name>`. If you want to use the default URL, you need to adjust Astro
+to the fact that the site is not mounted at the root path, otherwise it may 
+not load static assets (such as the CSS files) correctly. 
+
+[Visit the documentation](https://docs.gitlab.com/ee/user/project/pages/getting_started_part_one.html#gitlab-pages-default-domain-names)
+to find out the URL schema of the project you intend to create, then add the
+following line to your `astro.config.mjs`. (Skip this step if you're creating
+a user or group page):
+
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  // ...
+  base: '/<project-name>'
+  // In case the project is owned by a subgroup, use:
+  // base: '/<subgroup>/<project-name>'
+});
+```
+
+Astro [recommends](https://docs.astro.build/en/reference/configuration-reference/#site) 
+adding the final site's full URL to generate the sitemap, so add it now to your
+`astro.config.mjs`:
+
+```javascript
+// astro.config.mjs
+export default defineConfig({
+  // ...
+  site: 'https://<user-or-group>.gitlab.io'
+  
+  // Note: Instead of specifying both `base` and `site`, you can simply
+  // use the full URL here:
+  // site: 'https://<user-or-group>.gitlab.io/<project-name>'
+  // or for pages owned by a subgroup:
+  // site: 'https://<group>.gitlab.io/<subgroup>/<project-name>'
+});
+```
+
+Now that you've successfully configured your project, you can commit your
+changes.
+
+```shell
+git add -A
+git commit -m "Initial commit"
+```
+
+## Set up the remote repository
+
+You can't push the code as we have yet to set up the remote repository. Visit
+GitLab and create a new project. When asked, select "Create blank project."
+
+In the setup screen, select "GitLab Pages" as the deployment target. Choose the
+visibility level however you like. This is mainly asking whether your source 
+code is public, although it does affect the initial setting (see "Making a 
+private project's site public" below).
+
+Make sure you unset the checkbox next to "Initialize repository with a README",
+otherwise GitLab will begin a new Git history that you will have to reconcile
+with your existing local one.
+
+Once the Project is set up, follow the instructions on how to add an _existing
+repository_ – if you don't have an existing remote, so you can just run:
+
+```shell
+git remote add origin <git-project-url>
+git push -u origin --all
+```
+
+Now you've synced your local code with Gitlab, let's finish publishing it with
+Pages.
+
+## Create a Pages pipeline
+
+In GitLab, go to your project's settings and select Pages. You will be welcomed
+by a screen that helps you build a `.gitlab-ci.yml` file.
+
+![Screenshot: The "Get stated with Pages" UI](/images/blogimages/astro-pages/wizard_step_1.png)
+
+Enter "node:lts" as the build image. This will give you the latest node 
+environment with long-time support.
+
+We've already configured Astro to output our files in a folder named `public`,
+so you can check the checkbox asking you to confirm this.
+
+On the next page, enter `npm ci` as the installation step. Running `npm ci` 
+instead of `npm install` is recommended for CI environments such as GitLab
+Pipelines as it uses the `package-lock.json` to match the installed version 
+with the one you used during development. See the [npm documentation](https://docs.npmjs.com/cli/v8/commands/npm-ci)
+to learn more about `npm ci`.
+
+![Screenshot: Inputting the installation step](/images/blogimages/astro-pages/wizard_step_2.png)
+
+On the last page, enter the build command "npm run build". Again, click "next".
+
+![Screenshot: Inputting the build step](/images/blogimages/astro-pages/wizard_step_3.png)
+
+Next to the inputs you see the pipeline file that has been built for you. 
+This is the one we want to add to the repository to enable Pages.
+
+![Screenshot: The finished file and the commit step](/images/blogimages/astro-pages/wizard_step_4.png)
+
+How does it work in detail? If GitLab sees a job named `pages`, it will 
+look for artifacts inside a root folder `public` and then create a 
+GitLab Pages deployment from it.
+
+The `rules` section ensures the pages deployment is only triggered by 
+commits to the default branch. Every time you push a change to your default 
+branch, Pages will publish the new changes. 
+
+If you're happy with the pipeline, enter a commit message and click "commit".
+(Make sure you run `git pull` locally before doing any more changes to 
+prevent issues with diverging histories.)
+
+Now having added a commit with a `.gitlab-ci.yml` file, GitLab has kicked off
+a pipeline. Visit CI/CD > Pipelines to see the progress. After a couple of 
+minutes, you should see the pipeline has succeeded. (If it's showing "failed", 
+click on the status button to see the job logs.)
+
+![Screenshot: Pipelines](/images/blogimages/astro-pages/pipeline_overview.png)
+
+Once the pipeline has completed, go back to Settings > Pages. You should now see
+the various settings of your site, including your new site's URL. Click on 
+it and, congratulations, you've just deployed your Astro Site wit GitLab 
+Pages!
+
+![Screenshot: The deployed page](/images/blogimages/astro-pages/deployed_site.png)
+
+## Making a private project's site public
+
+By default, a private project's Pages site is only accessible to project 
+members. If you want your source code to be private, but still have a public 
+site, go to Settings/General and expand "visibility, project features, permissions", scroll down to "Pages" and set 
+it to "Everyone".
+
+## Keep reading
+
+- [Tutorial: Use the GitLab UI to deploy your static site](https://docs.gitlab.com/ee/user/project/pages/getting_started/pages_ui.html)
+- [Astro Docs: Deploy your Astro Site to GitLab Pages](https://docs.astro.build/en/guides/deploy/gitlab/)
+- [Watch a video on how to create a Pages Pipeline with the Wizard](https://youtu.be/49hgxqPGofw)

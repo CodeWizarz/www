@@ -1,0 +1,40 @@
+!!! XML
+%feed{:xmlns => "http://www.w3.org/2005/Atom"}
+
+  - site_url = "https://about.gitlab.com/blog/"
+  // Get release posts
+  - releases = blog('releases').articles
+  // Get blog posts
+  - blog = blog('blog').articles
+
+  - combined = [ releases[0..20], blog[0..20] ].flatten.compact.sort_by(&:date).reverse
+  
+  %title GitLab
+  %id= URI.join(site_url, blog('blog').options.prefix.to_s)
+  %link{:href => site_url}
+
+  - unless blog('blog').articles.empty?
+    %updated= blog('blog').articles.first.date.to_datetime.rfc3339
+  %author
+    %name The GitLab Team
+
+  - combined[0..20].each do |article|
+    %entry
+      %title= h(article.title)
+      %link{:rel => "alternate", :href => URI.join(site_url, article.url)}
+      %id= URI.join(site_url, article.url)
+      %published= article.date.to_datetime.rfc3339
+      %updated= article.date.to_datetime.rfc3339
+      %author
+        %name= h(article.data.author)
+
+      - if article.metadata[:options][:layout] == 'release'
+        %content{:type => "html"}
+          - path = article.path[6..article.path.length]
+          - filename = File.basename(path, File.extname(path)).gsub("-", "_")
+          - datafile = data.release_posts[filename]
+
+          = xml_feed_content(article)
+          = h(partial("includes/release", :locals => { :datafile => datafile, :current_article => article }))
+      - else
+        %content{:type => "html"}= xml_feed_content(article)

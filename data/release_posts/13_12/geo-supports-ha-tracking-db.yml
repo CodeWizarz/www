@@ -1,0 +1,22 @@
+features:
+  secondary:
+    - name: "Geo support for tracking database high-availability"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/setup/database.html#configuring-patroni-cluster-for-the-tracking-postgresql-database'
+      reporter: fzimmer
+      stage: systems
+      categories:
+        - "Disaster Recovery"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/229061'
+      description: |
+        Geo secondary sites use a separate PostgreSQL database as a [tracking
+        database](https://docs.gitlab.com/ee/administration/geo/#geo-tracking-database)
+        to keep track of replication status and automatically recover from
+        potential replication issues. Without the tracking database, Geo cannot
+        replicate data to another site. Geo now supports setting up a
+        [separate, highly-available PostgreSQL cluster](https://docs.gitlab.com/ee/administration/geo/setup/database.html#configuring-patroni-cluster-for-the-tracking-postgresql-database)
+        for Geo's tracking database. This configuration is important when a
+        secondary site is used as part of a disaster recovery strategy because
+        it ensures that replication isn't impacted even when a single PostgreSQL
+        node running the tracking database fails.

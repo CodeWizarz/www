@@ -1,0 +1,68 @@
+---
+title: "How starting merge trains improve efficiency for DevOps"
+author: Orit Golowinski
+author_gitlab: ogolowinski
+author_twitter: GO_Orit
+categories: engineering
+image_title: "/images/blogimages/merge_trains.jpeg"
+description: "No more queuing and waiting for pipeline results! Read how merge trains will speed up your deployments while making sure master stays green."
+tags: CI/CD, demo, workflow, features
+ee_cta: false #
+install_cta: false #
+merch_banner: merch_three
+merch_sidebar: merch_three
+twitter_text: "Read on to learn how merge trains work to accelerate delivery and maximize efficiency @gitlab"
+---
+
+A large percentage of a developer's day is spent updating their branches and rebasing, they are essentially "racing" their teammates to get their merge requests merged. Keeping the master branch green is critical for [continuous delivery](/topics/continuous-delivery/). When the production build breaks, it means your new code isn't going live, which impacts users and revenue. The only way to be 100% sure the master branch stays green when new code merges is to run the pipeline using the latest version of the master branch. For teams that have a high volume of merges, this can be difficult or even impossible. In the time it takes the pipeline to complete one code change, other changes can get merged to master with the potential for conflict. The only way to mitigate this is to queue and sequence the changes so that once a production pipeline starts, other code doesn't get merged ahead of that change. 
+
+## What are merge trains and how do they help?
+
+ Merge trains introduce a way to order the flow of changes into the target branch (usually master). When you have teams with a high number of changes in the target branch, this can cause a situation where during the time it takes to validate merged code for one change, another change has been merged to master, invalidating the previous merged result.
+
+By using merge trains, each merge request joins as the last item in that train with each merge request being processed in order. However, instead of queuing and waiting, each item takes the completed state of the previous (pending) [merge ref](https://gitlab.com/gitlab-org/gitlab-foss/issues/47110) (the merge result of the merge), adds its own changes, and starts the pipeline immediately in parallel under the assumption that everything is going to pass.
+
+If all pipelines in the merge train are completed successfully, then no pipeline time is wasted on queuing or retrying. Pipelines invalidated through failures are immediately canceled, the MR causing the failure is removed, and the rest of the MRs in the train are requeued without the need for manual intervention.
+
+An example of a merge train:
+
+![Diagram of merge trains](/images/blogimages/merge_trains-1.png){: .shadow}
+
+MR1 and MR2 join a merge train. When MR3 attempts to join, the merge fails and it is removed from the merge train. MR4 restarts at the point that MR3 fails, and attempts to run without the contents of MR3.
+MR3 will remain open in failed state, so that the author can rebase and fix the failure before attempting to merge again.
+
+Here is a demonstration video that explains the advantage of the merge train feature. In this video, we'll simulate the common problem in a workflow without merge trains, and later, we resolve the problem by enabling a merge train.
+
+<figure class="video_container">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/D4qCqXgZkHQ" frameborder="0" allowfullscreen="true">
+</iframe>
+</figure>
+
+## How the merge trains feature has evolved so far
+
+After releasing [merge trains](/releases/2019/06/22/gitlab-12-0-released/#sequential-merge-trains) in GitLab 12.0, we immediately started to use this feature internally, and collected a lot of valuable feedback which helped us to improve and enhance the feature.
+
+We started by tuning the [merge train concurrency](https://gitlab.com/gitlab-org/gitlab/issues/31692). We understood that while merge trains is a feature that is designed to improve efficiency by making sure that master stays green, it can also create an unwanted bottleneck that slows down productivity if your merge requests needs to wait in a long queue in order to get merged.
+
+We also noticed that many developers were "skipping the line" and merging their changes immediately because they did not understand the effect that merging immediately has on other users, so we added a [warning](https://gitlab.com/gitlab-org/gitlab/issues/12679) to clarify this common misunderstanding. We intentionally left the option to still "merge immediately" since we also understand the importance of an urgent merge request, such as a "hot fix" that must be able to skip to the front of the merge train. Another improvement was the ability to [“squash & merge” as part of the merge train](https://gitlab.com/gitlab-org/gitlab/issues/13001) in order to maintain a clean commit history.
+
+Here is a demonstration video that explains how squash & merge works with merge trains.
+
+<figure class="video_container">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/pA5SfHwlq0s" frameborder="0" allowfullscreen="true">
+</iframe>
+</figure>
+
+## What's next
+
+We plan to add more important features to the support of merge trains. The first is that [merge trains should support fast-forward merge](https://gitlab.com/gitlab-org/gitlab/issues/35628). This could help solve a fundamental contention problem of fast-forward merges: The CI pipeline must be run every time the merge request is rebased, and the merge request must be rebased every time master changes – which is frequently! This problem significantly limits the frequency with which merge requests can be merged.
+
+The second feature, [API support for merge trains](https://gitlab.com/gitlab-org/gitlab/issues/32665), will extend the ability to automate your workflows using merge trains.
+
+We want to hear from you! Tell us how merge trains have improved your workflow, or give us more insight into how we can improve merge trains to work better for you. [Give us your feedback by commenting here](https://gitlab.com/groups/gitlab-org/-/epics/2408).
+
+Cover image by [Vidar Nordli-Mathisen
+](https://images.unsplash.com/photo-1525349769815-0e6ba4e0bbdd?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=1611&q=80) on [Unsplash](https://www.unsplash.com)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

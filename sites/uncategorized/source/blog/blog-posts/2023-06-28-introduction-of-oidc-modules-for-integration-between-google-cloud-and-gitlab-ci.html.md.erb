@@ -1,0 +1,147 @@
+---
+title: "How OIDC can simplify authentication of GitLab CI/CD pipelines with Google Cloud"
+author: Hiroki Suezawa, Dhruv Jain
+author_gitlab:
+author_twitter:
+categories: security
+image_title: /images/blogimages/security-pipelines.jpg
+description: "OpenID Connect can sometimes be complex, but it's the safer and recommended way to authenticate your GitLab pipeline with Google Cloud. This tutorial shows you how."
+tags: tutorial, CI/CD, security, cloud native
+twitter_text: "OIDC can sometimes be complex, but it's the safer and recommended way to authenticate your GitLab pipeline with Google Cloud. This tutorial walks you through the process step by step."
+featured: yes
+guest: true
+---
+
+In recent years, the [integration of cloud services and GitLab through GitOps](https://about.gitlab.com/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/) has become very common. Applications are now continuously tested and deployed through [continuous integration and delivery (CI/CD)](https://about.gitlab.com/topics/ci-cd/); cloud environments are managed in code through Infrastructure as Code (IaC) using tools like Terraform; and GitLab CI is used as a core tool to perform these [GitOps](https://about.gitlab.com/topics/gitops/) processes.
+
+At the same time, [software supply chain attacks](https://about.gitlab.com/blog/2022/08/30/the-ultimate-guide-to-software-supply-chain-security/) have increased. To reduce the risk of an attack, the use of OpenID Connect ([OIDC](https://docs.gitlab.com/ee/integration/openid_connect_provider.html#introduction-to-openid-connect)) auth is recommended, and GitLab 15.7 introduced [ID tokens](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html), a mechanism for secure OIDC integration.
+
+However, OIDC integration can be complex for beginners and can be difficult to configure properly. Therefore, GitLab's Infrastructure Security Team has created a Terraform module for configuring Google Cloud and a CI template for GitLab CI so GitLab CI and Google Cloud can be securely integrated.
+
+This tutorial explains how to use [these OIDC modules](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules).
+
+## Why OIDC?
+The integration between Google Cloud and GitLab CI has often been done by adding a static key of the service account in Google Cloud to the environment variables of CI. However, this method has the following problems:
+
+- The risk of compromise is high because the same key can be used to manipulate the cloud environment over time.
+- Because static keys are portable, there is no link between the key and the environment in which it is used, making it difficult to identify where the key is being used.
+
+OIDC authentication can solve the above problems by providing the following benefits:
+- No need to issue static keys, eliminating the need for long-term key management.
+  - It also eliminates the compliance need of rotating the secrets every few months.
+- Low risk of leakage due to temporary tokens issued.
+- Because the CI used is tied to the Google Cloud environment, it is possible to properly manage where the service account is used.
+In addition, other settings such as CI and CD isolation can be configured using [the claims provided by GitLab CI](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html).
+
+## OIDC authentication with Google Cloud
+The OIDC integration between Google Cloud and GitLab CI works as follows:
+
+- Preparation (areas to configure in Terraform in OIDC models)
+  1. Create a service account in Google Cloud for CI integration and set up the appropriate roles.
+  1. Create a Google Cloud Workload Identity pool and provider, and configure integration with GitLab CI.
+  1. Assign the Workload Identity User role to the service account.
+
+
+
+
+![Simplified diagram](/images/blogimages/2023-06-30-introduction-of-oidc-modules-for-integration-between-google-cloud-and-gitlab-ci/oidc-auth-diagram.png){: .shadow}
+
+GitLab CI in action (simplified by the GitLab CI template in OIDC modules)
+{: .note .text-center}
+
+Google Cloud authenticates using an ID token issued on GitLab CI, so there is no need to issue a Google Cloud service account key.
+
+## How to use a Terraform module
+The process of configuring a Terraform module to establish a connection between Google Cloud and GitLab using OIDC is fairly simple. This module takes care of the following steps:
+1. Create the Google Cloud Workload Identity Pool.
+1. Create a Workload Identity Provider.
+1. Grant permissions for service account impersonation.
+
+Note: Your account must have at least the Workload Identity Pool Admin permission on the Google Cloud project.
+
+```terraform
+# terraform
+module "gl_oidc" {
+ source = "gitlab.com/gitlab-com/gcp-oidc/google"
+ version = "3.0.0"
+ google_project_id = GOOGLE_PROJECT_ID
+ gitlab_project_id = GITLAB_PROJECT_ID
+ oidc_service_account = {
+   "sa" = {
+     sa_email  = "SERVICE_ACCOUNT_EMAIL"
+     attribute = "attribute.project_id/GITLAB_PROJECT_ID"
+   }
+ }
+}
+```
+
+The above sample module can be used to configure OIDC. There are some additional parameters that can be used to configure this module further (a detailed list and description of those parameters can be found [here](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/tree/main/#configure-gitlab-for-oidc-integration-using-terraform-module)).
+ 
+By default, all branches of the project are authenticated to Google Cloud, but you can specify more granular conditions, such as the branch name of the commit that triggered the CI, or authenticating only with a specific tag.
+
+Further settings can be made by changing the following attribute settings in accordance with the ID token claim:
+
+```
+  oidc_service_account = {
+    "sa" = {
+      sa_email  = "SERVICE_ACCOUNT_EMAIL"
+      attribute = "attribute.project_id/GITLAB_PROJECT_ID"
+    }
+```
+
+Code files for this module are available [here](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/tree/main/terraform-modules/gcp-oidc).
+
+## How to use the CI template
+[The CI template](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/blob/main/templates/gcp_auth.yaml) makes GitLab CI very easy for Google Cloud OIDC authentication. This CI template supports [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) and can be used from IaC such as Terraform, CLI such as gcloud, and SDKs in Python and Go.
+
+For example, if you want to use the CI template for Terraform, you can write:
+
+```
+# You should upgrade to the latest version. You can find the latest version at https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/releases
+include:
+  - remote: 'https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/raw/3.0.0/templates/gcp_auth.yaml'
+
+terraform:
+  image:
+    name: hashicorp/terraform:1.5.3
+    entrypoint:
+      - /usr/bin/env
+      - "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+  extends: .google-oidc:auth
+  variables:
+    WI_POOL_PROVIDER: //iam.googleapis.com/projects/GOOGLE_PROJECT_ID/locations/global/workloadIdentityPools/WORKLOAD_IDENTITY_POOL/providers/WORKLOAD_IDENTITY_POOL_PROVIDER
+    SERVICE_ACCOUNT: SERVICE_ACCOUNT_EMAIL
+  script:
+    - terraform init
+    - terraform plan
+```
+
+### Required variables
+- WI_POOL_PROVIDER(under .google-oidc:) - Full canonical resource name of the workload identity pool provider. This value must be written under .google-oidc: like this.
+- SERVICE_ACCOUNT - Service Account email address
+
+A detailed list and description of those parameters can be found [here](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/blob/main/README.md#using-oidc-in-pipelines).
+
+As a note, you cannot use `before_script` in the job that uses this template because the way GitLab CI works will result in OIDC code being overwritten. CI template uses `before_script` to perform the initial configuration of OIDC.
+
+Code samples for this module are available [here](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/tree/main/samples/ci/gcp).
+
+## Next steps
+This article has introduced OIDC modules for OIDC integration and secure authentication between Google Cloud and GitLab CI. In short, we are doing the following steps:
+
+1. Setting up a service account
+1. Granting permissions to the service account
+1. Running the Terraform module
+1. Setting up CI pipeline
+
+You can find the relevant sample for the above steps [here](https://gitlab.com/gitlab-com/gl-security/security-operations/infrastructure-security-public/oidc-modules/-/tree/main/samples).
+
+Also, GitLab is currently developing a [CI Catalog and CI Components](https://about.gitlab.com/blog/2023/05/08/use-inputs-in-includable-files/). We plan to support them.
+
+The GitLab Infrastructure Security Team will continue to improve the modules as we receive feedback, and we hope to consider and release components that maintain a high level of security and usability for both internal and external use. 
+
+## Read more
+- [Configure OIDC with GCP Workload Identity Federation](https://docs.gitlab.com/ee/ci/cloud_services/google_cloud/)
+- [Workload Identity Federation on Google Cloud](https://cloud.google.com/iam/docs/workload-identity-federation)
+- [Terraform for google_iam_workload_identity_pool_provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/iam_workload_identity_pool_provider)
+- [OIDC Authentication using ID tokens](https://docs.gitlab.com/ee/ci/secrets/id_token_authentication.html)

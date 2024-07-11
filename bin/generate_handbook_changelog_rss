@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+
+require 'date'
+require 'fileutils'
+require 'gitlab'
+require_relative '../lib/changelog'
+require_relative '../lib/with_clean_public_dir'
+
+include WithCleanPublicDir
+
+with_clean_public_dir do |public_dir|
+  output_dir = "#{public_dir}/handbook"
+  FileUtils.mkdir_p(output_dir)
+  Changelog::RSS.create("#{output_dir}/changelog.rss")
+end

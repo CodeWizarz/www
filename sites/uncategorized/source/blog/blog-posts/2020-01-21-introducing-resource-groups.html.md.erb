@@ -1,0 +1,51 @@
+---
+title: "Introducing: Resource groups"
+author: Chrissie Buchanan
+author_gitlab: cbuchanan
+author_twitter: gitlab
+categories: insights
+image_title: '/images/blogimages/resource-groups.jpg'
+description: "How we’re improving deployments by limiting pipeline concurrency."
+tags: CI/CD, workflows
+guest: false
+ee_cta: false
+install_cta: false 
+twitter_text: "Introducing resource groups"
+featured: no
+postType: content marketing
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+GitLab CI/CD pipelines build, test, deploy your code as part of a single workflow integrated across all [stages of the DevOps lifecycle](/topics/devops/). Ultimately, we want to enable teams to deploy better software faster to their customers, and we do that by continually [iterating](/handbook/values/#iteration) on new and existing features to improve the GitLab experience. 
+
+Continuous delivery is all about making sure that [CI-validated code](/features/continuous-integration/) goes through a structured deployment pipeline. While GitLab CI continues to be [a top-rated solution in continuous integration](/analysts/forrester-cloudci19/), we want our continuous delivery capabilities to be just as loved and feedback from the GitLab community plays a big role in how we improve the user experience.
+
+
+
+At GitLab, everything we do is [public by default](/handbook/values/#public-by-default). This allows us to collaborate and share ideas, documentation, examples, and processes with the whole community. The original idea of limiting pipeline concurrency using resource groups was introduced by [@inem](https://gitlab.com/inem) in [a public issue](https://gitlab.com/gitlab-org/gitlab/issues/15536) and the response was certainly enthusiastic.
+
+![Resource groups response](/images/blogimages/resource-groups-1.png){: .shadow.small.center}
+
+For some users, they found that running multiple pipelines and/or jobs at the same time in an environment would lead to errors. Some pipelines and/or jobs use unique resources, and concurrent deployments meant that multiple users were affecting the environment with some unintended consequences. 
+
+### Example:
+
+Let's say your team is developing a mobile app and you deploy it for testing purposes to a physical smartphone on a Friday afternoon. Maybe you're a startup and only have one or two phones for this purpose. You may need to clear the cache and delete the app before downloading it again so you can start the test clean. But what if in the middle of your test, someone else decides to clear the data on that device? Situations like this would inevitably cause errors, leaving teams with little choice but to coordinate these deployments amongst themselves.
+
+We’re always working hard to enable [speedy, reliable pipelines](/direction/ops/#speedy-reliable-pipelines). Coming to GitLab 12.7, available tomorrow, we’re introducing the `resource_group` attribute to projects so that only one job can deploy to a specific resource group at any given time. This will improve deployment flows, especially when deploying to physical environments.
+
+If we go back to the mobile phone example, the phone would be it’s own `resource_group` and will only have one deployment at a time. If another deployment were to try and run on this device, the job will be queued until the first job is finished with the message “waiting for resource.”
+
+![waiting on resource](/images/blogimages/resource-groups-2.png){: .shadow.medium.center}
+
+Teams can define multiple `resource_group`(s) for their environment in `.gitlab-ci.yml`. Even if running separate pipelines, as long as a `resource_group` is assigned then the jobs will not run concurrently. Tools like [Terraform](https://www.terraform.io/docs/internals/graph.html) similarly help users manage concurrencies by limiting resources.
+
+As we continue to improve and iterate on our [product vision for continuous delivery](/direction/ops/), we’ll be looking to make future improvements to resource groups and deployment environments. Some of our plans include implicit environment locking, [only allowing forward incremental deployments](https://gitlab.com/gitlab-org/gitlab/issues/25276), and the flexibility to define concurrency values (the default of 1 can’t be configured in this release).
+
+Please join us in our [public epic](https://gitlab.com/groups/gitlab-org/-/epics/1294) where we discuss continuous delivery and feel free to give feedback or suggestions on ways we can improve deployments. Everyone can contribute.
+
+<%= partial "includes/blog/blog-merch-banner" %>
+
+Cover image by [mostafa meraji](https://unsplash.com/@mostafa_meraji?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/turnstile?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

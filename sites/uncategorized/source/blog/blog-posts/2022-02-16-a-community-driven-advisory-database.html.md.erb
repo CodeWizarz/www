@@ -1,0 +1,93 @@
+---
+title: "Introducing a community-driven advisory database for third-party software dependencies"
+author: "Julian Thome, Isaac Dawson, Dinesh Bolkensteyn, and Mark Art"
+author_twitter: "gitlab"
+categories: security
+tags: security, collaboration
+featured: yes
+description: "The advisory data can be readily adopted, adapted, and
+exchanged. Learn more here."
+image_title: '/images/blogimages/handshake.png'
+twitter_text: "Introducing a community-driven advisory database for third-party dependencies."
+related_posts:
+- "/blog/2021/09/28/generic-semantic-version-processing/"
+- "/blog/2021/11/23/three-things-you-might-not-know-about-gitlab-security/"
+- "/blog/2021/12/17/gitlab-security-twenty-twenty-one/"
+---
+
+GitLab provides a [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/)
+feature that can automatically detect vulnerabilities in your software
+dependencies. Dependency Scanning covers various programming languages and
+relies on the [GitLab Advisory Database](https://gitlab.com/gitlab-org/security-products/gemnasium-db), that
+is
+[updated](https://gitlab.com/gitlab-org/security-products/gemnasium-db/activity)
+on a periodic basis by the 
+[Vulnerability Research](/handbook/engineering/development/sec/secure/vulnerability-research/)
+team at GitLab. The GitLab Advisory Database covers security advisories in software packages that have a CVE identifier, as well as malicious packages marked as such by their ecosystem ([example](https://gitlab.com/gitlab-org/security-products/gemnasium-db/-/blob/master/npm/lodahs/CVE-2019-19771.yml)). The database is an essential part of
+the Dependency Scanning feature, which is
+[available](https://about.gitlab.com/pricing/) in GitLab Ultimate self-managed
+and GitLab Ultimate SaaS.
+
+As of recently, GitLab also provides a _free and open-source_ version of the
+database, the [GitLab Advisory Database (Open Source Edition)](https://gitlab.com/gitlab-org/advisories-community), a time-delayed
+(+30 days) clone of the [GitLab Advisory Database](https://gitlab.com/gitlab-org/security-products/gemnasium-db).
+
+In the spirit of
+[Collaboration](https://about.gitlab.com/handbook/values/#collaboration) and
+[Transparency](https://about.gitlab.com/handbook/values/#transparency), two of
+the [GitLab core values](https://about.gitlab.com/handbook/values/), we share
+the database with the open-source community in a format that is
+[well-documented](https://gitlab.com/gitlab-org/security-products/gemnasium-db#yaml-schema)
+and can be easily parsed. The advisory data can be readily adopted, adapted, and
+exchanged. For example, links to proof of concepts or write-ups, or any other
+directly related information that will benefit the community, can be added to
+the `urls` array:
+
+```yaml
+urls:
+  - "https://hackerone.com/reports/1104077"
+  - "https://nvd.nist.gov/vuln/detail/CVE-2021-28965"
+  - "https://www.ruby-lang.org/en/news/2021/04/05/xml-round-trip-vulnerability-in-rexml-cve-2021-28965/"
+```
+
+Additionally, in our advisories we use [Common Weakness Enumeration](https://cwe.mitre.org/index.html) 
+in conjunction with [Common Vulnerability Scoring System](https://www.first.org/cvss/) as a standard means 
+of [communicating vulnerabilities](/handbook/engineering/development/sec/secure/products/metrics/), as well as their impact/severity, internally and externally.
+
+The [GitLab Advisory Database](https://gitlab.com/gitlab-org/security-products/gemnasium-db) is integrated
+into GitLab [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/). Once 
+an existing advisory is modified or a new advisory is created, the information included in the advisory will appear 
+in the [Vulnerability Pages](https://docs.gitlab.com/ee/user/application_security/vulnerabilities/) 
+where findings/vulnerabilities originating from all [security scanners](/stages-devops-lifecycle/secure/),
+including Dependency Scanning, can be managed at a central place.
+
+The open-source database has recently been integrated into
+[Trivy](https://github.com/aquasecurity/trivy), a free and open-source solution
+for [container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/).
+We are very grateful for [community contributions](https://gitlab.com/gitlab-org/security-products/gemnasium-db#credits) 
+to the [GitLab Advisory Database](https://gitlab.com/gitlab-org/security-products/gemnasium-db).
+Our community has aided us by suggesting improvements to our data or by
+ creating entirely new advisories, allowing everyone to benefit from their
+ contributions.
+
+At GitLab, [everyone can contribute](/company/mission/).
+The [Vulnerability Research](/handbook/engineering/development/sec/secure/vulnerability-research/)
+team at GitLab has made it easy to contribute to both databases. 
+
+Community contributions can be made available in
+[advisories-community](https://gitlab.com/gitlab-org/advisories-community)
+instantaneously by means of the [`community-sync` flag](https://gitlab.com/gitlab-org/security-products/gemnasium-db#advisory-headers),
+which has been introduced recently. Using this synchronization, you can make
+the same contribution appear in both databases at the time of a Merge Request
+(within one hour after the merge). 
+
+We have also used this flag to make the advisories concerning the recent
+[log4Shell](/blog/2021/12/15/updates-and-actions-to-address-logj-in-gitlab/)
+vulnerabilities available to the community immediately after these were made public.
+Even though the open-source version of the database is time-delayed, particular
+vulnerabilities that have the potential to become widespread and cause
+disruptions to the entire Internet, are pushed into the open-source version
+of the GitLab security advisory database.
+
+Cover image by [Charles Deluvio](https://unsplash.com/@charlesdeluvio) on [Unsplash](https://unsplash.com/photos/AT5vuPoi8vc)
+{: .note}

@@ -1,0 +1,1023 @@
+@import "vendor/bootstrap/bootstrap/responsive-embed";
+@import "vendor/bootstrap/bootstrap/variables";
+@import "variables";
+@import "typography";
+@import "mixins/ie10-and-up";
+@import "mixins/triangle";
+@import "components/flex-row";
+@import "utility-classes";
+
+$lt-color-purple: #3c257b;
+$lt-color-purple-2: #6b4fb9;
+$lt-color-orange: #fca226;
+$lt-color-orange-2: #fba438;
+$lt-color-red: #ad2f34;
+$lt-color-stat-shadow: rgba(0, 0, 0, .08);
+$lt-color-off-white: #e1e1e1;
+$lt-color-dark-purple: #2d1668;
+$lt-color-grey: #c8c8c8;
+$lt-color-dark-grey: #343434;
+
+body {
+  padding-top: 0;
+}
+
+.main-wrapper {
+  > .report-section-dark {
+    background: url("/images/dev-survey-2018/report-bg.jpg") no-repeat 50% 0 / cover;
+  }
+}
+
+.section-navigation {
+  position: fixed;
+  right: 12px;
+  top: 0;
+  z-index: 20;
+
+  @media (min-width: $screen-md-min) {
+    right: 20px;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    padding-top: 20px;
+    text-align: right;
+
+    @media (min-width: $screen-md-min) {
+      padding-top: 39px;
+    }
+
+    &::before {
+      position: absolute;
+      top: 0;
+      right: 9px;
+      bottom: 0;
+      border-right: 1px solid $border-color;
+      content: "";
+    }
+  }
+
+  a {
+    position: relative;
+    display: inline-block;
+    padding-right: 26px;
+    color: $text-color-light;
+
+    &:hover,
+    &:focus {
+      text-decoration: none;
+    }
+
+    &::after {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 19px;
+      height: 19px;
+      border: 2px solid $color-white;
+      border-radius: 100%;
+      box-shadow: 0 0 0 1px $border-color;
+      content: "";
+    }
+
+    &.js-active::after {
+      @media (max-width: $screen-sm-max) {
+        box-shadow: 0 0 0 1px $color-gray;
+      }
+    }
+
+    &.js-reverse {
+      $lt-translucent-white: rgba(255, 255, 255, .22);
+      color: $lt-translucent-white;
+
+      &.js-active {
+        color: $color-white;
+      }
+    }
+
+    span {
+      display: none;
+
+      @media (min-width: $screen-md-min) {
+        display: inline-block;
+      }
+    }
+
+    @each $class, $color in (intro: #af9ec8, key-findings: #886eac, state-of-the-union: #fba438, culture: #fa7035, workflow: #e04733, tools: #6b4fb9, demographics: #3c257b) {
+      &.#{$class}.js-active:not(.js-reverse) {
+        color: $color;
+      }
+
+      &.#{$class}::after {
+        background-color: $color;
+      }
+    }
+
+  }
+}
+
+.c-brand {
+  @extend %u-margin-top-md;
+}
+
+.c-brand-logo-wordmark {
+  line-height: 0;
+
+  svg {
+    width: 131px;
+    height: 40px;
+
+    @media ($screen-sm-min) {
+      width: 262px;
+      height: 80px;
+    }
+  }
+}
+
+h1 {
+  @extend %u-margin-top-lg;
+  @extend %u-margin-bottom-xs;
+  @include accent-font-bold;
+  line-height: (75 / 70);
+  font-size: 50px;
+
+  @media (min-width: $screen-sm-min) {
+    font-size: 60px;
+  }
+
+  @media (min-width: $screen-md-min) {
+    font-size: 70px;
+  }
+}
+
+h3 {
+  @include accent-font-bold;
+  color: $lt-color-dark-purple;
+  font-size: 30px;
+  line-height: 1;
+
+  @media (min-width: $screen-sm-min) {
+    font-size: 40px;
+  }
+
+  @media (min-width: $screen-md-min) {
+    font-size: 50px;
+  }
+}
+
+.report-section {
+  position: relative;
+  padding-top: 70px;
+  background-color: $color-white;
+  font-size: 18px;
+  color: $text-color-light;
+  line-height: (28 / 18);
+  overflow: hidden;
+
+  > .container {
+    @media (max-width: $screen-sm-max) {
+      > .row {
+        margin-right: 5px;
+      }
+    }
+  }
+
+  p {
+    @include accent-font-regular;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+
+  .intro {
+    margin-bottom: 20px;
+    font-size: 22px;
+    line-height: (34 / 24);
+
+    + p {
+      color: $lt-color-off-white;
+    }
+  }
+}
+
+hr {
+  @extend %u-margin-top-lg;
+  @extend %u-margin-bottom-md;
+  border-top-color: $lt-color-grey;
+
+  &.angled {
+    transform: rotate(-2.2deg);
+    transform-origin: 50% 50%;
+  }
+}
+
+.report-section-intro {
+  padding-top: 0;
+  background-color: transparent;
+  color: $color-white;
+
+  hr {
+    $lt-dark-section-divider-color: rgba(255, 255, 255, .3);
+    border-top-color: $lt-dark-section-divider-color;
+  }
+}
+
+.report-section-key-findings {
+  padding-top: 0;
+  padding-bottom: 90px;
+  background-color: transparent;
+  color: $color-white;
+
+  h2 {
+    color: inherit;
+  }
+}
+
+.c-checked-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  .report-section-dark & {
+    color: $lt-color-off-white;
+  }
+
+  li {
+    position: relative;
+    margin-bottom: 30px;
+    padding-left: 30px;
+    font-size: 18px;
+    line-height: 1.5;
+
+    &::before {
+      position: absolute;
+      display: block;
+      top: 6px;
+      left: -1px;
+      width: 23px;
+      height: 18px;
+      background: url("/images/dev-survey-2018/checkmark.svg") no-repeat 0 0;
+      content: "";
+    }
+  }
+}
+
+h2 {
+  @extend %u-margin-bottom-sm;
+  @include accent-font-bold;
+  margin-top: 0;
+  color: $lt-color-dark-purple;
+  font-size: 40px;
+
+  @media (min-width: $screen-sm-min) {
+    font-size: 50px;
+  }
+
+  @media (min-width: $screen-md-min) {
+    font-size: 60px;
+  }
+}
+
+.c-banner {
+  h2 {
+    @include accent-font-black;
+    margin-top: 0;
+    margin-bottom: 0;
+    color: $lt-color-purple;
+    line-height: 1;
+    font-size: 50px;
+
+    @media (min-width: $screen-sm-min) {
+      font-size: 70px;
+    }
+
+    @media (min-width: $screen-md-min) {
+      font-size: 90px;
+    }
+  }
+
+  h3 {
+    @include font-weight-bold;
+    display: inline-block;
+    position: relative;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding: 7px 10px;
+    border-radius: 0 4px 4px 0;
+    background-image: linear-gradient(90deg, $color-gl-red 0%, $lt-color-orange 100%);
+    color: $color-white;
+    font-size: 19px;
+    line-height: 25px;
+    text-transform: uppercase;
+
+    &::after {
+      @include triangle("up-right", 30px, 20px, $lt-color-orange-2);
+      position: absolute;
+      top: 100%;
+      left: 0;
+      content: "";
+    }
+  }
+
+  p {
+    margin-bottom: 0;
+    margin-left: 30px;
+    padding: 45px 10px 0 40px;
+    border-left: 1px solid $lt-color-orange-2;
+
+    @media (min-width: $screen-md-min) {
+      padding: 65px 240px 0 50px;
+    }
+
+    @media (min-width: $screen-lg-min) {
+      padding: 65px 300px 0 68px;
+    }
+
+    &:last-of-type {
+      padding-bottom: 45px;
+
+      @media (min-width: $screen-sm-min) {
+        padding-bottom: 65px;
+      }
+    }
+  }
+}
+
+.c-banner-small {
+  h4 {
+    @include font-weight-bold;
+    display: inline-block;
+    position: relative;
+    margin: 0;
+    padding: 7px 10px;
+    border-radius: 0 4px 4px 0;
+    background-image: linear-gradient(269deg, $simple-hero-gradient-from 0%, $simple-hero-gradient-to 100%);
+    color: $color-white;
+    font-size: 19px;
+    line-height: 1;
+    text-transform: uppercase;
+
+    &::after {
+      @include triangle("up-right", 30px, 20px, $lt-color-purple);
+      position: absolute;
+      top: 100%;
+      left: 0;
+      content: "";
+    }
+  }
+
+  p {
+    margin-left: 30px;
+    padding: 45px 10px 45px 40px;
+    border-left: 1px solid $lt-color-purple;
+
+    @media (min-width: $screen-md-min) {
+      padding: 65px 240px 65px 50px;
+    }
+
+    @media (min-width: $screen-lg-min) {
+      padding: 65px 300px 65px 68px;
+    }
+  }
+}
+
+.c-stat {
+  @extend %u-margin-bottom-lg;
+  @extend %u-margin-top-lg;
+  display: flex;
+  align-items: center;
+
+  @include ie10-and-up {
+    display: block;
+  }
+
+  @media (max-width: $screen-xs-max) {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 30px;
+  }
+
+  .number {
+    @include accent-font-black;
+    display: flex;
+    color: $lt-color-purple;
+    font-size: 150px;
+    letter-spacing: 0;
+    line-height: 1;
+    text-shadow: 5px 5px 0 $lt-color-stat-shadow;
+
+    @media (min-width: $screen-md-min) {
+      font-size: 180px;
+    }
+
+    span:first-child {
+      position: relative;
+    }
+  }
+
+  .percent {
+    margin-left: -25px;
+    margin-right: 10px;
+    padding-top: 20px;
+    color: $border-color;
+    font-size: 115px;
+    text-shadow: none;
+
+    @media (min-width: $screen-md-min) {
+      font-size: 124px;
+    }
+  }
+
+  .label {
+    font-size: 22px;
+    line-height: 30px;
+
+    h4 {
+      font-size: 22px;
+    }
+
+    ul {
+      list-style: none;
+    }
+
+    li {
+      margin-bottom: 8px;
+      color: $lt-color-dark-grey;
+      opacity: .7;
+    }
+  }
+}
+
+%chart-title {
+  @extend %u-margin-top-lg;
+  @extend %u-margin-bottom-xs;
+  @include accent-font-bold;
+  font-size: 24px;
+  line-height: 1.3;
+  color: $lt-color-purple;
+
+  @media (min-width: $screen-sm-min) {
+    font-size: 28px;
+  }
+
+  @media (min-width: $screen-md-min) {
+    font-size: 32px;
+  }
+}
+
+.c-chart {
+  @extend %u-margin-bottom-lg;
+  position: relative;
+
+  .title {
+    @extend %chart-title;
+  }
+
+  blockquote {
+    @media (min-width: $screen-sm-min) {
+      position: absolute;
+    }
+  }
+
+  .chart-notes {
+    @extend %u-margin-top-xs;
+    @include font-weight-semibold;
+    line-height: 26px;
+
+    @media (max-width: $screen-sm-max) {
+      + .c-blockquote {
+        margin-top: 20px;
+      }
+    }
+  }
+
+  .stats-notes {
+    font-size: 12px;
+    line-height: 1;
+
+    @media (max-width: $screen-sm-max) {
+      + .c-blockquote {
+        margin-top: 20px;
+      }
+    }
+
+    @media (min-width: $screen-sm-min) {
+      position: absolute;
+      right: 0;
+      bottom: 5px;
+    }
+  }
+}
+
+.c-chart-track-time-remote {
+  .c-blockquote.alpha {
+    top: 115px;
+    left: 0;
+    width: 270px;
+  }
+
+  .c-blockquote.beta {
+    top: 150px;
+    right: 0;
+    width: 370px;
+
+    @media (max-width: $screen-sm-max) {
+      top: 100px;
+      width: 320px;
+    }
+  }
+
+  canvas {
+    @media (min-width: $screen-sm-min) {
+      margin-left: 200px;
+    }
+  }
+
+  .chart-notes {
+    @media (min-width: $screen-sm-min) {
+      position: absolute;
+      top: 415px;
+      left: 525px;
+    }
+  }
+}
+
+.c-blockquote {
+  padding: 15px 10px;
+  border-left: 4px solid $color-gray-extra-light;
+  color: $lt-color-red;
+  font-size: 18px;
+  font-style: italic;
+}
+
+.c-quote {
+  display: block;
+  margin: 45px 0;
+  padding-top: 50px;
+  background: url("/images/dev-survey-2018/quote-symbol.svg") no-repeat 50% 0;
+  font-size: 20px;
+  line-height: 38px;
+  text-align: center;
+
+  @media (min-width: $screen-sm-min) {
+    font-size: 28px;
+  }
+
+  .dark-bg-block & {
+    background-image: url("/images/dev-survey-2018/quote-symbol--white.svg");
+  }
+
+  &::before,
+  &::after {
+    content: none;
+  }
+}
+
+.c-callout {
+  @extend %u-margin-bottom-lg;
+  padding: 20px 40px;
+  border: 1px solid $border-color;
+  border-radius: 3px;
+  background: $body-bg;
+  color: $lt-color-purple-2;
+  font-size: 28px;
+  line-height: 34px;
+
+  @media (min-width: $screen-md-min) {
+    margin-right: -40px;
+  }
+}
+
+.c-callout--simple {
+  font-size: 18px;
+  line-height: (28 / 18);
+  color: inherit;
+
+  h4 {
+    @include font-weight-bold;
+  }
+}
+
+.c-legend {
+  @media (max-width: $screen-sm-max) {
+    margin-top: 5px;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    margin-right: 20px;
+    line-height: 18px;
+    float: left;
+  }
+
+  .key {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+  }
+
+  .label {
+    @include font-weight-semibold;
+    display: inline-block;
+    font-size: 12px;
+    vertical-align: top;
+  }
+}
+
+
+@media (max-width: $screen-xs-max) {
+  .c-chart-ci-usage canvas {
+    transform: scale3d(.75, .75, .75);
+    transform-origin: 0 50%;
+    margin-top: -50px;
+    margin-bottom: -50px;
+  }
+}
+
+@media (max-width: $screen-md-max) {
+  .c-chart-ci-usage .c-blockquote.alpha {
+    position: static;
+  }
+}
+
+@media (min-width: $screen-sm-min) {
+  .c-chart-testing-methodology {
+    .c-blockquote.alpha {
+      top: 180px;
+      right: 0;
+      width: 400px;
+    }
+  }
+
+  .c-chart-ci-usage {
+    .c-blockquote.alpha {
+      top: 150px;
+      right: 0;
+      width: 400px;
+    }
+  }
+}
+
+.c-stat-circle {
+  @extend %u-margin-bottom-sm;
+  position: relative;
+
+  .svg-container {
+    width: 196px;
+    height: 196px;
+    margin: 0 auto;
+  }
+
+  .number {
+    @include accent-font-black;
+    position: absolute;
+    display: flex;
+    top: 60px;
+    left: 20px; // Offset left side to get better visual centering
+    right: 0;
+    justify-content: center;
+    font-size: 80px;
+    line-height: 1;
+  }
+
+  .percent {
+    margin-top: 12px;
+    font-size: 40px;
+    align-self: flex-start;
+  }
+
+  @each $class, $color in (alpha: #fba438, beta: #fa7035, gamma: #e85929, delta: #bd4343) {
+    &.#{$class} {
+      .number,
+      strong {
+        color: $color;
+      }
+    }
+  }
+}
+
+.c-image-banner {
+  @extend %u-margin-bottom-xl;
+  padding: 45px 0;
+  background-position: 50% 50%;
+  background-size: cover;
+
+  @media (min-width: $screen-sm-min) {
+    padding-top: 75px;
+    padding-bottom: 75px;
+  }
+
+  @media (max-width: $screen-sm-max) {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  &.dark-bg-block {
+    color: $color-white;
+  }
+
+  &.parallax {
+    background-repeat: no-repeat;
+    background-position: 0 0;
+    background-size: cover;
+
+    // Only apply fixed bg on larger devices
+    // @hack to avoid applying to mobile
+    @media (min-width: 1200px) {
+      background-attachment: fixed;
+    }
+  }
+}
+
+.c-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 30px 15px;
+  border-radius: 3px;
+  color: $color-white;
+  text-align: center;
+
+  @media (min-width: $screen-md-min) {
+    margin-bottom: 0;
+  }
+
+  @each $class, $color in (alpha: #fba438, alpha-alt: #fa7035, beta: #fa7035, beta-alt: #e04733, gamma: #e04733, gamma-alt: #bd4343, delta-alt: #a24356) {
+    &.#{$class} {
+      background-color: $color;
+    }
+  }
+
+  &.prose {
+    justify-content: center;
+  }
+
+  svg {
+    width: 128px;
+    height: 128px;
+
+    path {
+      fill: $color-white;
+    }
+  }
+
+  &.small-icon {
+    @media (min-width: $screen-md-min) {
+      min-height: 250px;
+
+      @include ie10-and-up {
+        height: 250px;
+      }
+    }
+
+    svg {
+      width: 76px;
+      height: 72px;
+    }
+  }
+
+  h4 {
+    margin: 20px 0;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: (25 / 24);
+
+    @include ie10-and-up {
+      max-width: 100%;
+    }
+  }
+
+  p {
+    font-size: 18px;
+    line-height: 28px;
+
+    @include ie10-and-up {
+      max-width: 100%;
+    }
+  }
+
+  ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    @include ie10-and-up {
+      max-width: 100%;
+    }
+  }
+
+  li {
+    margin-bottom: 10px;
+    line-height: 1.4;
+  }
+}
+
+.compare-tabs {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  margin: 80px 0 0;
+  padding: 0;
+  list-style: none;
+
+  &::before {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: $border-color;
+    content: "";
+  }
+
+  &::after {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 28px;
+    height: 28px;
+    margin-top: -14px;
+    margin-left: -14px;
+    border: 1px solid $border-color;
+    border-radius: 100%;
+    background-color: $color-white;
+    font-size: 12px;
+    font-weight: 900;
+    content: "VS";
+  }
+
+  li {
+    $lt-active-tab-border-color: #6b4fb9;
+    width: 223px;
+    margin: 0 20px;
+    border-bottom: 4px solid $color-gray-extra-light;
+
+    &.active {
+      border-bottom-color: $lt-active-tab-border-color;
+
+      a {
+        font-weight: 600;
+      }
+    }
+  }
+
+  a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px 0;
+    color: $text-color-light;
+    font-size: 18px;
+    cursor: pointer;
+
+    svg {
+      width: 32px;
+      height: 32px;
+      margin-right: 10px;
+
+      > path {
+        fill: currentcolor;
+      }
+    }
+  }
+}
+
+.tab-content .tab-desc {
+  @extend %chart-title;
+  text-align: center;
+}
+
+.world-map {
+  position: relative;
+
+  @media (max-width: $screen-sm-max) {
+    margin-top: 40px;
+  }
+
+  ul {
+    margin: 0;
+
+    @media (max-width: $screen-xs-max) {
+      display: flex;
+      padding-top: 20px;
+      flex-wrap: wrap;
+      justify-content: space-around;
+    }
+  }
+
+  li {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    margin: 0 10px 20px;
+
+    @media (min-width: $screen-sm-min) {
+      position: absolute;
+      margin: 0;
+    }
+  }
+
+  @function map-top($top) {
+    @return percentage($top / 359px);
+  }
+
+  @function map-left($left) {
+    @return percentage($left / 802px);
+  }
+
+  // sass-lint:disable indentation
+  @each $class, $top, $left in (europe, map-top(-32px), map-left(295px)),
+                               (north-america, map-top(107px), map-left(-53px)),
+                               (south-america, map-top(248px), map-left(58px)),
+                               (middle-east, map-top(119px), map-left(718px)),
+                               (asia, map-top(-77px), map-left(589px)),
+                               (africa, map-top(314px), map-left(417px)),
+                               (australia-and-new-zealand, map-top(215px), map-left(730px)) {
+    .#{$class} {
+      top: $top;
+      left: $left;
+    }
+  }
+  // sass-lint:enable indentation
+
+  @media (max-width: $screen-sm-max) {
+    .north-america {
+      left: 0;
+    }
+
+    .middle-east {
+      right: 0;
+      left: auto;
+    }
+
+    .australia-and-new-zealand {
+      right: 0;
+      left: auto;
+    }
+  }
+
+  .label {
+    white-space: nowrap;
+  }
+
+  .stat {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 105px;
+    height: 36px;
+    border-radius: 8px;
+    color: $color-white;
+    font-size: 24px;
+    font-weight: 700;
+
+    @media (min-width: $screen-sm-min) {
+      width: 125px;
+      height: 42px;
+      font-size: 32px;
+    }
+
+    @media (min-width: $screen-md-min) {
+      width: 145px;
+      height: 50px;
+      font-size: 40px;
+    }
+  }
+
+
+  @each $class, $color in (europe: #a686ff, north-america: #784475, south-america: #fa7035, middle-east: #bd4343, asia: #6b4fb9, africa: #3c257b, australia-and-new-zealand: #fba438) {
+    .#{$class} .stat {
+      background-color: $color;
+    }
+  }
+}
+
+.footer-social li {
+  font-size: 36px;
+}
+
+.social-sharing {
+  display: flex;
+  align-content: center;
+  justify-content: center;
+
+  .social-sharing-item {
+    margin: 0 5px;
+  }
+}

@@ -1,0 +1,84 @@
+---
+title: "How to use a push-based approach for GitOps with GitLab scripting and variables"
+author: Cesar Saavedra
+author_gitlab: csaavedra1
+author_twitter: cesar_saavedr
+categories: engineering
+image_title: '/images/blogimages/how-to-agentless-gitops-vars/agentless-gitops-vars-cover-880x587.jpg'
+description: "Learn how GitLab supports agentless approach for GitOps with scripting and variables."
+tags: GitOps, DevOps, demo
+twitter_text: "How to use a push-based approach for GitOps with @GitLab scripting and variables"
+featured: no
+postType: content marketing
+merch_sidebar: merch_eight
+related_posts:
+  - "/blog/2021/04/27/gitops-done-3-ways/"
+  - "/blog/2021/06/23/how-to-use-agent-based-gitops/"
+---
+
+In [part one](/blog/2021/06/23/how-to-use-agent-based-gitops/) of our GitOps series, we described how to use a pull-based (or agent-based) approach. In this second blog post, we'll dig deep into how to use a push-based approach. The agentless approach may be preferable for situations with non-Kubernetes infrastructure components or when you don't want to install, run, and maintain agents in each infrastructure component for [GitOps](/topics/gitops/). In this post, we will discuss how the scripting capabilities of GitLab can be used in GitOps workflows, and how to use predefined GitLab variables to shape infrastructure components.
+
+## About a push-based or agentless approach
+
+With the agentless approach, infrastructure expressed and managed as code on GitLab, and updates and drift detection are automated and handled by GitLab without having to install any agents on infrastructure components.
+
+## How to use scripting in your pipelines to shape infrastructure
+
+GitLab allows automation using scripting. Whether you're using Docker, Helm, Ansible, or even direct SSH commands, you can use the scripting capabilities of GitLab to create, shape, and modify infrastructure.
+
+In the example below, the pipeline determines the shape of the infrastructure the application runs on by specifying a Docker image as well as running Docker commands to build and push an application to the GitLab built-in container registry.
+
+![Using Docker in your pipeline to shape infrastructure](/images/blogimages/how-to-agentless-gitops-vars/0-docker-use-in-pipeline.png){: .shadow.small.center.wrap-text}
+How to use Docker in your pipeline to shape infrastructure.
+{: .note.text-center}
+
+The infrastructure is shaped again at a later stage in the pipeline, but this time by using kubectl and Helm commands:
+
+![Using kubectl in your pipeline to shape infrastructure](/images/blogimages/how-to-agentless-gitops-vars/1-helm-use-in-pipeline.png){: .shadow.medium.center.wrap-text}
+How to use kubectl in your pipeline to shape infrastructure.
+{: .note.text-center}
+
+Depending on the type of infrastructure, other technologies can be used to shape the infrastructure. In the next example, Ansible is used to run a playbook that sets up the infrastructure for an entire lab environment:
+
+![Using Ansible in your pipeline to shape infrastructure](/images/blogimages/how-to-agentless-gitops-vars/2-ansible-use-in-pipeline.png){: .shadow.medium.center.wrap-text}
+How to use Ansible in your pipeline to shape infrastructure.
+{: .note.text-center}
+
+The scripting capabilities of GitLab pipelines combined with GitLab's CI/CD capabilities allow users to create GitOps flows to manage Infrastructure as Code (IaC), which delivers more resilient infrastructure and less risk of unscheduled downtime.
+
+## How to use Auto DevOps to modify infrastructure using variables
+
+GitLab also allows users to shape infrastructure by using project or group variables. The number of production pods in a Kubernetes cluster is updated to four in the example below:
+
+![Using variables to shape infrastructure](/images/blogimages/how-to-agentless-gitops-vars/3-ado-modify-infra-via-vars.png){: .shadow.medium.center.wrap-text}
+How to use variables to shape infrastructure.
+{: .note.text-center}
+
+The number of the production pods are changed to four on the next execution of the pipeline:
+
+![Production pods increased via a variable update](/images/blogimages/how-to-agentless-gitops-vars/4-ado-modified-infra-via-vars.png){: .shadow.medium.center.wrap-text}
+Production pods changed using a variable update.
+{: .note.text-center}
+
+There are many GitLab [build and deployment variables](https://docs.gitlab.com/ee/topics/autodevops/customize.html#build-and-deployment) that can modify infrastructure. [PostgreSQL](https://www.postgresql.org/) is provisioned as a component in infrastructure by default in GitLab to support applications that require a database and also provides [these variables](https://docs.gitlab.com/ee/topics/autodevops/customize.html#database) to customize it.
+
+## How GitLab capabilities help agentless infrastructure
+
+The scripting capabilities of GitLab are a convenient way to shape infrastructure components in GitOps workflows using a push-based approach. This method allows for the easy integration of IaC tools in your GitOps pipelines. If you are doing IaC and GitOps for non-Kubernetes infrastructure components, this is the best approach. GitLab also provides out-of-the-box variables, so users can impact selected infrastructure components. In the final part of this GitOps series, we will discuss an agentless approach using our integration to Terraform as well as examples of GitOps flows for AWS ECS and EC2.
+
+Cover image by [Rod Long](https://unsplash.com/@rodlong?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/machu-picchu?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+
+## Read more on GitOps with GitLab: 
+
+- [GitOps with GitLab: Infrastructure provisioning with GitLab and Terraform](/blog/2021/11/04/gitops-with-gitlab-infrastructure-provisioning/)
+
+- [Here's how to do GitOps with GitLab](/blog/2021/10/21/gitops-with-gitlab/)
+
+- [GitOps viewed as part of the Ops evolution](/blog/2021/07/12/gitops-as-the-evolution-of-operations/)
+
+- [GitOps with GitLab: Connect with a Kubernetes cluster](/blog/2021/11/18/gitops-with-gitlab-connecting-the-cluster/)
+
+
+

@@ -1,0 +1,93 @@
+---
+title: "How developer-centric AppSec testing can dramatically change your DevOps team"
+author: Joni Klippert
+author_twitter: joniklippert
+categories: engineering
+image_title: "/images/blogimages/stackhawk.jpg"
+description: "Find and fix security bugs faster by implementing developer-centric application security testing in the CI pipeline. And the bonus? Engineering and security will finally be better aligned."
+tags: CI/CD, collaboration, DevOps, security, testing, workflow
+cta_button_text: 'Learn more at the Commit Keynote' 
+cta_button_link: '/events/commit/' 
+guest: true
+twitter_text: "Want better aligned security and engineering? It's time for developer-centric application security testing" 
+postType: Content marketing
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+Software development has accelerated dramatically over the past decade. As [DevOps](/topics/devops/) became pervasive, companies went from shipping software monthly to shipping software to production frequently throughout the day. This happened as engineering teams took ownership of the deployment, performance, and resilience of their software. 
+
+And it has paid off. Companies that have adopted DevOps are deploying software significantly faster, ultimately driving business value as innovation is more rapidly delivered to customers.
+
+Security, however, did not keep up. Security teams typically fell into one of two positions - the blocker of frequent deployments or the team perpetually bringing up issues in last month’s work. The need for a shift in the security model is widely known. It was the subject of the [2019 Black Hat Conference keynote](https://www.blackhat.com/us-19/briefings/schedule/index.html#every-security-team-is-a-software-team-now-17280), stats from GitLab’s [2020 Global DevSecOps Survey](https://about.gitlab.com/resources/downloads/2020-devsecops-report.pdf) make this obvious, and we’ve [shared our opinions](https://www.stackhawk.com/blog/application-security-is-broken/) at StackHawk.
+
+I believe there is a solution (or at least a *huge* step in the right direction)... developer-centric [application security](/topics/devsecops/) tooling in the CI pipeline.
+
+## The CI pipeline aligns engineering and security
+
+While some in the industry have been debating the term DevSecOps, leading companies have started adopting developer-first security tooling that brings alignment through the CI pipeline. Instrumented correctly, it ensures that security bugs are caught before they hit production and that the fix cycle is drastically shortened.
+
+The legacy model has security teams running application security tests against production environments. These sort of checks are great if they are your backstop. But if this is the primary way of assessing your application’s security posture, you need to catch up with modern engineering practices. 
+
+Modern teams are running checks on each microservice that makes up the customer facing application, catching bugs in pipeline, and equipping developers with the information to self serve fixes and triage issues. Fix times are significantly shorter, as developers are still in the context of the code they were working on. By testing microservices vs. the end state application, the underlying bugs are much easier to find and fix. And with developer-centric tooling, developers can fix bugs themselves instead of cycling through siloed internal processes. This structure better aligns each function with their best skill sets. Engineers know the application the best and are most equipped to fix, and security teams are able to focus on strategy instead of Jira ticket creation.
+
+The key is to get the instrumentation right (read: don’t break the build for stupid stuff).
+
+## Application security tests in CI
+
+That sounds great in theory, but what does it look like in practice? Getting started is actually more simple than it seems. We suggest adding three application security tests to start:
+
+## Software composition analysis (SCA)
+
+SCA identifies the open source dependencies in your code base and compares that against a database of known security vulnerabilities. Some tools automatically create pull requests to patch outdated libraries. Open source use is exponentially growing, especially with chained dependencies. SCA is incredibly important, but also can be noisy with non-exploitable findings.
+
+Some of the leading vendors in the space are [GitLab](/) and [Snyk](https://snyk.io/), with up and comers like [FOSSA](https://fossa.com/) also worth paying attention to.
+
+## Dynamic application security testing (DAST)
+
+DAST runs security tests against your running application, from localhost to CI to production. The beauty of DAST is that it most closely resembles what an attacker would see, by attacking your running application and reducing false positives. The two things to be sure of as you start testing with DAST is that your scanner is finding all of your paths and API endpoints and that it is able to scan as an authenticated user.
+
+GitLab provides DAST checks for Ultimate tier customers. If you want more robust scanning options and additional functionality to manage and fix bugs, [StackHawk](https://www.stackhawk.com) is the only place to turn (obviously I’m biased here). Other solutions include legacy vendors such as [Rapid7](https://www.rapid7.com/) or open source leader [ZAP](https://www.zaproxy.org/).
+
+## Secrets detection
+
+Finally, you’ll want to ensure that you have detection for leaked secrets in code. This tooling looks for credentials, keys, or other secrets that may have unintentionally been committed to the code base by developers. GitLab includes [secret detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) in their GitLab Ultimate security tooling.
+
+## Getting started
+
+Oftentimes, the thought of adding application security tests to the development workflow feels insurmountable. With a long list of priorities, engineering leadership will sometimes put this off. The reality, however, is that it is not that hard.
+
+At StackHawk, we see many customers completing their first successful scans within 15 minutes of sign up and instrumentation in CI is literally as easy as adding [a few lines of YAML](https://docs.stackhawk.com/continuous-integration/) to your build.
+
+Here is our recommended playbook of how to get started with AppSec in CI. While this is specific to StackHawk, the principles can be applied to other tools as well.
+
+### Step 1: local testing and config
+After signing up and grabbing your API key, start iterating on [configuration](https://docs.stackhawk.com/hawkscan/configuration/) while testing against your application on localhost. This allows you to quickly adjust config and get successful authenticated scans running.
+
+### Step 2: non-blocking CI instrumentation
+After you’ve ironed out the configuration locally, add the test to your CI pipeline. At this point, it is strongly recommended to instrument as a non-blocking test so that you can triage any existing findings and smooth out any kinks.
+
+#### Step 3: bug triage - fix critical issues in flight, backlog and discuss the rest
+After your first non-blocking CI run, start triaging any initial findings. Any bugs marked as High criticality should likely be fixed with some sense of urgency. Lows and Mediums should be triaged depending on your application and the bugs, either quickly addressed or added to a backlog for review. Existing findings should not be the blocker for you instrumenting checks to ensure that new bugs don’t get shipped to production.
+
+#### Step 4: switch to blocking tests
+After ironing out config locally and in CI, and then triaging initial findings, it is time to finalize the roll out. Switch the StackHawk test to blocking mode to ensure that new security bugs don’t hit production. You can set the scanner to break on High or Medium and High, which depends on your business and the nature of the application. With this in place, you can be confident that production-ready applications have been scanned for security.
+
+## Cultural shifts: it is more than CI
+The CI pipeline is the natural hingepoint to start aligning engineering and security. A cultural shift, however, is absolutely needed. (If you're doubtful about this, here's a frank look at why [dev and sec don't get along](/blog/2020/08/13/developer-security-divide/).) Modern engineering teams recognize that delivering a secure application is part of quality engineering. Engineers aren’t comfortable shipping applications with UI bugs, and they shouldn’t accept security holes either. 
+
+Security, on the other hand, needs to shift from the blocker to speedy development and to the enabler of safety in an environment of high speed delivery. Modern security engineers are ensuring that their teams are working with safe-by-default frameworks, are equipped with developer-centric tooling, and that there are proper integration tests for business logic that can’t be tested by external tooling.
+
+While there is significant catch up needed, it is encouraging to see the leading software teams out there testing application security on every build.
+
+## Dig deeper
+
+To learn more about adding AppSec tests to your CI build, join me at my [How Security Belongs in DevOps](https://sched.co/dUWD) talk at GitLab Commit on August 26th. You can also always sign up for a [free StackHawk trial or demo](https://www.stackhawk.com) or talk to your GitLab sales representative about the security features in GitLab Ultimate. And for the best of both worlds, check out more details on running [automated security testing with StackHawk in GitLab](https://docs.stackhawk.com/continuous-integration/gitlab.html).
+
+_Joni Klippert is founder & CEO of StackHawk, a software-as-a-service company built to help developers find and fix security vulnerabilities in their code. Joni has been building software for developers for more than 10 years, previously serving as VP Product, VictorOps from seed stage to acquisition by Splunk. Joni is a Colorado native and holds an MBA from the University of Colorado. She currently lives in Denver with her fiance Jason and Whippet "Q"._
+
+Cover image by [Adi Goldstein](https://unsplash.com/@adigold1) on [Unsplash](https://unsplash.com)
+{: .note}
+
+
+

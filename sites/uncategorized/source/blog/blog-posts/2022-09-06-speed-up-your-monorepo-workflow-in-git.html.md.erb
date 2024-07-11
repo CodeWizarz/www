@@ -1,0 +1,176 @@
+---
+title: "Speed up your monorepo workflow in Git"
+author: John Cai
+author_gitlab: jcaigitlab
+categories: engineering
+image_title: "/images/blogimages/speedmonorepo.jpg"
+description: "Tap into the features that can reap huge savings in the long run for any developer team."
+twitter_text: "Learn how to speed up your monorepo workflow with Git by using certain features."
+tags: git, workflow, tutorial
+featured: yes
+---
+
+Monorepos have grown in popularity in recent years. For many of us, they are a
+part of our daily Git workflows. The trouble is working with them can be slow. Speeding up
+a developer's workflow can reap huge savings in the long run for any team.
+
+First, a word about monorepos. What does it mean for a repository to be a
+monorepo anyway? Well, it depends who you ask and the definition has become
+more flexible over time, but here are a few.
+
+## Characteristics of monorepos
+
+Monorepos have the following characteristics.
+
+### Multiple sub-projects
+
+The typical definition of "monorepo" is a repository that contains multiple sub-projects. For instance, let's imagine a repository with a web-facing front end,
+a backend, an iOS app directory, and an android app directory:
+
+```
+awesome-app/
+|
+|--backend/
+|
+|--web-frontend/
+|
+|--app-ios/
+|
+|--app-android/
+
+```
+
+`awesome-app` is a single repository:
+
+```
+git clone https://my-favorite-git-hosting-service.com/awesome-app.git
+```
+
+The [Chromium](https://github.com/chromium/chromium) repository is a good
+example of this.
+
+### Large files
+
+Repositories can also grow to be very large if large files are checked in. In
+some cases, binaries or other large assets such as images are checked into the
+repository to have their history tracked. Other times, large files are inadvertently 
+introduced into the repository. The way Git history works, even if these files are
+immediately removed, the single version that was checked in remains.
+
+### Old projects with deep histories
+
+While Git is very good at compressing text files, when a Git repository has a deep history,
+the need to keep all versions of a file around can cause the size of the repository to be huge.
+
+The [Linux](https://github.com/torvalds/linux) repository is a good example of this.
+
+For instance, the Linux project's first Git commit is from [April 2005](https://github.com/torvalds/linux/commit/1da177e4c3f41524e886b7f1b8a0c1fc7321cac2).
+
+And a `git rev-list --all --count` gives us 1,120,826 commits! That's a lot of
+history! Getting into Git internals a little bit, Git keeps a commit object, and a
+tree object for each commit, as well as a copy of the files at that snapshot
+in history. This means a deep Git history means a lot of Git data.
+
+## Speeding up your Git workflow
+
+Here are some features to help speed up your Git workflow.
+
+### Sparse checkout
+
+[git sparse checkout](https://git-scm.com/docs/git-sparse-checkout) reduces the
+number of files you check out to a subset of the repository. (NOTE: This feature
+in Git is still marked experimental.) This is especially useful in the case of
+[many sub-projects in a repository](#multiple-sub-projects).
+
+Taking our [example](#multiple-sub-projects) of a monorepo with multiple
+sub-projects, let's say that as a front-end web developer I only need to make
+changes to `web-frontend/`.
+
+```sh
+> git clone --no-checkout https://my-favorite-git-hosting-service.com/awesome-app.git
+> cd awesome-app
+> git sparse-checkout set web-frontend
+> git checkout
+Your branch is up to date with 'origin/master'.
+> ls
+> web-frontend README.md
+```
+
+Or, if you've already checked out a worktree, sparse checkout can be used to remove
+files from the worktree.
+
+
+```sh
+> git clone https://my-favorite-git-hosting-service.com/awesome-app.git
+> cd awesome-app
+> ls
+> backend web-frontend app-ios app-android README.md
+> git sparse-checkout set web-frontend
+Updating files: 100% (103452/103452), done.
+> ls
+> web-frontend README.md
+```
+
+Sparse checkout will only include the directories indicated, plus all files
+directly under the root repository directory.
+
+This way, we only checkout the directories that we need, saving both space locally
+and time since each time `git pull` is done, only files that are checked out will
+need to be updated.
+
+More information can be found in the [docs](https://git-scm.com/docs/git-sparse-checkout)
+for sparse checkout.
+
+### Partial clone
+
+[git partial clone](https://docs.gitlab.com/ee/topics/git/partial_clone.html#:~:text=Partial%20clone%20is%20a%20performance,0%20or%20later%20is%20required) has a similar goal to sparse checkout in reducing the number
+of files in your local Git repository. It provides the option to filter out
+certain types of files when cloning.
+
+Partial clone is used by passing the `--filter` option to `git-clone`.
+
+```sh
+git clone --filter=blob:limit=10m
+```
+
+This will exclude any files over 10 megabytes from being copied to the local
+repository. A full list of supported filters are included in the
+[docs for git-rev-list](https://git-scm.com/docs/git-rev-list#Documentation/git-rev-list.txt---filterltfilter-specgt).
+
+A more thorough walkthrough of partial clone can be found [here](/blog/2020/03/13/partial-clone-for-massive-repositories/).
+
+### Shallow clone
+
+A shallow clone is one where instead of getting the entire history, Git only
+retrieves a partial history of the project.
+
+Shallow clones can be very useful if there is no need for the entire history. For
+instance, a continuous integration runner that clones a repository to run tests on it
+typically would not need the entire Git history.
+
+
+```sh
+git clone --depth 20
+```
+
+This will retrieve only the last 20 commits of the current branch.
+
+```sh
+git clone --shallow-since=yesterday
+git clone --shallow-since=2022/08/05
+```
+
+This will retrieve the Git history up to a specified date. For more details on
+date formats accepted by Git, see the [docs](https://raw.githubusercontent.com/git/git/master/Documentation/date-formats.txt).
+
+There is also a [--shallow-excludes](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---shallow-excludeltrevisiongt)
+option with which you can exclude certain revisions.
+
+## Conclusion
+
+Git is an incredibly flexible tool, which leads to repositories of all shapes and
+sizes. With these few features in Git, you can speed up your workflow when
+working in large repositories.
+
+Cover image by [Kazuend](https://unsplash.com/@kazuend?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on Unsplash.
+{: .note}

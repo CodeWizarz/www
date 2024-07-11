@@ -1,0 +1,70 @@
+---
+title: "Get faster and more flexible pipelines with a Directed Acyclic Graph"
+author: Itzik Gan-Baruch
+author_gitlab: iganbaruch
+author_twitter: itzikgb
+categories: engineering
+image_title: '/images/blogimages/DAG/james-eades-bfwhP9xodvE-unsplash.jpg'
+description: "A Directed Acyclic Graph will let you run pipeline steps out of order, break the stage sequencing, and allow jobs to relate to each other directly."
+tags: CI/CD, pipeline 
+postType: content marketing, Technical Marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+Recently GitLab released an exciting feature that reduces the pipeline running times and enables more flexibility in the order jobs are running. The feature, Directed Acyclic Graph (DAG), is free and available on GitLab.com and the self-managed versions. 
+
+### Pipeline Jobs and Stages 
+
+In a typical [CI/CD pipeline](/topics/ci-cd/) you have multiple stages, which represent an automation of the [DevOps process](/topics/devops/) such as build, test, package, config, and deploy. Each stage is made up of one or more jobs. In the [CI/CD configuration file, .gitlab-ci.yml](https://docs.gitlab.com/ee/ci/quick_start/#what-is-gitlab-ciyml) you define the order of your stages. Usually the the pipeline will start with the build jobs; after all build jobs completed, test jobs will start, then jobs from the next stage will run, and so on. 
+
+While this order makes a lot of sense, in some cases this might slow down the overall execution time. Imagine the build stage consists of task A which completes in 1 min, and task B which is very slow (say 5 mins). Task C is in the test stage but it depends on task A only. Still, task C must wait 5 minutes before it can be executed, resulting in a waste of 4 minutes.  
+
+![stage sequencing ](/images/blogimages/DAG/pipeline_diagram.png){: .shadow.medium.center}
+
+### Meet Directed Acyclic Graph
+
+DAG will allow you to run pipeline steps out of order, breaking the stage sequencing and allowing jobs to relate to each other directly no matter which stage they belong to. 
+
+With DAG, jobs can start to run immediately after their dependent jobs completed even if some jobs in the previous stage are still running. This new feature speeds up the CI/CD process and helps complete the deployment sooner.  
+
+In the below example, a project generates both Android, iOS, and web apps in a multi-stage pipeline. The iOS tests started as soon as the iOS build passed rather than waiting for all the Android and web builds to pass too. It was the same for the iOS deployment – it completed after the iOS tests passed without waiting for the other test to complete. The total compute time might be the same, but the wall-clock time is different. In more complicated cases, it's possible to significantly reduce the overall wall-clock time of the pipeline by declaring exactly which jobs depend on which other jobs.
+
+![Build, test and deploy stages](/images/blogimages/DAG-blog.png){: .shadow.medium.center}
+
+### Defining dependent jobs
+
+The .gitlab-ci.yml file introduces a new keyword: [needs](https://docs.gitlab.com/ee/ci/yaml/#needs) which gets a parameter on an array of jobs that it depends on. 
+
+```
+ios:
+  stage: build
+  script:
+    - echo "build ios..."
+
+
+ios_test:
+  stage: test
+  script:
+    - echo "test something..."
+  needs: ["ios"]
+```
+
+The ```ios_test``` job, which is part of the ```test``` stage, will start immediately after the ```ios``` job, which is in the ```build``` stage, and it will complete regardless of the status of other jobs in the ```build``` stage. 
+
+### Where is it useful? 
+
+This can be valuable for the increasingly popular [monorepo](https://en.wikipedia.org/wiki/Monorepo) pattern where you have different folders in your repo that can build, test, and maybe even deploy independently, just like in the above example where the iOS, Android and web apps can be built, test and deployed individually. 
+
+Another usage could be when your pipeline contains some heavy tests that take a lot of time to execute. It would make more sense to start those tests as soon as possible, rather than wait for not relevant tasks to complete and only then start them. 
+
+### You can also watch a demo of DAG  below:
+
+<figure class="video_container">
+<iframe width="560" height="315" src="https://www.youtube.com/embed/9EHcQd3x_Sw" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+</figure>
+
+Cover image by [James Eades](https://unsplash.com/photos/bfwhP9xodvE) on [Unsplash](https://unsplash.com/)
+{: .note}
+
+

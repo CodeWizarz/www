@@ -1,0 +1,161 @@
+---
+title: "Simple Kubernetes management with GitLab"
+author: Noah Ing
+author_gitlab: noah.ing
+categories: engineering
+tags: tutorial, kubernetes, GitOps, CI, CD, DevOps
+description: Follow our tutorial to provision a Kubernetes cluster and manage it with IAC using Terraform and Helm in 20 minutes or less.
+image_title: /images/blogimages/auto-deploy-google-cloud.jpg
+twitter_text: Follow our tutorial to provision a Kubernetes cluster with GitLab and manage it with IAC using Terraform and Helm in 20 minutes or less.
+---
+
+Kubernetes can be very complex and has dozens of tutorials out there on how to provision and manage a cluster. This tutorial aims to provide a simple, lightweight solution to provision a Kubernetes cluster and manage it with infrastructure as code (IaC) using Terraform and Helm in 20 minutes or less.
+
+**The final product of this tutorial will be two IaC repositories with fully functional CI/CD pipelines:**
+
+1. [gitlab-terraform-k8s](https://gitlab.com/gitlab-org/configure/examples/gitlab-terraform-eks) - A single source of truth to provision, configure, and manage your Kubernetes infrastructure using Terraform
+1. [cluster-management](https://gitlab.com/gitlab-org/project-templates/cluster-management) - A single source of truth to define the desired state of your Kubernetes cluster using the GitLab Agent for Kubernetes and Helm
+
+![Final Product](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/final-product.png){: .shadow}
+
+
+### Prerequisites
+- AWS or GCP account with permissions to provision resources
+- GitLab account 
+- Access to a GitLab Runner
+- 20 minutes
+
+### An overview of this tutorial is as follows:
+
+1. Set up the GitLab Terraform Kubernetes Template 🏗️
+2. Register the GitLab Agent 🕵️
+3. Add in Cloud Credentials ☁️🔑
+4. Set up the Kubernetes Cluster Management Template 🚧
+5. Enjoy your Kubernetes Cluster completely managed in code! 👏
+
+## Set up the GitLab Terraform Kubernetes Template
+
+Start by importing the example project by URL - [https://gitlab.com/projects/new#import_project](https://gitlab.com/projects/new#import_project)
+
+To import the project:
+
+1. In GitLab, on the top bar, select **Main menu > Projects > View all projects**.
+2. On the right of the page, select **New project**.
+3. Select **Import project**.
+4. Select **Repository by URL**.
+5. For the Git repository URL:
+- [GCP Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine): https://gitlab.com/gitlab-org/configure/examples/gitlab-terraform-gke.git
+- [AWS Elastic Kubernetes Service](https://aws.amazon.com/eks/): https://gitlab.com/gitlab-org/configure/examples/gitlab-terraform-eks.git
+6. Complete the fields and select **Create project**.
+
+## Register the GitLab Agent
+
+With your newly created **gitlab-terraform-k8s** repo, create a GitLab Agent for Kubernetes:
+
+1. On the left sidebar, select **Infrastructure > Kubernetes clusters**. Select **Connect a cluster (agent).**
+2. From the **Select an agent** dropdown list, select **eks-agent/gke-agent and select **Register an agent**.
+3. GitLab generates a registration token for the agent. **Securely store this secret token, as you will need it later.**
+4. GitLab provides an address for the agent server (KAS). Securely store this as you will also need it later.
+5. Add this to the **gitlab-terraform-eks/.gitlab/agents/eks-agent/config.yaml** in order to allow the GitLab Agent to have access to your entire group.
+
+```yaml
+ci_access:
+  groups:
+    - id: your-namespace-here
+```
+
+![Register GitLab Agent](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/register-gitlab-agent.png){: .shadow}
+
+
+## Add in your Cloud Credentials to CI/CD variables
+
+### [AWS EKS](https://aws.amazon.com/eks/)
+
+On the left sidebar, select **Settings > CI/CD. Expand Variables**.
+1. Set the variable **AWS_ACCESS_KEY_ID** to your AWS access key ID.
+2. Set the variable **AWS_SECRET_ACCESS_KEY** to your AWS secret access key.
+3. Set the variable **TF_VAR_agent_token** to the agent token displayed in the previous task.
+4. Set the variable **TF_VAR_kas_address** to the agent server address displayed in the previous task.
+
+![Add in CI/CD variables](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/cicd-variables.png){: .shadow}
+
+
+### [GCP GKE](https://cloud.google.com/kubernetes-engine)
+
+1. To authenticate GCP with GitLab, create a GCP service account with the following roles: **Compute Network Viewer, Kubernetes Engine Admin, Service Account User, and Service Account Admin**. Both User and Admin service accounts are necessary. The User role impersonates the default service account when creating the node pool. The Admin role creates a service account in the kube-system namespace.
+2. **Download the JSON file** with the service account key you created in the previous step.
+3. On your computer, encode the JSON file to base64 (replace /path/to/sa-key.json to the path to your key):
+
+```
+base64 -i /path/to/sa-key.json | tr -d
+```
+
+- Use the output of this command as the **BASE64_GOOGLE_CREDENTIALS** environment variable in the next step.
+
+On the left sidebar, select **Settings > CI/CD. Expand Variables**.
+5. Set the variable **BASE64_GOOGLE_CREDENTIALS** to the base64 encoded JSON file you just created.
+6. Set the variable **TF_VAR_gcp_project** to your GCP’s project name.
+7. Set the variable **TF_VAR_agent_token** to the agent token displayed in the previous task.
+8. Set the variable **TF_VAR_kas_address** to the agent server address displayed in the previous task.
+
+## Run GitLab CI to deploy your Kubernetes cluster!
+
+![Deploy Kubernetes cluster](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/pipeline-view.png){: .shadow}
+
+When successfully completed, view the cluster in the AWS/GCP console!
+
+![AWS EKS](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/aws-eks.png){: .shadow}
+
+### You are halfway done! 👏 Keep it up!
+
+## Set up the Kubernetes Cluster Management Project
+
+Create a project from the cluster management project template - [https://gitlab.com/projects/new#create_from_template](https://gitlab.com/projects/new#create_from_template)
+
+1. In GitLab, on the top bar, select **Main menu > Projects > View all projects**.
+2. On the right of the page, select **New project**.
+3. Select **Create from template**.
+4. From the list of templates, next to **GitLab Cluster Management**, select **Use template**.
+5. Enter the project details. Ensure this project is created in the same namespace as the gitlab-terraform-k8s project.
+6. Select **Create project**.
+7. Once the project is created on the left sidebar, select **Settings > CI/CD. Expand Variables**.
+8. Set the variable KUBE_CONTEXT to point to the GitLab Agent. For example, `noah-ing-demos/infrastructure/gitlab-terraform-eks:eks-agent`.
+
+![Set Kube Context](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/kube-config.png){: .shadow}
+
+
+- **Uncomment the applications you'd like to be installed** into your Kubernetes cluster in the **helmfile.yaml**. In this instance I chose ingress, cert-manager, prometheus, and Vault. 
+
+![Uncomment Applications in helmfile](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/helmfile.png){: .shadow}
+
+That will trigger your **CI/CD pipeline** and it should look like this.
+
+![Cluster Management CI/CD](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/cluster-management-cicd.png){: .shadow}
+
+Once completed, **go to the AWS/GCP console** and check out all the deployed resources!
+
+![Deployed EKS applications](/images/blogimages/2022-11-11-simple-kubernetes-management-with-gitlab/deployed-eks-applications.png){: .shadow}
+
+### Voila! 🎉
+
+## Enjoy your Kubernetes cluster completely defined in code! 👏👏👏
+
+Now with these two repositories you can **manage a Kubernetes cluster entirely through code**:
+
+- For managing the Kubernetes cluster's infrastructure and configuring its resources you can make changes to the [gitlab-terraform-eks](https://gitlab.com/gitlab-org/configure/examples/gitlab-terraform-eks) repository you have setup. This project has a **Terraform CI/CD pipeline** that will allow you to **review, provision, configure, and manage your Kubernetes** infrastructure with ease.
+
+- For managing the desired state of the Kubernetes cluster, the [cluster-management](https://gitlab.com/gitlab-org/project-templates/cluster-management) repository has a **GitLab Agent** set up and will **deploy any Kubernetes objects defined in the helm files**.
+
+➡️ Bonus: If you'd like to deploy your own application to the Kubernetes cluster, then add to your **cluster-management** `helmfile` and see the GitLab Agent for Kubernetes roll it out with ease!
+
+
+## References
+- [Create a New GKE Cluster](https://docs.gitlab.com/ee/user/infrastructure/clusters/connect/new_gke_cluster.html)
+- [Create a New EKS Cluster](https://docs.gitlab.com/ee/user/infrastructure/clusters/connect/new_eks_cluster.html)
+- [Cluster Management Project](https://docs.gitlab.com/ee/user/clusters/management_project.html)
+
+
+## Related posts
+- [The ultimate guide to GitOps with GitLab](https://about.gitlab.com/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/)
+- [GitOps with GitLab: Infrastructure provisioning with GitLab and Terraform](https://about.gitlab.com/blog/2021/11/04/gitops-with-gitlab-infrastructure-provisioning/)
+- [GitOps with GitLab: Connect with a Kubernetes cluster](https://about.gitlab.com/blog/2021/11/18/gitops-with-gitlab-connecting-the-cluster/)

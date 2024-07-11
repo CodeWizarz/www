@@ -1,0 +1,51 @@
+---
+title: "How autoscaling GitLab CI works on AWS Fargate"
+author: Darren Eastman
+author_gitlab: DarrenEastman
+author_twitter: EastmanDarren
+categories: engineering
+image_title: "/images/blogimages/runner-autoscale-fargate-blog-cover.jpg"
+description: "Run your CI jobs as AWS Fargate tasks with GitLab Runner and the Fargate Driver"
+tags: CI/CD, features, performance
+twitter_text: "Use @gitlab Runner to autoscale your CI jobs on AWS Fargate" 
+featured: no #
+---
+
+Autoscaling GitLab Runner is a unique value proposition for teams that run their self-managed build agents on cloud-hosted virtual machines. As the number of [CI/CD jobs](/topics/ci-cd/) run over a specific period can fluctuate, teams must have build agent auto-scaling solutions in place that are easy to set up, configure, and cost-efficient.  
+
+GitLab Runner [autoscaling](https://docs.gitlab.com/runner/configuration/autoscale.html) responds to demand by provisioning new cloud-hosted virtual machines with Docker and GitLab Runner. When demand is lower, any additional virtual machines above the configured minimum size are de-provisioned. However, while this model of automatically provisioning and terminating virtual machine instances continues to be useful for a vast plethora of use cases, customers also want to take advantage of the capabilities of cloud container orchestration solutions for executing GitLab CI/CD jobs. For some, adopting GitLab's Kubernetes integration for AWS Elastic Kubernetes Service and Google Kubernetes Engine has allowed them to take advantage of the benefits of containerized pipelines. For others, AWS Fargate has proven to be a compelling container orchestration solution, as it simplifies the process of launching and managing containers on AWS services ECS and EKS.
+
+We are pleased to announce that as of the [12.10](/releases/2020/04/22/gitlab-12-10-released/) release, you can now auto-scale GitLab CI jobs on AWS Fargate managed containers.
+
+![](/images/blogimages/autoscaling-runners-ci-ecs-fargate.png)
+
+## So how does it work? 
+
+In GitLab 12.1, we released the GitLab Runner [Custom executor](https://docs.gitlab.com/runner/executors/custom.html). With the custom executor, you can create drivers for GitLab Runner to execute a job on technology or a platform that is not supported natively. To enable executing GitLab CI jobs on AWS Fargate, we developed a [GitLab AWS Fargate driver](https://gitlab.com/gitlab-org/ci-cd/custom-executor-drivers/fargate) for the Custom executor.  This driver uses the AWS Fargate `run-task` action to schedule a new task. A task in ECS is an instance of a task definition that runs the container or containers defined within the task definition. In this containerized solution for CI builds, the pipeline job executes on a container built from an image that must include the tools that you need to build your application.
+
+The AWS Fargate Driver works in conjunction with GitLab Runner, a lightweight executable that executes pipeline jobs. Similar to the GitLab Runner executable, a `config.toml` file is the file used to pass configuration parameters to the driver. The AWS Fargate driver divides the CI job into the following stages.
+
+1. Config
+1. Prepare
+1. Run
+1. Cleanup
+
+## SSH connectivity
+
+For the Fargate Driver to execute build commands in the container that is running as a task on ECS, the driver needs to be able to SSH into the container. So we have built additional capabilities into the driver to allow for a SSH connection between the GitLab Runner + AWS Fargate driver and the CI build container. 
+
+![Fargate Driver SSH Connectivity](/images/blogimages/runner_fargate_driver_ssh.png)
+
+## Limitations
+
+AWS Fargate does not support running containers in privileged mode. For example, Docker-in-Docker (DinD), which enables the building and running of container images inside of containers, does not work on Fargate. In keeping with one of GitLab's core values, iteration, we will continue to iterate on solutions for this problem. So stay tuned for future enhancements.
+
+## Getting Started
+
+To get started, review our detailed [configuration and setup guide.](https://docs.gitlab.com/runner/configuration/runner_autoscale_aws_fargate/index.html)
+
+With the release of the GitLab Runner AWS Fargate driver, we provide the most diverse set of options in the industry for executing CI pipeline jobs in an autoscaling configuration. These options now include cloud-delivered virtual machines, AWS EC2, Google GCP, Azure Compute, and container orchestration platforms: AWS EKS, AWS ECS + Fargate, and Google Kubernetes. Our long term goal is to provide the best and most comprehensive solution for executing CI jobs at scale on the major cloud platforms.
+
+
+Cover image by [Alessio Lin](https://unsplash.com/@lin_alessio) on [Unsplash](https://www.unsplash.com)
+{: .note}

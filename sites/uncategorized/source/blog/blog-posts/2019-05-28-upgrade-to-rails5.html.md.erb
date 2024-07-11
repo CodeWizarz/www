@@ -1,0 +1,121 @@
+---
+title: "The road to Rails 5"
+author: Jan Provaznik
+author_gitlab: jprovaznik
+author_twitter: gitlab
+categories: engineering
+image_title: "/images/blogimages/road-to-rails-5.jpg"
+description: "Senior Backend Engineer Jan Provaznik shares some of the challenges we encountered when upgrading GitLab to Rails 5 – and how we overcame them."
+tags: collaboration, community, production, engineering, open source
+featured: yes # reviewer should set
+postType: content marketing
+ee_cta: false
+---
+
+With [Rails 6 coming soon](https://weblog.rubyonrails.org/2018/12/20/timeline-for-the-release-of-Rails-6-0/) it's a good time to look back at the journey we took when upgrading GitLab to Rails 5, which was not so long ago.
+
+[Our issue for upgrading to Rails 5](https://gitlab.com/gitlab-org/gitlab-ce/issues/14286) was around for quite a while, largely because it was difficult to switch such a big project as GitLab instantly to the next major version. Here is a brief story about how we solved this upgrade challenge.
+
+## Our solution? Cut it into pieces
+
+The upgrade to Rails 5 was first prepared as a one big merge request. The nice thing about this approach is that when the merge request is ready, you can just merge the single merge request without dealing with any backward compatibility. The [first attempt](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/5555) had lower priority and it was later replaced with a [second attempt](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/12841). But for the GitLab codebase this merge request became pretty big: 151 commits, over 120 pushes, and more than 1000 changed files. Then it was almost impossible to get such merge request ready to be merged and keep it up to date without hitting problems with conflicts.
+
+Rather than trying to get the upgrade done in a single merge request, a couple of changes made it possible to run the application either on Rails 4 or 5 depending on an environment variable. The application was still running on Rails 4 by default, but we were able to run it on Rails 5 either locally or in CI just by setting `RAILS5` and `BUNDLE_GEMFILE` environment variables. This allowed us to split the upgrade into many small issues. Typically each issue addressed one specific type of error in CI, so with each fix there were fewer failing tests in CI. Another major benefit was that then it was significantly easier to split the work between more people and to get an overview of who was working on what issue.
+
+A Rails version-specific Gemfile was loaded depending on the `RAILS5` and `BUNDLE_GEMFILE` environment variable. Here is an example of [enabling Rails 5 in rspec](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/18140):
+
+```ruby
+gemfile = %w[1 true].include?(ENV["RAILS5"]) ? "Gemfile.rails5" : "Gemfile"
+ENV['BUNDLE_GEMFILE'] ||= File.expand_path("../#{gemfile}", __dir__)
+```
+
+The content of [Gemfile.rails5](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/17761):
+
+```ruby
+# BUNDLE_GEMFILE=Gemfile.rails5 bundle install
+
+ENV["RAILS5"] = "true"
+
+gemfile = File.expand_path("../Gemfile", __FILE__)
+
+eval(File.read(gemfile), nil, gemfile)
+```
+
+And the Gemfile:
+
+```ruby
+def rails5?
+  %w[1 true].include?(ENV["RAILS5"])
+end
+￼
+gem_versions = {}
+gem_versions['activerecord_sane_schema_dumper'] = rails5? ? '1.0'      : '0.2'
+gem_versions['default_value_for']               = rails5? ? '~> 3.0.5' : '~> 3.0.0'
+gem_versions['html-pipeline']                   = rails5? ? '~> 2.6.0' : '~> 1.11.0'
+gem_versions['rails']                           = rails5? ? '5.0.6'    : '4.2.10'
+gem_versions['rails-i18n']                      = rails5? ? '~> 5.1'   : '~> 4.0.9'
+```
+
+There were situations when a fix for Rails 5 was not compatible with Rails 4 and two different versions of code were needed, typically an Active Record query. For this purpose we used a simple helper method `Gitlab.rails5?` to check which version was being used and added code for each version. It was pretty easy to remove all Rails 4-compatible code in the cleanup phase when we upgraded to Rails 5 just by searching for `Gitlab.rails5?` in our codebase.
+
+An example of the check used in `lib/gitlab/database.rb`:
+
+```ruby
+def self.cached_table_exists?(table_name)
+  if Gitlab.rails5?
+    connection.schema_cache.data_source_exists?(table_name)
+  else
+    connection.schema_cache.table_exists?(table_name)
+  end
+end
+```
+
+## Upgrade process
+
+To be able to address upgrade issues in small, separate pieces, we did the following steps during the upgrade process:
+
+* [Allowed GitLab to run both with Rails 4 and 5](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/17761), but keep Rails 4 default.
+* We also [added support both for Rails 4 and 5 into GDK](https://gitlab.com/gitlab-org/gitlab-development-kit/merge_requests/497).
+* Fixed all issues until it fully worked with Rails 5 and CI was green.
+* Did manual testing to make sure everything will work after the upgrade.
+* [Switched to Rails 5 by default](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/21492), (but kept Rails 4 code).
+* Still enforced compatibility with Rails 4 (by running CI both with Rails 4 and 5) in case we had to switch back because of a blocker issue.
+* Dropped Rails 4 compatibility when we were sure everything worked. Releases are done monthly, so we removed Rails 4 code after the next release.
+
+## Major challenges
+
+### Active Record changes
+
+In some places we use `Arel` directly and there were various incompatible changes (e.g. [`IN` statement issue](https://github.com/rails/arel/issues/531) solved by [this fix](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/19796)) which caused some of our SQL queries to stop working on Rails 5. (Almost) all of them were discovered during the preparation phase thanks to good test coverage. A list of [database-related changes is here](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests?label_name%5B%5D=rails5&label_name%5B%5D=database&scope=all&state=all).
+
+### Monkey patches
+
+We keep various monkey patches (either not-merged-yet upstream fixes or custom extensions), many of which required refactoring with the major upgrade. The positive is that we were able to get rid of some of them.
+
+### Keeping Rails 5 CI green
+
+There was quite a long period between the moment we had all Rails 5 issues fixed and the moment we really switched the master branch to Rails 5.
+During this period we used a scheduled pipeline which ran daily on CE and EE master branches on Rails 5, so we knew quickly when a new incompatibility issue was introduced.
+Another option was running CI jobs both for Rails 4 and 5 for each merge request and making it mandatory to pass all jobs. The disadvantage of this option was it would take twice as much time to run CI.
+
+Unfortunately there were many new incompatibility issues introduced during this period. Next time it would be better to run CI for each merge request, both with Rails 4 and 5, although it would require twice as much CI runtime.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+## Production release
+
+Once we had all known issues in our codebase fixed, we still had additional steps to make sure we didn't hit a critical issue when releasing the next version. [We tracked these steps in this issue](https://gitlab.com/gitlab-org/gitlab-ce/issues/48991). We switched master branches to Rails 5 at the beginning of the development cycle (each cycle is one month long). We then ran CI jobs both with Rails 5 (default) and 4 (to keep backward compatibility). Timing was important because during the development cycle we discovered a couple of issues and we had enough time to fix them before release. After the release of the next version (11.6), when we were sure that we would not have to switch back to Rails 4, we removed Rails 4 both from CI and from the codebase.
+
+Although it took longer than expected, I think this upgrade was successful because it didn't cause any production issues. There were a few [major issues](https://gitlab.com/gitlab-org/gitlab-ce/issues?scope=all&utf8=%E2%9C%93&state=closed&label_name[]=rails5&label_name[]=P1) discovered after switching the master branch, but we were able to fix them quickly before release.
+
+This upgrade was done with huge help from our community – especially [@blackst0ne](https://gitlab.com/blackst0ne) and [@jlemaes](https://gitlab.com/jlemaes). Thank you!
+
+## Next steps
+
+* The upgrade to Rails 5.1 is [happening now](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/24852).
+* The upgrade to Rails 5.2 is [still in progress](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/8877) – unfortunately there are many incompatibilities.
+
+Because upgrades to 5.1 and 5.2 should be relatively small, we aim to do each upgrade in a single merge request. The upgrade to Rails 6 is expected to be bigger, so hopefully the same approach we used for Rails 5 upgrade will be useful in this case too.
+
+Photo by Cody Board on [Unsplash](https://unsplash.com/photos/2hu-SSktidc)
+{: .note}

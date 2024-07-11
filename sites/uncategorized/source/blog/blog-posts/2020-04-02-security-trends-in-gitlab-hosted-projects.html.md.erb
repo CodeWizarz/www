@@ -1,0 +1,186 @@
+---
+title: "Top 6 security trends in GitLab-hosted projects"
+author: Wayne Haber
+author_gitlab: whaber
+author_twitter: waynehaber
+categories: security
+image_title: '/images/blogimages/paperclips.jpg'
+description: "Using components with known vulnerabilities is the most common security problem in GitLab.com-hosted projects."
+tags: security, security research
+twitter_text: "The top six security vulnerabilities in @GitLab hosted projects are summarized in the new security trends report"
+featured: yes
+postType: product
+merch_banner: merch_two
+merch_sidebar: merch_two
+---
+
+In our first security trends report, we discovered six vulnerabilities that occurred in 5% or more of GitLab-hosted projects over the past six months. This is our first security trends report, which we intend to release with the latest trends twice a year.
+
+GitLab is unique: We have a solution for the entire DevSecOps lifecycle and we host thousands of different projects on GitLab.com. This allows us to compute trends in vulnerabilities across many different factors.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/y1_2kNc15ZE" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Data sources
+
+The underlying data for the trends report is sourced from projects hosted on GitLab.com, and does not include data from our self-managed customers. It includes vulnerability types appearing in 5% or more of projects between September 2019 and February 2020.  All project-specific data has been anonymized.
+
+We sourced security trend data from six sources:
+
+- [Static application security testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/): Scan the source code
+- [Dynamic application security testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/): Scan running web applications
+- [Dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/): Scan package dependencies during the CI/CD process
+- [Container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning): Scan in use Docker images for known vulnerabilities
+- [Secret detection](https://docs.gitlab.com/ee/user/application_security/sast/#secret-detection): Scan source code for secrets (such as passwords, keys, and tokens)
+- Scan results imported from third party tools, such as [WhiteSource](/blog/2020/01/14/whitesource-gitlab-security-integration/)
+
+All of the data was discovered by GitLab components that shift the security risks to the left. The issues were identified during the [CI/CD process](/topics/ci-cd/), prior to the applications and containers deploying to production environments.
+
+Security vulnerabilities are managed by users via the [security dashboard](https://docs.gitlab.com/ee/user/application_security/#interacting-with-the-vulnerabilities).
+
+## Top vulnerability types
+
+The following vulnerability types appeared in 5% or more of GitLab.com-hosted projects:
+
+| Vulnerability type | Current rank | % of projects | Change in rank from 6 months ago | % change from 6 months ago |
+|---|---|---|---|---|
+| Component with known vulnerabilities | 1 | 52% | No change |  +6% |
+| Cross-site scripting (XSS) | 2 |  21% |  No change |  +20% |
+| Lack of secret management | 3 |  18% |  No change |  +6% |
+| Content security protection (CSP) | 4 |  8% |  Up 3 |  +192% |
+| Cross-site request forgery (CSRF) | 5 |   6% |  Down 1 |  -30% |
+| SQL injection (SQLi) | 6 |  6% |  Down 1 |  -15% |
+
+## Vulnerability scanning trends
+
+In the last six months:
+
+- GitLab users have increased vulnerability scanning of projects by 161%
+- Total vulnerabilities detected per month have increased by 73%
+
+![Graph of vulnerability trends from GitLab-hosted projects in the past six months.](/images/blogimages/security_trends_april_2020/vulnerability_trends.png "Vulnerability Trends")
+
+Vulnerability trends from GitLab-hosted projects in the past six months.
+{: .note.text-center}
+
+## Trends for specific vulnerability types
+
+### 1. Components with known vulnerabilities
+
+We detected use of components with known vulnerabilities in 52% of the projects scanned, making it the number one type of vulnerability in GitLab.com-hosted projects. The percent of projects using components with known vulnerabilities increased by 6% in the last six months.
+
+![Graph showing an increase in components with known vulnerabilities in GitLab.com-hosted projects](../../images/blogimages/security_trends_april_2020/components_with_known_vulnerabilities.png "Components with known vulnerabilities")
+
+There was an increase in projects using components with known vulnerabilities in GitLab.com-hosted projects in the past six months.
+{: .note.text-center}
+
+* `Project_Percentage`: Percent of projects with a vulnerability of this type seen per month
+* `Project_Percentage Average`: Rolling average of the `Project_Percentage`
+
+Best practices for reducing use of [components with known vulnerabilities](https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A9-Using_Components_with_Known_Vulnerabilities) include:
+* During the build process, pull the latest packages whenever possible or feasible.
+* Recursively [scan package dependencies](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) and prioritize updates based on risk.
+* [Scan containers](https://docs.gitlab.com/ee/user/application_security/container_scanning/) for known vulnerabilities and patch as possible or feasible.
+
+### 2. Cross-site scripting (XSS)
+
+We detected cross-site scripting (XSS) in 21% of the projects scanned. The percent of projects containing XSS vulnerabilities increased by 20% in the last six months.
+
+![Graph showing XSS trends vulnerabilities grew by 20% in the past six months.](/images/blogimages/security_trends_april_2020/xss.png "XSS Trends")
+
+XSS vulnerabilities grew by 20% in the past six months.
+{: .note.text-center}
+
+XSS vulnerabilities allow malicious code to be inserted into a web browser's session, often allowing for a complete takeover of a web application. The malicious code can be inserted when a user clicks on a malicious link, or if malicious code is sent to an application, stored, then displayed in the user's web browser.
+
+Best practices for protecting against [XSS vulnerabilities](https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A7-Cross-Site_Scripting_(XSS)) include:
+
+- Identify and scan all web applications for cross-site scripting vulnerabilities with [DAST](https://docs.gitlab.com/ee/user/application_security/dast/) and [SAST](https://docs.gitlab.com/ee/user/application_security/sast/). However, don’t assume that dynamically discovered XSS is the only attack vector – you should track stored XSS as well.
+- Educate developers on the risks of XSS. Some common misperceptions among developers are that XSS is low-risk and that applications that are not accessible through the internet are not at risk for XSS.
+- Use frameworks that automatically mitigate XSS by design.
+- Assume stored data that will be displayed in web applications is untrusted, and escape all HTML as appropriate to mitigate risks from stored XSS.
+- Apply context-sensitive coding when modifying the browser document on the client side.
+- Enable CSP (content security policy) to help detect and mitigate attacks such as XSS.
+
+### 3. Lack of secret management
+
+The third most common vulnerability we identified was inadequate secret management. Of the projects we scanned, 18% lacked adequate secret management. The percent of projects with secret management vulnerabilities increased by 6% in the last six months.
+
+![A graph showing a 6% increase in projects with secret management vulnerabilities](/images/blogimages/security_trends_april_2020/secret_management.png "Secret management trends")
+
+There was a small increase in the number of projects lacking secret management over the past six months.
+{: .note.text-center}
+
+Applications need secrets to operate (authenticate to data stores, services, etc.). It is easy for developers to make the secrets readily accessible, however not following secret management best practices can cause significant vulnerabilities for the application.
+
+Best practices for secret management include:
+
+- Educate developers on why storing secrets in repositories, intentionally or unintentionally, is ill-advised.
+- Educate developers on how to safely store and retrieve secrets in critical environments.
+- [Scan your repositories for keys, tokens, and hardcoded passwords](https://docs.gitlab.com/ee/user/application_security/sast/#secret-detection).
+
+### 4. Content security protection (CSP)
+
+A lack of content security protection (CSP) is now the fourth most common type of vulnerability, increasing from the seventh ranking six months ago. Lack of CSP-based protection was detected in 8% of the projects scanned. The percent of projects where CSP protections were not found increased by 192% in the last six months.
+
+![There was a huge spike in CSP trends over the past six months on GitLab.com hosted projects](/images/blogimages/security_trends_april_2020/csp.png "CSP trends")
+
+There was a huge spike in CSP trends over the past six months on GitLab.com hosted projects.
+{: .note.text-center}
+
+CSP adds a layer to detect and mitigate attacks, including XSS. It can be very challenging to prevent all attacks such as XSS, and CSP allows in-browser detection of successful attacks.
+
+Best practices for implementing CSP include:
+
+- Implement [CSP](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) protection on all web applications, including applications not exposed to the internet.
+- Run [DAST](https://docs.gitlab.com/ee/user/application_security/dast/) on all web applications.
+
+### 5. Cross-site request forgery (CSRF)
+
+We detected [CSRF](https://owasp.org/www-community/attacks/csrf) in 6% of the projects scanned, making it the fifth most common vulnerability. The percent of projects with CSRF vulnerabilities has decreased by 30% in the last six months.
+
+![A graph showing a 30% decline in CSRF vulnerabilities on GitLab.com hosted projects over the past six months](/images/blogimages/security_trends_april_2020/csrf.png "CSRF Trends")
+
+CSRF vulnerabilities have been trending down in GitLab.com hosted projects over the past six months.
+{: .note.text-center}
+
+CSRF allows an attacker to execute malicious actions on a web application in use by a legitimate and authenticated user.
+
+Best practices for preventing CSRF:
+
+- Implement a CSRF token, which will not be known to the attacker.
+- Use the built-in features of most frameworks for CSRF protection.
+- Use the [same-site flag in cookies](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie).
+- Run [DAST](https://docs.gitlab.com/ee/user/application_security/dast/) on all web applications.
+
+### 6. SQL Injection (SQLi)
+
+SQL Injection (SQLi) is the sixth most prevalent type of security vulnerability. SQLi was detected in 6% of the projects that were scanned, which is a 15% decrease from six months ago.
+
+![A graph showing a 15% decrease in SQLi over the past six months.](/images/blogimages/security_trends_april_2020/sqli.png "SQLi trends")
+
+There has been a 15% decrease in SQLi over the past six months.
+{: .note.text-center}
+
+[SQL and other injection vulnerabilities](https://owasp.org/www-project-top-ten/OWASP_Top_Ten_2017/Top_10-2017_A1-Injection) occur when inputs from untrusted sources are improperly sanitized. This includes but is not limited to web user interfaces. Injection vulnerabilities allow an application to run malicious code.
+
+Best practices for SQLi protection include:
+
+* Sanitize all input only allowing acceptable data.
+* Use parameterized database queries (vs. dynamically built queries) whenever possible.
+* Use LIMIT and other similar controls to reduce the chances of unintended data disclosure.
+* Run [SAST](https://docs.gitlab.com/ee/user/application_security/sast/) and [DAST](https://docs.gitlab.com/ee/user/application_security/dast/) scans.
+
+## Routine evaluations keep your projects more secure
+
+Developers using GitLab are able to focus on providing value to their customers while also identifiying and mitigating security threats. Automating and prioritizing security helps to protect and defend your applications as well as improve the productivity and morale for development teams.
+
+## Tell us what you think of this blog
+
+What do you like about this blog post? What do you think should be improved or considered for the next one? Please provide any feedback you have in [this public issue](https://gitlab.com/gitlab-org/protect/general/-/issues/709).
+
+Cover Photo by [Jackson Simmer](https://unsplash.com/@simmerdownjpg) on [Unsplash](https://unsplash.com/photos/Vqg809B-SrE)
+{: .note}

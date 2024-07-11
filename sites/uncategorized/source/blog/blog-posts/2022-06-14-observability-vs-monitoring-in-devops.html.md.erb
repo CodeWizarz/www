@@ -1,0 +1,82 @@
+---
+title: Observability vs. monitoring in DevOps
+author: Mike Vanbuskirk
+author_twitter: gitlab
+categories: engineering
+tags: DevOps, observability, performance
+description: Want to gain true and actionable visibility across your software
+  development lifecycle? Observability is the answer.
+image_title: /images/blogimages/monitoring-update-feature-image.jpg
+twitter_text: Dig into the origins of observability, how it compares to
+  monitoring, and how it is giving a boost to modern application development.
+related_posts:
+  - "/blog/2022/04/05/observability-is-key-to-cloud-native-transitions-and-modern-application-development/"
+---
+In almost any modern software infrastructure, there is inevitably some form of monitoring or logging. The launch of syslog for Unix systems in the 1980s established both the value of being able to audit and understand what is going on inside a system, as well as the architectural importance of separating that mechanism.
+
+However, despite the value and importance of this visibility into system behavior, too often monitoring and logging are treated as an afterthought. There are countless instances of systems emitting logs into a void, never being aggregated or analyzed for critical information. Or infrastructure where legacy monitoring systems were installed a decade ago and never updated to modern standards.
+
+Recently, shifts in the operational landscape have given rise to the concept of observability. Rather than expect engineers to form their own assumptions about how their application is performing from static measurements, observability enables them to see a holistic picture of their application behavior, and critically, how a user perceives performance.
+
+> You’re invited! Join us on June 23rd for the [GitLab 15 launch event](https://page.gitlab.com/fifteen) with DevOps guru Gene Kim and several GitLab leaders. They’ll show you what they see for the future of DevOps and The One DevOps Platform.
+
+## What is observability?
+To understand the value in observability, it's helpful to first establish an understanding of what monitoring is, as well as what it does and does not provide in terms of information and context.
+
+At its core, monitoring is presenting the results of measurements of different values and outputs of a given system or software stack. Common metrics for measurement are things like CPU usage, RAM usage, and response time or latency. Classic logging systems are similar; a static piece of information about an event that occurred during system operation.
+
+Monitoring provides limited-context measurements that might indicate a larger issue with the system. Aggregation and correlation are possible using traditional monitoring tools, but typically require manual configuration and tuning to provide a holistic view. As the industry has advanced, the concept of what makes for effective monitoring has moved beyond static measurements of things like CPU usage. In its now-famous SRE book, Google emphasizes that you should focus on four key metrics, known as "[Golden Signals](https://sre.google/sre-book/monitoring-distributed-systems/)":
+
+- Latency: The time it takes to fulfill a request
+- Traffic: High-level measurement of overall demand
+- Errors: The rate at which requests fail
+- Saturation: Measurement of resource usage as a fraction of the whole; typically focuses on constrained resources
+
+While these metrics help home in on a better picture of overall system performance, they still require a non-trivial engineering investment to design, build, integrate, and configure a complete monitoring system. There is considerable effort involved in enumerating failure modes, and manually defining and associating the correct correlations in even simple cases can be time-consuming.
+
+In contrast, observability offers a much more intuitive and complete picture as a first-class feature: You don’t need to manually correlate disparate monitoring tooling. An aggregated monitoring dashboard is only as good as the last engineer that built it; conversely, an observability platform adapts itself to present critical information in the right context, automatically. This can even extend further left into the software development lifecycle (SDLC), with observability tooling providing important performance feedback during CI/CD runs, giving developers operational feedback about their code.
+
+Ultimately, observability provides more holistic debugging and understanding. Observability data can show the “unknown unknowns” to better understand production incidents. For more context into "why" that's important, the next section highlights an excellent example where monitoring might fall short and where observability fills in the crucial story.
+
+## Why focus on observability?
+Focusing on observability can help drive down mean time to resolution (MTTR), resulting in shorter outages, better application performance, and improved customer experience. While it may seem at first glance that monitoring can provide the same advantages, consider the anecdote that follows.
+
+An engineering organization gets a ping from the accounting department; the invoice for cloud services is getting expensive, so much so that the CFO has noticed. DevOps engineers have pored over the monitoring system to no avail; every part of the system has consistently reported being in the green for things like memory, CPU, and disk I/O. As it turns out, the root cause was another "unknown unknown" event: DNS latency in the CI/CD pipelines was causing builds to fail at an elevated rate. Builds needing more retries consumed a great number of cloud resources. However, this effect never persisted long enough to reflect in the monitoring system. By adding observability tooling and collecting all event types in the environment, ops was able to zero in on the source of the problem and remediate it. In a traditional monitoring system, the organization would have had to have known about the DNS latency problem a priori.
+
+Observability is also important for non-technical stakeholders and business units. As technology becomes more intertwined with the primary profit silo, software infrastructure KPIs become business KPIs. Observability can provide better insight into KPI performance, as well as self-service options for different teams.
+
+Modern software and applications depend heavily on providing good user experience (UX). As the previous story illustrates, monitoring static metrics won't always tell the complete story about UX or system performance. There might be serious issues lurking behind seemingly healthy metric dashboards.
+
+## Key observability metrics
+For organizations that have decided to implement observability tooling, the next step is to identify the core goals of observability, and how that can best be implemented across their stack.
+
+An excellent place to start is with the three fundamental pillars of observability:
+- Logs: Information and Events
+- Metrics: Measurements of specific metrics and performance data
+- Tracing: Logging end-to-end request performance during runtime
+
+Although this can seem overwhelming, projects like [OpenTelemetry](https://opentelemetry.io/) are helping to drive broad standards acceptance for logging, metrics, and tracing, enabling a more consistent ecosystem and a shorter time-to-value for organizations that implement observability with tooling built on OpenTelemetry standards.
+
+Additional observability data and pillars include
+- Error tracking: more granular logs with aggregation
+- Continuous Profiling: evaluating granular code performance
+- Real User Monitoring (RUM): Understand application performance from the perspective of an actual user
+
+Looking at these pillars, a central theme starts to emerge; it's no longer enough to look at a small slice of time and space in modern distributed systems, a holistic, 10,000-foot view is needed. Understanding application performance starts with sampling it as an actual customer experiences it, and then further monitoring the complete performance and behavior of their interaction with your software.
+
+Beyond traditional application monitoring, observability can help improve the operational excellence posture for any engineering organization. Well-crafted alerts and incident management programs are usually born out of hard lessons from real outages. Implementing [chaos engineering](https://principlesofchaos.org/) can test observability platforms during real failures, albeit in a controlled environment with known outcomes. Introducing chaos engineering into systems where "unknown unknowns" might hide, not just in your production workloads but your CI/CD pipelines, supply chain, and DNS can yield significant gains in operational footing.
+
+## Observability is a critical part of DevOps
+Not only is observability critical for DevOps, but also for the entire organization. Replacing the static data of legacy monitoring solutions, [observability](/direction/monitor/observability/) provides a full-spectrum view of application infrastructure.
+
+DevOps teams should be working with stakeholders to share observability metrics in a way that benefits the entire organization, as well as take steps to improve the implementation. Learning, and then evangelizing the benefits of app instrumentation to development teams can make observability even more effective. DevOps teams can also help identify the root cause of production incidents faster; well-instrumented application code makes it easy to distinguish from infrastructure issues. Finally, shifting observability left along the CI/CD pipeline means potential service-level objective (SLO) deltas are caught before they reach production.
+
+DevOps teams looking to provide meaningful improvements to application performance and business outcomes can look to observability as a way to deliver both.
+
+**Watch now: Senior Developer Evangelist Michael Friedrich digs deeper into the shift from monitoring to observability:**
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/BkREMg8adaI" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->

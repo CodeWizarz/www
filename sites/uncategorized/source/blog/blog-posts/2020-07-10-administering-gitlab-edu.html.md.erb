@@ -1,0 +1,135 @@
+---
+title: "Administering your GitLab for Education License"
+author: Christina Hupy PhD, and Michael Friedrich
+author_gitlab: c_hupy
+author_twitter: ChristinaHupy
+categories: unfiltered
+image_title: '/images/blogimages/servers_image.jpg'
+description: "Getting ready for fall semester and wondering how to set up your GitLab License? We've got you covered!"
+tags: education, GitLab
+cta_button_text: 'Join our GitLab forum for more Q&A!'
+cta_button_link: 'https://forum.gitlab.com/c/gitlab-for-education/37'
+guest: true # required when the author is not a GitLab Team Member or there is more than one author
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+featured: no # reviewer should set
+postType: content marketing, edu-program
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+
+
+*It is that time of year again!* Faculty and IT administrators are starting to prepare for the arrival of the fall semester and around this same time, we get an influx of questions about how to best manage your GitLab license. We thought it would be helpful to dive into some of the most frequently asked questions here!
+
+Before we jump into the tips and tricks, here's a bit of information about the **GitLab for Education Program**. The program offers free, unlimited subscriptions of top-tier GitLab plans (Saas or Self-Managed) to qualified entities. [Qualified educational institutions](https://about.gitlab.com/handbook/marketing/developer-relations/community-programs/education-program/#gitlab-for-education-program-requirements) have a primary purpose of teaching enrolled students, may be public or private, must be accredited by an applicable government body, and non-profit. The GitLab for Education license is only available for the purposes of *teaching, learning, and non-commercial academic research*. IT professional use or any administrative use within the institution is not contemplated with the Education license.
+
+Please note that the remainder of the blog post applies to the licenses granted through our Education Program.
+
+If you are interested in joining, [apply for the GitLab for Education Program](https://about.gitlab.com/solutions/education/)!
+
+## Who is eligible for a GitLab.com seat with the Education License?
+
+Students, faculty, and staff directly employed or enrolled at the host institution are eligible to receive a seat under the GitLab for Education license. Collaborators from other institutions or entities cannot be provided seats under the license, unless they have an email address with the same domain as the host institution.
+
+### If external collaborators cannot have a seat, how do we collaborate?
+
+There are a couple of different options. One option is to request that the collaborator receive an email address through the host institution. This option is a great one if the collaborator is an adjunct professor or a regular ‘volunteer’ (most institutions allow regular volunteers to have an institutional email address). Another option is to have the collaborator create a free GitLab.com account or purchase a higher tier individually. For this option, the collaborator will only have the features available at the tier for which they signed up. This option might work out fine if the external collaborator just needs to access files and provide feedback.  If your collaborators are at a different educational institution, we encourage that institution to sign up for the GitLab for Education Program themselves!
+
+Once the collaborator has an account, it is very easy to add them to your group or project.
+* You can [add people to a specific project](https://docs.gitlab.com/ee/user/project/members/#add-a-user) or [import users from another project](https://docs.gitlab.com/ee/user/project/members/#import-users-from-another-project).
+* If the user is not on your hosted instance, you can invite them using [their email address](https://docs.gitlab.com/ee/user/project/members/#invite-people-using-their-e-mail-address)
+
+## How are users counted? What happens if we exceed the allotted seats?
+The seats for your license are generic and are not specific to a user. [GitLab does not use a named license model](https://about.gitlab.com/pricing/licensing-faq/#can-i-use-my-paid-seats-for-different-users). If a user leaves your institution, you can remove or block that user to free a seat. The seat can then be used by another user.
+
+Every occupied seat, whether by a person, administrator, job, or bot is counted in the subscription.   There are a few exceptions:
+* Members with Guest permission are not counted (in SaaS or self-managed)
+* Ghost Users and Support Bots are not counted in self-managed (Ghost Users are users where the account has been removed but all artifacts remain).
+
+GitLab.com counts concurrent seats not named users. Each user is able to have up to 100 active sessions. To view the number of active sessions or revoke and active session [check these docs](https://docs.gitlab.com/ee/user/profile/active_sessions.html).
+
+If more seats are used than are available in self-managed GitLab, the administrator may receive a “users over license warning. In this situation, the institution should reach out to GitLab to request additional user seats.  Please see more details in our [licensing FAQs](https://about.gitlab.com/pricing/licensing-faq/#who-gets-counted-in-the-subscription).
+
+## How do we assign accounts in our GitLab instance?
+There are a few different options for assigning accounts including creating a signup page, adding users in the Admin Area, or the API. Also, you can create users through integrations with LDAP or OmniAuth providers.
+
+First, let’s explore creating a user sign up page. The custom user sign-up page is a great way to customize the experience for the users at your institutions. From the Admin Area, the admin can set up several [sign-up restrictions](https://docs.gitlab.com/ee/administration/settings/sign_up_restrictions.html) including enabling or disabling new signups, requiring user email confirmation, and block or allow email addresses from specific domains. The sign-up page itself can be customized with the institution logo, a description of the purposes of the instance, and other guidelines for who is able to create an account and how they can do so.
+
+Customizing the sign-up page is great to communicate to potential users what the instance is for and how it can be used. For example, many institutions include a note about the department that maintains the instance and who can sign up. Here are some great examples from [Newcastle University](https://mas-gitlab.ncl.ac.uk/users/sign_in), [University of Kent School of Computing](https://git.cs.kent.ac.uk/users/sign_in), and the [University of Birmingham’s BEAR GitLab instance](https://gitlab.bham.ac.uk/users/sign_in). This is also a great place to include compliance information regarding the uses of the license.
+
+## Does GitLab allow users to login in with the Institutional authentication system?
+
+### LDAP/AD
+
+[GitLab supports LDAP for user authentication](https://docs.gitlab.com/ee/administration/auth/ldap/), compatible implementations include Microsoft Active Directory (AD) and Open LDAP. There are other implementations which only support authorization as login, but no additional LDAP features, which are then greyed out.
+
+You can secure the connection to the LDAP server with TLS, `simple_tls` and `start_tls` are supported.
+
+Note: LDAP authentication and sync requires a self-managed installation of GitLab. This requires administrative permissions not available in GitLab.com SaaS.
+
+#### Syncing Users and Groups for Permissions
+
+Roles and permissions can be organized based on groups which can be synced into GitLab with an Enterprise license. The GitLab administrator can specify the base DN and filters to exclude certain groups and users from the sync with the ‘user_filter’.
+
+Example for filtering for users in a specific group:
+
+user_filter: `(memberof=CN=gitlab,CN=groups,CN=accounts,DC=office,DC=company,DC=com)`
+
+The usage of `memberof` will automatically trigger a sync for this group when a user signs in for the first time. The hourly group sync ensures that all permissions are uptodate. The entrypoint for the group sync is `group_base` which is available in GitLab Enterprise Starter+.
+
+Currently it is not possible to exclude groups from the sync. [MR here](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/3218).
+
+### SSO/SAML
+
+If your institution has an identity provider such as Shibboleth, Okta, etc. supporting Single-Sign-On capabilities, you are advised to use the generic SAML OmniAuth provider. GitLab then consumes the assertions and maps users accordingly.
+
+For Kerberos as SSO provider, [check these docs](https://docs.gitlab.com/ee/integration/kerberos.html).
+
+Note: The SAML OmniAuth provider only is available on self-managed GitLab instances. For SAML SSO on GitLab.com SaaS, [please check these docs](https://docs.gitlab.com/ee/user/group/saml_sso/#saml-sso-for-gitlabcom-groups).
+
+### Can students be issued accounts from a bulk list of email addresses?
+
+Rather than allowing anyone to sign up or create an account, Administrators can automate user creation of accounts using the REST API. This requires some scripting knowledge. [Here is an example](https://pypi.org/project/gitlab-users/).
+
+### What is the best way to manage student seats?
+Institutions have the flexibility to determine how many students receive a seat, how long a student is able to retain the seat, and what happens when they graduate. For example, students may sign up for a GitLab seat when they register for a class or become part of a research project. An Institution may decide to allow students to have a seat only during a class or research semester or they may decide to allow the students to have the seats for the entirety of their enrollment. Once the student has a seat, that seat is no longer available in the number of licenses. When the student’s GitLab account is deleted that seat will return to the pool of available seats. Please be aware that when an account is deleted, all projects in the user namespace are also deleted. Additionally, the administrator has multiple options for removing users: delete only the user but maintain their associated records, delete the user and contributions, or to delete the user and their associated records ([see docs](https://docs.gitlab.com/ee/user/profile/account/delete_account.html)). We recommend making this choice with caution. If a student is part of a research project, the team may need to keep issues, notes, and merge requests related to the project.
+
+Since we provide an unlimited number of seats as part of our GitLab for Education Program, we highly encourage institutions to allow students to retain their seat during the entirety of their time at the institution. We encourage students to use GitLab to create a portfolio of their work and contributions while in school. Providing students to retain their account, allows them to build up this body of work while they are in school. The GitLab profile is a great way to showcase how a student has developed skills and made contributions to various projects over time. Prospective employers can visit the profile page and then navigate through the student’s portfolio of work.
+
+![Example Profile](/images/blogimages/samantha-profile.jpg){: .shadow.medium.center}
+An exaple of a GitLab Profile with interactive record of contributions.
+{: .note.text-center}
+
+As students approach graduation, we encourage the institution to provide ample time and sufficient warning before deleting the user account so that students can migrate any relevant material to another repository of their choice. We recommend that students sign up for our free tier of GitLab (self-managed or SaaS) and then begin migrating any relevant content from their projects over to their own personal account.
+
+Additionally, institutions can consider using the [deactivate](https://docs.gitlab.com/ee/administration/moderate_users.html#activating-and-deactivating-users) or [block user](https://docs.gitlab.com/ee/administration/moderate_users.html#blocking-and-unblocking-users) features to help manage accounts for students who may be nearing graduation.  These options can be combined with a script to check the deactivated or blocked date and then communicate with the API to delete or warn a user that is inactive. This way the students aren’t taking up a seat during the graduation transition but yet they will have time to migrate their files.
+
+## Is an educational institution able to upgrade from the Community Edition to Enterprise Edition through the Education Program?
+
+Yes! We recommend that even if you aren’t ready from the start to use Enterprise that you install the Enterprise Edition. You can use this edition even if you don’t have a license. Only the features available under the MIT license will be available without a subscription. Once you are ready to move to Enterprise, the institution can apply to the program, receive the license key and then activate in our Customers Portal without ever needing to install additional software. If you started with the Community Edition, you can still migrate, but there are some extra steps that may require some system down time. [See our migration guide](https://about.gitlab.com/install/ce-or-ee/) for more information.
+
+## Is support available as part of the Education Program?
+
+Priority support is not included with the Education Program license for either self-managed or hosted) is available for purchase at a discount ($4.95 per user / per month). Please note that support must be purchased for all the seats issued in the subscription. [See our support page for more details.](https://about.gitlab.com/support/)
+
+Paid support is not included with the Education Program license.  For assistance with your Education Program GitLab instance, we recommend using our Community Forum by opening a thread in the [Education Category](https://forum.gitlab.com/c/gitlab-for-education/37). We also encourage all program members to [introduce themselves on the forum](https://forum.gitlab.com/c/gitlab-for-education/introductions/38) so we can begin building connections! Check out [my introduction here](https://forum.gitlab.com/t/christina-hupy-senior-education-program-manager/39911?u=chupy).
+
+>The GitLab forum has over 15K users with over 500k pageviews per month and experienced 66% growth last year!
+
+We do our best to make sure all of your questions are answered and also connect our community with technical experts here at GitLab.
+
+## Why doesn’t GitLab issue licenses to students directly?
+
+At this time the GitLab for Education Program offers centralized Ultimate or Gold licenses to the educational institution directly rather than individuals. The licenses are distributed in a manner that is intended for large numbers (unlimited in fact!) of users. During the application process, one of our team members verifies that the educational institution and the use case meets the requirements of the program. The education institution then signs our terms and conditions as part of the subscription agreement. Our system is set up to rely on the institutions to issue the accounts to the individual student as they are in the best position to determine their eligibility through their existing authentication and enrollment systems.
+
+Again, we strongly encourage students to take advantage of our [free (SaaS or Self-Managed) managed offerings](https://about.gitlab.com/pricing/) if they wish to have an individual account. Also, if students would like to demonstrate some of their amazing DevOps skills on their own account, we encourage them to sign up for our [30-day trial](https://about.gitlab.com/free-trial/) to test out some of the more advanced features.
+
+We hope this post was useful for you and answered many of your questions regarding administration of a GitLab instance in education!
+
+### We encourage you to post any follow up questions you have to our [GitLab forum in the Education Category](https://forum.gitlab.com/c/gitlab-for-education/37). By posting your questions there, you’ll be able to connect with our diverse network of community members and contributors!
+
+Cover image by [Ian Battaglia](https://unsplash.com/@ianjbattaglia) on [Unsplash](https://unsplash.com/photos/9drS5E_Rguc)
+{: .note}

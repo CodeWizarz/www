@@ -1,0 +1,64 @@
+---
+title: "We answer your most popular questions about our Zero Trust journey"
+author: Mark Loveless
+author_gitlab: mloveless
+author_twitter: simplenomad
+categories: security
+image_title: '/images/blogimages/lysander-yuen-wk-ztn-unsplash.jpg'
+description: "From why we chose Okta to issues around data fluidity, here are answers to your most-asked ZT questions."
+tags: inside GitLab, security, zero trust
+guest: false
+ee_cta: false
+install_cta: false
+twitter_text: "Sharing your #ZeroTrust journey, from plans to pain points means users will have questions. @GitLab answers some of the more frequent ones in this blog."
+featured: no
+postType: content marketing
+merch_banner: merch_four
+---
+
+_It’s been a busy few months since my last blog post on our Zero Trust efforts, ["Zero Trust at GitLab: Where do we go from here?"](/blog/2019/10/15/zero-trust-at-gitlab-where-do-we-go-from-here/). Since then I’ve done a few [press interviews](https://www.digi.no/artikler/zero-trust-du-ikke-kan-basere-deg-bare-pa-en-leverandor-for-a-lose-det/484170) and spoken at security conferences (most recently at [ShmooCon 2020](https://www.shmoocon.org/speakers/#0trust)) on the topic of Zero Trust. I’ve been transparent about GitLab’s implementation of security and our pursuit of Zero Trust ideas. I received many questions about Zero Trust at ShmooCon, both at the end of the talk and in the hallways after. I thought I’d pass on a few of those questions with some answers since many people are interested in the actual implementation of the ideas. It’s also a good way to show what happens when a well-meaning concept meets harsh reality._
+
+Warning: Video contains some strong language
+{: .note}
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/vI7_M04qpJ4" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+
+I discussed data classification challenges and specifically the fluidity of data in my ShmooCon talk and was met with a lot of hallway questions. More than one person asked for an example and wanted my opinion on how to classify the data. Hence this far-reaching question:
+
+### What do you mean that there are issues with the "fluidity" of data when it comes to data classification?
+
+In an earlier blog post I did give an example of the fluidity of data, specifically when I talked about the movement of data in a section called (appropriately) ["Movement of data"](/blog/2019/08/21/zero-trust-at-gitlab-the-data-classification-and-infrastructure-challenge/). Data fluidity is an issue because access to data is usually defined and enforced at the time of authentication. Waiting until the authentication stage causes problems if the data stays stationary while its classification changes rapidly. If you authenticate in the morning and have access to YELLOW data, but that data’s classification changes to RED in the afternoon, how do we enforce access controls if the user is only allowed access to YELLOW data? It is possible that you could move the data to a location intended for RED access only, or assign a user some type of access token specific to data based upon that data’s classification. But, you will need a solution that will scale and will additionally need to worry about whether data is being cloned, copied or archived. This is a question where it is much easier to explain the issue than solve it, and we are still looking for answers.
+
+The concept of zones is a stop-gap until a better solution can be implemented. A data zone is comprised of data of different classifications, but with a single allow/deny method of access control. In other words, a data zone that contains both ORANGE and YELLOW data is ranked as an ORANGE ZONE since that is the highest level of data contained within it. Since we cannot specify granular access to the ORANGE ZONE resource, someone with YELLOW access cannot access the YELLOW data inside the ORANGE ZONE. The goal is to eliminate the zones so that we can define granular access to data. Most of the zones are set up to accommodate legacy systems into the data classification scheme and need to eventually be eliminated. This is, of course, a common problem in information technology – how do we move off of old systems onto new systems without disrupting existing processes and procedures. GitLab is very fortunate in that we have very few data zones compared to most companies, but it is always a problem when we encounter them.
+
+The more advanced problem is that most technologies assign authorization to access data based upon the moment of initial user authentication. We want to eliminate data zones and we want to eliminate complexity. Making copies of data and storing a YELLOW version in one place and a RED version in another complicates things. Using an automated process that allows a non-privileged user to see privileged data also complicates things. The good news is that we are far enough in the Zero Trust process that we are dealing with this challenge. The bad news is we don’t have an answer yet but we’re still searching for something that works.
+
+
+We get questions about our choice of vendors, mainly our choice of Okta as a major vendor for Zero Trust. Most organizations find it difficult to accept an approach where there is little or no competition in certain arenas, and in hallway conversations, people seemed alarmed that they’d be putting all of their digital eggs into a single digital basket. Some people have asked for an explanation as to why we are putting all of our end user identity in one basket:
+
+### You’re using Okta, what other tools did you look at? What didn’t meet your criteria?
+
+We were looking for an [identity-management system](https://en.wikipedia.org/wiki/Identity-management_system) (IMS) that allows us to positively identify users during the authentication process. The IMS needed to have multi-factor authentication (MFA) capability and be able to support a lot of SaaS products. Okta gave us this and had a lot more features we’ve since started using. We also looked at products that mainly did MFA, but it was meeting those critical items along with a lot of extras we could take advantage of that clinched it.
+
+The flexibility of Okta and the ability to implement something more than one way based upon user need was an unexpected benefit – MFA is an example. Some of our team members agreed to use U2F in the form of Yubikeys. This worked great, although some team members expressed concerns about possibly losing the keys or worried about the risk of leaving a low profile Yubikey plugged in all the time in case the entire laptop was lost or stolen. Since Okta’s MFA solutions also included the Okta Verify phone app that supported "push" technology, we could allow team members to have a choice in MFA methods. Team members could use the Yubikey or the push technology based upon what best suited their workflow, and we were able to get MFA implemented with team members actually using it. Allowing us to give team members a choice instead of simply forcing a method upon them leads to a happier adoption process, quicker overall implementation, and of course, a more secure work environment.
+
+Most vendors don’t offer the level of flexibility Okta does with their products or allow for that level of granularity with features when it comes to identity management, so there really were not a lot of other choices. Add in support for provisioning and de-provisioning for dozens of SaaS applications and it was obvious we’d get a great ROI.
+
+### How do you separate the hype from the fact when looking at Zero Trust?
+
+First off, for our implementation, we just identified what we wanted out of a security system that granted access to users, systems, and data. You can’t just say "we want Zero Trust" because every vendor claims to sell Zero Trust solutions. We used the [BeyondCorp paper](https://cloud.google.com/beyondcorp/) as an example of Google doing something for themselves, and not as a blueprint for us. We just looked for products that met our "must-have" list, and if it had a lot of "nice to haves" available that was great. It was even better if it had useful features we hadn’t even considered. So we ended up with Okta as a cornerstone for user identity and authentication, and now all products need to speak Okta, or at least support the protocols that Okta supports. That makes it easy, or at least easier to make things work together if we define a common bit of criteria - every solution must tie into Okta.
+
+The hard part is that user identity and authentication is only one part of the picture. We need to do end-user device identity and authentication. We need to assign identity to running processes, including those kicked off by users, and those fully automated and triggered by events. And, getting into non-Zero Trust territory but still very much in line with our goals, we want to be able to audit all of our controls. We want to be able to log everything and search those logs for anomalies. Therefore we have to make sure that any Zero Trust solution can support auditing and logging.
+
+
+**What do you want to know? Do you have your own questions? Let us know!**
+We’re still moving forward as our Zero Trust implementation is a work in progress. As we hit milestones, we will continue to update you with new blogs with hopefully new solutions and processes that work. Right now we’re deploying a solution for SSH by using Okta ASA, and we’re still tackling our asset management, so expect news from those fronts in upcoming blog posts!
+
+
+
+Cover image by [Lysander Yuen](https://unsplash.com/@lysanderyuen?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://www.unsplash.com).
+{: .note}

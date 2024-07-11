@@ -1,0 +1,151 @@
+---
+title: "6 Lessons we learned when debugging a scaling problem on GitLab.com"
+author: Craig Miskell
+author_gitlab: cmiskell
+categories: engineering
+image_title: "/images/blogimages/clocks.jpg"
+description: 'Get a closer look at how we investigated errors originating from scheduled jobs, and how we stumbled upon "the tyranny of the clock."'
+tags: git, performance, production
+ee_cta: false
+install_cta: false
+twitter_text: "The @gitlab SRE team shares 6 lessons learned from debugging a scaling problem on GitLab.com"
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2018/11/14/how-we-spent-two-weeks-hunting-an-nfs-bug/"
+  - "/blog/2019/11/15/tracking-down-missing-tcp-keepalives/"
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+---
+
+Here is a story of a scaling problem on GitLab.com: How we found it, wrestled with it, and ultimately resolved it. And how we discovered the tyranny of the clock.
+
+## The problem
+
+We started receiving reports from customers that they were intermittently seeing errors on Git pulls from GitLab.com, typically from CI jobs or similar automated systems. The reported error message was usually:
+```
+ssh_exchange_identification: connection closed by remote host
+fatal: Could not read from remote repository
+```
+To make things more difficult, the error message was intermittent and apparently unpredictable. We weren't able to reproduce it on demand, nor identify any clear indication of what was happening in graphs or logs. The error message wasn't particularly helpful either; the SSH client was being told the connection had gone away, but that could be due to anything: a flaky client or VM, a firewall we don't control, an ISP doing something strange, or an application problem at our end. We deal with a *lot* of connections to Git-over-SSH, in the order of ~26 million a day, or 300/s average, so trying to pick out a small number of failing ones out of that firehose of data was going to be difficult. It's a good thing we like a challenge.
+
+## The first clue
+
+We got in touch with one of our customers (thanks Hubert Hölzl from Atalanda) who was seeing the problem several times a day, which gave us a foothold. Hubert was able to supply the relevant public IP address, which meant we could run some packet captures on our frontend HAproxy nodes, to attempt to isolate the problem from a smaller data set than 'All of the SSH traffic.' Even better, they were using the [alternate-ssh port](/blog/2016/02/18/gitlab-dot-com-now-supports-an-alternate-git-plus-ssh-port/) which means we only had two HAProxy servers to look at, not 16.
+
+Trawling through these packet traces was still not fun; despite the constraints, there was ~500MB of packet capture from about 6.5 hours. We found the short-running connections, in which the TCP connection was established, the client sent a version string identifier, and then our HAProxy immediately tore down the connection with a proper TCP FIN sequence. This was the first great clue. It told us that it was definitely the GitLab.com end that was closing the connection, not something in between the client and us, meaning this was a problem we could debug.
+
+### Lesson #1: In Wireshark, the Statistics menu has a wealth of useful tools that I'd never really noticed until this endeavor.
+
+In particular, 'Conversations' shows you a basic breakdown of time, packets, and bytes for each TCP connection in the capture, which you can sort. I *should* have used this at the start, instead of trawling through the captures manually. In hindsight, connections with small packet counts was what I was looking for, and the Conversations view shows this easily. I was then able to use this feature to find other instances, and verify that the first instance I found was not just an unusual outlier.
+
+## Diving into logs
+
+So what was causing HAProxy to tear down the connection to the client? It certainly seemed unlikely that it was doing it arbitrarily, and there must be a deeper reason; another layer of [turtles](https://en.wikipedia.org/wiki/Turtles_all_the_way_down), if you will. The HAProxy logs seemed like the next place to check. Ours are stored/available in GCP BigQuery, which is handy because there's a lot of them, and we needed to slice 'n dice them in lots of different ways. But first, we were able to identify the log entry for one of the incidents from the packet capture, based on time and TCP ports, which was a major breakthrough. The most interesting detail in that entry was the `t_state` (Termination State) attribute, which was `SD`. From the HAProxy documentation:
+```
+    S: aborted by the server, or the server explicitly refused it
+    D: the session was in the DATA phase.
+```
+`D` is pretty clear; the TCP connection had been properly established, and data was being sent, which matched the packet capture evidence. The `S` means HAProxy received an RST, or an ICMP failure message from the backend. There was no immediate clue as to which case was occurring or possible causes. It could be anything from a networking issue (e.g. glitch or congestion) to an application-level problem. Using BigQuery to aggregate by the Git backends, it was clear it wasn't specific to any VM. We needed more information.
+
+Side note: It turned out that logs with `SD` weren't unique to the problem we were seeing. On the alternate-ssh port we get a lot of scanning for HTTPS, which leads to `SD` being logged when the SSH server sees a TLS ClientHello message while expecting an SSH greeting. This created a brief detour in our investigation.
+
+On capturing some traffic between HAProxy and the Git server and using the Wireshark statistics tools again, it was quickly obvious that SSHD on the Git server was tearing down the connection with a TCP FIN-ACK immediately after the TCP three-way handshake; HAProxy still hadn't sent the first data packet but was about to, and when it did very shortly after, the Git server responded with a TCP RST. And thus we had the reason for HAProxy to log a connection failure with `SD`. SSH was closing the connection, apparently deliberately and cleanly, with the RST being just an artifact of the SSH server receiving a packet after the FIN-ACK, and doesn't mean anything else here.
+
+## An illuminating graph
+
+While watching and analyzing the `SD` logs in BigQuery, it became apparent that there was quite a bit of clustering going on in the time dimension, with spikes in the first 10 seconds after the top of each minute, peaking at about 5-6 seconds past:
+
+![Connection errors grouped by second](https://gitlab.com/gitlab-com/gl-infra/infrastructure/uploads/72cd1b763c51781fa4224495f059afb5/image.png){: .shadow.medium.center}
+Connection errors, grouped by second-of-the-minute
+{: .note.text-center}
+
+This graph is created from data collated over a number of hours, so the fact that the pattern is so substantial suggests the cause is consistent across minutes and hours, and possibly even worse at specific times of the day. Even more interesting, the average spike is 3x the base load, which means we have a fun scaling problem and simply provisioning 'more resource' in terms of VMs to meet the peak loads would potentially be prohibitively expensive. This also suggested that we were hitting some hard limit, and was our first clue to an underlying systemic problem, which I have called "the tyranny of the clock."
+
+Cron, or similar scheduling systems, often don't have sub-minute accuracy, and if they do, it isn't used very often because humans prefer to think about things in round numbers. Consequently, jobs will run at the start of the minute or hour or at other nice round numbers. If they take a couple of seconds to do any preparations before they do a `git fetch` from GitLab.com, this would explain the connection pattern with increases a few seconds into the minute, and thus the increase in errors around those times.
+
+### Lesson #2: Apparently a lot of people have time synchronization (via NTP or otherwise) set up properly.
+
+If they hadn't, this problem wouldn't have emerged so clearly. Yay for NTP!
+
+So what could be causing SSH to drop the connection?
+
+## Getting close
+
+Looking through the documentation for SSHD, we found MaxStartups, which controls the maximum number of connections that can be in the pre-authenticated state. At the top of the minute, under the stampeding herd of scheduled jobs from around the internet, it seems plausible that we were exceeding the connections limit. MaxStartups actually has three numbers: the low watermark (the number at which it starts dropping connections), a percentage of connections to (randomly) drop for any connections above the low watermark, and an absolute maximum above which all new connections are dropped. The default is 10:30:100, and our setting at this time was 100:30:200, so clearly we had increased the connections in the past. Perhaps it was time to increase it again.
+
+Somewhat annoyingly, the version of openssh on our servers is 7.2, and the only way to see that MaxStartups is being breached in that version is to turn on Debug level logging. This is an absolute firehose of data, so we carefully turned it on for a short period on only one server. Thankfully within a couple of minutes it was obvious that MaxStartups was being breached, and connections were being dropped early as a result,.
+
+It turns out that OpenSSH 7.6 (the version that comes with Ubuntu 18.04) has better logging about MaxStartups; it only requires Verbose logging to get it. While not ideal, it's better than Debug level.
+
+### Lesson #3: It is polite to log interesting information at default levels and deliberately dropping a connection for any reason is definitely interesting to system administrators.
+
+So now that we have a cause for the problem, how can we address it? We can bump MaxStartups, but what will that cost? Definitely a small bit of memory, but would it cause any untoward downstream effects? We could only speculate, so we had to just try it. We bumped the value to 150:30:300 (a 50% increase). This had a great positive effect, and no visible negative effect (such as increased CPU load):
+
+![Before and after graph](https://gitlab.com/gitlab-com/gl-infra/production/uploads/047a4859caafc6681c9d034c202418b9/image.png){: .shadow.medium.center}
+
+Before and after bumping MaxStartups by 50%
+{: .note.text-center}
+
+Note the substantial reduction after 01:15. We've clearly eliminated a large proportion of the errors, although a non-trivial amount remained. Interestingly, these are clustered around round numbers: the top of the hour, every 30 minutes, 15 minutes, and 10 minutes. Clearly the tyranny of the clock continues. The top of the hour saw the biggest peaks, which seems reasonable in hindsight; a lot of people will simply schedule their jobs to run every hour at 0 minutes past the hour. This finding was more evidence that confirms our theory that it was scheduled jobs causing the spikes, and that we were on the right path with this error being due to a numerical limit.
+
+Delightfully, there were no obvious negative effects. CPU usage on the SSH servers stayed about the same and didn't cause any noticeable increase in load. Even though we were unleashing more connections that would previously have been dropped, and doing so at the busiest times. This was promising.
+
+## Rate limiting
+
+At this point we weren't keen on simply bumping MaxStartups higher; while our 50% increase to-date had worked, it felt pretty crude to keep on pushing this arbitrarily higher. Surely there was something else we could do.
+
+My search took me to the HAProxy layer that we have in front of the SSH servers. HAProxy has a nice 'rate-limit sessions' option for its frontend listeners. When configured, it constrains the new TCP connections per-second that the frontend will pass through to backends, and leaves additional incoming connections on the TCP socket. If the incoming rate exceeds the limit (measured every millisecond) the new connections are simply delayed. The TCP client (SSH in this case) simply sees a delay before the TCP connection is established, which is delightfully graceful, in my opinion. As long as the overall rate never spiked too high above the limit for too long, we'd be fine.
+
+The next question was what number we should use. This is complicated by the fact that we have 27 SSH backends, and 18 HAproxy frontends (16 main, two alt-ssh), and the frontends don't coordinate amongst themselves for this rate limiting. We also had to take into account how long it takes a new SSH session to make it past authentication: Assuming MaxStartups of 150, if the auth phase took two seconds we could only send 75 new sessions per second to the each backend. The [note on the issue](https://gitlab.com/gitlab-com/gl-infra/infrastructure/issues/7168#note_191678023) has the derivation of the math, and I won't recount it in detail here, except to note that there are four quantities needed to calculate the rate-limit: the counts of both server types, the value of MaxStartups, and `T`, which is how long the SSH session takes to auth. `T` is critical, but we could only estimate it. You might speculate how well I did at this estimate, but that would spoil the story. I went with two seconds for now, and came to a rate limit per frontend of approximately 112.5, and rounded down to 110.
+
+We deployed. Everything was happy, yes? Errors tended to zero, and children danced happily in the streets? Well, not so much. This change had no visible effect on the error rates. I will be honest here, and say I was rather distressed. We had missed something important, or misunderstood the problem space entirely.
+
+So we went back to logs (and eventually the HAProxy metrics), and were able to verify that the rate limiting was at least working to limit to the number we specified, and that historically this number had been higher, so we were successfully constraining the rate at which connections were being dispatched. But clearly the rate was still too high, and not only that, it wasn't even *close* enough to the right number to have a measurable impact. Looking at the selection of backends (as logged by HAproxy) showed an oddity: At the top of the hour, the backend connections were not evenly distributed across all the SSH servers. In the sample time chosen, it varied from 30 to 121 in a given second, meaning our load balancing wasn't very balanced. Reviewing the configuration showed we were using `balance source`, so that a given client IP address would always connect to the same backend. This might be good if you needed session stickiness, but this is SSH and we have no such need. It was deliberately chosen some time ago, but there was no record as to why. We couldn't come up with a good reason to keep it, so we tried changing to leastconn, which distributes new incoming connections to the backend with the least number of current connections. This was the result, of the CPU usage on our SSH (Git) fleet:
+
+![Leastconn before and after](https://gitlab.com/gitlab-com/gl-infra/infrastructure/uploads/b006877c1e45ad0255a316a96750402c/before-after-leastconn-change.png){: .shadow.medium.center}
+
+Before and after turning on leastconn
+{: .note.text-center}
+
+Clearly leastconn was a good idea. The two low-usage lines are our [Canary](/handbook/engineering/infrastructure/library/canary/) servers and can be ignored, but the spread on the others before the change was 2:1 (30% to 60%), so clearly some of our backends were much busier than others due to the source IP hashing. This was surprising to me; it seemed reasonable to expect the range of client IPs to be sufficient to spread the load much more evenly, but apparently a few large outliers were enough to skew the usage significantly.
+
+### Lesson #4: When you choose specific non-default settings, leave a comment or link to documentation/issues as to why, future people will thank you.
+
+ This transparency is [one of GitLab's core values](https://about.gitlab.com/handbook/values/#say-why-not-just-what).
+
+Turning on leastconn also helped reduce the error rates, so it is something we wanted to continue with. In the spirit of experimenting, we dropped the rate limit lower to 100, which further reduced the error rate, suggesting that perhaps the initial estimate for `T` was wrong. But if so, it was too small, leading to the rate limit being too high, and even 100/s felt pretty low and we weren't keen to drop it further. Unfortunately for some operational reasons these two changes were just an experiment, and we had to roll back to `balance source` and rate limit of 100.
+
+With the rate limit as low as we were comfortable with, and leastconn insufficient, we tried increasing MaxStartups: first to 200 with some effect, then to 250. Lo, the errors all but disappeared, and nothing bad happened.
+
+### Lesson #5: As scary as it looks, MaxStartups appears to have very little performance impact even if it's raised much higher than the default.
+
+This is probably a large and powerful lever we can pull in future, if necessary. It's possible we might notice problems if it gets into the thousands or tens of thousands, but we're a long way from that.
+
+What does this say about my estimate for `T`, the time to establish and authenticate an SSH session? Reverse engineering the equation, knowing that 200 wasn't quite enough for MaxStartups, and 250 is enough, we could calculate that `T` is probably between 2.7 and 3.4 seconds. So the estimate of two seconds wasn't far off, but the actual value was definitely higher than expected. We'll come back to this a bit later.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+## Final steps
+
+Looking at the logs again in hindsight, and after some contemplation, we discovered that we could identify this specific failure with t_state being `SD` and b_read (bytes read by client) of 0. As noted above, we handle approximately 26-28 million SSH connections per day. It was unpleasant to discover that at the worst of the problem, roughly 1.5% of those connections were being dropped badly. Clearly the problem was bigger than we had realised at the start. There was nothing about this that we couldn't have identified earlier (right back when we discovered that t_state="SD" was indicative of the issue), but we didn't think to do so, and we should have. It might have increased how much effort we put in.
+
+### Lesson #6: Measure the actual rate of your errors as early as possible.
+
+We might have put a higher priority on this earlier had we realized the extent of the problem, although it was still dependent on knowing the identifying characteristic.
+
+On the plus side, after our bumps to MaxStartups and rate limiting, the error rate was down to 0.001%, or a few thousand per day. This was better, but still higher than we liked. After we unblocked some other operational matters, we were able to formally deploy the leastconn change, and the errors were eliminated entirely. We could breathe easy again.
+
+## Further work
+
+Clearly the SSH authentication phase is still taking quite a while, perhaps up to 3.4 seconds. GitLab can use [AuthorizedKeysCommand](https://docs.gitlab.com/ee/administration/operations/fast_ssh_key_lookup.html) to look up the SSH key directly in the database. This is critical for speedy operations when you have a large number of users, otherwise SSHD has to sequentially read a very large `authorized_keys` file to look up the public key of the user, and this doesn't scale well. We implement the lookup with a little bit of ruby that calls an internal HTTP API. [Stan Hu](/company/team/#stanhu), engineering fellow and our resident source of GitLab knowledge, identified that the unicorn instances on the Git/SSH servers were experiencing substantial queuing. This could be a significant contributor to the ~3-second pre-authentication stage, and therefore something we need to look at further, so investigations continue. We may increase the number of unicorn (or puma) workers on these nodes, so there's always a worker available for SSH. However, that isn't without risk, so we will need to be careful and measure well. Work continues, but slower now that the core user problem has been mitigated. We may eventually be able to reduce MaxStartups, although given the lack of negative impact it seems to have, there's little need. It would make everyone more comfortable if OpenSSH let us see the how close we were to hitting MaxStartups at any point, rather than having to go in blind and only find out we were close when the limit is breached and connections are dropped.
+
+We also need to alert when we see HAProxy logs that indicate the problem is occurring, because in practice there's no reason it should ever happen. If it does, we need to increase MaxStartups further, or if resources are constrained, add more Git/SSH nodes.
+
+## Conclusion
+
+Complex systems have complex interactions, and there is often more than one lever that can be used to control various bottlenecks. It's good to know what tools are available because they often have trade-offs. Assumptions and estimates can also be risky. In hindsight, I would have attempted to get a much better measurement of how long authentication takes, so that my `T` estimate was better.
+
+But the biggest lesson is that when large numbers of people schedule jobs at round numbers on the clock, it leads to really interesting scaling problems for centralized service providers like GitLab. If you're one of them, you might like to consider putting in a random sleep of maybe 30 seconds at the start, or pick a random time during the hour *and* put in the random sleep, just to be polite and fight the tyranny of the clock.
+
+Cover image by [Jon Tyson](https://unsplash.com/@jontyson) on [Unsplash](https://unsplash.com)
+{: .note}

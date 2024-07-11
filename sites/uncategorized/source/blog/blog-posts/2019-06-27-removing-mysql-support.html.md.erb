@@ -1,0 +1,60 @@
+---
+title: "Why we're ending support for MySQL in 12.1"
+author: Kenny Johnston
+author_gitlab: kencjohnston
+author_twitter: kencjohnston
+categories: company
+description: "GitLab will be ending support for MySQL starting with our 12.1 release – here's why."
+tags: releases
+twitter_text: "Why GitLab's ending support for MySQL in 12.1"
+postType: product
+---
+
+In July of 2017 [GitLab documented that we would be deprecating support for MySQL](https://gitlab.com/gitlab-org/omnibus-gitlab/merge_requests/1756).
+Well, the 12.1 release marks the conclusion of our
+deprecation period and it will [no longer support MySQL](https://gitlab.com/gitlab-org/gitlab-ce/issues/52442).
+It wasn't an easy decision, but we wanted to share with you why we did it.
+
+## It wasn't great for our use case
+
+There are lots of great use cases for MySQL, our specific needs just didn't seem to be a good fit. [Our use of MySQL
+had a number of limitations](https://gitlab.com/gitlab-org/gitlab-ce/issues/51173#issues). In most cases, it wasn't
+as simple as adding support to MySQL, but that by bending MySQL we typically broke PostgreSQL. To name a few limitations:
+
+* We can't [support nested groups with MySQL in a performant way](https://gitlab.com/gitlab-org/gitlab-ce/issues/30472#note_27747600)
+* We have to use hacks to increase limits on columns and this can lead to [MySQL refusing to store data](https://gitlab.com/gitlab-org/gitlab-ce/issues/49583)
+* MySQL [can't add](https://gitlab.com/gitlab-org/gitlab-ce/issues/40168) `TEXT` type column without `length` specified
+* MySQL doesn't [support partial indexes](https://dba.stackexchange.com/questions/106589/to-have-postgresql-like-partial-index-in-mysql-5-5)
+* These limitations have already created a number of places where MySQL was already not supported (including with [Geo](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/11914/diffs))
+
+## It made us slower
+
+In order to work around some of the pain points above, we ended of creating a lot of [MySQL](https://gitlab.com/gitlab-org/gitlab-ee/blob/7ef7c604729c2627914bcc0ece3355786a9a3413/ee/db/migrate/20180831134049_allow_many_prometheus_alerts.rb#L30)-[specific](https://gitlab.com/gitlab-org/gitlab-ee/blob/7ef7c604729c2627914bcc0ece3355786a9a3413/db/migrate/prometheus_metrics_limits_to_mysql.rb)
+code. In some cases this led to [merge requests that were twice as complex](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/16793)
+because they had to support a second database backend. Creating and maintaining this code is a drain on our cycle time and velocity, and it puts a
+dampener on our value of iteration.
+
+It also made us slower because our CI system would run our test suites twice, once on each backend. Removing support
+for MySQL reduces the time for our CI jobs, and reduces the costs. [These costs ended up being considerable](/company/team/structure/working-groups/gitlab-com-cost/),
+and it was difficult to justify the expense with the small number of users choosing MySQL.
+
+## We couldn't take advantage of either backend
+
+By providing support for both database backends (PostgreSQL and MySQL) we were unable to truly take advantage
+of either. Where we wanted to utilize specific performance and realiability capabilities unique to a backend,
+we had to instead choose the lowest common denominator. As an example (there are [more](https://gitlab.com/gitlab-com/www-gitlab-com/merge_requests/24987#note_186506464)), we wanted to use PostgreSQL's `LATERAL JOIN` for optimizing dashboards events, but [couldn't because it was not available in MySQL](https://gitlab.com/gitlab-org/gitlab-ce/issues/31806#note_32117488).
+
+## Most of our customers are on PostgreSQL
+
+Using [Usage Ping](https://docs.gitlab.com/ee/administration/settings/usage_statistics.html#usage-ping) data we got a clear sense that the vast majority of our customers had already moved to PostgreSQL.
+We've seen a steady migration to PostgreSQL and recently had less than 1200 GitLab instances reporting their usage of
+MySQL. At the time there were 110,000 instances using PostgreSQL. Of those still using MySQL the majority were using 11.0 or earlier.
+
+This gave us a lot of confidence that GitLab users still on MySQL could migrate to the bundled PostgreSQL backend
+if they choose to upgrade to 12.1 and beyond, or remain on MySQL in older versions of GitLab.
+
+As a side note – we don't use MySQL ourselves, and not doing so meant we weren't encountering issues BEFORE our users.
+
+## Need help migrating?
+
+If you are one of those users, please check out our [migration docs](https://docs.gitlab.com/ee/update/mysql_to_postgresql.html) for a guide on upgrading from MySQL to PostgreSQL.

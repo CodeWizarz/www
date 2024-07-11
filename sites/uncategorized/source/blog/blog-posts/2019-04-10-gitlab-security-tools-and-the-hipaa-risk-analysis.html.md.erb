@@ -1,0 +1,110 @@
+---
+title: "GitLab's security tools and the HIPAA risk analysis"
+author: Luka Trbojevic
+author_gitlab: ltrbojevic
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/gitlab-security-and-hipaa-risk-analysis.jpg'
+description: "A closer look at GitLab’s security scanning tools and the HIPAA risk analysis."
+tags: security, releases, workflow
+twitter_text: "The importance and undertaking of the #HIPAA #riskanalysis can’t be understated. What would happen if you could integrate automated vulnerability scanning right into your development process?"
+postType: content marketing
+---
+
+The importance of the HIPAA risk analysis (45 CFR § 164.308(a)(1)(ii)(A)) can’t be overstated.
+The Office for Civil Rights (OCR) announced 2018 was an [all-time record year for HIPAA enforcement](https://www.hhs.gov/hipaa/for-professionals/compliance-enforcement/agreements/2018enforcement/index.html),
+and an incomplete risk analysis or inadequate follow-up on findings were cited in three of the major breaches.
+
+Digitization of healthcare is moving faster than ever. From patient portals to patient-reported
+outcomes platform, there’s an application for just about everything. But as we adjust our pace
+of building and innovating in this digital healthcare era, we must quickly recalibrate our pace
+of identifying risks and vulnerabilities in our software.
+
+You may already know, GitLab is a single tool for the entire DevOps lifecycle, from project planning
+to deployment. But it’s also a powerful security tool that can add automated vulnerability scanning
+to your development process.
+
+Let’s take a closer look.
+
+## Using Static Application Security Testing to identify vulnerabilities in source code
+
+Using [Static Application Security Testing](https://docs.gitlab.com/ee/user/application_security/sast/)
+(SAST), you can identify vulnerabilities in your source code. Setting up SAST is easy – you can
+either include the [SAST CI job](https://docs.gitlab.com/ee/user/application_security/sast/) or use
+[Auto SAST](https://docs.gitlab.com/ee/topics/autodevops/index.html#auto-sast).
+After that’s done, and every time the job is run, your source code will be scanned.
+When the scan is done, the results are [displayed right on the merge request](https://docs.gitlab.com/ee/user/application_security/sast/#how-it-works).
+And when you go to any pipeline with a SAST job, you’ll be shown a [security report](https://docs.gitlab.com/ee/user/application_security/sast/#security-report-under-pipelines) with the findings.
+
+## Using Dynamic Application Security Testing to identify vulnerabilities in web applications
+
+Unlike SAST, which scans source code for vulnerabilities, [Dynamic Application Security Testing](https://docs.gitlab.com/ee/user/application_security/dast/) (DAST) analyzes
+running web applications for vulnerabilities. It’s just as simple to set up as SAST – simply add
+a DAST CI/CD job to your pipeline. DAST will also [display the findings directly in the merge request](https://docs.gitlab.com/ee/user/application_security/dast/#how-it-works)
+and create a [report artifact](https://docs.gitlab.com/ee/ci/yaml/#artifactsreportsdast).
+
+## Container Scanning
+
+If you use Docker, you can use [Container Scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/)
+to scan your Docker images for vulnerabilities. This is again as simple as adding a [Container Scanning CI/CD job](https://docs.gitlab.com/ee/user/application_security/container_scanning/#configuring-with-templates) to your pipeline!
+The scan will generate a [report artifact](https://docs.gitlab.com/ee/ci/yaml/#artifactsreportscontainer_scanning) you can download and review.
+
+## Secret Detection
+
+The risk analysis standard requires both risks and vulnerabilities. One common risk is for secrets
+(API keys and passwords, for example) to be inadvertently leaked. To address that problem,
+we’re working on [Secret Detection](https://gitlab.com/groups/gitlab-org/-/epics/675).
+It’ll check files and configurations to identify potentially sensitive information, running every
+time a commit is pushed to a branch.
+
+## Coming soon: Even more tools to assess risks and vulnerabilities
+
+In the coming year we’ll be adding a number of product categories to our Secure stage to help
+improve your application’s security and find more vulnerabilities. Here’s what you can look forward to:
+
+### Digging deeper for application vulnerabilities: Interactive Application Security Testing
+
+[Interactive Application Security Testing](https://gitlab.com/groups/gitlab-org/-/epics/344) (IAST)
+assesses an application’s response to an external security scan (like DAST) to identify vulnerabilities
+that wouldn’t be caught by just the external scan. When this feature is complete, it’ll add yet
+another layer of vulnerability detection to DAST.
+
+### Fuzzing
+
+Another way to find application vulnerabilities is to generate random inputs and send them
+to the application. By doing this, you can find unintended behaviors in the application that
+may result in a vulnerability. While fuzzing is often a niche technique, we’re
+[working on adding basic fuzzing capability straight into GitLab](https://gitlab.com/groups/gitlab-org/-/epics/818)!
+
+## Putting it all together
+
+Today, with GitLab, you can:
+
+* Identify vulnerabilities in your source code using SAST.
+* Identify vulnerabilities in your web application using DAST.
+* Identify vulnerabilities in your Docker containers using Container Scanning.
+* Scan for passwords, API keys, and other sensitive information with Secrets Detection.
+
+In the near future, with GitLab, you’ll be able to:
+
+* Identify vulnerabilities in your application using IAST.
+* Identify vulnerabilities in your application with fuzzing.
+
+## Closing thoughts
+
+Whether you’re a four-person startup making the next groundbreaking healthcare analytics platform,
+or an academic medical center developing health applications, having security visibility where
+it didn’t exist previously is a good thing. And having that visibility incorporated directly into
+your development process with minimal work and seamless integration is even better.
+
+With GitLab’s security features you can incorporate automated vulnerability detection straight
+into your development process. While the risk analysis requirement goes beyond just the software
+you’re writing, as you write more code faster, automating part of the software security portion can only help.
+
+### Disclaimer
+
+THE INFORMATION PROVIDED ON THIS WEBSITE IS TO BE USED FOR INFORMATIONAL PURPOSES ONLY. THE INFORMATION SHOULD NOT BE RELIED UPON OR CONSTRUED AS LEGAL OR COMPLIANCE ADVICE OR OPINIONS. THE INFORMATION IS NOT COMPREHENSIVE AND WILL NOT GUARANTEE COMPLIANCE WITH ANY REGULATION OR INDUSTRY STANDARD. YOU MUST NOT RELY ON THE INFORMATION FOUND ON THIS WEBSITE AS AN ALTERNATIVE TO SEEKING PROFESSIONAL ADVICE FROM YOUR ATTORNEY AND/OR COMPLIANCE PROFESSIONAL.
+{: .note}
+
+Cover image by [rawpixel.com](https://www.pexels.com/@rawpixel?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels) on [Pexels](https://www.pexels.com/photo/clinician-writing-medical-report-1919236/?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels)
+{: .note}

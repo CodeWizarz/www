@@ -1,0 +1,62 @@
+- is_dark = locals.fetch(:is_dark, false)
+- is_available_for_core = tier_hash[:gitlab_core]
+- is_available_for_premium = tier_hash[:gitlab_premium]
+- is_available_for_ultimate = tier_hash[:gitlab_ultimate]
+- is_available_for_gitlab_free = tier_hash[:gitlab_free] || ( !( gitlab_com == false || gitlab_com == "not_applicable" ) && is_available_for_core)
+- is_available_for_gitlab_silver = tier_hash[:gitlab_silver] || ( !( gitlab_com == false || gitlab_com == "not_applicable" ) && is_available_for_premium)
+- is_available_for_gitlab_gold = tier_hash[:gitlab_gold] || ( !( gitlab_com == false || gitlab_com == "not_applicable" ) && is_available_for_ultimate)
+- core_title = is_available_for_core ? "Available in GitLab self-managed Free" : "Not available in GitLab self-managed Free"
+- premium_title = is_available_for_premium ? "Available in GitLab self-managed Premium" : "Not available in GitLab self-managed Premium"
+- ultimate_title = is_available_for_ultimate ? "Available in GitLab self-managed Ultimate" : "Not available in GitLab self-managed Ultimate"
+- free_title = is_available_for_gitlab_free ? "Available in GitLab SaaS Free" : "Not available in GitLab SaaS Free"
+- silver_title = is_available_for_gitlab_silver ? "Available in GitLab SaaS Premium" : "Not available in GitLab SaaS Premium"
+- gold_title = is_available_for_gitlab_gold ? "Available in GitLab SaaS Ultimate" : "Not available in GitLab SaaS Ultimate"
+
+.badge-container{ class: "#{'dark' if is_dark}" }
+  .badge-container-type SaaS
+  .top-row
+    %a{ :href => "/pricing/#gitlab-com", "title" => free_title, "data-toggle" => "tooltip", "data-placement" => "top", :"data-ga-name" => "free", :"data-ga-location" => "body"}
+      .badge{class: "#{'available' if is_available_for_gitlab_free}"}<
+        - if is_available_for_gitlab_free
+          = partial "images/icons/slp-checkmark.svg"
+        - else
+          = partial "images/icons/slp-close.svg"
+        Free
+    %a{ :href => "/pricing/#gitlab-com", "title" => silver_title, "data-toggle" => "tooltip", "data-placement" => "top", :"data-ga-name" => "premium", :"data-ga-location" => "body"}
+      .badge{class: "#{'available' if is_available_for_gitlab_silver}"}<
+        - if is_available_for_gitlab_silver
+          = partial "images/icons/slp-checkmark.svg"
+        - else
+          = partial "images/icons/slp-close.svg"
+        Premium
+    %a{ :href => "/pricing/#gitlab-com", "title" => gold_title, "data-toggle" => "tooltip", "data-placement" => "top", :"data-ga-name" => "ultimate", :"data-ga-location" => "body"}
+      .badge{class: "#{'available' if is_available_for_gitlab_gold}"}<
+        - if is_available_for_gitlab_gold
+          = partial "images/icons/slp-checkmark.svg"
+        - else
+          = partial "images/icons/slp-close.svg"
+        Ultimate
+  .badge-container-type Self-Managed
+  .bottom-row
+    %a{ :href => "/pricing/#self-managed", "title" => core_title, "data-toggle" => "tooltip", "data-placement" => "top", :"data-ga-name" => "free", :"data-ga-location" => "body"}
+      .badge{class: "#{'available' if is_available_for_core}"}<
+        - if is_available_for_core
+          = partial "images/icons/slp-checkmark.svg"
+        - else
+          = partial "images/icons/slp-close.svg"
+        Free
+    %a{ :href => "/pricing/#self-managed", "title" => premium_title, "data-toggle" => "tooltip", "data-placement" => "top", :"data-ga-name" => "premium", :"data-ga-location" => "body"}
+      .badge{class: "#{'available' if is_available_for_premium}"}<
+        - if is_available_for_premium
+          = partial "images/icons/slp-checkmark.svg"
+        - else
+          = partial "images/icons/slp-close.svg"
+        Premium
+    %a{ :href => "/pricing/#self-managed", "title" => ultimate_title, "data-toggle" => "tooltip", "data-placement" => "top", :"data-ga-name" => "ultimate", :"data-ga-location" => "body"}
+      .badge{class: "#{'available' if is_available_for_ultimate}"}<
+        - if is_available_for_ultimate
+          = partial "images/icons/slp-checkmark.svg"
+        - else
+          = partial "images/icons/slp-close.svg"
+        Ultimate
+

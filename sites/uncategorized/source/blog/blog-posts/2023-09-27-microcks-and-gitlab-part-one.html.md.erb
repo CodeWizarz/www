@@ -1,0 +1,89 @@
+---
+title: "Speed up API and microservices delivery with Microcks and GitLab - Part 1"
+author: Laurent Broudoux, Madou Coulibaly
+author_gitlab: madou
+author_twitter: gitlab
+categories: engineering
+image_title: /images/blogimages/lightsticks.png
+description: "Learn how to configure Microcks for GitLab and what the use cases are for this open source Kubernetes-native tool."
+tags: API,testing,CI/CD,cloud native,integrations
+twitter_text: "Find out how Microcks can enrich your GitLab platform to foster collaboration, encourage rapid changes, and provide a robust delivery platform for your API- and microservices-based applications."
+guest: true
+featured: no
+---
+
+API development is all the rage these days for customer and partner integration, frontend-to-backend communication, microservices orchestration, and more. Yet APIs have their challenges, including how to create a fast feedback loop on design, how different teams can work with autonomy without having to wait for each other's API implementation, and how to cope with backward compatibility tests when shipping newer versions of the API. 
+
+[Microcks](https://microcks.io), an open source, Kubernetes-native tool for API mocking and testing, addresses these challenges. With Microcks, which is accepted as a Sandbox project in the [Cloud Native Computing Foundation](https://cncf.io), developers can leverage their [OpenAPI](https://www.openapis.org/), [GraphQL](https://graphql.org/), [gRPC](https://grpc.io/), [AsyncAPI](https://www.asyncapi.com/), and [Postman Collection](https://www.postman.com/collection/) assets to quickly mock and simulate APIs before writing them. Couple Microcks with GitLab and you have a powerful combination to foster collaboration, encourage rapid changes, and provide a robust delivery platform for API-based applications.
+
+In this ongoing blog series, we will introduce you to Microcks use cases and how they fit with the GitLab platform. We'll also discuss technical integration points that will help ease the developer burden, including identity management, Git repositories, and pipeline integrations.
+
+## What is Microcks?
+Microcks addresses two major use cases: 
+- **Simulating (or mocking) an API or a microservice** from a set of descriptive assets. This can be done as soon as you start the design phase to set up a feedback loop very quickly, or later on to ease the pain of provisioning environments with a lot of dependencies.
+- **Validating the conformance of your application regarding your API specification** by running contract-test. This validation can be integrated into your CI/CD pipeline so that conformance can be checked on each and every iteration. This is of great help to enforce backward compatibility of your API of microservices interfaces.
+
+Microcks offers a uniform and consistent approach for the various kinds of request/response APIs (REST, GraphQL, gRPC, Soap) and event-driven APIs (currently supporting eight different protocols), thereby bringing consistency for users and for automations all along your API lifecycle.
+
+## How Microcks fits into the software development lifecycle
+Microcks is a solution based on containers and can be deployed in several configurations. It can be deployed on the developer laptop through [Docker](https://microcks.io/documentation/installing/docker-compose/), [Podman](https://microcks.io/documentation/installing/podman-compose/) or [Docker Desktop Extension](https://microcks.io/documentation/installing/docker-desktop-extension/) to assist with mocking complex environments. When it comes to team collaboration, Microcks can be deployed as a centralized instance that connects to the Git repositories of the organization, discovers the API artifacts, and then provides shared up-to-date API simulations.
+
+![diagram of how Microcks fits into development lifecycle](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/microcks.png){: .shadow.small.center}
+
+To ease the burden on developers (and administrators), Microcks can be configured to use your GitLab platform as an identity provider. With that configuration, integrating Microcks is seamless, and API simulations are automatically shared among development teams. Microcks fosters collaboration by providing everyone with the same “source of truth” and avoiding drift risks. The tool can also be used to lower the pain and the cost of deploying and maintaining complex QA environments because simulations are inexpensive to deploy or redeploy on-demand. Microcks deployment follows a GitOps approach.
+
+Beyond this sharing of simulations, Microcks also integrates well with CI/CD pipelines. As you release API-based applications, there is always concern about conformance of the contractualized expectations you defined using specifications like OpenAPI, GraphQL, and the like. Usually, the hardest part isn't delivering the `1.0` of this API; problems come later when you're trying to deliver the `1.3`. This latest version must still be backward compatible with the 1.0 contract if you don't want to make your consumers angry and frustrated.
+
+This conformance validation is very well assured by Microcks using contract-testing principles. So we encourage you to plug Microcks into some `test` related jobs in your GitLab pipeline and delegate this conformance validation to your Microcks instance.
+
+![microcks-in-gitlab-workflow](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/microcks-in-gitlab-workflow.png){: .shadow.medium.center}
+
+
+Embedding Microcks conformance testing in your pipeline is actually easy thanks to our lightweight CLI that you'll integrate in pipeline jobs. You can choose to reuse an existing Microcks instance to record results and keep history of your success or pop up a new ephemeral instance as it's lightweight and fast to bootstrap.
+
+## How to set up GitLab as an identity provider in Microcks
+
+To start off this series, we will detail how to configure Microcks to use your GitLab platform as an identity provider. This is in fact very easy as authentication in Microcks is based on [Keycloak](https://keycloak.org) (another CNCF project) and GitLab can be set as an identity provider in Keycloak (see [official documentation](https://www.keycloak.org/docs/latest/server_admin/index.html#gitlab)).
+
+**Note:** This configuration is optional as Microcks can use any other identity provider Keycloak integrates with.
+
+Keycloak is a very common solution that may be deployed already at your organization. If not, Microcks comes with a Keycloak distribution that is pre-configured for its usage with a realm called `microcks`. We have used this realm to validate this configuration.
+
+### Create a GitLab Group Application
+The first thing is to create a new [Group Application](https://docs.gitlab.com/ee/integration/oauth_provider.html#create-a-group-owned-application) on your GitLab instance as follows:
+- `Name`: `microcks-via-keycloak`
+- `Redirect URI`: `https://keycloak.acme.org/realms/microcks/broker/gitlab/endpoint`
+- `Scopes`: `read_user`, `openid`, `profile` and `email`
+
+![gitlab-application-form](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/gitlab-application-form.png){: .shadow.medium.center}
+
+
+This application uses your Keycloak instance with `https://keycloak.acme.org/realms/microcks/broker/gitlab/endpoint` as the redirect URI. As a result, we obtain an `Application ID` and an associated `Secret` we have to keep aside for the next step.
+
+![gitlab-application](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/gitlab-application.jpeg){: .shadow.medium.center}
+
+
+### Add GitLab as identity provider in Keycloak
+The next step takes place in the Keycloak admin console. Once the correct `microcks` realm is selected, you'll just have to go to the **Identity providers** section and add a GitLab provider. Simply paste here the `Application ID` you got earlier as `Client ID` and the `Secret` as `Client Secret`. You can also choose a `Display order` if you plan to have multiple identity providers.
+
+![keycloak-identity-provider](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/keycloak-identity-provider.jpg){: .shadow.medium.center}
+
+
+Then, from the **Authentication** section in the admin console, choose the browser flow and configure the `Identity Provider Redirector` as follows:
+
+- `Alias`: `GitLab`
+- `Default Identify Provider`: `gitlab`
+
+![keycloak-redirector](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/keycloak-redirector.jpg){: .shadow.medium.center}
+
+### Test your Microcks configuration
+Now open the Microcks URL into your browser and you'll be directly redirected to the GitLab login page. Enter your GitLab credentials and you will be authenticated and redirected to Microcks. 
+
+![microcks-homepage](/images/blogimages/2023-09-27-microcks-and-gitlab-part-1-speed-up-api-and-microservices-delivery/microcks-homepage.jpeg){: .shadow.medium.center}
+
+## What's next?
+In upcoming blogs, we'll detail how GitLab can be used in the two major use cases for Microcks. We'll see how Microcks integrates with GitLab Git repositories to discover API specifications and produce simulations, and how to integrate Microcks conformance tests into your GitLab CI/CD pipelines.
+
+_[Laurent Broudoux](https://www.linkedin.com/in/laurentbroudoux/) is a cloud-native architecture expert and enterprise integration problem lover. He has helped organizations in adopting distributed and cloud paradigms while capitalizing on their critical existing assets. He is the founder and lead developer of the [Microcks.io](https://microcks.io/) open-source project: a Kubernetes-native tool for API mocking and testing. For this, he is using his 10+ years experience as an architect in financial services where he defined API transformation strategies, including governance and delivery process._
+
+_[Madou Coulibaly](https://gitlab.com/madou) is a senior solutions architect at GitLab._

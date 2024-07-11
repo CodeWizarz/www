@@ -1,0 +1,77 @@
+---
+title: "The problem with plugins"
+author: Chrissie Buchanan
+author_gitlab: cbuchanan
+author_twitter: gitlab
+categories: insights
+image_title: '/images/blogimages/plugin-instability.jpg'
+description: "For all of the customization, plugins sometimes come at a high price."
+tags: CI/CD, DevOps
+cta_button_text: 'The benefits of single application CI/CD'
+cta_button_link: '/resources/ebook-single-app-cicd'
+guest: true
+ee_cta: false
+install_cta: false
+twitter_text: "The problem with plugins"
+featured: yes
+postType: content marketing
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+We’ve talked a lot over the past year about how [all-in-one is taking over the marketplace model](/blog/2018/10/16/github-launch-continuous-integration/), and we highlighted [CloudBees adding SDM](/blog/2019/09/20/jenkins-one-year-later/) in our most recent example. Even with all of the consolidation we’ve seen lately, plugins are still a popular [DevOps solution](/topics/devops/). On the surface, there’s a lot to appreciate: Literally thousands of plugins offer seemingly limitless customization without you having to make large investments in other tools. Need something? Chances are there’s a plugin for that.
+
+Jenkins plugins have served as both a selling point **_and_** a downside – but how can a strength also be a weakness? All that customization comes with a few caveats.
+
+## Plugins and security vulnerabilities
+
+
+
+Jenkins offers more than 1,600 community-contributed plugins. David Fiser over at the TrendLabs Security Intelligence Blog highlighted some [Jenkins security advisories associated with plain-text-stored credentials](https://blog.trendmicro.com/trendlabs-security-intelligence/hiding-in-plain-text-jenkins-plugin-vulnerabilities/) from July and August 2019. There were six plugins affected, one of which has been deprecated. At the time of article publication (August 30), three of the plugins had not been fixed.
+
+To properly store credentials, a third-party credential provider, such as the `Credentials` plugin, is recommended. Organizations can also use a [`Secret`](https://javadoc.jenkins.io/index.html?hudson/util/Secret.html) to store credentials. Jenkins was proactive in identifying these potential problems but, in the case of plugins, Jenkins can only recommend best practices and notify users once they’re aware of a potential issue. Because the plugins are operated by third parties, there’s also no guarantee any problems will be fixed.
+
+Installing Jenkins plugins is limited to either a dedicated Jenkins admin or someone with exclusive access to the Jenkins filesystem, but uploading a potentially malicious plugin to the Jenkins plugin site doesn’t require as much authentication.
+
+The team at CyberArk wanted to see just how easy it would be for an attacker to infiltrate a plugin. Dubbed [Aladdin’s Lamp](https://www.cyberark.com/threat-research-blog/jenkins-plugins-aladdins-lamp-and-the-sultan-of-threats/), the CyberArk team modified the existing Green Balls plugin that changed the plugin image to an image of Aladdin’s lamp. What they inserted discreetly into the code was a capability that gave any unauthenticated remote attacker SYSTEM access to a Jenkins master that installed their plugin with a specially crafted request:
+
+[`http://jenkinsURL:8080/OpenSesame`](http://jenkinsURL:8080/OpenSesame)
+
+Their experiment was not malicious, of course, but it highlighted just how easy it could be to exploit the plugin ecosystem.
+
+## Plugins and brittle pipelines
+
+It’s a tall order for users to weigh the pros and cons of more than 1,600 plugins, and many people rely on a plugin’s popularity in order to gauge whether it’s a suitable option. A simple search for a Docker plugin could show almost 26 results, and upon further review, one of the top results has eight plugin dependencies. If a team is using plugins for Docker, Kubernetes, GitLab, Go – those dependencies can really add up, and that’s where teams start seeing brittle pipelines.
+
+Technology is constantly evolving, and keeping up with all of these dependencies can spell trouble for pipelines. The last thing you want is a broken deployment pipeline because [the pipeline itself is broken vs. the actual software artifact or build that’s being tested](https://harness.io/2018/09/4-reasons-your-jenkins-pipelines-are-brittle/).
+
+A vast majority of Jenkins plugins were created by third-party developers, meaning they can vary in quality and [some plugins lose support without notice](https://thenewstack.io/many-problems-jenkins-continuous-delivery/). Abandoned plugins are out there because their creators have opted to work on something else. Teams have to be diligent with maintaining these plugins with every new Jenkins version, but as any Jenkins admin can tell you, [this process has not always gone over well](https://jenkins.io/blog/2018/08/31/shifting-gears/).
+
+## Plugins and maintenance
+
+We touched on this briefly but admins are mostly in agreement that Jenkins maintenance is, to put it simply, not a great time. There’s a reason why developers often talk about their love/hate relationship with Jenkins – **_yay!_**, there’s a plugin for everything I need, **_oh no!_** I’m a Jenkins plugin maintainer now.
+
+Upgrading one plugin means you’ll likely have to update many others, and many Jenkins admins do this directly on their production Jenkins master. In one example, [Blue Ocean requires dozens of dependencies, many of which you may have no use for](https://cb-technologists.github.io/posts/jenkins-plugins-good-bad-ugly/), such as the Bitbucket Pipeline for Blue Ocean and the GitHub Pipeline for Blue Ocean plugins, even if you don’t use either Bitbucket or GitHub for source control.
+
+## Plugins: Pros and cons
+
+There are pros and cons to anything and plugins are no exception. There is a lot to love about plugins:
+
+*   Flexibility
+*   Customization
+*   Convenience
+
+And there are things to be wary of:
+
+*   Maintenance
+*   Dependencies
+*   Lack of support
+*   Security vulnerabilities
+
+With Jenkins’s modular architecture there’s a building block for everything you need. However, an ecosystem built entirely on plugins is going to require some discipline, and that means dedicating resources into maintaining that plugin environment.
+
+Plugins can be a great asset for a DevOps team. As CloudBees pointed out, [even GitLab uses plugins](https://docs.gitlab.com/ee/administration/file_hooks.html). We just don’t think you should have to use plugins for really basic tasks. In the end, it’s important for organizations to weigh the pros and cons of different platforms for themselves. You can check out our ebook, “The benefits of single application CI/CD,” and see how we stack up against other CI tools.
+
+Cover image by [Fernando Lavin](https://unsplash.com/@filmlav?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/@filmlav?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText).
+{: .note}
+<%= partial "includes/blog/blog-merch-banner" %>

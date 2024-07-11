@@ -1,0 +1,216 @@
+---
+title: "How GitLab supports NSA and CISA CI/CD security guidance"
+author: Joseph Longo
+author_gitlab: jlongo_gitlab
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/vaultimage.png'
+description: "GitLab can support your alignment with NSA and CISA CI/CD recommendations and best practices for cloud-based DevSecOps environments."
+tags: security, features, customers, CI/CD
+guest: false
+twitter_text:
+featured: yes
+postType: product
+related_posts:
+  - "/blog/2023/09/06/how-gitlab-can-support-your-iso-compliance-journey/"
+  - "/blog/2023/08/17/meet-regulatory-standards-with-gitlab/"
+  - "/blog/2023/07/18/how-gitlab-can-help-with-your-soc-2-audit/"
+---
+In June, the National Security Agency (NSA) and the Cybersecurity and Infrastructure Security Agency (CISA) [issued a joint cybersecurity information sheet (CSI)](https://media.defense.gov/2023/Jun/28/2003249466/-1/-1/0/CSI_DEFENDING_CI_CD_ENVIRONMENTS.PDF) providing recommendations and best practices for cloud-based DevSecOps environments. Specifically, the CSI focuses on security hardening best practices for continuous integration/continuous delivery (CI/CD) cloud deployments.
+
+Let's take a look at the relevant threats, recommended countermeasures, and how the [GitLab DevSecOps Platform](https://about.gitlab.com/platform/) can support the implementation and enforcement of the countermeasures to help secure your CI/CD environment.
+
+## CI/CD environments are under threat
+Over the past few years, the software supply chain, and specifically CI/CD environments, have become a persistent and valuable target for malicious actors. Theft of proprietary code and data, injection of malicious links and redirects, and denial-of-service attacks are a few examples of why CI/CD environments have been such lucrative targets for threat actors.
+
+The CSI outlines examples of common risks in CI/CD pipelines. These risks include:
+* insecure first-party code
+* insecure third-party code
+* poisoned pipeline execution
+* insufficient pipeline access controls
+* insecure system configuration
+* usage of insecure third-party services
+* exposure of secrets
+
+Additional context can be found in the CSI and in [OWASP's top 10 CI/CD security risks](https://owasp.org/www-project-top-10-ci-cd-security-risks/).
+
+Note: The CSI contains helpful information on potential threat scenarios and illustrations to help visualize different attack vectors.
+
+## Hardening recommendations for CI/CD environment
+As a single, all-inclusive DevSecOps platform, GitLab's features support the implementation of the recommended mitigations from the NSA and CISA.
+
+### Authentication and access mitigation
+Here are the features that align with authentication and access mitigation.
+
+#### Use NSA-recommended cryptography
+_"NSA and CISA recommend the implementation and configuration of strong cryptographic algorithms when configuring cloud applications and services."_
+
+GitLab's [GitLab.com](https://about.gitlab.com/solutions/) and [GitLab Dedicated](https://about.gitlab.com/dedicated/) SaaS solutions implement TLS 1.2+ for encrypting data in transit and AES-256-bit encryption for data at rest. You can learn more about our approach to cryptography in our [Cryptography Standard](https://about.gitlab.com/handbook/security/cryptographic-standard.html).
+
+#### Minimize the use of long-term credentials
+_"Use strong credentials that are resistant to stealing, phishing, guessing, and replaying wherever and whenever possible."_
+
+To support the use of strong credentials, GitLab enables you to centralize authentication and authorization responsibilities for your GitLab instance through [SAML SSO](https://docs.gitlab.com/ee/user/group/saml_sso/) integrations. GitLab integrates with a wide range of identity providers to support our customers’ diverse tech stacks. GitLab also supports the System for Cross-Domain Identity Management ([SCIM](https://docs.gitlab.com/ee/user/group/saml_sso/scim_setup.html)). Through GitLab’s SSO and SCIM integrations, you can automate the lifecycle of your user identities in a secure and efficient manner.
+
+[SSO](https://docs.gitlab.com/ee/integration/saml.html) and [SCIM](https://docs.gitlab.com/ee/administration/settings/scim_setup.html) are also available for GitLab self-managed customers.
+
+GitLab supports [two-factor authentication](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html). Customers can enable one or both of the following second factors of authentication:
+
+* time-based one-time passwords ([TOTP](https://datatracker.ietf.org/doc/html/rfc6238))
+* WebAuthn devices
+
+> Check out our [Ultimate guide to enabling SAML and SSO on GitLab.com](https://about.gitlab.com/blog/2023/09/14/the-ultimate-guide-to-enabling-saml/) for more information.
+
+#### Add signature to CI/CD configuration and verify it
+_"NSA and CISA recommend implementing secure code signing to establish digital trust
+within the CI/CD pipeline."_
+
+GitLab enables its customers to [sign commits](https://docs.gitlab.com/ee/user/project/repository/signed_commits/) using:
+* an [SSH key](https://docs.gitlab.com/ee/user/project/repository/signed_commits/ssh.html)
+* a [GPG key](https://docs.gitlab.com/ee/user/project/repository/signed_commits/gpg.html)
+* a [personal x.509 certificate](https://docs.gitlab.com/ee/user/project/repository/signed_commits/x509.html)
+
+GitLab's [push rules](https://docs.gitlab.com/ee/user/project/repository/push_rules.html) feature can also be used to reject individual commits if they are not signed with GPG, or you can choose to reject all commits from unverified users.
+
+![Signed commits](/images/blogimages/2023-09-07-how-gitlab-supports-the-nsa-and-cisa-cicd-security-guidance/signed-commits.png)
+
+Signed commits verified and unverified badges
+{: .note.text-center}
+
+#### Utilize two-person rules (2PR) for all code updates
+_"No single developer should be able to check in code without another developer
+reviewing and approving the changes."_
+
+GitLab enables users to configure their [merge requests](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/) (MRs) so that they must be approved before they can be merged. MR approvals allow users to set the minimum number of required approvals before work can merge into a project. Some examples of rules you can create include:
+* Users with specific permissions can always approve work.
+* [Code owners](https://docs.gitlab.com/ee/user/project/codeowners/index.html) can approve work for files they own.
+* Users with specific permissions can approve work, [even if they don’t have merge rights](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/rules.html#merge-request-approval-segregation-of-duties) to the repository.
+* Users with specific permissions can be allowed or denied the ability to [override approval rules on a specific MR](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/rules.html#edit-or-override-merge-request-approval-rules).
+
+GitLab's MR approval [rules](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/rules.html) and [settings](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/settings.html) can be configured and adapted to meet your organization's requirements and align with your risk tolerance.
+
+![MR approval settings](/images/blogimages/2023-09-07-how-gitlab-supports-the-nsa-and-cisa-cicd-security-guidance/mr-approval-settings.png)
+
+Example of MR approval requirements
+{: .note.text-center}
+
+#### Implement least-privilege policies for CI/CD access
+_"The CI/CD pipeline should not be accessible by everyone in the organization." 
+"Mitigate password risks by implementing multi-factor authentication (MFA)."_
+
+GitLab enables you to [assign users a role](https://docs.gitlab.com/ee/user/permissions.html) when you add them to a project or group. A user’s role determines the actions they can take within your GitLab instance. The following roles are available for assignment:
+* Guest (private and internal projects only)
+* Reporter
+* Developer
+* Maintainer
+* Owner
+* Minimal access (available for the top-level group only)
+
+GitLab's role-based access control (RBAC) model enables you to limit a user’s permissions in accordance with the [principle of least privilege](https://csrc.nist.gov/glossary/term/least_privilege) and your business and information security requirements.
+
+As mentioned [above](#minimize-the-use-of-long-term-credentials), GitLab supports two-factor authentication and can integrate with several SSO providers to support your tech stack and help you centralize authentication and authorization responsibilities.
+
+#### Secure user accounts
+_"Regularly audit administrative user accounts and configure access controls under the
+principles of least privilege and separation of duties. Audit logs to ensure new accounts
+are legitimate."_
+
+As mentioned in the [previous section](#implement-least-privilege-policies-for-cicd-access), GitLab enables you to assign roles and associated permissions to your users in a way that aligns with your business and information security requirements. GitLab's authorization feature enables you to support the principle of least privilege and the concept of separation of duties.
+
+Keep reading to understand how GitLab supports the NSA and CISA's audit log guidance.
+
+#### Secure secrets
+_"Secure handling of secrets, tokens, and other credentials is crucial in a CI/CD pipeline."_
+
+GitLab's [secret detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) enables users to scan their repositories for exposed secrets and take action based on the scan results.
+
+With secret detection, users can see scan results in multiple places such as GitLab's [vulnerability report](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/index.html) and [security dashboard](https://docs.gitlab.com/ee/user/application_security/security_dashboard/), and users can configure [automatic responses to leaked secrets](https://docs.gitlab.com/ee/user/application_security/secret_detection/automatic_response.html).
+
+### Development process mitigations
+Here are features that support development process mitigations.
+
+#### Integrate security scanning as part of the CI/CD pipeline
+_"Include security scanning early in the CI/CD process."_
+
+The CSI recommends the implementation of the following tools:
+* static application security testing (SAST)
+* registry scanning
+* dynamic analysis security testing
+
+GitLab supports these recommendations through its [SAST](https://docs.gitlab.com/ee/user/application_security/sast/), [dynamic application security testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/), [container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/), and [dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) features. GitLab also offers additional scanning features such as [code quality](https://docs.gitlab.com/ee/ci/testing/code_quality.html) and [dynamic API security testing (DAST API)](https://docs.gitlab.com/ee/user/application_security/dast_api/).
+
+Together, these [Secure stage](https://about.gitlab.com/features/?stage=secure) features provide comprehensive coverage to help you write secure code faster.
+
+#### Restrict untrusted libraries and tools
+_"Only use software, tools, libraries, and artifacts from secure and trusted sources."_
+
+In addition to [dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/), GitLab's [license compliance](https://docs.gitlab.com/ee/user/compliance/license_compliance/index.html) feature enables organizations to incorporate trusted dependencies into their codebase that meet their unique business and security requirements.
+
+With license compliance, you can check that your dependencies' licenses are compatible with your business and security requirements, and you can approve or deny dependencies based on configured license approval policies.
+
+Note: License compliance is only available for GitLab Ultimate users.
+
+#### Analyze committed code
+_"Securing the CI/CD pipeline involves analyzing the code that is being committed, which can be achieved manually or by using automated tools."_
+
+As an all-inclusive DevSecOps platform, GitLab supports a seamless and comprehensive approach to reviewing code changes.
+
+With the scanning features mentioned [above](#integrate-security-scanning-as-part-of-the-cicd-pipeline), you can enable automated code reviews to help identify vulnerabilities, logic flaws, and policy violations.
+
+GitLab's [MR review](https://docs.gitlab.com/ee/user/project/merge_requests/reviews/) feature streamlines the manual code review process. [Suggested Reviewers](https://docs.gitlab.com/ee/user/project/merge_requests/reviews/#suggested-reviewers) makes it easy to identify users who are authorized to review and merge your changes.
+
+![Suggested Reviewers](/images/blogimages/2023-09-07-how-gitlab-supports-the-nsa-and-cisa-cicd-security-guidance/suggested-reviewers.png){: .shadow.small.center}
+
+Suggested Reviewers
+{: .note.text-center}
+
+MR approval [rules](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/rules.html) and [settings](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/settings.html) help ensure your code review requirements are enforced in a programmatic way.
+
+#### Remove any temporary resources
+_"A CI/CD pipeline may also create temporary resources, such as virtual machines or Kubernetes clusters, to run tests. While test environments are usually always live, these temporary resources are meant to be created for a single test purpose and must be destroyed after the pipeline run."_
+
+Within GitLab, a temporary runner VM hosts and runs each CI job. GitLab automatically issues a command to remove the temporary runner VM immediately after the CI job completes. Additional details on this process can be found in our documentation for [Security for SaaS runners](https://docs.gitlab.com/ee/ci/runners/#security-for-saas-runners).
+
+#### Keep audit logs
+_"An audit log should provide clear information on who committed, reviewed, and deployed what, when, and where."_
+
+As outlined in this [blog post](https://about.gitlab.com/blog/2023/09/06/how-gitlab-can-support-your-iso-compliance-journey/), GitLab enables you to use [audit events](https://docs.gitlab.com/ee/administration/audit_events.html) to track important events, including who performed the related action and when. Audit events cover a broad range of categories, including:
+* group management
+* authentication and authorization
+* user management
+* compliance and security
+* CI/CD
+* GitLab Runners
+
+![Audit events](/images/blogimages/2023-08-24-how-gitlab-can-support-your-iso-compliance-journey/example-of-an-audit-event.png)
+
+Example of an audit event
+{: .note.text-center}
+
+For [Ultimate](https://about.gitlab.com/pricing/ultimate/) customers, [audit event streaming](https://docs.gitlab.com/ee/administration/audit_event_streaming/index.html) can be enabled. Audit event streaming enables users to set a streaming destination for a top-level group or instance to receive all audit events about the group, subgroups, and projects, as structured JSON.
+
+#### Implement an SBOM and SCA 
+_"A software bill of materials (SBOM) and software composition analysis (SCA) can play a useful role in the software development lifecycle (SDLC) and in DevSecOps by helping to track all third-party and open source components in the codebase."_
+
+GitLab's [dependency list](https://docs.gitlab.com/ee/user/application_security/dependency_list/) feature enables you to review your project or group’s dependencies, including their known vulnerabilities. 
+
+Combining GitLab's dependency list feature with its [SCA](#restrict-untrusted-libraries-and-tools) suite of features supports a comprehensive strategy for identifying and remediating vulnerabilities and risks within your supply chain.
+
+![Dependency List](/images/blogimages/2023-09-07-how-gitlab-supports-the-nsa-and-cisa-cicd-security-guidance/dependency-list.png)
+
+Example of dependency list results
+{: .note.text-center}
+
+Note: Dependency list is only available for GitLab Ultimate users.
+
+#### Plan, build, and test for resiliency
+_"Build the pipeline for high availability, and test for disaster recovery periodically."_
+
+As a SaaS provider, GitLab prioritizes your resiliency and efficiency needs. We maintain robust [business continuity](https://about.gitlab.com/handbook/business-technology/gitlab-business-continuity-plan/) and [disaster recovery](https://gitlab.com/gitlab-com/gl-infra/readiness/-/blob/master/library/disaster-recovery/index.md) strategies to support the availability of the GitLab platform, and we provide helpful strategies for GitLab users to maintain [pipeline efficiency](https://docs.gitlab.com/ee/ci/pipelines/pipeline_efficiency.html).
+
+If you'd like to learn more about what we're doing to maintain the security, confidentiality, and availability of the GitLab platform, please request our [Customer Assurance Package](https://about.gitlab.com/security/cap/).
+
+## Learn more
+As a comprehensive DevSecOps platform, GitLab supports a broad range of requirements and recommendations. CI/CD environments have become lucrative targets for malicious actors, and the CSI provides excellent guidance for protecting such a critical component of an organization's assets. As a strategic partner, GitLab supports your efforts to safeguard your CI/CD environment and enables you to develop secure software faster. 
+
+To learn more about these features, have a look at our library of [tutorials](https://docs.gitlab.com/ee/tutorials/).

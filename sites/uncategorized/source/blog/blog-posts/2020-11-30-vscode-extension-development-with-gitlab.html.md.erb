@@ -1,0 +1,95 @@
+---
+title: "VS Code extension development with GitLab"
+author: Tomas Vik
+author_gitlab: viktomas
+author_twitter: viktomas_com
+categories: engineering
+image_title: '/images/blogimages/vscode-extension-development-with-gitlab/cover.jpg'
+description: "As VS Code editor increases in popularity, find out how GitLab + VS Code can be used for extension development and how we develop the official GitLab VS Code extension."
+twitter_text: ".@code extension development with @GitLab"
+tags: integrations, tutorial, CI/CD
+postType: content marketing
+related_posts:
+  - "/blog/2020/07/31/use-gitlab-with-vscode/"
+  - "/blog/2021/01/25/mr-reviews-with-vs-code/"
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+merch_banner: merch_seven
+---
+## What is Visual Studio Code (VSC)?
+
+Microsoft Visual Studio Code (VS Code) is an extensible text editor. It's implemented in TypeScript and runs on Node 12 and Electron. It was [first released in 2015](https://github.com/microsoft/vscode/releases/tag/0.10.1), and since then, become widely popular[^2]. This post explains the basics about the development of VS Code extensions, shows how you can use GitLab for extension development, and shares how we build the official [GitLab VS Code extension](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow).
+
+## VS Code editor key features
+
+For me, the key feature of the VS Code editor is that it created a platform for extensions. That means not just providing an API for extensions (which editors have done since the '90s [^3]) but also providing a marketplace and seamless way of publishing and updating extensions.
+
+There is also a fully open source version of the VS Code called [VSCodium](https://vscodium.com/). This version removes some proprietary Microsoft code from the distribution and is analogous to the Google Chrome and Chromium projects.
+
+## VS Code extension
+
+VS Code extension is a JavaScript or TypeScript app that runs in node and has access to the [VS Code Extension API](https://code.visualstudio.com/api). The convenient thing about this architecture is that the extension is like any other node app and has full access to the host machine and network. It can choose its own library for network connection, manipulating file systems, and also for rendering web UI.
+
+## Extension API
+
+The extension API is implemented in TypeScript; it allows users to manipulate almost every aspect of the editor. After months of using it, I find the design elegant (with the exception of testing, which seems to be an afterthought in many areas of the API).
+
+The main features of the API are manipulating and searching the files, editing text, creating custom left panels and status bars, debuggers, custom webview tabs, (Jupyter) notebook providers, and more. The API also provides a simple way to communicate with the user via input fields and quick-pick panels, as well as showing output with info, warning, or error messages.
+
+## Extension Marketplace
+
+If you are familiar with either AppStore or PlayStore, you'll find VS Code has an equivalent store called [Visual Studio Marketplace](https://marketplace.visualstudio.com/search?target=VSCode), and unlike on its older siblings, everything[^4] is for free. Both the easy browsing experience for the user and the ease of use for a developer are differentiators for VS Code.
+
+As a developer, you set up your [Azure Cloud token](https://code.visualstudio.com/api/working-with-extensions/publishing-extension#get-a-personal-access-token) and then run `vsce publish` in your extension folder. That's it, within a few minutes, most of your users[^5] are running the latest and greatest version of your extension. This process greatly reduces the pressure on developers to get everything right before releasing, enabling faster iteration.
+
+There is also an independent marketplace called [open-vsx](https://open-vsx.org/) used mainly by VSCodium but also by [GitPod](https://docs.gitlab.com/ee/integration/gitpod.html) and others.
+
+## Developing extensions in GitLab
+
+If you'd like to try and develop your own extension, you can fork the [`gitlab-example-extension`](https://gitlab.com/viktomas/gitlab-example-extension) project. It contains a complete setup for linting, unit and integration testing, and publishing the extension to both [Visual Studio Marketplace](https://marketplace.visualstudio.com/search?target=VSCode) and [open-vsx](https://open-vsx.org/). Thanks to GitLab being a single platform for the whole [DevOps lifecycle](/topics/devops/), you can just push your code changes to GitLab, and CI/CD takes care of everything else. As always, if you find any useful tweaks, please submit an MR because [everyone can contribute](/company/mission/#mission).
+
+You can see what the VS Code extension API offers in the [official documentation](https://code.visualstudio.com/api). You can then have a look at [extension examples](https://code.visualstudio.com/api/extension-guides/overview) and extend them to make the VS Code editor do almost anything you want.
+
+## Our extension: GitLab Workflow
+
+In June the [GitLab Workflow extension became officially supported by GitLab](/blog/2020/07/31/use-gitlab-with-vscode/). Since then we've done a lot of cleanup work and bug fixes. Recently, we released our first larger feature: [Inserting GitLab project snippets](https://about.gitlab.com/releases/2020/11/22/gitlab-13-6-released/#insert-gitlab-snippets-directly-in-vs-code).
+
+The primary purpose of the extension is to integrate GitLab features into the editor, so users don't have to leave the editor to perform basic tasks such as read an issue description or create a snippet from the code. The extension is trying to plug in the GitLab features into an existing VS Code Extension API to both minimise the need for custom code and to make the experience as VS Code-like as possible.
+
+There are several main areas of the VS Code Extension API that we take advantage of:
+
+### Commands
+
+[Commands](https://code.visualstudio.com/api/extension-guides/command) are a versatile concept for triggering actions. The most common way to trigger commands is to use the <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> Command Palette. But commands can also be triggered from context menus, clicks on buttons, or even programmatically by other code in the extension. The most common example of triggering commands programatically is to call the `vscode.open` command with a URL as a parameter. GitLab workflow does that every time we open the GitLab web page[^6].
+
+![Command Palette](/images/blogimages/vscode-extension-development-with-gitlab/commands.png){: .shadow.medium.center}
+Command Palette in GitLab Workflow
+{: .note .text-center}
+
+### Tree View
+
+VS Code uses the [Tree View](https://code.visualstudio.com/api/extension-guides/tree-view) for displaying the left panel. The panel shows the file tree for the project, changed Git files, an outline of the open file, full-text search results, and more. We use this Tree View panel to show lists of issues and merge requests.
+
+![Tree View](/images/blogimages/vscode-extension-development-with-gitlab/tree-view.png){: .shadow.medium.center}
+Tree View in GitLab Workflow
+{: .note .text-center}
+
+### Status bar
+
+[Status bar](https://code.visualstudio.com/api/extension-capabilities/extending-workbench#status-bar-item) is the slim panel at the bottom of the editor. Any extension can add items to it. Extensions such as Git, spell checks, linters, and formatters all add items to the status bar to provide the user with quick feedback.
+
+The GitLab Workflow extension shows the MR, issue, and pipeline for the current branch. It, for example, allows you to see if your pipeline failed after the last push.
+
+![Status bar](/images/blogimages/vscode-extension-development-with-gitlab/status-bar.png){: .shadow.medium.center}
+Status bar in GitLab Workflow
+{: .note .text-center}
+
+Altogether the VS Code API provides a great foundation for bringing GitLab features closer to the editor. The GitLab VS Code extension is an exciting project that **you too can contribute to**. The best place to start is the [GitLab project page](https://gitlab.com/gitlab-org/gitlab-vscode-extension).
+
+[^2]: [17th most popular project on GitHub](https://github.com/search?p=2&q=stars%3A%3E100&s=stars&type=Repositories) at the time of writing (2020-11-20)
+[^3]: GNU Emacs supported Lisp extensions in [1985](https://en.wikipedia.org/wiki/Emacs#GNU_Emacs)
+[^4]: I haven't been able to find a paid extension in the store.
+[^5]: The auto-update feature is on by default in VS Code, but it can be turned off in which case your users are not going to auto-update.
+[^6]: [Using `vscode.open` in the GitLab Workflow](https://gitlab.com/search?utf8=%E2%9C%93&search=vscode.open&group_id=9970&project_id=5261717&scope=&search_code=true&snippets=false&repository_ref=main&nav_source=navbar)
+
+[Cover image](https://art.ljubicapetkovic.com/cc-licensed/) by [Ljubica Petkovic](https://art.ljubicapetkovic.com), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+{: .note}

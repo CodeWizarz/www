@@ -1,0 +1,265 @@
+# Deprecated: use data/performance_indicators/infrastructure_department.yml instead
+
+- name: Infrastructure Handbook MR Rate
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/index.html#infrastructure-handbook-update-frequency"
+  parent: "/handbook/engineering/performance-indicators/#engineering-handbook-mr-rate"
+  definition: The handbook is essential to working remote successfully, to keeping up our transparency, and to recruiting successfully. Our processes are constantly evolving and we need a way to make sure the handbook is being updated at a regular cadence. This data is retrieved by querying the API with a python script for merge requests that have files matching `/source/handbook/engineering/**` or `/source/handbook/support/**` over time.
+  target: .25
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 2
+    reasons:
+    - Adjusted the target to .55 to be consistent with larger org, reflect less activity from managers, and overall the trend that our initial suggested target is higher than many months of observed activity.
+  sisense_data:
+    chart: 10586746
+    dashboard: 621063
+    shared_dashboard: b69578ca-d4a6-4a99-b06f-423a3683446c
+    embed: v2
+- name: Infrastructure MR Rate
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  parent: "/handbook/engineering/performance-indicators/#engineering-mr-rate"
+  definition: Infrastructure Department MR is a performance indicator showing how many changes the Infrastructure team implements in the GitLab product,
+    as well as changes in support of the GitLab SaaS infrastructure. We currently count all members of the Infrastructure Department (Directors, Managers, ICs)
+    in the denominator, because this is a team effort. The full definition of MR Rate is linked in the url section.
+  target: Greater than 6 MRs per month
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 2
+    reasons:
+    - We intend to observe this metric over time to understand the behavior of the differing work patterns and MR content (product code + infrastructure logic + configuration data).
+  urls:
+    - "/handbook/engineering/metrics/#merge-request-rate"
+  sisense_data:
+    chart: 8934544
+    dashboard: 686934
+    shared_dashboard: 178a0fbc-42a9-4181-956d-a402151cf5d8
+    embed: v2
+- name: Infrastructure Department Discretionary Bonus Rate
+  parent: "/handbook/engineering/performance-indicators/#engineering-discretionary-bonus-rate"
+  base_path: "/handbook/engineering/performance-indicators/"
+  definition: The number of discretionary bonuses given divided by the total number of team members, in a given period as defined. This metric definition is taken from the <a href="/handbook/people-group/people-success-performance-indicators/#discretionary-bonuses">People Success Discretionary Bonuses KPI</a>.
+  target: at or above 10%
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 3
+    reasons:
+      - Metric is new and is being monitored
+  sisense_data:
+    chart: 11860249
+    dashboard: 873088
+    embed: v2
+    filters:
+      - name: Breakout
+        value: Department
+      - name: Breakout_Division_Department
+        value: Engineering - Infrastructure
+- name: GitLab.com Availability
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: Percentage of time during which GitLab.com is fully operational and providing service to users within SLO parameters. Definition is available on the <a href="https://dashboards.gitlab.net/d/general-slas/general-slas?orgId=1">GitLab.com Service Level Availability page</a>.
+  target: equal or greater than 99.95%
+  org: Infrastructure Department
+  is_key: true
+  urls:
+  - https://about.gitlab.com/handbook/engineering/monitoring/#gitlabcom-service-level-availability
+  - https://about.gitlab.com/handbook/engineering/monitoring/#historical-service-level-availability
+  - https://dashboards.gitlab.net/d/general-slas/general-slas?orgId=1&from=now%2FM&to=now
+  health:
+    level: 2
+    reasons:
+    - Needs attention due to recent incident, met target 1 out of 3 months in FY24Q2
+    - August 2023 Availability 100.00
+    - July 2023 Availability 99.78
+    - June 2023 Availability 100.00
+    - Historical Availability is available on the <a href="https://about.gitlab.com/handbook/engineering/monitoring/#historical-service-level-availability">Service Level Availability page</a>
+  sisense_data:
+    chart: 17183756
+    dashboard: 891772
+    embed: v2
+- name: Mean Time To Production (MTTP)
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: Measures the elapsed time (in hours) from merging a change in <a href="https://gitlab.com/gitlab-org/gitlab">gitlab-org/gitlab projects</a> master branch, to deploying that change to gitlab.com. It serves as an indicator of our speed capabilities to deploy application changes into production. This metric is equivalent to the <i>Lead Time for Changes</i> metric in the <a href="https://cloud.google.com/blog/products/devops-sre/using-the-four-keys-to-measure-your-devops-performance">Four Keys Project from the DevOps Research and Assessment</a>. Additionally, the data for this metric also shows <i>Deployment Frequency</i>, another of the Four Keys metrics.
+  target: less than 12 hours
+  org: Infrastructure Department
+  is_key: true
+  urls:
+  - https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/170
+  - "/handbook/engineering/infrastructure/team/delivery/metrics"
+  health:
+    level: 3
+    reasons:
+    - Data for this PI is temporarily unavailable.
+    - Work towards MTTP is tracked in <a href="https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/280"> epic 280 </a>.
+    - MTTP breakdown can be visualized on the <a href="/handbook/engineering/infrastructure/team/delivery/metrics.html"> Delivery Metrics page </a>.
+  sisense_data:
+    chart: 10055732
+    dashboard: 764878
+    embed: v2
+- name: Mean Time Between Incidents (MTBI)
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: Measures the mean elapsed time (in hours) from the start of one production incident, to the start of the next production incident. It serves primarily as an indicator of the amount of disruption being experienced by users and by on-call engineers. This metric includes only <a href="https://about.gitlab.com/handbook/engineering/quality/issue-triage/#availability">Severity 1 & 2 incidents</a> as these are most directly impactful to customers. This metric can be considered "MTBF of Incidents".
+  target: more than 120 hours
+  org: Infrastructure Department
+  is_key: false
+  urls:
+  - https://app.periscopedata.com/app/gitlab/764913/MTBI-PI-Dashboard
+  health:
+    level: 3
+    reasons:
+    - Target at 120 hours with the intent that we should not have such incidents more than approximately weekly (hopefully less).  Furter iterations will increase this target when we incorporate environment (production only).
+    - Deployment failures (and the mean time between them) will be extracted into a separate metric to serve as a quality countermeasure for MTTP, unrelated to this metric which focuses on declared service incidents.
+  sisense_data:
+    chart: 16427455
+    dashboard: 764913
+    embed: v2
+- name: Infrastructure Team Member Retention
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  parent: "/handbook/engineering/performance-indicators/#engineering-team-member-retention"
+  definition: We need to be able to retain talented team members. Retention measures our ability to keep them sticking around at GitLab. Team Member Retention = (1-(Number of Team Members leaving GitLab/Average of the 12 month Total Team Member Headcount)) x 100. GitLab measures team member retention over a rolling 12 month period.
+  target: at or above 84%
+  org: Infrastructure Department
+  is_key: yes
+  public: false
+  health:
+    level: -1
+    reasons:
+    - Confidential metric - See notes in Key Review agenda.
+  urls:
+    - "https://app.periscopedata.com/app/gitlab/861470/Infrastructure-Department-Retention"
+- name: Mean Time To Resolution (MTTR)
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: For all <a href="/handbook/engineering/monitoring/#gitlabcom-service-level-availability"> customer-impacting services</a>, measures the elapsed time (in hours) it takes us to resolve when an incident occurs. This serves as an indicator of our ability to execute said recoveries. This includes Severity 1 & Severity 2 incidents from <a href="https://gitlab.com/gitlab-com/gl-infra/production">production project</a>
+  target: less than 24 hours
+  org: Infrastructure Department
+  is_key: false
+  urls:
+  - https://gitlab.com/gitlab-com/gl-infra/production/-/boards/1717012?&label_name[]=incident
+  - https://gitlab.com/gitlab-com/www-gitlab-com/-/issues/8296
+  - https://app.periscopedata.com/app/gitlab/766694/MTTR-KPI
+  health:
+    level: 2
+    reasons:
+    - data depends on SREs adding incident::resolved label
+    - as we continue to participate in dogfooding GitLab Incident Management we intend to improve this metric
+  sisense_data:
+    chart: 10083860
+    dashboard: 766694
+    embed: v2
+- name: Mean Time To Mitigate (MTTM)
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: For all <a href="/handbook/engineering/monitoring/#gitlabcom-service-level-availability"> customer-impacting services</a>, measures the elapsed time (in hours) it takes us to mitigate when an incident occurs. This serves as an indicator of our ability to mitigate production incidents. This includes Severity 1 & Severity 2 incidents from <a href="https://gitlab.com/gitlab-com/gl-infra/production">production project</a>
+  target: less than 1 hours
+  org: Infrastructure Department
+  is_key: false
+  urls:
+  - https://app.periscopedata.com/app/gitlab/766694/MTTR-KPI
+  health:
+    level: 2
+    reasons:
+    - This metric is equivalent to the <i>Time to Restore</i> metric in the <a href="https://cloud.google.com/blog/products/devops-sre/using-the-four-keys-to-measure-your-devops-performance">Four Keys Project from the DevOps Research and Assessment</a>
+    - data depends on SREs adding incident::mitigate label
+    - as we continue to participate in dogfooding GitLab Incident Management we intend to improve this metric
+  sisense_data:
+    chart: 10083556
+    dashboard: 766694
+    embed: v2
+- name: Corrective Action SLO
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: The Corrective Actions (CAs) SLO focuses on the number of open severity::1/severity::2 Corrective Action Issues past their due date. Corrective Actions and their due dates are defined in our <a href="/handbook/engineering/infrastructure/incident-review/#incident-review-issue-creation-and-ownership">Incident Review process</a>.
+  target: below 0
+  org: Infrastructure Department
+  is_key: true
+  health:
+    level: 3
+    reasons:
+    - FY23 Q2 Effort and progress tracking in <a href="https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/740">this Epic</a>
+  urls:
+    - https://about.gitlab.com/handbook/engineering/infrastructure/incident-review/#incident-review-issue-creation-and-ownership
+    - https://app.periscopedata.com/app/gitlab/1135629/Corrective-Actions---Infrastructure
+  sisense_data:
+    chart: 11500976
+    dashboard: 852027
+    embed: v2
+- name: GitLab.com Saturation Forecasting
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: It is critical that we continuously observe resource saturation normal growth as well as detect anomalies. This helps to ensure that we have the appropriate platform capacity in place. This metric uses the results of <a href="https://gitlab-com.gitlab.io/gl-infra/tamland/intro.html">Tamland</a> forecasting framework of non-horizontally scalable services, which end up as issues in <a href="https://gitlab.com/gitlab-com/gl-infra/capacity-planning/-/issues">Capacity Planning Project</a>. This metric counts the number of open capacity issues in that project.
+  target: at or below 5 open issues
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 2
+    reasons:
+    - Next improvements are to document the existing process for creating capacity planning issues with a view to simplifying and automating the process. Documentation an improvement is a requirement for the <a href="https://gitlab.com/gitlab-com/gl-security/security-assurance/sec-compliance/observation-management/-/issues/604">SOC 2 Availability Criteria</a> and is an <a href="https://app.ally.io/objectives/1890816?time_period_id=155985">OKR for Scalability for Q1<a/>.
+    - New PI as of May 2021, determining correct target & inclusion criteria
+    - Once we have <a href="https://gitlab.com/gitlab-data/analytics/-/issues/7713">Thanos data available in Sisense</a> we will switch this PI to <a href="https://gitlab.com/gitlab-com/gl-infra/mstaff/-/issues/63#note_597309238">show the percentage</a>
+  urls:
+    - "https://gitlab.com/gitlab-com/gl-infra/mstaff/-/issues/63"
+  sisense_data:
+    chart: 11989485
+    dashboard: 880866
+    embed: v2
+- name: Labeled Spend %
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: <a href="https://cloud.google.com/resource-manager/docs/creating-managing-labels">GCP Labels</a> & AWS Tags allow us to segment our cloud spend into more meaningful buckets that align with our business units. This PI tracks our progress towards adopting our <a href="https://about.gitlab.com/handbook/infrastructure-standards/labels-tags">Labeling Standards</a> which is very important for improved understanding of cloud spend. Currently, the metric only tracks adoption of gl_env_name label to replace currently used pet_name label for services, but eventually will grow to encompass all the required standard labels.
+  target: at or above 80%
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 2
+    reasons:
+    - new metric, need to schedule the work to start labeling resources in production projects
+  sisense_data:
+    chart: 12189639
+    dashboard: 892335
+    embed: v2
+- name: GCP CUD Coverage %
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: Committed Use Discounts allow us to lower the rate we pay for Compute by comitting to a certain level of usage for a set amount of time. We aim to cover at least 80% of our total GCP Compute usage with Committed Use Discounts to optimize our spend. Our coverage level for each region & machine type depends on what makes sense for those use cases. We do not strive to hit 100% for this metric as that would mean we are likely over-subscribed to commits & end up paying more for non-static environments.
+  target: at or above 80%
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 3
+    reasons:
+    - over 80%
+    - Needs to adjust for inclusion of our new CUD types
+  urls:
+    - https://app.periscopedata.com/app/gitlab/848796/WIP:-GCP-CUD-Overview
+  sisense_data:
+    chart: 11508863
+    dashboard: 848796
+    embed: v2
+- name: GitLab.com Hosting Cost / Revenue
+  base_path: "/handbook/engineering/infrastructure/performance-indicators/"
+  definition: We need to spend our investors' money wisely. As part of this we aim to follow industry standard targets for hosting cost as a % of overall revenue. In this case revenue is measured as MRR + one time monthly revenue from CI & Storage
+  target: TBD
+  public: false
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: -1
+    reasons:
+    - Confidential metric - See Key Review agenda
+  urls:
+    - "https://app.periscopedata.com/app/gitlab:safe-dashboard/919261/GitLab.com-Hosting-Cost-Revenue-PI"
+- name: Infrastructure Department Promotion Rate
+  base_path: "/handbook/engineering/performance-indicators/"
+  definition: The total number of promotions over a rolling 12 month period divided by the month end headcount. The target promotion rate is 12% of the population. This metric definition is taken from the <a href="https://about.gitlab.com/handbook/people-group/people-success-performance-indicators/#promotion-rate">People Success Team Member Promotion Rate PI</a>.
+  target: 12%
+  org: Infrastructure Department
+  is_key: false
+  health:
+    level: 2
+    reasons:
+      - Metric is new and is being monitored
+  sisense_data:
+    chart: 11860231
+    dashboard: 873087
+    embed: v2
+    filters:
+      - name: Breakout
+        value: Department
+      - name: Breakout_Division_Department
+        value: Engineering - Infrastructure

@@ -1,0 +1,18 @@
+features:
+  secondary:
+    - name: "PostgreSQL 11 is now the default version of PostgreSQL for GitLab Self-Managed"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      reporter: ljlane
+      stage: systems
+      categories:
+        - "Omnibus Package"
+      issue_url: 'https://gitlab.com/groups/gitlab-org/-/epics/2414'
+      documentation_link: 'https://docs.gitlab.com/omnibus/settings/database.html'
+      description: |
+        The default version of GitLab-provided PostgreSQL is now PostgreSQL 11. For new installs, and upgrades of existing installations that do not use HA or Geo, PostgreSQL 11 will automatically be used by default. For Geo and HA installs, please see [the 12.10 upgrade notes](#upgrade). In GitLab performance testing using [the 10K user reference architecture](https://docs.gitlab.com/ee/administration/reference_architectures/10k_users.html), we found that PostgreSQL 11 was able to handle 7% more Requests Per Second compared to PostgreSQL 10, and showed 20% less CPU usage for the merge request discussions endpoint. We did not observe performance regressions when moving from PostgreSQL 10 to 11. For a more detailed performance analysis, see [the performance testing issue](https://gitlab.com/gitlab-org/quality/team-tasks/-/issues/389).
+
+        Note that PostgreSQL 9.6 and PostgreSQL 10 will no longer be supported as of GitLab 13.0. You will need to upgrade your PostgreSQL version prior to upgrading to 13.0.
+
+        If you are using Geo, please keep in mind that major PostgreSQL updates cannot be performed without downtime on the Geo secondary due to the need to resynchronize the database on the secondary cluster. Specific steps for Geo are available in the [Geo upgrade docs](https://docs.gitlab.com/omnibus/settings/database.html#upgrading-a-geo-instance). If you are using the Helm install, you will need to manually switch to PostgreSQL for 12.10.
+

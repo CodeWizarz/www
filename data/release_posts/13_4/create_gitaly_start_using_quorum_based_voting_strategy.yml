@@ -1,0 +1,17 @@
+---
+features:
+  secondary:
+    - name: "Gitaly Cluster majority-wins reference transactions (beta)"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/gitaly/praefect.html#strong-consistency'
+      reporter: jramsay
+      stage: create
+      categories:
+        - Gitaly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/225843'
+      description: |
+        Gitaly Cluster allows Git repositories to be replicated on multiple warm Gitaly nodes. This improves fault tolerance by removing single points of failure. [Reference transactions](#gitaly-cluster-reference-transactions), introduced in GitLab 13.3, causes changes to be broadcast to all the Gitaly nodes in the cluster, but only the Gitaly nodes that vote in agreement with the primary node persist the changes to disk. If all the replica nodes dissented, only one copy of the change would be persisted to disk, creating a single point of failure until asynchronous replication completed.
+
+        Majority-wins voting improves fault tolerance by requiring a majority of nodes to agree before persisting changes to disk. When the feature flag is enabled, writes must succeed on multiple nodes. Dissenting nodes are automatically brought in sync by asynchronous replication from the nodes that formed the quorum.
+

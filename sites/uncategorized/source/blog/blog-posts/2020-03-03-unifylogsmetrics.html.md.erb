@@ -1,0 +1,64 @@
+---
+title: "How to integrate operation logs and metrics in GitLab"
+window_title: "How to unify your logs and metrics in GitLab | GitLab"
+author: Dov Hershkovitch
+author_gitlab: dhershkovitch
+author_twitter: dov0211
+categories: engineering
+image_title: '/images/blogimages/logs.png'
+description: "We've added Elasticsearch to our monitoring solution so you can see all your logs and metrics in one view. Here's a first look at this new feature, released in GitLab 12.8."
+tags: kubernetes, open source, features
+twitter_text: "Use @gitlab to auto deploy Elasticsearch into your cluster and start collecting logs information in a matters of seconds"
+featured: yes
+postType: product, Product Marketing
+---
+
+Logging is one of the most powerful tools we have when trying to understand an application problem. It is a common practice – when things go wrong in production, one of the first requests is often, "Please send me the logs!" Raw logs contain useful information which can help pinpoint the root cause(s) of problems.
+
+But using raw logs isn’t always a straightforward process. This is especially true, in a modern, distributed, and often ephemeral architecture. Ideally logs should be available across the entire application, be searchable and offer at least some access to past history. Historically aggregated logging solutions, if they existed, were only piecemeal. This forced developers to spend time and energy tracking down important log data which ultimately resulted in logs being far less useful than they could be.
+
+With the [12.8 release](/releases/2020/02/22/gitlab-12-8-released/), to ease navigating through logs, we added [Elastic log Stack](https://docs.gitlab.com/ee/development/elasticsearch.html) as our log aggregation tool and [Log Explorer](/releases/2020/02/22/gitlab-12-8-released/#explore-aggregated-logs) so you can interact with all your logs in one place.
+
+But before we look at the logging capabilities, let’s take a step back and look at the big picture.
+
+##  Why monitoring matters
+
+At GitLab, we aim to provide users with a complete [DevSecOps platform](/solutions/dev-sec-ops/), delivered as a single application. To do so, we have divided the DevSecOps lifecycle into [ten different stages](/stages-devops-lifecycle/). The final Ops stage of the [DevOps](/topics/devops/) loop, [Monitor](/direction/monitor/), should occur right after the production environment is configured and the application deployed. This is a critical stage that should not be ignored.
+
+In fact, it’s commonly believed in the DevOps world that no developer should ship code into production without monitoring, as it will help ensure an application behaves as expected. If something isn’t right, you will be alerted, (hopefully before your users start to complain). If you are thinking about ignoring monitoring, always remember _customers_ are the most expensive monitoring solution you can have.
+
+### Chasing Observability
+
+Observability is the ability to infer internal states of a system based on the system’s external outputs. Monitoring, on the other hand is the activity of observing the state of a system over time. To achieve observability, your system’s telemetries, including metrics, traces, and logs should all be available to enable proactive introspection and enable greater operational visibility. We believe that DevOps practitioners should have observability as a goal.
+
+GitLab’s vision for the Monitor category is to build a consolidated and integrated observability tool which will, over time, displace today's front-runner in modern observability. In pursuit of this vision and to focus our efforts, we are building our solutions with a cloud native first principle to solve the cloud native problem by selecting the open source products which are cloud native compatible. And, in fact, as part of GitLab’s [New Year’s gift for 2020](/blog/2019/12/16/observability/) we're moving a big portion of the observability features – custom metrics, logging, tracing and alerting – from our proprietary codebase to the open source codebase this year.
+
+### Metrics & Traces
+
+Today, if you use GitLab to deploy your application into a Kubernetes cluster, with a push of a button you can deploy monitoring (via a Prometheus instance) into that cluster. [Prometheus](https://prometheus.io/) will automatically start collecting key metrics from your deployed application (such as latency, error rate, and throughput), and send it directly into GitLab UI. In addition to the out-of-the-box metrics and dashboard, it is possible to customize Prometheus directly from the GitLab UI (using PromQL) to collect any metric you desire and present it on a dashboard. You can set up a threshold, create an alert on it, and open an issue as a part of an incident management solution, all without leaving the GitLab UI.
+
+As a developer, when there is an issue - you want to drill down to the exact function or micro service that is causing the trouble. GitLab uses [Jaeger](https://www.jaegertracing.io/), an end-to-end distributed tracing system for microservices-based distributed systems.
+
+## Get started with logs
+
+Before the 12.8 release, existing Monitor stage users already had the ability to view pod logs directly from within the GitLab UI. However, this was done only through the available Kubernetes APIs. Viewing logs with the Kubernetes APIs is limited to allowing a log-tailing experience on a specific pod from multiple environments only.
+
+With the 12.8 release any user can deploy Elastic stack - a specific flavor of Elasticsearch alongside a component called [Filebeat](https://www.elastic.co/beats/filebeat) - to a Kubernetes cluster with the push of a button, (similar to the way we deploy Prometheus). Once deployed, it automatically starts collecting all logs that are coming from the cluster and applications across the available environments (production, staging, testing, etc.) and they will be surfaced in the GitLab UI. In addition users can also navigate directly from the metric chart to the log explorer while preserving the context.
+
+This is extremely critical when triaging an incident or validating the status of your service. In the cloud-native world aggregation of logs for observability becomes critical as logs are distributed across multiple pods and services. Using our new solution you will be able to get an aggregated view of all logs across multiple services and infrastructures, go back in time, search through logs, and more.
+
+##  What's next
+
+I hope you found this overview useful. To get started, download GitLab and read its documentation for more in-depth coverage of the functionality. One of the fastest ways to experience GitLab features is to use the .com version — which is a hosted GitLab.
+
+If you would like to get in touch with the Monitoring team please comment and contribute to the linked [issues](https://gitlab.com/groups/gitlab-org/-/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=group%3A%3Aapm&label_name[]=Category%3ALogging) and [epics](https://gitlab.com/groups/gitlab-org/-/epics?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=group%3A%3Aapm&label_name[]=Category%3ALogging) on this page. Sharing your feedback directly on GitLab.com is the best way to contribute to our strategy and vision.
+
+If you're a GitLab user and have direct knowledge of your logging usage, we'd especially love to hear your use case(s).
+
+Watch my entire YouTube video on logging:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/hWclZHA7Dgw" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->

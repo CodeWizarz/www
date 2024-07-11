@@ -1,0 +1,49 @@
+---
+title: "Modern C and C++: How Conan integration works in GitLab"
+author: Jordi Mon and Steve Abrams
+author_gitlab: jordi_mon
+author_twitter: mordodemaru
+categories: engineering
+image_title: '/images/default-blog-image.png'
+description: "Conan is a leading C and C++ package manager and it is now available in GitLab. Store and share packages easily with your teams or publicly."
+tags: features, integrations, open source, workflow
+postType: product, Product Marketing
+guest: true
+---
+
+As a single application for all the software development and delivery lifecycle, GitLab strives to support all the different software workflows and pipelines. Regardless of how complex this cycle might be (I’m looking at you C++), what we want to do is soothe these pains for C and C++ GitLab users. Following up on this metaphor, as doctors we would like to listen to the patient first: It all started with our community explaining their symptoms and chipping in the first ideas [here](https://gitlab.com/gitlab-org/gitlab-foss/issues/54747). This became even more relevant for GitLab when clients in C++ reliant industries like finance, robotics or embedded software added their interest to supporting package management for C++.
+
+### Conan is now available on GitLab
+
+The C and C++ ecosystems have a ton of legacy tooling. It is what it is: they’ve been around for a long time and the community is, in a way, very DIY-driven. For example, many C++ libraries are advertised as “Zero deps inside.” This badge is intended as a sign of quality, and is even a bit of a status symbol for the devs and maintainers. That's fine for C/C++ developer but what about the users of such libs? Regardless of the actual quality of the lib’s code, if you wanted to use any of them, you’d better have a local, updated copy of them in a Git submodule. This is especially relevant for head-only monsters like Boost, the most popular set of libs in C++. In other words, in order to make use of them (that’s why they were created in the first place, I guess), you basically have to download the [source code](/stages-devops-lifecycle/source-code-management/), build it yourself (good luck with that), compile it and include the resulting binary in your project. This process can be time consuming and, if build processes are not well documented or supported, it can be exasperating. All of this can become a real nightmare if transitive dependencies are present, or if different [version control systems](/topics/version-control/) have been used. It's also tricky when deciding upon static or dynamic binaries, static or dynamic linking, single or multi-threaded, 32-bit or 64-bit…
+
+### How to build C and C++ packages in GitLab the Conan way
+
+The GitLab Conan integration allows Conan users to set GitLab as the remote registry for their packages. Users will be able to set the remote and upload and install packages from GitLab’s registry. Think of it this way: you still use the same CLI to work with your Conan packages, but GitLab is on the receiving end. In doing so, GitLab creates the unique opportunity to have the code and package generated from the code living in the same place, freeing users from having to manage multiple services to store packages and code separately and still have them working together. This allows users to share private packages within an organization that is already using GitLab, publish public packages for general or open source use, and will open up many possibilities in utilizing GitLab’s CI pipelines to build and consume these packages automatically.
+
+Check out a full demo:
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/2VVmrKNpC_0" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+ or a speedrun of Conan performed by the team in charge of the integration:
+
+ <!-- blank line -->
+ <figure class="video_container">
+   <iframe src="https://www.youtube.com/embed/7NYgJWg-w5w" frameborder="0" allowfullscreen="true"> </iframe>
+ </figure>
+ <!-- blank line -->
+
+If you need more help you can always refer to the [Conan docs](https://docs.conan.io/en/latest/).
+
+### The future of C and C++ in GitLab: Game development workflows!
+
+What’s coming next? In tradition with GitLab’s value of iteration, the initial release of Conan is a bare-bones API that allows you to publish and consume packages within GitLab. Next up will be a UI that displays much of the commonly referenced metadata for a given package, pre-written CI templates for automatic package publishing and consuming, less strict package naming conventions with remotes scoped to the group and project level within GitLab, and the list goes on.
+
+* [Conan Repository User Interface](https://gitlab.com/gitlab-org/gitlab/issues/33892)
+* [Project and Group level support for Conan Repository](https://gitlab.com/gitlab-org/gitlab/issues/11679)
+
+If you are interested in package management at large, find a list of publicly available issues about the topic [here](https://gitlab.com/gitlab-org/gitlab/issues?label_name=Package+Repositories). Also, please note that if game development is your interest, large file support, partial clone and many other features that make game development possible with Git, will soon be available in GitLab. All the heavy lifting required for those massive binaries, engines, and animations will feel like feathers when we release those features. Stay tuned to know more about it in our newsletter.
+

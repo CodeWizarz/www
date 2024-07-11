@@ -1,0 +1,188 @@
+---
+title: "American Fuzzy Lop on GitLab: Automating instrumented fuzzing using pipelines"
+author: Luka Trbojevic
+author_gitlab: ltrbojevic
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/aerial-shot-birds-eye-view.jpg'
+description: "An example of how to automate instrumented fuzzing with American Fuzzy Lop using pipelines."
+tags: inside GitLab, security
+twitter_text: "Incorporate fuzzing into your workflows"
+postType: content marketing
+ee_cta: false
+---
+
+This year at [BSides Kansas City](https://2019.bsideskc.org/), many of my conversations were about fuzzing and integrating security into the [DevOps process](/topics/devops/). Fuzzing has been around for a very long time. Back in 2006, I wrote my first (very simple) fuzzer to mutate .zip files and pass them to anti-virus programs; even at that time, the case for fuzzing had been made many years prior. Today, [American Fuzzy Lop (AFL)](http://lcamtuf.coredump.cx/afl/), written by Michal Zalewski, stands as one of the best fuzzers available, and is one of my favorite tools.
+
+Anecdotally, I've been seeing good arguments made for the adoption of fuzzing as part of the software security lifecycle more frequently than ever before. At BSides Kansas City, I listened to an interesting conversation at the speakers' dinner where the case was made that fuzzing is reduced to a niche, nice-to-have, wishlist item incorporated into workflows by exploit developers and only the largest of enterprises. I largely agree, but I like to think of why that's the case.
+
+My general sense is that instrumented fuzzing, as a function of the software lifecycle, is still fraught with too much friction for widespread adoption. For something to take hold at scale, be useful to a large number of people, and have its benefits passed down to consumers, it needs to be quick and simple. Right now, fuzzing as something an **organization** does as part of its standard practice is not quick or simple. So, even if you have someone well-versed in fuzzing and exploit development, chances are fuzzing won’t survive as an organizational function.
+
+In the hope that we can move the conversation forward, I wanted to give back something actionable – yet simple – to help folks incorporate fuzzing into their workflows. I’ve always found practical, hands-on examples to be the most helpful, so I put together a baseline sample showing how fuzzing with AFL can be automated as part of a pipeline.
+
+Two important notes:
+
+* This blog isn’t an introduction to instrumented fuzzing and assumes you have a good understanding of it already, including what a test harness is and how to write one.
+* [Fuzzing as a feature of GitLab is in the works](https://gitlab.com/gitlab-org/gitlab-ee/issues/10852), but it's not here just yet. Also, the [first iteration](https://gitlab.com/gitlab-org/gitlab-ee/issues/8453) doesn't seem to include instrumented fuzzing.
+
+You can find all code, including the Dockerfile, and detailed setup/modification instructions in the [AFL-GitLab repository](https://gitlab.com/ltrbojevic/afl-gitlab). **Please familiarize yourself with the background in the repository first!**
+
+## Docker image setup
+
+I prefer to work with Docker images, so I’ve used the [Docker executor](https://docs.gitlab.com/runner/executors/docker.html). AFL, your code, the test harness (if applicable), and the controlling Python script (more on that below) are in your Docker image.
+
+For this example, we’re using Ubuntu 16.04. You can use any operating system you prefer. I run Ubuntu 16.04 for my fuzzing jobs, which is why I’ve used it here:
+
+`FROM ubuntu:16.04`
+
+I copy a local `fuzzing/` folder with all of my files to `/usr/src/` in the Docker image. This can be changed to whatever works for you:
+
+`COPY fuzzing/ /usr/src/`
+
+I set the user as `root` because I just want it to work. Customize this per your operating system, threat model, and risk tolerance:
+
+`USER root`
+
+Then just install whatever packages you need:
+
+```
+RUN apt-get update && apt-get install -y \
+  sudo \
+  software-properties-common \
+  build-essential
+```
+
+Note that this image is optimized for compatibility and efficiency only.
+
+## Our sample target program
+
+For this example, we’re going to be fuzzing [vulnerable.c](https://gitlab.com/ltrbojevic/afl-gitlab/blob/master/fuzzing/afl-gitlab/vulnerable.c). It features a total absence of security and C best practice and is designed to intentionally generate at least one unique crash within the first few seconds of fuzzing. It’s a quick and simple way to verify everything else is working.
+
+## Setting up AFL
+
+Instrumenting your program is done within the `.gitlab-ci.yml` file as part of the `before_script` parameter:
+
+```
+run-afl:
+stage: run-afl
+before_script:
+- cd /usr/src/afl-2.52b
+- make
+- make install
+- cd /usr/src/afl-gitlab
+- CC=/usr/src/afl-2.52b/afl-gcc AFL_HARDEN=1 make
+- echo core >/proc/sys/kernel/core_pattern
+- echo $CI_PROJECT_DIR
+```
+
+I include `echo $CI_PROJECT_DIR` as a troubleshooting measure (more below).
+
+### A note on performance
+
+This specific example uses GitLab.com [Shared Runners](https://docs.gitlab.com/ee/ci/runners/#shared-runners) for demonstration’s sake. The performance limitations of Shared Runners in the context of fuzzing make it infeasible to run instrumented fuzzing jobs in a performant way. Instead, you could consider using a self-hosted runner.
+
+## Initializing AFL
+
+The problem with initiating AFL in `.gitlab-ci.yml` is AFL will continue to run until interrupted, so it must be stopped programmatically and that stop must be configurable to only run after a defined amount of time.
+
+To solve this problem, we can have the pipeline run a script to manage the execution and handling of AFL. I prefer to use Python, but you can use any language you like. In Python, we can use the `time.sleep()` function. The Python script will initiate AFL and `sleep()` will be used to run AFL for whatever length of time you set. Afterwards, AFL will be stopped.
+
+In `.gitlab.ci-yml`, we run this script **after** AFL is installed and our program is instrumented. We do this by doing the instrumentation using the `before_script` parameter and running the Python script using the `script` parameter:
+
+```
+script:
+- python3 /usr/src/fuzzing/afl-gitlab/afl-gitlab.py
+```
+
+`afl-gitlab.py` is where the magic happens and it serves as the control center where the handling and synchronization of the different events that need to happen are managed and customized.
+
+To start AFL, we use `subprocess.Popen()` to run the command:
+
+```subprocess.Popen(["afl-fuzz", "-i", "inputs", "-o", "outputs", "./vulnerable"])```
+
+To control exactly how long AFL will run, we use `time.sleep()` -- in this example, it’s 30 seconds:
+
+```
+time.sleep(30)
+```
+
+After that, we need to stop AFL in a way that doesn’t cause the pipeline to fail. If you exit `afl-python.py` itself like you might do locally, the job will fail. To get around this, we use `subprocess.Popen()` to stop AFL:
+
+```
+subprocess.Popen(["pkill", "-f", "afl"])
+```
+
+Lastly, we exit the `afl-python.py` in a way that doesn’t cause the job to fail:
+
+```
+os._exit(0)
+```
+
+It’s important your script doesn’t cause the job to fail because everything else that needs to happen, won’t:
+
+![job fail message](/images/blogimages/jobfail.png){: .shadow.medium.center}
+
+Just in case the job fails and you don’t want your entire pipeline to fail, I set `allow_failure: true` in the `.gitlab-ci.yml` file.
+
+## Collecting AFL output as a pipeline artifact
+
+Running AFL has no value if the output can’t be collected in a workflow-friendly way, so we’ll use [pipeline artifacts](https://docs.gitlab.com/ee/ci/pipelines/job_artifacts.html). The entire artifact collection process can be defined in the `.gitlab-ci-yml` file.
+
+First, using the `after_scripts` parameter, which will run after `afl-gitlab.py` exits, we copy the `outputs` folder to a location in `$CI_PROJECT_DIR` (thus the `echo $CI_PROJECT_DIR done earlier`). This is important because you may run into [artifact not found issues](https://stackoverflow.com/questions/47490688/gitlab-ci-artifacts-not-found):
+
+```
+after_script:
+  - cp -a /usr/src/afl-gitlab/outputs $CI_PROJECT_DIR
+```
+Then we simply collect the `outputs` folder as an artifact:
+
+```
+artifacts:
+paths:
+- $CI_PROJECT_DIR/outputs
+```
+
+Your output will then be viewable like any other pipeline artifact:
+
+![output artifact](/images/blogimages/output-artifact.png){: .shadow.medium.center}
+
+## Creating issues for every unique crash
+
+To make this a truly automated workflow, you could use the [GitLab API](https://docs.gitlab.com/ee/api/) to create an issue for every unique crash. At this time, I haven’t had the time to invest heavily in this, but I’ll have to circle back when I do.
+
+Having played with the artifacts API for only a few brief moments, the path of least resistance seems to be adding the logic to `afl-gitlab.py` **prior** to the artifact collection.
+
+For a specific example on how to use `python-gitlab` to create issues, check out [an issue generator script I wrote for the HIPAA Audit Protocol](https://gitlab.com/ltrbojevic/hipaa-audit-protocol-issue-generator).
+
+## Distributed fuzzing and multi-system parallelization
+
+The basic principles of multi-system parallelization apply whether you're running distributed fuzzing jobs manually or automating them on GitLab. While I haven't had a chance to port my personal workflows to GitLab yet, a quick glance tells me it’s likely possible.
+
+Using `afl-gitlab.py`, you could run a separate script to handle the deployment, configuration, and de-provisioning of -S mode instances. My initial preference would be to run a second Python script – let's call it `afl-gitlab-s.py`  that would use `python-terraform` to provision and deprovision the infrastructure. Fabric can be used to configure the instances, start AFL, and so on.
+
+There would have to be some thought put into the timing and orchestration between the two scripts. It's also important to note: your synchronization scripts have to be timed so as not to de-provision -S mode instances before a synchronization event occurs; especially if you opt for staged synchronization.
+
+Lists make the most sense to me, so in other words:
+1. A Runner job runs `afl-gitlab.py`
+2. `afl-gitlab.py` starts a second script, `afl-gitlab-s.py`
+3. `afl-gitlab-s.py` does a short sleep to allow `afl-gitlab.py` to run the -M mode instance
+3. `afl-gitlab-s.py` uses `python-terraform` to provision -S mode instances
+4. `afl-gitlab-s.py` then uses Fabric to configure the -S mode instances (e.g., set up synchronization scripts) and start AFL
+5. `afl-gitlab-s.py` sleeps for 1:55 hrs
+6. `afl-gitlab-s.py` de-provisions the -S mode instances
+7. `afl-gitlab.py` ends the -M mode instance fuzzing
+
+Note that I'm assuming you've modified your synchronization scripts to transfer `crashes` and `hangs` to the -M mode instance. Please remember that the out-of-the-box synchronization scripts transfer `queue`, so unless you've modified your script to transfer other folder contents as well, you may lose findings when the -S mode instances are de-provisioned.
+
+## Automating advanced output triage and analysis
+
+Many triage and initial analysis workflows can be, and are, automated. My personal workflow includes a combination AFL's crash explorer, pwndbg, and radare2. I’ve condensed most of my initial triage to a single Python tool. The tool could be run as a Runner job, either on the Runner instance itself or, as above with the -S mode instances, offloaded to another box with the results returned to the Runner instance. Given that, and regardless of the language of your toolset, automating output triage and initial analysis seems to be doable with some tinkering.
+
+Much like automatically creating an issue for every unique crash found, I’ve not yet had the time to focus on this and give it a go, but I’ll circle back and add it when I can.
+
+## Some final thoughts
+
+There's a whole bunch we could automate and make more accessible in the fuzzing space. In the interest of reaching and benefiting the largest number of people, I’d love to see GitLab have mature fuzzing features that are helpful to developers and security folk alike. To help move that forward, I think community involvement in key. If you have the inclination please contribute to our [direction](https://gitlab.com/gitlab-org/gitlab-ee/issues/10852). And if, instead, you want to take this example and expand it outside of the GitLab ecosystem, please do and tell us how it went!
+
+Photo by [Tom Fisk](https://www.pexels.com/@tomfisk?utm_content=attributionCopyText&utm_medium=referral&utm_source=pexels) on [Pexels](https://www.pexels.com)
+{: .note}

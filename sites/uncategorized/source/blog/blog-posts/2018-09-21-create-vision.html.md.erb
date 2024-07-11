@@ -1,0 +1,69 @@
+---
+title: "GitLab's 2019 product vision for DevOps Create"
+author: James Ramsay
+author_gitlab: jramsay
+author_twitter: jamesramsay
+categories: company
+image_title: '/images/blogimages/webide/web-ide-cover.jpg'
+description: "Take an early look at where collaboration, merge requests, and the Web IDE are heading in 2019."
+tags: inside GitLab, features, collaboration, workflow, DevOps
+twitter_text: 'The 2019 product vision for @gitlab DevOps Create'
+featured: yes
+---
+
+GitLab is a single application, so for convenience we organize by [DevOps stages](/handbook/product/categories/). The Create stage of the DevOps lifecycle is about creating code, and includes Git repositories, merge requests, code review, the Web IDE, wikis, and snippets.
+
+Managing source code is at the heart of GitLab – it's in our name and it powers your applications. This year we've shipped many important improvements to make it easier to go from idea to production. The [Web IDE](/releases/2018/06/22/gitlab-11-0-released/#cicd-pipeline-status-and-job-traces-in-the-web-ide) makes it easy for anyone to contribute, and faster to work with merge requests. [Squash and Merge](/releases/2018/06/22/gitlab-11-0-released/#squash-and-merge-in-gitlab-core-and-gitlabcom-free), and [Rebase and Fast-forward Merge](/releases/2018/01/22/gitlab-10-4-released/#rebase-and-fast-forward-in-ce) are available in GitLab CE. [File locking](/releases/2018/02/22/gitlab-10-5-released/#git-lfs-2-locking-support) is integrated with Git LFS. [Maintainers can push to forks](/releases/2018/03/22/gitlab-10-6-released/#maintainers-can-push-to-mr-from-fork). And there is much more to come this year, like [batch comments](https://gitlab.com/gitlab-org/gitlab-ee/issues/1984) for merge requests, and [suggested approvers](https://gitlab.com/gitlab-org/gitlab-ee/issues/5382) based on code owners.
+
+Here are some of the things we're thinking about for 2019:
+
+- [Collaboration](#collaboration)
+- [Code review and approvals](#code-review-and-approvals)
+- [Web IDE](#web-ide)
+- [Summary](#summing-up)
+
+As our plans are always in draft, we'd love to hear your thoughts, and any suggestions.
+
+### Collaboration
+
+Git's distributed design made new collaborative workflows possible, and forking has made collaboration even easier. Forking is the workflow of choice for open source, and for the same reasons it is also great for private organizations. We want to remove the barriers to collaboration and [inner sourcing](/topics/version-control/what-is-innersource/), but also make it easier to collaborate with external open source projects too.
+
+The distributed capabilities of Git aren't limited to a single server. Open source software is used extensively in commercial applications of all kinds, but collaboration between open source projects and commercial is difficult. Features and bug fixes to open source projects can sit in stale forks in private Git repositories for lack of tools and process. [Distributed merge requests](https://gitlab.com/groups/gitlab-org/-/epics/260) will make it easy publish a patch from a private GitLab instance to a public upstream server, be it GitLab, GitHub or Bitbucket. Teams will be able to work on a patch privately following internal processes, but instead of merging the reviewed and tested change privately, it can be published to a new public merge request upstream. Contributing fixes and features upstream isn't only good for the community, but it also makes commercial sense by eliminating the costly task of keeping a stale, private fork up to date. We want to make it easy for everyone to contribute to open source software, as individuals and as companies!
+
+![Mockup of distributed merge request widget](/images/blogimages/merge-request-distributed.png){: .medium.center.shadow}
+
+We'll also be improving simpler forking workflows too with important quality-of-life improvements. To make it easy to see how far behind or diverged your fork is, we will make it possible to [compare branches](https://gitlab.com/gitlab-org/gitlab-ce/issues/19788) across forks and [cherry pick](https://gitlab.com/gitlab-org/gitlab-ce/issues/43568) changes directly from the upstream project into your fork. Forks of private projects will also [inherit permissions](https://gitlab.com/gitlab-org/gitlab-ce/issues/8935) from the upstream project, making it possible for upstream maintainers to rebase stale merge requests and help contributors. This will allow teams to adopt forking workflows without needing to make every project public to the world or to the organization.
+
+### Code review and approvals
+
+Merge requests are key to the workflows that allow teams to iterate rapidly and ship amazing products quickly, by bringing together all the important information in a single place. Critical to this workflow is the code review, and we want GitLab to be the best tool for doing code reviews.
+
+Automatic code quality and linting tools can prevent code reviews becoming simple code style reviews, but without the inline feedback a reviewer can't be sure which problems have been automatically detected. A new [API for line by line code quality feedback](https://gitlab.com/gitlab-org/gitlab-ce/issues/50299) will allow output from tools to be rendered natively in GitLab in the merge request diff. Merge request authors will have a single source of truth, and code reviewers can confidently focus on important structural feedback.
+
+Code review feedback cannot truly be resolved and the merge request approved until the reviewer checks the feedback was correctly addressed. This step prevents feedback from being misunderstood or overlooked, but it is currently difficult and time consuming. We are going to streamline this important step by allowing you to [review changes since code review](https://gitlab.com/groups/gitlab-org/-/epics/314) and making [merge request diffs smarter](https://gitlab.com/groups/gitlab-org/-/epics/340). When the change is straightforward, we're going to make it possible to simply [propose a change](https://gitlab.com/gitlab-org/gitlab-ce/issues/18008) as easily as leaving a comment that can be applied with a single click – no more copying and pasting `sed` one liners! And we're going to make it easier to [view and add comments to commits](https://gitlab.com/gitlab-org/gitlab-ee/issues/1769) at any time.
+
+In the real world, complex features often require large, complex merge requests. We will support these situations better with [commit by commit code review](https://gitlab.com/groups/gitlab-org/-/epics/285), autosquashing [`fixup!`](https://gitlab.com/gitlab-org/gitlab-ee/issues/212) and [`squash!`](https://gitlab.com/gitlab-org/gitlab-ce/issues/50400) commits, and allowing you to [preview](https://gitlab.com/gitlab-org/gitlab-ee/issues/7259) the resultant squashed commits.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+Complex real-world changes also need good commit messages, but commit messages are too easily neglected. Without good commit messages, debugging a regression, or modifying an important existing function is painful and error prone. To help teams adopt best practice [commit hygiene](/blog/2018/06/07/keeping-git-commit-history-clean/), we will make [commit messages part of code review](https://gitlab.com/groups/gitlab-org/-/epics/286) by allowing comments on commit messages, improving the [visibility of commit messages](https://gitlab.com/gitlab-org/gitlab-ce/issues/49803), and making [squash and merge smarter](https://gitlab.com/gitlab-org/gitlab-ce/issues/47149). GitLab should celebrate great commit messages and amplify their benefits to make it easier for teams to adopt best practices.
+
+### Web IDE
+
+In 2018 we're building a strong foundation for a cloud development environment with [client side evaluation](https://gitlab.com/gitlab-org/gitlab-ce/issues/47268) and [server side evaluation](https://gitlab.com/gitlab-org/gitlab-ee/issues/4013) powered live previews, and server side evaluation will also enable a [web terminal](https://gitlab.com/gitlab-org/gitlab-ee/issues/5426) to test your changes in real time. IDEs are also very personal and should support customization, to make it easy to move between your local IDE and GitLab IDE. Please share your feedback, and consider contributing – I'd love to see support for [dark syntax themes](https://gitlab.com/gitlab-org/gitlab-ce/issues/46334) and [vim keybindings](https://gitlab.com/gitlab-org/gitlab-ce/issues/47930)!
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/sSWu6TyubTE" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+The Web IDE makes it easier than ever to resolve code review feedback, reducing the need to switch context in your local development environment, but we can make it even better. Addressing a comprehensive code review still requires switching backwards and forwards between the merge request and the Web IDE. [Line by line code quality feedback](https://gitlab.com/gitlab-org/gitlab-ce/issues/50299) available in the merge request diff will also be available in the Web IDE as will [live linting feedback](https://gitlab.com/groups/gitlab-org/-/epics/70) powered by server side evaluation so to help prevent new code styling problems being created while resolving feedback.
+
+We are also considering integrating [merge request discussions](https://gitlab.com/groups/gitlab-org/-/epics/72) so that code review comments can be addressed without needing to continually switch between tabs. We don't think the Web IDE should replace the merge request, nor should every feature be duplicated into it, but do think the Web IDE can further simplify the process for resolving code review feedback so teams can iterate faster.
+
+### Summing up
+
+Writing, reviewing, and merging code is where the rubber hits the road when taking your app from idea to production, and in 2019 we want it to be better than ever before!
+
+The [GitLab product vision](/direction/) is public so you can read up on what we're thinking about at any time, about every part of the product. Please join the conversation and share your feedback on these ideas, and offer ideas of your own! Your contributions – idea or code – are welcomed and appreciated so that we can all work together to make GitLab the best application to build and ship your next great idea.

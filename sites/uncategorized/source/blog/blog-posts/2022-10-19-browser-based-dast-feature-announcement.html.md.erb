@@ -1,0 +1,120 @@
+---
+title: "Introducing browser-based DAST and integrated passive checks"
+author: Isaac Dawson 
+author_gitlab: idawson
+categories: product
+image_title: "/images/blogimages/browser-based-dast-feature-announcement/vek-labs-e8ofKlNHdsg-unsplash.jpg"
+description: "We're working hard on reducing noise. Here's what you need to know about the status of our browser-based DAST offering today."
+twitter_text: "Browser-based DAST passive checks are now available in @gitlab"
+tags: testing, features, code review
+featured: no
+---
+
+The [DAST](/direction/secure/dynamic-analysis/dast/) and [Vulnerability Research](/handbook/engineering/development/sec/secure/vulnerability-research/) teams at GitLab are excited to announce we have fully [integrated passive checks](/releases/2022/08/22/gitlab-15-3-released/#browser-based-dast-passive-check-milestone) into our new [browser-based DAST analyzer](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html). Passive checks work by monitoring the network traffic to target applications while the web site is automatically crawled. This allows us to identify weaknesses that may exist without sending potentially disruptive network requests. This continues our effort to fully switch over to our browser-based analyzer for DAST in the coming months. If you are interested in using our new DAST analyzer please see our [documentation on how to configure a browser-based DAST scan](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html).
+
+## History of DAST at GitLab
+
+DAST was [officially launched](/releases/2018/01/22/gitlab-10-4-released/) as a part of the GitLab 10.4 release in January 2018. By utilizing the powerful OWASP [Zed Attack Proxy](https://www.zaproxy.org/) we were able to give our customers the ability to dynamically scan
+their web applications. From that initial minimal viable product, we have grown to the point where we are now running over a million scans a month.
+
+Scanning web applications in the CI/CD context comes with challenges. Unlike [SAST](/direction/secure/static-analysis/sast/), which is relatively fast, dynamically scanning an application can take a significant amount of time. DAST is resource intensive as it needs to process each request and response to the target application. To ensure smooth operations for the majority of our customers we have to run under the assumption that our memory and CPU footprints should be as small as possible. Finally, and most likely the biggest pain point, is the disconnect that often occurs when trying to visualize or understand how a web application should be analyzed when one can not physically see any of the interactions between the scanner and the target application.
+
+ZAP was originally built as a desktop application, meaning auditors could use it to see the target application while conducting their testing. Only by utilizing ZAP's scripting API could we make DAST scans viable in a CI/CD context. This surfaced some challenges: what is easy to configure in the UI may or may not be straightforward to adjust from a configuration file or a command line option. 
+
+When reviewing our support tickets however, a very clear picture began to surface. Users were having the most problem with configuring authentication for their applications. This makes sense, as it is where the user interacts with the scanner the most. Modern applications almost require a browser to authenticate, due to relying on browser features like local or session storage. These features are commonly used for handling JSON Web Token (JWT) based authentication and authorization. 
+
+It should be noted that ZAP does have a browser based crawler extension, called AJAX Spider. This extension uses [Crawljax](https://github.com/crawljax/crawljax). GitLab provides this feature by supplying the correct CI/CD variable, but it is no longer recommended. AJAX Spider is however, only an extension, and does not represent a tight integration between the browser and the DAST tool. 
+
+## A path forward
+
+We needed a system where we could have full control over a browser to allow us to instrument interactions between a website and the DAST tool. A DAST tool which does not tightly integrate with a browser will be limited in its ability to fully interact with today's demanding web applications. Just some of the challenges of this are:
+
+- Single Page Applications (SPAs)
+- Complex, multi-step sign in features
+- Complex front-end frameworks  
+- Utilization of built-in browser features (e.g. usage of localStorage or sessionStorage) 
+
+A new DAST tool based completely off instrumenting a browser and written in Go would give GitLab a lot more control going forward. What started as a side project during nights and weekends began to show some promise. The Vulnerability Research and DAST teams worked together to assess the viability of building out this DAST analyzer. To allow us to take advantage of new features without having to implement the entire engine, we opted to continue to use ZAP as the proxy. This means our analyzer is forwarding all the browser traffic through ZAP, but processing logic of crawling and passive checks are now done in our engine. While we've been relatively quiet on our progress, we've been incrementally rolling out new features with almost every release. The end goal is to completely replace ZAP with our own engine.
+
+## Where we are today
+
+Of course the biggest announcement is that we have fully switched over to using our own vulnerability check system for passive checks. These checks replace ZAP's "passive" checks. The Vulnerability Research team invested a lot of time looking over how each ZAP plugin worked and determined whether it was worth implementing, or if it should be implemented differently. Alert fatigue is a real concern we share with our customers. By reducing the noise (false positives) in our DAST offering, we hope to reduce the chance of our customers ignoring real findings. As such, our goal is to significantly reduce the noise that is usually associated with DAST scan results, and this is achieved through three different methods:
+
+1. Not implementing certain checks
+2. Reducing false positives (incorrect findings) 
+3. Aggregating true positives (real findings)
+
+Point one is worth expanding upon. DAST vulnerabilities are unique in that in some cases the fix for a vulnerability is reliant on the browser or user-agent being modified, and not  the target application. Browsers increase their security directly or have it increased by deprecating features that were used in attacks. Browsers deciding to disable Flash is a good example of this – what was a vulnerability yesterday may no longer be a vulnerability today. 
+
+ZAP's check for [Charset mis-match](https://www.zaproxy.org/docs/alerts/90011/) is another case in point. After [researching](https://gitlab.com/gitlab-org/gitlab/-/issues/331218) what was possible in 2022, it turns out this is no longer an issue worth reporting. Other DAST tools report similar issues that are no longer realistically exploitable or worth reporting, so this is not just an issue with ZAP. 
+
+Reducing false positives is another major initiative, and one that led us to create a rather unique system for creating new vulnerability checks. Traditionally, DAST tools use a plugin architecture of hardcoded vulnerability checks. While quick to implement, they can have the downside of being difficult to understand or error prone. They are also harder to implement in a standardized way. At GitLab we opted to use a configuration-file-based check system, much like today's SAST tools. 
+
+Finally, aggregating true positives allows us to merge similar issues into a single finding. These types of issues are usually fixed by a single configuration change, such as adding a security header.
+
+Our passive checks are almost entirely written in YAML, using a custom specification that allows us to define a check as text. Where this is not feasible, reusable components are written that can be referenced by various checks. Below is an example check that looks for the `X-Content-Type-Options` header in HTTP response headers and reports if it is missing the `nosniff` value.
+
+```yaml
+---
+check:
+  id: "693.1"
+  title: "Missing X-Content-Type-Options: nosniff"
+  description: |
+    The `X-Content-Type-Options` header with the value `nosniff` ensures that user agents do not attempt to
+    guess the format of the data being received. User Agents such as browsers, commonly attempt to guess
+    what the resource type being requested is, through a process called MIME type sniffing.
+
+    Without this header being sent, the browser may misinterpret the data, leading to MIME confusion attacks. 
+    If an attacker were able to upload files that are accessible by using a browser, they could upload files 
+    that could be interpreted as HTML and execute Cross-Site Scripting (XSS) attacks.
+  remediation: |
+    We recommend that the header and value of `X-Content-Type-Options: nosniff` be set server wide.
+    This ensures any resources that are mistakenly missing a `Content-Type` value are not
+    misinterpreted.
+links:
+    - name: "OWASP"
+      url: "https://owasp.org/www-project-secure-headers/#x-content-type-options"
+    - name: "CWE"
+      url: "https://cwe.mitre.org/data/definitions/693.html"
+    - name: "Mozilla Blog on MIME Confusion attacks"
+      url: "https://blog.mozilla.org/security/2016/08/26/mitigating-mime-confusion-attacks-in-firefox/"
+    - name: "Mozilla MDN on X-Content-Type-Options"
+      url: "https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Content-Type-Options"
+  identifiers:
+    cwe: "693"
+    zap_ids: ["10021"]
+  aggregate: true
+  passive_check:
+    severity: "Low"
+    match:
+      type: "and-condition"
+      conditions:
+        - type: "requirement"
+          requirement: "has_response_body"
+        - type: "not-condition"
+          condition:
+            type: "name_value_match"
+            location: "response_headers"
+            name_expression: "^(?i)x-content-type-options$"
+            value_expression: "nosniff"
+    templates:
+      summary: "The X-Content-Type-Options header is missing or does not contain nosniff"
+      unique_by: "{request_path_excluding_last_segment}missing-x-content-type-options"
+```
+
+By using this format, we can quickly add new checks that are standardized and re-usable.
+
+## Authentication improvements
+
+If you use authentication in DAST, you have already been using parts of our new browser-based DAST scanner. The authentication service was built with the understanding that authentication is hard. The more tools and resources a user has at their disposal to debug these issues, the easier it will be for them to get it working. A major component of this is the _authentication report_. It works by recording and taking screen shots of the entire login process: from loading the login page, submitting the username, submitting the password, clicking the submit button, and finally to the loading of resulting page. We also record all network traffic as there may be hints or clues as to any irregularities that may not be obvious from looking at a screen shot.
+
+## Where we are headed
+
+With the major milestone of passive checks being replaced, we are now working on implementing active checks. Active checks attempt to actually exploit or demonstrate exploitability. Traditionally, active checks find more critical or severe bugs in web applications. 
+
+Much like how we replaced ZAP's passive checks, we will iteratively replace each active check, one by one, after we have confirmed it works well as a replacement. Once this process is complete, we **will disable ZAP completely**, freeing up resources for our new browser-based DAST engine. We strongly recommend our customers [switch over to the latest browser-based DAST analyzer](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html#enable-browser-based-analyzer) to take advantage of these new features.
+
+
+Cover image by Vek Labs on [Unsplash](https://unsplash.com/@veklabs?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+  

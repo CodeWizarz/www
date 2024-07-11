@@ -1,0 +1,31 @@
+---
+title: "7 things I’ve learnt while shadowing an SRE"
+author: "Olena Horal-Koretska"
+author_gitlab: ohoral
+author_twitter: sharlatta
+categories: unfiltered
+image_title: "/images/blogimages/sre-shadow.jpg"
+description: What I learned while participating in the SRE shadow program. 
+twitter_text: "7 things I’ve learnt while shadowing an SRE at GitLab"
+---
+
+{::options parse_block_html="true" /}
+
+
+
+One of the benefits of being a part of the [Monitor:Health group](/handbook/engineering/development/ops/monitor/respond/) is that each team member is given the opportunity to shadow Site Reliability Engineers (SREs) for one week - allowing engineers to be involved in an SREs day-to-day activities. This is a good experience for our team because we are working on building Incident Management into GitLab. More specifically, shadowing an SRE gives team members a better understanding about what tools are typically used and why they are important. This understanding helps the team build better features in support of the Incident Management vision (Alert Management, Error Tracking, [Status Page](https://about.gitlab.com/blog/2020/04/29/how-we-built-status-page-mvc/)).
+
+At first, I wasn’t really excited about participating in the SRE shadow program. I only had a vague understanding of why it would interest or be beneficial to me. Though as it happened, shadowing an SRE turned out to be an invaluable experience. Seeing an SRE in action is fascinating and opens the door to a whole new world of site infrastructure. It is certainly worth exploring. Though for now, I wanted to share just a couple of revelations I saw during my week as an SRE shadow here at GitLab:
+
+1. Incidents = bugs in site infrastructure. The primary goal of the infrastructure team is to avoid having incidents and foresee any situation when an incident can occur. For instance, observing that resource usage is growing constantly for a specific service - infrastructure team plans service scaling rather than wait for a saturation caused incident to happen.
+2. Spikes in service activity or resource usage (that can be visible in visualization tools, like Grafana, Kibana) are normal and expected. An increase in user traffic results in an increase in error responses. Or another example: the user has a cronjob which causes a spike in a number of jobs and consequently a growth in `sidekiq` scheduling time.
+3. The infrastructure team is responsible for using resources wisely i.e. adding 50 CPUs to a VM running PostgreSQL will help certain use cases because there is an individual process per each client connection. On the other hand, it would not be effective to add more CPUs to VM running Redis as a means to improve performance, as Redis is single-threaded. That would not be a good use of money.
+4. [SRE-on-call](/handbook/on-call/#site-reliability-engineers-sres) can veto rolling out infrastructure or other changes if there are any ongoing incidents in order not to aggravate the situation.
+5. All systems are interconnected so an alert being raised on a specific service doesn’t mean that the issue belongs to that service. It actually means that it is the service that has failed as a result. To find the actual error an SRE needs to spend time tracking the logs, debugging, etc.
+6. Interestingly, most incidents are primarily reported by [Prometheus](https://docs.gitlab.com/ee/administration/monitoring/prometheus/) alerting or by internal teams and very rarely by customers.
+7. A GitLab SRE's job is not just fixing GitLab in times of crisis and responding to incidents. Their full-time job is supporting and developing the GitLab infrastructure. [SRE-on-call](/handbook/on-call/#site-reliability-engineers-sres) is dedicated to responding to incidents for a specific period of time.
+
+To wrap up, SRE shadowing experience turned out to be a very useful one and gave me a fresh perspective on things we’re building as Monitor:Health team and certainty that GitLab infrastructure is in reliable hands with the SREs.
+
+Cover image by [Tom Barrett](https://unsplash.com/@wistomsin) on [Unsplash](https://unsplash.com/photos/hvvRg72aXCw)
+{: .note}

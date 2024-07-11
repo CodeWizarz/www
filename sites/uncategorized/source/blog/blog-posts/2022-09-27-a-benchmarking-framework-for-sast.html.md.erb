@@ -1,0 +1,283 @@
+---
+title: "A Google Summer of Code project: creating a benchmarking framework for SAST"
+author: "Martynas Krupskis, Julian Thome, Isaac Dawson, Dinesh Bolkensteyn, Michael Henriksen, and Mark Art"
+author_twitter: "gitlab"
+categories: open source
+tags: collaboration, Google, open source 
+guest: true 
+featured: yes
+description: "Our 2022 Google Summer of Code project helped to create a benchmarking framework for SAST."
+twitter_text: "@gitlab's 2022 Google Summer of Code project helped to create a benchmarking framework for SAST."
+image_title: '/images/blogimages/benchmarking.png'
+related_posts:
+- "/blog/2021/12/21/rule-pack-synthesis/"
+- "/blog/2020/08/11/how-to-benchmark-security-tools/"
+- "/blog/2021/09/08/write-vulnerability-detection-rules/"
+---
+
+In summer 2022, the [Vulnerability Research team at GitLab](/handbook/engineering/development/sec/secure/vulnerability-research/) 
+launched the [Google Summer of Code (GSoC)](https://summerofcode.withgoogle.com/) project: 
+[A benchmarking framework for SAST](https://gitlab.com/gitlab-com/marketing/community-relations/contributor-program/gsoc-2022/-/issues/1).
+
+The goal of the project was to create a benchmarking framework, which would assess the
+impact and quality of a security analyzer or configuration change before it reaches the production environment.
+
+## Preliminaries 
+
+### GitLab SAST
+
+As a complete DevOps Platform, GitLab has a variety of integrated [static analysis (SAST) tools](/direction/secure/static-analysis/sast/) 
+for different languages and frameworks. These tools help developers find
+vulnerabilities as early as possible in the software development lifecycle.
+These tools are constantly being updated, either by upgrading the underlying
+security analyzers or by applying configuration changes.
+
+Since all the integrated SAST tools are very different in terms of
+implementation, and depend on different tech stacks, they are all
+wrapped in Docker images. The wrappers translate tool-native vulnerability
+reports to a [generic, common report format](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format) which is
+made available by means of the `gl-sast-report.json` artifact. This generic
+report is GitLab's common interface between analyzers and the GitLab Rails
+backend.
+
+Benchmarking is important to assess the efficacy of analyzers and helps to make
+data-driven decisions. For example, benchmarking is useful for QA testing
+(spotting regressions), for data-driven decision making, and for research by
+assessing the progression of the GitLab security feature performance over time.
+
+### Google Summer Of Code (GSoC)
+
+[Google Summer of Code (GSoC)](https://summerofcode.withgoogle.com/) 
+is a 10-week program that enlists contributors to work on open source projects
+in collaboration with open source organizations. For GSoC 2022, GitLab offered
+four projects to GSoC contributors. The contributors completed each of the
+projects with the guidance from GitLab team members who mentored them and
+provided regular feedback and assistance when needed.
+
+### Terms & Notation
+
+In this blog post, we use the terms/acronyms below to classify findings reported by security analyzers.
+
+| Acronym   | Meaning        | Description                                                        |
+|-------|----------------|--------------------------------------------------------------------|
+| _TP_  | True Positive  | Analyzer correctly identifies a vulnerability.                     |
+| _FP_  | False Positive | Analyzer misidentifies a vulnerability or reported a vulnerability where none exist. |
+| _TN_  | True Negative  | Analyzer correctly ignores a potential false positive.             |
+| _FN_  | False Negative | Analyzer does not report a known vulnerability.                    |
+
+For the figures in the blog post we use the following notation: processes are
+depicted as rounded boxes, whereas artifacts (e.g., files) are depicted as
+boxes; arrows denote an input/output (IO) relationship between the connected nodes.
+
+``` mermaid
+flowchart TB;
+subgraph legend[ Legend ]
+   proc(Process);
+   art[Artifact];
+   proc -->|IO relation|art;
+end
+``` 
+
+## Motivation
+
+The authors of the paper [How to Build a Benchmark](https://dl.acm.org/doi/10.1145/2668930.2688819) distilled the desirable characteristics of a benchmark below:
+> 1. Relevance: How closely the benchmark behavior correlates to behaviors that are of interest to consumers of the results.
+> 2. Reproducibility: The ability to consistently produce similar results when the benchmark is run with the same test configuration.
+> 3. Fairness: Allowing different test configurations to compete on their merits without artificial limitations.
+> 4. Verifiability: Providing confidence that a benchmark result is accurate.
+> 5. Usability: Avoiding roadblocks for users to run the benchmark in their test environments.
+
+There currently is no standard nor de facto language-agnostic SAST benchmark
+satisfying all the criteria mentioned above. Many benchmark suites focus on
+specific languages, are shipped with incomplete or missing ground-truths, or
+are based on outdated technologies and/or frameworks. A ground-truth or
+baseline is the set of findings a SAST tool is expected to detect.
+
+The main objective of the GSoC project was to close this gap and start to
+create a benchmarking framework that addresses all the desirable charateristics
+mentioned above in the following manner:
+
+1. Relevance: Include realistic applications (in terms of size, framework usage
+   and customer demand).
+2. Reproducibility: Automate the whole benchmarking process in CI.
+3. Fairness: Make it easy to integrate new SAST tools by just tweaking the CI
+   configuration and use the [GitLab security report schema](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format) as a common standard.
+4. Verifiability: Assemble baseline that includes all the relevant
+   vulnerabilities and make it publicly available. The baseline is the north star
+   that defines what vulnerabilities are actually included in a test application. 
+5. Usability: Benchmark users can just integrate the benchmark as a downstream
+   pipeline to their CI configuration.
+
+## A benchmarking framework for SAST
+
+The benchmarking framework compares the efficacy of an analyzer against a known
+baseline. This is very useful for monitoring the efficacy of the analyzer that
+participates in the benchmarking. The baseline is the gold standard that serves
+as a compass to guide analyzer improvements.
+
+### Usage
+
+For using the framework, the following requirements have to be met:
+1. The analyzer has to be dockerized.
+1. The analyzer has to produce a vulnerability report that adheres to the
+   [GitLab security report schema](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format)
+   format, which serves as our generic intermediate representation to compare
+   analyzer efficacy. 
+1. The baseline expectations have to be provided as 
+   [GitLab security report schema](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format)
+   so that we can compare the analyzer output against it. 
+
+The framework is designed in such a way that it can be easily integrated into
+the CI configuration of existing GitLab projects by means of a [downstream pipeline](https://docs.gitlab.com/ee/ci/pipelines/downstream_pipelines.html).
+There are many possible ways in which a downstream pipeline can be triggered:
+source code changes applied to an analyzer, configuration changes
+applied to an analyzer, or scheduled pipeline invocation. By using the pipeline,
+we can run the benchmarking frameworks continuously and instantaneously on the GitLab
+projects that host the source code of the integrated analyzers whenever code or
+configuration changes are applied. 
+
+### Architecture 
+
+The figure below depicts the benchmarking framework when comparing an analyzer
+against a baseline.
+
+We assume that we have a baseline configuration available; a baseline consists
+of an application that is an actual test application that includes
+vulnerabilities. These vulnerabilities are documented in an expectation file
+that adheres to the [security report schema](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format).
+
+Note that we use the terms baseline and expectation interchangeably. As
+mentioned earlier, the benchmarking framework is essentially a GitLab pipeline
+that can be triggered downstream. The configured analyzer then takes the
+baseline app as input and generates a `gl-sast-report.json` file. The heart of the
+benchmarking framework is the `compare` step, which compares the baseline
+against the report generated by the analyzer, both of which adhere to the
+[security report schema](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format).
+
+The compare step also computes the _TP_, _FN_ and _FP_ that have been reported by the
+analyzer and computes different metrics based on this information. The compare
+step is implemented in the
+[evaluator tool](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/evaluator). 
+
+``` mermaid
+flowchart LR;
+sbx[gl-sast-report.json];
+breport[Report];
+config[Configuration];
+
+config --> bf;
+
+subgraph Baseline
+  bcollection[app];
+  baseline[expectation];
+end
+
+subgraph bf [ Benchmarking Framework ]
+   orig(Analyzer);
+   compare(Compare);
+   orig --> sbx;
+   sbx --> compare;
+end
+
+baseline --> compare;
+compare --> breport
+bcollection --> orig
+```
+
+Using the security report format as a common standard makes the benchmarking
+framework very versatile: the baseline could be provided by an automated
+process, by another analyzer, or manually, which happened to be the case in this
+GSoC project.
+
+### Scoring
+
+The main functionality of the [evaluator tool](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/evaluator)
+is to compute the overlap/intersection, and difference between a baseline and
+generated report in order to uncover true positives, false positives, and false
+negatives. 
+
+The relationship between _TP_, _FP_, _FN_, _TN_, baseline, and generated report can be
+seen in the table below; it includes three columns `analyzer`, `baseline` and
+`classification`. The column `analyzer` represents the findings included in the
+report generated by the analyzer; column `baseline` represents the findings
+included in the baseline; column `classification` denotes the
+verdict/classification that the [evaluator tool](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/evaluator)
+attaches to the analyzer finding when performing the comparison. The `X` and
+`-` denote reported and non-reported findings, respectively.
+
+| analyzer | baseline | classification |
+| -------- | -------  | -------------  |
+| -        | -        | _TN_           |
+| -        | X        | _FN_           |
+| X        | -        | _FP_           |
+| X        | X        | _TP_           |
+
+The `classification` column in the table above shows that a _TP_ is a
+vulnerability existing in both baseline and generated report; similarly, an
+_FP_ is a vulnerability detected by an analyzer without a corresponding
+baseline entry, while an _FN_ is a vulnerability present in the baseline but
+not detected by an analyzer. Note, that _TN_ is practically not relevant for
+our use-case since the analyzers we are looking at only report unsafe,
+vulnerable cases instead of safe, non-vulnerable cases. 
+
+At the moment, the `evaluator` tool computes the metrics below:
+- Precision: _P_ = _TP_ /( _TP_ + _FP_ )
+- Recall: _R_ = _TP_ / ( _TP_ + _FN_ )
+- F-Score: _F_ = 2 * ( _P_ * _R_ ) / ( _P_ + _R_ ) 
+- Jaccard-Index: _J_ = _TP_ / ( _TP_ + _FP_ + _FN_ )
+
+A higher precision indicates that an analyzer is less noisy due to the low(er)
+number of _FPs_. Hence, a high precision leads to a reduction of auditing effort
+of irrelevant findings. A high recall represents an analyzer's detection
+capacity. F-Score is a combined measure so that precision and recall can be
+condensed to a single number. The Jaccard-Index is a single value to capture
+the similarity between analyzer and baseline.
+
+The [evaluator tool](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/evaluator)
+supports the addition of custom metrics via a simple call-back mechanism; this
+enables us to add support more metrics in the future that help us to gain
+additional or new insights with regards to the efficacy of our analyzers.
+
+### Framework Properties
+
+In principle, the implemented benchmarking framework is language-agnostic: new
+analyzers and baselines can be plugged-in as long as they adhere to the
+[security report schema](https://docs.gitlab.com/ee/user/application_security/sast/#reports-json-format). 
+
+Establishing baselines is laborious since it requires (cross-)validation, 
+trying out attacks on the running baseline application and
+code auditing.
+
+For the GSoC project, we established baselines for the applications below
+covering Java ([Spring](https://spring.io/)) and Python
+([Flask](https://flask.palletsprojects.com/)) as they are [ranking high in the most used languages and frameworks](https://survey.stackoverflow.co/2022/#technology-most-popular-technologies). 
+For a benchmark application to have practical utility, it is important that the
+application itself is based on technology, including programming languages and
+frameworks, that are used in the industry.
+
+For both of these applications, the baseline/expectations have been collected,
+verified and are publicly availabe: 
+- [WebGoat](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/baselines/WebGoat/-/tree/baselines). 
+  WebGoat is a deliberately insecure Web application used to teach security vulnerabilities.
+  We chose this as baseline application because it is often used as a benchmark
+  app in the Java world and it is based on [Spring](https://spring.io/) which is
+  one of the most popular frameworks in the Java world. 
+- [vuln-flask-web-app](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/baselines/vuln-flask-web-app/-/tree/report) Like WebGoat, this application is deliberately insecure. `vuln-flask-web-app` covers both Python and [Flask](https://flask.palletsprojects.com/en/2.2.x/), one of the most popular web frameworks in the Python world.
+
+## Conclusion
+
+This GSoC project was a first step towards building a FOSS benchmarking
+framework that helps the community to test their own tools and to build up a
+relevant suite of baselines covering various languages and frameworks. With the
+help of the community, we will continue adding more baselines to the
+benchmarking framework in the future to cover more languages and frameworks.
+
+If you found the project interesting, you might want to check out the following repositories:
+
+- [evaluator](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/evaluator)
+- [WebGoat baseline](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/baselines/WebGoat/-/tree/baselines)
+- [Vulnerable Flask Web App baseline](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/baselines/vuln-flask-web-app/-/tree/report)
+- [Example of downstream pipeline triggering evaluator](https://gitlab.com/gitlab-org/secure/gsoc-sast-benchmark/evaluator-downstream)
+
+Cover image by [Maxim Hopman](https://unsplash.com/@nampoh) on [Unsplash](https://unsplash.com/photos/fiXLQXAhCfk)
+{: .note}

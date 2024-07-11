@@ -1,0 +1,66 @@
+---
+title: "Repositories held for ransom by using valid credentials"
+author: GitLab
+author_gitlab: gitlab
+author_twitter: gitlab
+categories: company
+image_title: '/images/default-blog-image.png'
+description: "We’ve learned of suspicious Git activity on GitLab. Affected users have been notified."
+tags: security
+postType: corporate
+---
+
+We've learned of suspicious Git activity using valid credentials (a password or personal access token) on GitLab. We identified the source based on a support ticket filed by [Stefan Gabos](https://security.stackexchange.com/questions/209448/gitlab-account-hacked-and-repo-wiped) yesterday, and immediately began investigating the issue. This is a user insecure practices issue, and is not specific to GitLab, as other git repositories are affected by this as well. We are issuing this advisory to all git repo users so that we can help heighten awareness of this issue and help git's user community protect their own data.
+
+The breaches seem to rely on the attacker having knowledge of the affected users' passwords in order [to wipe their Git repositories and hold them for ransom](https://www.zdnet.com/article/a-hacker-is-wiping-git-repositories-and-asking-for-a-ransom/). We have notified affected GitLab users and are working as quickly as possible to resolve the issue.
+
+> *“As a result of our investigation, we have strong evidence that the compromised accounts have account passwords being stored in plaintext on a deployment of a related repository. We strongly encourage the use of password management tools to store passwords in a more secure manner, and enabling two-factor authentication wherever possible, both of which would have prevented this issue.”*
+> *- Kathy Wang, Senior Director, Security*
+
+## How you can protect yourself
+
+These breaches seemed to rely on the attacker having knowledge of the affected user’s password. We highly recommend strong passwords and unique passwords for everything (using a good password manager helps manage this). We strongly recommend all GitLab users enable [two-factor authentication](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html) and use [SSH keys](https://docs.gitlab.com/ee/ssh/) to strengthen your GitLab account.
+
+You may further protect your groups by applying the [“Require all users in this group to setup Two-factor authentication”](https://docs.gitlab.com/ee/security/two_factor_authentication.html#enforcing-2fa-for-all-users-in-a-group) setting in the Group settings under “Permissions, LFS, 2FA”.
+
+In this case, it can help to prevent a breach.
+
+## Mitigation
+
+We believe that no data has been lost, unless the owner/maintainer of the repository did not have a local copy and the GitLab copy was the only one. In some cases, repository files were changed. After updating account credentials, we recommend making use of `git` commands to restore your repository to its previous state. If you have a full current copy of the repository on your computer, you can force push to the current HEAD of your local copy using:
+
+`git push origin HEAD:master --force`
+
+Otherwise, you can still clone the repository and make use of:
+
+- [git reflog](https://git-scm.com/docs/git-reflog) or
+- [git fsck](https://git-scm.com/docs/git-fsck) to find your last commit and change the HEAD
+
+As this is related to the use of `git`, GitLab does not have its own documentation or examples, but we have found these articles that may be of use:
+
+- [Git documentation](https://git-scm.com/doc)
+- [How to move HEAD](https://stackoverflow.com/questions/34519665/how-to-move-head-back-to-a-previous-location-detached-head-undo-commits/34519716#34519716)
+- [Use git fsck to recover a deleted branch](https://opensolitude.com/2012/02/29/recover-git-branch.html)
+
+## Details
+
+On May 2, 2019 at approximately 10:00pm GMT GitLab received the first report of a repository being wiped with a single file left in place that demanded a bitcoin ransom be paid for the return of data:
+
+```
+To recover your lost data and avoid leaking it: Send us 0.1 Bitcoin (BTC) to our Bitcoin address 1ES14c7qLb5CYhLMUekctxLgc1FV2Ti9DA and contact us by Email at admin@gitsbackup.com with your Git login and a Proof of Payment. If you are unsure if we have your data, contact us and we will send you a proof. Your code is downloaded and backed up on our servers. If we dont receive your payment in the next 10 Days, we will make your code public or use them otherwise.
+```
+
+We began to receive multiple reports, and were able to search through logs and repositories to determine the extent of the impact. A few repositories had the ransom threat left behind, some repositories were simply wiped, and a few accounts appeared to be successfully accessed by the attacker but not modified. All total, 131 users and 163 repositories were, at a minimum, accessed by the attacker. Affected accounts were temporarily disabled, and the owners were notified.
+
+We noticed the following items in reference to this incident:
+
+- The source IP of the attacks came from the 185.234.216.0/24 range.
+- The attacker appeared to use some type of “update script” in an attempt to perform the accesses, and the nature of the individual accesses strongly suggested the use of plaintext passwords that were locally stored.
+- Virtually all of the repositories were private repositories.
+- None of the accounts impacted had two-factor authentication enabled.
+
+Since not all of the accesses resulted in both a repository wipe and a ransom note, this suggests that the attacker’s update script was possibly not working properly. This could be a result of a generic script being used against GitLab as well as GitHub and Bitbucket.
+
+## Conclusion
+
+We are continuing our investigation, and if we uncover more details that we feel will benefit our users and the security community at large, we will communicate that information as quickly and as transparently as possible. We are constantly looking for ways to improve our security and would appreciate any comments and questions you might have.

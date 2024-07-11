@@ -1,0 +1,91 @@
+---
+title: "Why we enabled Geo on the staging environment for GitLab.com"
+author: Fabian Zimmer & Douglas Alexandre
+author_gitlab: fzimmer
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/geo-on-staging/donald-giannatti-4qk3nQI3WHY-unsplash-small.jpg'
+description: "Geo is GitLab's solution for distributed teams and now we can validate and test it at scale."
+tags: features, inside GitLab, dogfooding
+twitter_text: "How enabling Geo on the GitLab.com staging environment is helping @gitlab customers."
+featured: no
+postType: product
+merch_banner: merch_six
+---
+We're testing Geo at scale on GitLab.com – our largest installation of GitLab – because we believe the best way to guarantee that Geo works as expected is to [use it ourselves](/handbook/product/product-processes/#dogfood-everything).
+
+Geo is GitLab's [solution for distributed teams](/solutions/geo/). We want teams all over the world to have a great user experience - independent of how far away users are from their primary GitLab installation. To accomplish this goal, read-only Geo nodes can be created across the world in close geographical proximity to your teams. These Geo nodes replicate important data, such as projects or LFS files, from the primary GitLab instance and thereby make the data available to users. Geo can also be used as part of a disaster recovery strategy because it adds data redundancy. Geo nodes follow the primary installation closely and allow customers to failover to this node in case the primary node becomes unavailable.
+
+Many of GitLab's customers use Geo on self-managed installations that serve hundreds to thousands of users. Geo is a critical component of GitLab installations and our customers expect Geo to work at any scale. We are testing Geo at scale on our GitLab.com installation because if it works for us, chances are it will work for our worldwide group of users too.
+
+In this blog post, we'll explain why and how we chose to enable GitLab Geo on our pre-production environment (from now on referred to as "staging"), the challenges we encountered, some of the immediate benefits to our customers, and what will be next.
+
+## Why do we need to use Geo at GitLab?
+In order to build the best product possible, we believe it is imperative to [use GitLab ourselves](/handbook/product/product-processes/#dogfood-everything). Many of our Geo customers have thousands of users actively using GitLab and a major challenge for the team was to test and validate new Geo functionality at scale. Enabling Geo on the GitLab.com staging environment makes this task a lot easier.
+
+We also used Geo to [migrate GitLab.com from Microsoft Azure to Google Cloud in 2018](/blog/2018/06/25/moving-to-gcp/), which allowed us to improve the product by identifying bottlenecks. In the last two years, GitLab has grown dramatically and in order to push Geo forward, we need to enable it (again).
+
+### Test Geo at scale
+When the team decides to add new functionalities to Geo, for example [package repository replication](https://gitlab.com/groups/gitlab-org/-/epics/2346), we had to ensure that the feature's performance is as expected. Having Geo available on staging allows us to deploy these changes behind a feature flag first and evaluate the performance before shipping the feature to customers. This is especially relevant to some of Geo's PostgreSQL database queries. On a small test deployment, things may look fine, but at scale these queries can time out, resulting in replication issues.
+
+We also deploy code to our staging environment twice a week, which means that any regressions surface before a new packaged release.
+
+### Prove that Geo can be deployed as part of our production infrastructure
+A large amount of automation is required to run GitLab.com with millions of users, and our SRE team is constantly improving how we run GitLab.com. The first step bringing Geo into our production environment is to deploy Geo as a part of our staging environment. Without the right monitoring, runbooks, and processes in place, it would not be possible to move Geo into production where it could be used to enable geo-replication and/or as part of our disaster recovery strategy.
+
+## Setting up Geo on staging
+
+Setting up Geo on staging had some unique challenges, you can get a detailed overview in our [Geo on staging documentation](/handbook/engineering/development/enablement/systems/geo/staging.html).
+
+In order to deploy Geo, we opted for a minimally viable approach that is sufficient for a first iteration. Geo is currently deployed as a single all-in-one box, not yet as a [Geo high-availability configuration](https://docs.gitlab.com/ee/administration/geo/replication/multiple_servers.html). Geo deploys happen automatically via Chef, similar to any other part of the infrastructure.
+
+![Geo staging Diagram](/images/blogimages/geo-on-staging/geo_staging_diagram.png){: .shadow.medium.center}
+
+We currently replicate only a subset of data using [Geo's selective synchronization feature](https://docs.gitlab.com/ee/administration/geo/replication/configuration.html#selective-synchronization), which also allows us to dogfood this feature. Selective synchronization uses a number of complex database queries and this helps us validate those at scale. We chose to replicate the `gitlab-org` group, which contains mostly of GitLab's projects (including [GitLab](https://gitlab.com/gitlab-org/gitlab) itself).
+
+We also needed to configure Geo to use the same logical [Gitaly shards](https://docs.gitlab.com/ee/administration/repository_storage_paths.html) on the secondary compared to the primary node. We'll [improve our Geo documentation](https://gitlab.com/gitlab-org/gitlab/-/issues/213840) to ensure it is clear when this is required.
+
+A logical Gitaly shard is an entry in the GitLab configuration file that points to a path on the file system and a Gitaly address:
+
+```
+"git_data_dirs": {
+  "default": {
+    "path": "/var/opt/gitlab/git-data-file01",
+    "gitaly_address": "unix:/var/opt/gitlab/gitaly/gitaly.socket"
+  }
+}
+```
+
+In the example above, we have only one logical shard identified by the key `default`, but we could have as many as needed.
+Every project on GitLab is associated with a logical Gitaly shard, which means that we know where all relevant data (repositories, uploads, etc.) is stored. A project `example` that is associated with the logical Gitaly shard `default`, would therefore be stored at `/var/opt/gitlab/git-data-file01` and the Gitaly server would be available at `/var/opt/gitlab/git-data-file01`.
+
+This information is stored in the PostgreSQL database and in order for Geo to replicate projects successfully we needed to create the same Gitaly shard layout. On the Geo secondary node, we are using only one physical shard to store the data for all projects. To allow it to replicate any project from the primary node, we had to point all the logical Gitaly shards to the same physical shard on the secondary node.
+
+Geo on staging is configured to use [cascading streaming replication](https://www.postgresql.org/docs/current/warm-standby.html#CASCADING-REPLICATION), which allows one standby node in the staging [Patroni cluster](https://github.com/zalando/patroni) to act as relay and stream write-ahead logs (WAL) to the Geo secondary. This setup also has the advantage that Geo can't put an additional load onto the primary database node and we are also not using physical replication slots to further reduce the load. [Patroni will likely be supported in Omnibus packages](https://gitlab.com/groups/gitlab-org/-/epics/2588) and we will review these settings to allow our customers to benefit from this setup.
+
+PostgreSQL will automatically fall back on its `restore_command` to pull archived WAL segments using [wal-e](https://github.com/wal-e/wal-e), if it cannot retrieve the segment by streaming replication. This can happen after a failover, or if the replication target has deleted the relevant segment if Geo is lagging behind it.
+
+In the future, we will use this to experiment with [high-availability configurations of PostgreSQL on a secondary Geo node](https://gitlab.com/groups/gitlab-org/-/epics/2536).
+
+## What we learned and how we can improve
+
+We opened [23 issues before successfully rolling out Geo on our staging environment](https://gitlab.com/groups/gitlab-org/-/epics/1908) - this is too many. We know that installing and configuring Geo in complex environments is time-consuming and error-prone, and is an area where we can improve. The current process for a self-managed installation requires [more than 70 individual steps](https://gitlab.com/gitlab-org/gitlab-design/issues/731) - this is too much. [Geo should be simple to install](https://gitlab.com/groups/gitlab-org/-/epics/1465) and we aim to reduce the number of steps to below 10. Using Geo ourselves really underscored the importance of improvements in this area.
+
+### Some Geo PostgreSQL queries don't perform well
+
+Geo uses PostgreSQL Foreign Data Wrappers (FDW) to perform some cross-database queries between the secondary replica and the tracking database. FDW queries are quite elegant but have lead to some issues in the past. Specifically, staging is still running PostgreSQL 9.6, and Geo benefits from some FDW improvements available only in PostgreSQL 10 and later, such as join push-down and aggregate push-down.
+
+While enabling Geo on staging, some FDW queries timed out during the backfill phase. Until staging is being upgraded to a newer version of PostgreSQL, increasing the statement timeout to 20 minutes on the Geo secondary node was sufficient to allow us to proceed with the backfill.
+
+As a direct consequence of enabling GitLab on staging, we are working to [improve Geo scalability by simplifying backfill operations](https://gitlab.com/groups/gitlab-org/-/epics/2851), eliminating these cross-database queries, and removing the FDW requirement. We also plan to [upgrade to PostgreSQL 11 in GitLab 13.0](https://gitlab.com/groups/gitlab-org/-/epics/2414).
+
+### Bug fixes
+We've also discovered and fixed a number of bugs in the process, such as [failing to synchronize uploads with missing mount points](https://gitlab.com/gitlab-org/gitlab/-/issues/209752), [invalid ActiveRecord operations](https://gitlab.com/gitlab-org/gitlab/-/issues/210589), and [excessively re-synchronizing files in some situations](https://gitlab.com/gitlab-org/gitlab/-/issues/207808).
+
+## What's next?
+We are already providing value to our customers by enabling Geo on staging because the Geo team can test and validate Geo at scale at lot easier. Next up is enabling [automatic runs of our end-to-end test on staging](https://gitlab.com/gitlab-org/quality/team-tasks/issues/385), which would reduce the manual testing burden even further. There are also some other improvements, such as [enabling high-availability configurations of PostgreSQL using Patroni on Geo nodes](https://gitlab.com/groups/gitlab-org/-/epics/2536) that we would like to test on staging.
+
+Even though enabling Geo on staging is already very useful, it is just a step forward to rolling out Geo on GitLab.com in production. We are currently evaluating the business case for enabling Geo on GitLab.com as part of our disaster recovery strategy and for geo replication.
+
+Cover image by [Donald Giannatti](https://unsplash.com/photos/4qk3nQI3WHY) on [Unsplash](https://www.unsplash.com)
+{: .note}

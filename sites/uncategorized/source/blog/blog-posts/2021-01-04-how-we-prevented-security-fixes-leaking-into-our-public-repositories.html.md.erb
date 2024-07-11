@@ -1,0 +1,204 @@
+---
+title: "How we prevented security fixes leaking into our public repositories"
+author: Robert Speicher
+author_gitlab: rspeicher
+author_twitter: rspeicher
+categories: engineering
+image_title: "/images/blogimages/security-leaks-unlocked.jpg"
+description: "Working in the open makes it difficult to work on security vulnerabilities before they're disclosed, especially when that openness discloses them early!"
+twitter_text: "How @GitLab prevented security fixes leaking into public repositories"
+tags: inside GitLab, security
+ee_cta: false
+install_cta: false
+featured: yes
+---
+
+One of GitLab's core values is "[public by default][]," which means we develop in
+the open whenever possible. One notable exception to this is security fixes,
+because developing security fixes in public discloses vulnerabilities before a
+fix is available, exposing ourselves and our users to attacks.
+
+In order to work on these security issues in private, public GitLab projects
+have a security mirror that's accessible only to GitLab engineers. A design flaw in GitLab's mirroring feature would cause commits from the
+Security repository to be exposed in the public repository before they were
+intended for release.
+
+In this post we'll describe what the problem was and how we finally resolved it.
+
+[public by default]: /handbook/values/#public-by-default
+
+## Mirroring setup
+
+To ensure that developers working on a security fix are working against the
+latest code for a project, we utilize GitLab's [push mirror][] feature to mirror
+the public ("Canonical") repository to its private Security fork.
+
+On every commit to the Canonical repository, the Security repository receives
+the same commit. All of the mirroring is performed by the [Gitaly][gitaly]
+server, which handles all of the Git calls made by GitLab.
+
+In order to know which Git objects in the source are missing on the destination,
+GitLab would [fetch the remote][] and then tell Gitaly to perform the push that
+would bring the two in sync, which is where the trouble starts.
+
+By performing a fetch, _every Git object in the Security repository was now
+known and stored on-disk by the Canonical repository_. If someone knew the SHA
+of a commit in the _private_ repository that contained a security fix, they
+could view it in the _public_ repository and discover the vulnerability we were
+fixing before it had been publicly disclosed.
+
+[push mirror]: https://docs.gitlab.com/ee/user/project/repository/repository_mirroring.html
+[gitaly]: https://gitlab.com/gitlab-org/gitaly
+[fetch the remote]: https://gitlab.com/gitlab-org/gitlab/blob/f5bfe5603137b8f9cf60a2db759db3dbe5c60727/app/services/projects/update_remote_mirror_service.rb#L30
+
+## No guessing necessary
+
+Thankfully, even a truncated Git commit SHA is difficult to guess, so at first
+glance this might not look like a high-severity issue.
+
+However, the [GitLab help page](https://gitlab.com/help) shows exactly which
+commit is currently running, and we always deploy security fixes to GitLab.com
+for verification and to protect our users against the latest threats. Here's
+what that might look like:
+
+> ### GitLab Enterprise Edition 13.7.0-pre [690e4bbfe94][]
+
+When a security release was in progress, any logged-in user could click on the
+running commit SHA and view the entire [source code](/stages-devops-lifecycle/source-code-management/) tree at that point, security
+fixes included!
+
+[690e4bbfe94]: https://gitlab.com/gitlab-org/gitlab/-/commits/690e4bbfe94
+
+## Experimenting with a fix
+
+The mirroring setup was a crucial part of our development and release process,
+and the existing fetch-based behavior was itself a crucial piece of what made
+the mirroring functionality work. During our initial investigation, there was no
+obvious fix. One proposed workaround was to simply remove the SHA from the Help
+page, but that would only hide the problem and "security through obscurity"
+isn't really security at all.
+
+Another workaround, which we [ended up implementing][mirror pause], was to
+pause the mirroring as soon as a security fix was merged, and re-enable it
+once the security release was published. This prevented the leak because the
+fetch was no longer happening, but it would "stop the world" while we worked
+on a security release. The Security mirror quickly fell behind public
+development, which created a risk of new features causing merge conflicts
+with the security fixes, or vice versa.
+
+Staff engineer [Jacob Vosmaer][], who began the Gitaly project within GitLab,
+[pointed out][] that, strangely, we only used this fetch-based behavior for
+branches; tags used Git's low-level [`ls-remote` command][ls-remote].
+
+Whereas Git's `fetch` command creates a local copy of every object from the
+remote repository, the `ls-remote` command only prints the remote's available
+references to the terminal. If we used `ls-remote` for branches like we did for tags, the commits from
+the mirror would no longer be persisted on-disk, and thus wouldn't be
+available in the public repository.
+
+Because push mirroring is such a critical part of our own workflow as well as
+our users', we didn't want to just make the change and hope for the best. We
+[set up an experiment][], where the old functionality stayed exactly as it was,
+but when a [feature flag][] was enabled, we'd also gather the same commit
+information using `ls-remote`, and compare the new results to the original,
+logging any differences.
+
+The experiment ran on GitLab.com for about a month without major discrepancies.
+It looked like we had a solution!
+
+[mirror pause]: https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/626
+[Jacob Vosmaer]: /company/team/#jacobvosmaer-gitlab
+[pointed out]: https://gitlab.com/gitlab-org/gitlab/-/issues/38386#note_312363006
+[ls-remote]: https://git-scm.com/docs/git-ls-remote.html
+[set up an experiment]: https://gitlab.com/gitlab-org/gitaly/-/issues/2670
+[feature flag]: https://docs.gitlab.com/ee/operations/feature_flags.html
+
+## Iterating on the experiment
+
+Considering the experiment a success, but still being wary of breaking a key
+piece of functionality, we proceeded with caution. Rather than replacing the old
+behavior outright with the new, we [split the two paths based on a feature
+flag][split].
+
+When the flag was disabled the old, tried-and-true behavior would be used. With
+the flag enabled, we'd use the new. We shipped this change and left the flag
+enabled, watching for errors.
+
+After two weeks without any reported mirroring errors, and with the security
+leak no longer occurring, we were satisfied we had found our fix.
+
+First we shipped a self-managed release [with the feature flag enabled by
+default][flag enabled], to ensure that if something unexpectedly broke for those
+installations it would be easy to revert to the previous behavior. Finally, after no errors reported from self-managed users, we [removed the
+feature flag along with the old behavior][flag removal], and closed out the
+confidential issue.
+
+[split]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2183
+[flag enabled]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2330
+[flag removal]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2417
+
+## An annoying bug emerges
+
+Shortly after making the new behavior the default, we started getting
+[complaints from team members][complaints]. They'd receive an automated email
+telling them that a push mirror was broken, only to go check on the mirror and
+be told everything was fine.
+
+This went on for about two months due to the transient nature of the errors.
+Every time we'd get an email and check to see if it was accurate, the mirroring
+reported everything was fine.
+
+As we began to implement [a new piece of tooling][new tooling] that depended on
+accurate status reporting from push mirroring, the problem became bigger than a
+few annoying, seemingly inaccurate emails; it was causing our tooling to behave
+erratically as well.
+
+Because we had absolutely no idea what was happening or why, our first step was
+to [add logging][] when Gitaly was encountering an error that would mark the
+mirror as failed. The logging [revealed a weird anomaly][anomaly] where it
+appeared that the Security repository – the one _receiving_ updates – appeared
+to be _ahead_ of its source:
+
+```
+I, [2020-09-21T10:10:31] Divergent ref due to ancestry -- remote:f73bb2388a6, local:59812e04368
+I, [2020-09-21T10:26:39] Divergent ref due to ancestry -- remote:8ddcb3333da, local:f73bb2388a6
+```
+
+In this pair, the first message is saying that the remote – the Security
+repository – was showing its latest commit as `f73bb2388a6`, and that it wasn't
+an ancestor of the local `59812e04368` commit, causing the error message. On the
+next run, we see that the local repository has "caught up" to the Security
+remote from the prior run.
+
+It turned out that due to the number of branches and tags in this repository,
+the `ls-remote` command was taking so long to complete that by the time the data
+was returned, the local repository was updated by a new push.
+
+Because we gathered the remote refs after the local ones, a network delay
+created a window for new local commits to be written and invalidate our list
+of local refs. Luckily there was a nice [boring solution][]: all we had to do
+was [swap the order][] in which we gather references.
+
+[complaints]: https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/914
+[new tooling]: https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/1111
+[add logging]: https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/914#note_413855603
+[anomaly]: https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/914#note_416246505
+[boring solution]: /handbook/values/#boring-solutions
+[swap the order]: https://gitlab.com/gitlab-org/gitaly/-/merge_requests/2606
+
+## Wrapping up
+
+As soon as we swapped the order for gathering references, the transient errors
+went away and we finally got to close this long-standing issue. We were pleased
+with how we were able to modify such a critical piece of functionality safely
+and without any negative user impact.
+
+## Related issues
+
+- [Security commits available on GitLab.com](https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/426)
+- [Do not expose GitLab version on GitLab.com](https://gitlab.com/gitlab-org/gitlab/-/issues/38386)
+- [Populate remote branches in-memory via `ls-remote` rather than using `fetch`](https://gitlab.com/gitlab-org/gitaly/-/issues/2670)
+- [Transient push mirror divergence errors](https://gitlab.com/gitlab-com/gl-infra/delivery/-/issues/914)
+
+Photo by [iMattSmart](https://unsplash.com/@imattsmart?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/broken-lock?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText)
+{: .note}

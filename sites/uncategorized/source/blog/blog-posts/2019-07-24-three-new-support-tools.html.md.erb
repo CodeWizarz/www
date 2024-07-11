@@ -1,0 +1,238 @@
+---
+title: "We've open sourced 3 tools to help troubleshoot system performance"
+author: Sara Kassabian, Will Chandler
+categories: engineering
+image_title: '/images/blogimages/open_source_tools.jpg'
+description: "Say hello to the open source tools our Support team is using to better summarize customer performance data – and find out how they can help you."
+tags: open source, features, inside GitLab
+twitter_text: "The @gitlab Support team gets more efficient with three new open source tools built to enhance GitLab performance"
+featured: yes
+postType: content marketing
+ee_cta: false
+---
+
+Our self-managed customers often encounter issues related to performance, or the time it takes to execute something. In the past, the [Support team](/handbook/support/) had to pull data from disparate sources and cobble it together in order to analyze performance-related issues.
+
+“We’re dealing with someone else’s computer on support, so we have to be able to handle environments with limited observability,” says [Will Chandler](/company/team/#wchandler), senior support engineer. “We’re at the mercy of their infrastructure. That’s why the team has made tools to reduce the friction.”
+
+“With [GitLab.com](/pricing/), we have all of this fancy tooling that helps us collect performance data,” says [Lee Matos](/company/team/#leematos), support engineering manager. “But when we’re working with customers, we need to be ready to bring lightweight tools that don’t require a lot of setup that we can use based on what they have in place.”
+
+The Support team is working on becoming more data driven by using three new tools designed to aggregate and summarize performance data for self-managed customers. A focus on data-driven decision-making improves the customer relationship and demonstrates our commitment to making performance a key feature of GitLab.
+
+We'll look at three open source tools created by GitLab Self-Managed Support. Strace parser is a general tool that could be of use to anyone, while JSON Stats and GitLabSOS are tailored to GitLab, but could be easily modified.
+
+## 1. [Strace parser](https://gitlab.com/gitlab-com/support/toolbox/strace-parser)
+
+[Strace](https://gitlab.com/strace/strace) is a commonly used debugging and diagnostic tool in Linux that captures information about what’s happening inside processes running on our customers’ environments.
+
+Unlike [newer](http://man7.org/linux/man-pages/man1/perf.1.html) and [more powerful](https://github.com/iovisor/bpftrace) tracing tools, strace adds [significant overhead to a process](http://www.brendangregg.com/blog/2014-05-11/strace-wow-much-syscall.html). However, strace is generally available even on very old versions of Linux.
+
+An strace of a single-threaded program is linear, but following the threads of execution quickly gets difficult when there are many processes being captured. At GitLab Support we are typically tracing [Unicorn](https://bogomips.org/unicorn/) workers or [Gitaly](https://gitlab.com/gitlab-org/gitaly), which are highly concurrent, resulting in hundreds of process IDs being traced and hundreds of thousands of lines of output from traces only a few seconds long.
+
+Will built [strace parser](https://gitlab.com/gitlab-com/support/toolbox/strace-parser) for these types of use cases. Strace parser summarizes the most meaningful processing data delivered by an strace in a more accessible format, allowing users to find the critical section sections of the data quickly.
+
+The next two examples are from a GitLab customer that was using a very slow file system to host their .gitconfig file, which was a major performance bottleneck. But it was not immediately clear what was happening from the perspective of a user trying to troubleshoot. By running an strace on Gitaly, we were able to get a better understanding of why the system was so slow.
+
+```
+3694  13:45:06.207369 clock_gettime(CLOCK_MONOTONIC, {3016230, 201254200}) = 0 <0.000015>
+3694  13:45:06.207409 futex(0x7f645bb49664, FUTEX_WAIT_BITSET_PRIVATE, 192398, {3016230, 299906871}, ffffffff <unfinished ...>
+3542  13:45:06.209616 <... futex resumed> ) = -1 ETIMEDOUT (Connection timed out) <0.005236>
+3542  13:45:06.209639 futex(0x1084ff0, FUTEX_WAKE, 1) = 1 <0.000023>
+3510  13:45:06.209673 <... futex resumed> ) = 0 <0.002909>
+3542  13:45:06.209701 futex(0xc420896548, FUTEX_WAKE, 1 <unfinished ...>
+3510  13:45:06.209710 pselect6(0, NULL, NULL, NULL, {0, 20000}, NULL <unfinished ...>
+16780 13:45:06.209740 <... futex resumed> ) = 0 <0.002984>
+3542  13:45:06.209749 <... futex resumed> ) = 1 <0.000043>
+16780 13:45:06.209776 pselect6(0, NULL, NULL, NULL, {0, 3000}, NULL <unfinished ...>
+3542  13:45:06.209787 futex(0xc420053548, FUTEX_WAKE, 1 <unfinished ...>
+16780 13:45:06.209839 <... pselect6 resumed> ) = 0 (Timeout) <0.000056>
+3544  13:45:06.209853 <... futex resumed> ) = 0 <0.003148>
+3542  13:45:06.209861 <... futex resumed> ) = 1 <0.000069>
+3510  13:45:06.209868 <... pselect6 resumed> ) = 0 (Timeout) <0.000151>
+3544  13:45:06.209915 epoll_ctl(4<anon_inode:[eventpoll]>, EPOLL_CTL_DEL, 181<UNIX:[164869291]>, 0xc42105bb14 <unfinished ...>
+16780 13:45:06.210076 write(1<pipe:[55447]>, "time=\"2019-02-14T18:45:06Z\" level=warning msg=\"health check failed\" error=\"rpc error: code = DeadlineExceeded desc = context deadline exceeded\" worker.name=gitaly-ruby.4\n", 170 <unfinished ...>
+3544  13:45:06.210093 <... epoll_ctl resumed> ) = 0 <0.000053>
+3542  13:45:06.210101 futex(0x1089020, FUTEX_WAIT, 0, {0, 480025102} <unfinished ...>
+3510  13:45:06.210109 pselect6(0, NULL, NULL, NULL, {0, 20000}, NULL <unfinished ...>
+16780 13:45:06.210153 <... write resumed> ) = 170 <0.000064>
+3544  13:45:06.210163 close(181<UNIX:[164869291]> <unfinished ...>
+```
+
+This strace delivers more than 300,000 lines about the different Gitaly processes running on this customer’s GitLab environment, making it challenging to decipher the flow of execution.
+{: .note.text-center}
+
+“In this case, we can use strace-parser to say, ‘Just give me all the files that were opened, and sort them by how long it took to open,’” says Will.
+
+```
+$ strace-parser trace.txt files --sort duration
+
+Files Opened
+
+      pid      dur (ms)       timestamp            error         file name
+  -------    ----------    ---------------    ---------------    ---------
+    24670      5203.999    13:45:16.152985           -           /efs/gitlab/home/.gitconfig
+    24859      5296.580    13:45:23.367482           -           /efs/gitlab/home/.gitconfig
+    24584      5279.810    13:45:09.286019           -           /efs/gitlab/home/.gitconfig
+    24666      5276.975    13:45:16.079697           -           /efs/gitlab/home/.gitconfig
+    24667      5255.649    13:45:16.101009           -           /efs/gitlab/home/.gitconfig
+    14871      2594.364    13:45:18.762347           -           /efs/gitlab/home/.gitconfig
+    24885      2440.635    13:45:26.224189           -           /efs/gitlab/home/.gitconfig
+    24886      2432.980    13:45:26.231009           -           /efs/gitlab/home/.gitconfig
+    24656        55.873    13:45:15.916836        ENOENT         /nfs/gitlab/gitdata/repositories/group/project.git/objects/info/alternates
+    24688        42.764    13:45:21.522789        ENOENT         /nfs/gitlab/gitdata/repositories/group/project.git/objects/info/alternates
+     3709        39.631    13:45:07.816618           -           /efs/gitlab/home/.gitconfig
+    24583        37.959    13:45:09.218283           -           /efs/gitlab/home/.gitconfig
+```
+
+By summarizing the data in this way, we see multiple files that took 2-5 seconds to open, which is several orders of magnitude slower than expected.
+{: .note.text-center}
+
+“If it’s a particularly busy server and we’re performing these actions 50 times a second, 100 times a second, that adds up really fast,” says Will. “Strace-Parser lets you drill down quickly, and say, ‘OK, this specific thing we’re doing is super slow.’”
+
+### Get a closer look at processes using strace-parser
+
+Strace-Parser can also be used to drill down into details of a process.
+
+The previous output showed PID 24670 is one of the slower processes, so we use the parser to understand how this slow call impacted the performance of the process overall.
+
+```
+$ strace-parser trace.txt pid 24670
+
+PID 24670
+
+  271 syscalls, active time: 5303.438ms, user time: 34.662ms, total time: 5338.100ms
+  start time: 13:45:16.116671    end time: 13:45:21.454771
+
+  syscall                 count    total (ms)      max (ms)      avg (ms)      min (ms)    errors
+  -----------------    --------    ----------    ----------    ----------    ----------    --------
+  open                       29      5223.073      5203.999       180.106         0.031    ENOENT: 9
+  read                       25        46.303        28.747         1.852         0.031
+  access                     11         6.948         4.131         0.632         0.056    ENOENT: 3
+  lstat                       6         5.116         2.130         0.853         0.077    ENOENT: 4
+  mmap                       32         3.868         0.485         0.121         0.028
+  openat                      2         3.757         2.934         1.878         0.823
+  fstat                      28         3.395         0.272         0.121         0.033
+  munmap                     11         2.551         0.929         0.232         0.056
+  rt_sigaction               59         2.548         0.121         0.043         0.024
+  close                      22         2.375         0.279         0.108         0.032
+  mprotect                   14         0.927         0.174         0.066         0.032
+  execve                      1         0.621         0.621         0.621         0.621
+  brk                         6         0.595         0.210         0.099         0.046
+  stat                        8         0.388         0.082         0.048         0.027    ENOENT: 3
+  getdents                    4         0.361         0.138         0.090         0.044
+  rt_sigprocmask              3         0.141         0.059         0.047         0.040
+  write                       1         0.101         0.101         0.101         0.101
+  dup2                        3         0.090         0.032         0.030         0.026
+  arch_prctl                  1         0.077         0.077         0.077         0.077
+  getrlimit                   1         0.062         0.062         0.062         0.062
+  getcwd                      1         0.044         0.044         0.044         0.044
+  set_robust_list             1         0.035         0.035         0.035         0.035
+  set_tid_address             1         0.032         0.032         0.032         0.032
+  setpgid                     1         0.030         0.030         0.030         0.030
+  ---------------
+
+  Program Executed: /opt/gitlab/embedded/bin/git
+  Args: ["--git-dir" "/nfs/gitlab/gitdata/repositories/group/project.git" "cat-file" "--batch-check"]
+
+  Parent PID:  3563
+
+  Slowest file open times for PID 24670:
+
+    dur (ms)       timestamp            error         file name
+  ----------    ---------------    ---------------    ---------
+    5203.999    13:45:16.152985           -           /efs/gitlab/home/.gitconfig
+       5.420    13:45:16.143520           -           /nfs/gitlab/gitdata/repositories/group/project.git/config
+       2.959    13:45:21.372776           -           /efs/gitlab/home/.gitconfig
+       2.934    13:45:21.401073           -           /nfs/gitlab/gitdata/repositories/group/project.git/refs/
+       2.736    13:45:21.417333        ENOENT         /nfs/gitlab/gitdata/repositories/group/project.git/info/grafts
+       2.683    13:45:21.421558           -           /nfs/gitlab/gitdata/repositories/group/project.git/objects/b7/ef5eba3a425af1e2a9cf6f51cb87454b6e1ad1
+       2.430    13:45:21.407170        ENOENT         /nfs/gitlab/gitdata/repositories/group/project.git/objects/info/alternates
+       0.992    13:45:21.420213        ENOENT         /nfs/gitlab/gitdata/repositories/group/project.git/shallow
+       0.823    13:45:21.405535           -           /nfs/gitlab/gitdata/repositories/group/project.git/objects/pack
+       0.275    13:45:21.380382           -           /nfs/gitlab/gitdata/repositories/group/project.git/config
+```
+
+The output shows the time this process spent working was dominated by the slow file open. This data points the Support team in the right direction for fixing the underlying issue.
+{: .note.text-center}
+
+Strace itself has the `-c` flag which provides a similar summary, but its utility is limited when multiple processes are traced as it cannot break out per-process statistics.  Strace-Parser breaks these down to the PID level, and can also include the details of parent and child processes on demand.
+
+“In this case Will has identified an interesting area for our customer and then very quickly anchored it in the fact that when we look at that one spot it was slow,” says Lee. “When we’re debugging, having this data available really helps us pinpoint the problem for our customers so we can give them answers.”
+
+The typical GitLab deployment has many different processes and services running at a time, which can create dozens of different child processes, so there is a large surface area for potential errors or slowness to occur.
+
+Strace-Parser is an open source, generic tool that anyone can use to better understand their strace data.
+
+## 2. [JSON Stats](https://gitlab.com/gitlab-com/support/toolbox/json_stats)
+
+Will also built [JSON Stats](https://gitlab.com/gitlab-com/support/toolbox/json_stats), a script that pulls performance statistics for different logs from the customer’s GitLab environment and summarizes the results in an easy-to-interpret table.
+
+```
+METHOD                             COUNT     RPS     PERC99     PERC95     MEDIAN         MAX        MIN          SCORE    % FAIL
+FetchRemote                         2542    0.17  962176.08  130154.88   36580.23  4988513.00    1940.45  2445851585.19      1.06
+FindAllTags                         5200    0.34   30000.37   11538.63    1941.84    30006.23     252.10   156001924.68      1.63
+FindCommit                          3506    0.23   20859.98   16622.78   10841.86    30001.59    2528.67    73135073.75      0.23
+FindAllRemoteBranches               1664    0.11   20432.93   12996.75    8606.60   405503.94    1430.84    34000396.10      0.00
+AddRemote                           2603    0.17   10001.03    8094.97     825.46    10007.46     228.13    26032673.70      3.00
+FindLocalBranches                   2535    0.16   10004.68   10002.90    9051.91    10036.16    1260.89    25361871.05     34.32
+```
+
+This output shows that we’re calling the “FindLocalBranches” service 2500+ times, and it’s failing 34% of the time.
+{: .note.text-center}
+
+The Support team can use JSON Stats to ground their findings in evidence when evaluating overall performance for a customer. It's the same concept as strace-parser. Can we pivot the information in a way that it clearly becomes meaningful data?
+
+“It’s a quick way of extracting data that you can give to a customer. Instead of saying ‘Look, this failed once,’ we can say, ‘Look, this is failing a third of the time and that suggests there’s a problem with X,’” says Will.
+
+In the sample output we see that JSON Stats is working with Gitaly logs, but the tool is nimble enough to work on the logs from all the heavy components of GitLab, including Rails, which runs the UI, and Sidekiq, which works on background tasks.
+
+“Some of our customers are very sophisticated and may have advanced monitoring that could give us this information. But we wanted to build a tool that would help us align and easily standardize on how we can get this performance information for customers that don’t have an advanced monitoring setup,” says Lee.
+
+While this specific tool isn't as helpful for people outside of the GitLab community, hopefully it helps to inspire others to consider how they are drawing conclusions, and how they can speed that process up.
+
+### Benchmarking with JSON Stats
+
+Will is building a future iteration of JSON Stats that will compare the performance of a customer’s GitLab instance with GitLab.com.
+
+![JSON benchmarking table](/images/blogimages/support-tools-update.png){: .shadow}
+
+Benchmarking the performance of GitLab.com (the first row) with the customer environment (second row), and the ratio between the two (third row). We can see that in the worst case, the customer’s 99th percentile FindCommit latency was almost eight times slower than it was on GitLab.com.
+{: .note.text-center}
+
+“Our vision here is to give accountability to our customers. We’re going to treat GitLab.com as the pinnacle experience for GitLab,” says Lee. “We want to use JSON Stats with benchmarking to help us understand how far away our customers are from GitLab.com.”
+
+Lee and Will are still assessing how to set the target range for the customer’s instance of GitLab. But considering the wealth of resources allocated to GitLab.com, any self-managed customer that is performing within 5-10% of GitLab.com would be considered hugely successful.
+
+## 3. [GitLab SOS](https://gitlab.com/gitlab-com/support/toolbox/gitlabsos)
+
+When a customer encounters an issue, but they are unsure of what they problem is, they can run [GitLab SOS](https://gitlab.com/gitlab-com/support/toolbox/gitlabsos), created by support engineer [Cody West](/company/team/#codyww), to create a snapshot of different activities happening on their system. It's been so helpful in debugging GitLab that it's being added into our [Omnibus delivery](https://gitlab.com/gitlab-org/omnibus-gitlab/merge_requests/3430).
+
+
+
+By capturing so much data about a moment in time during or shortly after encountering a problem, the support team is able to work asynchronously to troubleshoot on behalf of the customer.
+
+```
+cpuinfo              getenforce           iotop                netstat              opt                  sestatus             unicorn_stats
+df_h                 gitlab_status        lscpu                netstat_i            pidstat              systemctl_unit_files uptime
+dmesg                gitlabsos.log        meminfo              nfsiostat            ps                   tainted              var
+etc                  hostname             mount                nfsstat              sar_dev              ulimit               vmstat
+free_m               iostat               mpstat               ntpq                 sar_tcp              uname
+```
+
+GitLab SOS works best if the script is run while an issue is occurring, or moments after, but even if the window of opportunity is missed you can still successfully gather information to diagnose the problem.
+{: .note.text-center}
+
+“If a customer is sharp, they may know what problems to look for already,” says Lee. “But if a customer is scared and they don’t know what to look for, then they can lean on a tool like GitLab SOS and learn from GitLab SOS. We even have some sharp customers that will generate the SOS output and begin to troubleshoot themselves because of the comprehensive overview it provides.”
+
+## These new tools drive data-driven decision-making in Support
+
+Tools like strace-parser, JSON Stats, and GitLab SOS provide the Support team and GitLab customers with critical evidence about performance. By letting the data drive decision-making, the Support team is able to identify problems faster and quickly start debugging customer environments. Performance is a key feature of GitLab, and by filling our toolbox with data-driven solutions we can ensure greater [transparency](/handbook/values/#transparency) between GitLab and our customers.
+
+Learn more about debugging from a support engineering perspective in a GitLab Unfiltered video.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/9W6QnpYewik" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+Cover photo by [Diogo Nunes](https://unsplash.com/@dialex?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/tools?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

@@ -1,0 +1,115 @@
+---
+title: How to harden your self-managed GitLab instance
+author: Ayoub Fandi
+author_gitlab: ayofan
+categories: engineering
+featured: yes
+tags: security, tutorial, DevSecOps
+description: Learn seven easy steps to ensure your self-managed
+  GitLab instance is as secure as possible.
+image_title: '/images/blogimages/security-checklist.png'
+twitter_text: Learn seven easy steps to quickly ensure that your self-managed
+  GitLab instance is as secure as possible.
+---
+"You are as secure as your weakest link" is a well-understood phrase. If attackers find their way in, they will exploit any gaps in your security configurations. Hardening — the process of turning off unused features and making adjustments to settings that have security implications — is critical to limit your attack surface and reduce potential attack vectors.
+
+Hardening ensures that your application (in this case GitLab) is as secure as it can be. The goal is simple: minimize risk while still preserving enough functionality for users to remain as productive as possible.
+
+## Guiding principles
+These principles should guide the way you approach hardening. The security activities in the checklist below will tie back to one or another of these principles.
+
+### Layered security
+The idea behind this is simple. If there are two ways to implement security, both ways should be implemented instead of just one. You can try to combine as many methods as possible. 
+
+For instance, if you are trying to secure access to your service, you could combine a complex password with hardware tokens and multifactor authentication. This approach is also called defense-in-depth.
+
+### No security through obscurity
+The idea of hiding things works in many cases, but not so in the information security world. The premise that if something is hidden then it is more secure isn’t a viable approach today. 
+
+Current scanning capabilities available to attackers shatter through obscurity. It is very easy for anyone to scan for open ports on a system. If you’ve swapped the SSH port TCP 22 to a different port, it would be picked up by a network scanning tool such as Nmap. 
+
+As GitLab is committed to transparency and open source, our approach is at odds with security through obscurity. The goal of security is to remove any security through obscurity. Our documentation is available to all and security best practices are clearly labeled and detailed.
+
+### Reducing the attack surface
+GitLab comprises numerous components, services, and dependencies. A critical aspect of security is: The more components you have, the more entryways attackers have.
+
+A good rule to keep in mind is to always disable services that you do not need to run the application. If there are features that aren’t used, disabling the related services will reduce the potential attack surface and make you more secure.
+
+## 7 steps to secure your self-managed instance
+Let’s go through seven easy steps to quickly harden your self-managed instance. These quick wins are great first steps towards securing your installation. Of course, refer to the [documentation](https://docs.gitlab.com/ee/security/) for additional details and further guidance on each section.
+
+### 1. Enable multi-factor authentication
+**Admin > Settings > General > Sign-in restrictions**
+
+Ensure that the checkbox next to _Two-factor authentication_ (2FA) is **checked**. The default setting for _Two-factor grace period_ is 48 hours. Adjust it to a lower value, such as **8 hours**.
+
+Ensure the checkbox next to _Enable admin mode_ is **checked** so that _Admin Mode_ is **active**. Users with Admin access will have to use additional authentication to perform administrative tasks. With 2FA enabled, this will require additional 2FA authentication by the user.
+
+For more detailed information, refer to the documentation on [sign-in restrictions](https://docs.gitlab.com/ee/administration/settings/sign_in_restrictions.html).
+
+### 2. Enforce additional sign-up checks
+**Admin > Settings > General > Sign-up restrictions**
+
+Next to _Sign-up enabled_ ensure the checkbox is **unchecked**.
+
+Under _Email confirmation settings_ ensure that **Hard** is selected. This will require the user to verify their email address during the sign-up process before their account is allowed access.
+
+The _Minimum password length (number of characters)_ default setting of 12 characters is fine if additional authentication techniques are enforced. Options available for password complexity include _Require numbers_, _Require uppercase letters_, _Require lowercase letters_, and _Require symbols_. Check these boxes depending on your internal password standard (also check out [NIST SP 800-63B](https://pages.nist.gov/800-63-3/sp800-63b.html)).
+
+If all users' email addresses are under a single domain (e.g., example.com), consider **adding it** to the _Allowed domains for sign-ups_. This will prevent those with email addresses associated with other domains from signing up.
+For more detailed information, refer to the documentation on [sign-up restrictions](https://docs.gitlab.com/ee/administration/settings/sign_up_restrictions.html).
+
+### 3. Limit public visibility of your groups and projects
+**Admin > Settings > General > Visibility and access control**
+
+The _Default project visibility_ and _Default group visibility_ for any newly created project or group should be set to **Private** by default. Only users that are granted specific access to a project or group will be able to access these resources. This can be adjusted later if necessary or when creating a new project or group. This ensures the default mode is secure to prevent accidental disclosure of information.
+
+For more details on Visibility and access control [refer to the documentation](https://docs.gitlab.com/ee/administration/settings/visibility_and_access_controls.html).
+
+### 4. Harden your SSH settings
+**Admin > Settings > General > Visibility and access control**
+
+Typically, under _Enabled Git access protocols_ it will be set to _Both SSH and HTTP(S)_. If one of the Git protocols is not in use by your users, set it to **either** _Only SSH_ or _Only HTTP(S)_ accordingly. This will reduce the attack surface by limiting possibilities of compromise through an unused protocol.
+For SSH key types, the most recommended algorithms to use are, in order: 
+1. ED25519
+1. RSA 
+1. ECDSA
+
+When configuring default types and lengths for SSH keys, keep in mind the list above.
+
+Specific details on SSH settings can be found [here](https://docs.gitlab.com/ee/security/ssh_keys_restrictions.html) and [here](https://docs.gitlab.com/ee/administration/settings/visibility_and_access_controls.html#configure-enabled-git-access-protocols) for Git Access protocols.
+
+### 5. Review the account and limit settings
+**Admin > Settings > General > Account and limit settings**
+
+This section allows you to limit the size of attachments, pushes, exports, imports, or repositories. As the specific size (in MB) will be tailored to your needs, review these settings and **set limits** in line with your internal policies.
+**Session duration for users** (in minutes) and **lifetime of SSH keys and all access tokens** (in days) can also be configured. Ensure the durations are in accordance with your internal policies and security best practices.
+
+Review the [documentation](https://docs.gitlab.com/ee/administration/settings/account_and_limit_settings.html) and apply changes that enforce your own policies.
+
+### 6. Secure your CI secrets
+**Admin > Settings > CI**
+
+Passwords, tokens, keys, and other secrets that require any level of protection should never be stored in plaintext. Instead, some type of **encrypted container technology (Secrets Manager)** should be implemented, such as GCP's Secret Manager, AWS Key Management Service (KMS), or HashiCorp Vault. For self-managed and standalone instances, HashiCorp Vault is **recommended**, and many GitLab features can take advantage of Vault and are well described in the [documentation](https://docs.gitlab.com/search/?query=vault).
+
+For external communications, ensure any connectivity with external hosts in your CI/CD process is using encrypted channels. The use of TLS 1.2 or above is highly recommended and where possible mutual TLS will help things considerably.
+For details on the use of external secrets for your CI/CD pipeline, check [here](https://docs.gitlab.com/ee/ci/secrets/) for actual examples and configuration guides.
+
+### 7. Protect your pipelines for all branches
+**Admin > Settings > CI**
+
+Pipelines are a part of jobs that execute steps in stages to automate tasks on behalf of the users of a project. They are a central component of CI/CD.
+By default, only the default branch gets a protected pipeline. Configure your other branches with the same level of security by following [these simple steps](https://docs.gitlab.com/ee/user/project/protected_branches.html#configure-a-protected-branch). This considerably hardens your pipelines.
+
+The security features enabled by default on protected pipelines are listed in our [documentation](https://docs.gitlab.com/ee/ci/pipelines/#pipeline-security-on-protected-branches).
+
+Once the pipeline has run, the code will be deployed in an environment. To limit interactions with that environment and to protect it from unauthorized users, you can set your key environments as protected.
+
+Prerequisites and full process are available in the [documentation](https://docs.gitlab.com/ee/ci/environments/protected_environments.html).
+
+### Learn more 
+This is a high-level overview of the different areas to focus on when hardening your self-managed GitLab instance. A blog post can’t include every single security recommendation. That’s why we maintain detailed [security documentation](https://docs.gitlab.com/ee/security/) on how to secure your installation. 
+
+Please refer to the documentation as the single source of truth on hardening. Hopefully, with the help of the action items highlighted above, you’ll harden your self-managed GitLab instance while preserving agility and speed.
+
+If you want to learn more about how we do security **at GitLab**, review the [security section](https://about.gitlab.com/handbook/security/) of the handbook.

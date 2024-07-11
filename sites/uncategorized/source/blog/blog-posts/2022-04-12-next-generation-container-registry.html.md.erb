@@ -1,0 +1,78 @@
+---
+title: "Introducing the next generation of the GitLab.com Container Registry"
+author: Tim Rizzi
+author_gitlab: trizzi
+author_twitter: tim_rizzi
+image_title: '/images/blogimages/tanuki-bg-full.png'
+categories: news
+description: "A new version of our Container Registry is coming with improvements we're excited about. Here's what you need to know."
+tags: DevOps, inside GitLab, integrations
+twitter_text: "Learn more about @gitlab's Container Registry update"
+featured: no
+postType: announcement
+---
+
+_This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog post and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc._
+
+In the coming weeks, we will begin the second phase of the rollout of the new version of the Container Registry on GitLab.com. Prior to deploying this update, we wanted to clearly communicate the planned changes, what to expect, and why we are excited.
+
+If you have any questions or concerns, please don't hesitate to comment in the [epic](https://gitlab.com/groups/gitlab-org/-/epics/5523).
+
+## Context 
+
+In [Milestone 8.8](/releases/2016/05/22/gitlab-8-8-released/), GitLab launched the MVC of the Container Registry. This feature integrated the Docker Distribution registry into GitLab so that any GitLab user could have a space to publish and share container images.
+
+But there was an inherent limitation with Docker Distribution, as all metadata associated with a given image/tag was stored in the object storage backend. This made using that metadata to build API features (like storage usage visibility, sorting, and filtering) unfeasible. The most recent Container Registry update added a new PostgreSQL backend, which is used to store the metadata. Additionally, this new version also includes an automatic online garbage collector to remove untagged images and recover storage space.
+
+In November 2021, we started [phase 1](/blog/2021/10/25/gitlab-com-container-registry-update/) of the migration. This completed in January 2022 without any significant issues. Since then, every new image repository pushed to GitLab.com uses the new, metadata database-backed registry. Today, nearly 20% of Container Registry traffic is already routed to the new version.
+
+Now we are ready to begin [Phase 2 of the migration](https://gitlab.com/gitlab-org/container-registry/-/issues/374#phase-2-migrate-existing-repositories). This will migrate image repositories created before January 22, 2022, to the new Container Registry. Once complete, we can unblock many of the features that you've been asking for.
+
+## Why we are excited 
+
+- [Storage visibility for the Container Registry](https://gitlab.com/groups/gitlab-org/-/epics/7225)
+
+- Performance improvements for list operations when using the GitLab API and UI
+
+- [Redesign of the UI](https://gitlab.com/groups/gitlab-org/-/epics/3211)
+  - [Build and commit metadata for tags built via CI](https://gitlab.com/gitlab-org/gitlab/-/issues/197996)
+  - [Search by tag name](https://gitlab.com/gitlab-org/gitlab/-/issues/255614)
+  
+- [Resolve: Group/project path updates break the Container Registry](https://gitlab.com/gitlab-org/gitlab/-/issues/18383)
+
+## The plan 
+
+We're planning a [phased migration](https://gitlab.com/gitlab-org/container-registry/-/issues/374#phase-2-migrate-existing-repositories), starting with GitLab.org repositories. After that, we'll move on to the Free tier, then on to Premium and Ultimate. We'll roll this out incrementally to maintain safety for customers and provide our team with an opportunity to identify and address any concerns.
+
+## Timing 
+
+Migration begins: April 18th, 2022
+Migration ends: July 8th, 2022.
+
+Tentative dates by tier:
+
+- GitLab internal projects: April 14 - April 18
+- Free: April 18 - May 18
+- Premium: May 18 to June 18
+- Ultimate: June 18 to July 8
+
+For more information about the planned, percentage-based rollout, please refer to this [epic](https://gitlab.com/groups/gitlab-org/-/epics/6427).
+
+## What to expect
+
+- For each repository, the migration will only target _tagged_ images. Untagged and unreferenced manifests, and the layers they reference, will be left behind and become inaccessible. Untagged images were never visible through the GitLab UI or API, but they were left behind in the backend after becoming dangling.
+
+- Once migrated to the new registry, repositories will be subject to continuous online garbage collection, deleting any untagged and unreferenced manifests and layers that remain as such for longer than 24 hours.
+
+- To ensure data consistency, the migration of each repository requires the enforcement of a small read-only period at the very end. This period is expected to be less than ten seconds for the vast majority of repositories. During this period, an error message will be returned when trying to upload or delete data, prompting clients to try again. Most clients, will automatically retry several times, which should eventually succeed as the read-only enforcement lifts. We also put a mechanism in place to automatically cancel and reschedule migrations that are taking longer than expected. Nevertheless, if you experience any issues, please comment in the [epic](https://gitlab.com/groups/gitlab-org/-/epics/5523).
+
+## FAQ 
+
+- Do I need to do anything?
+  - No, the process is fully automated. But if you have any untagged images that you'd like to preserve, please be sure to tag them as soon as possible.
+
+- Is there anything I can do to help? 
+  - Yes! Although no action is necessary, we recommend activating the Container Registry [cleanup policies](https://docs.gitlab.com/ee/user/packages/container_registry/#cleanup-policy) for any relevant projects.
+
+- Is the update required? 
+  - Yes. With this change, we can deliver a more modern and scalable product. You don't want to miss out on those features!

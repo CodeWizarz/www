@@ -1,0 +1,236 @@
+---
+title: "Why are developers so vulnerable to drive-by attacks?"
+author: Chris Moberly
+author_gitlab: cmoberly
+author_twitter: init_string
+categories: security
+image_title: '/images/blogimages/drive-by/pexels-pixabay-434450.jpg'
+description: "The complexity of developer working environments make them more likely to be vulnerable to a drive-by attack. We talk about why and walk you through a real-life example from a recent disclosure here at GitLab, and provide tips to reduce the risk and impact of drive-by attacks."
+tags: security
+twitter_text: "Developers are high risk for #RCE drive-by attacks. We deep dive into this type of attack (including a real-life disclosure on the @gitlab GDK) and show why developers are *much more* vulnerable and how they can protect themselves."
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2020/02/12/plundering-gcp-escalating-privileges-in-google-cloud-platform/"
+  - "/blog/2021/07/23/announcing-package-hunter/"
+  - "/blog/2019/12/20/introducing-token-hunter/"
+---
+
+As someone who spends a lot of time working with computers, I know how easy it is to grow over-confident with regards to security. My systems are patched, my firewall rules are tight, and I’m vigilant when it comes to just about anything that looks out of the ordinary.
+
+No one’s hacking their way into *my* workstation, that’s for sure.
+
+But my experience working as a hacker myself has shown me that the opposite is often true. Those of us who are *more* technical are often *much more* vulnerable to an attack due to the complexity of our working environments.
+
+In this blog, we’re going to dive into the anatomy of something called a “drive-by attack,” where malicious code hidden within a website uses your own browser to attack your computer.
+
+As an example, I’ll show you how our own [Red Team](/handbook/security/threat-management/red-team/){:target="_blank"} was able to chain multiple vulnerabilities in the [GitLab Development Kit](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/README.md){:target="_blank"} (GDK) to achieve remote code execution (RCE) on developer laptops. And lastly, we’ll discuss steps you can take to reduce the risk of this happening to you.
+
+## How drive-by attacks work
+
+Drive-by attacks come in many forms. Each type of attack starts the same way - you visit a website that contains some malicious code (typically JavaScript). That code will then target a specific type of vulnerability, either in your browser itself or in some other network service that your browser can access. In this blog, we will focus on the latter.
+
+What I find particularly fascinating about these attacks is that they completely bypass traditional protections like network firewalls and antivirus software. I think many are under the impression that a network service running on their localhost address cannot be targeted remotely. This is simply not true; in fact, this same technique can be used to target any service on your local network, even those without any outbound internet access at all!
+
+Let’s say you are running a test webserver on your laptop on port 8000. You can simulate this running a simple [netcat](https://en.wikipedia.org/wiki/Netcat){:target="_blank"} command:
+
+```
+nc -lkp 8000
+```
+
+Now let’s say you are browsing the internet while that test server is running locally. You visit a site that has been compromised with malicious JavaScript. We’ve set up a site at [https://gitlab-com.gitlab.io/gl-security/security-operations/gl-redteam/simple-request](https://gitlab-com.gitlab.io/gl-security/security-operations/gl-redteam/simple-request){:target="_blank"} that mimics a basic attack. The site contains the following JavaScript:
+
+```
+<script>
+	fetch("http://localhost:8000", {
+    	method: 'post',
+    	body: 'you\'re under attack!',
+	})
+</script>
+```
+
+When you open the site in your browser, you should see that a POST request has been executed against your simulated server, like the screenshot below.
+
+![file name](/images/blogimages/drive-by/firefox.png){: .shadow.medium.center}
+Help, I’m under attack!
+{: .note.text-center}
+
+When JavaScript attempts to interact with another website, the first thing your browser checks is whether or not the protocol, port, and domain all match between that other site and where the script was originally loaded from. This is called the [same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy){:target="_blank"}: it's your browser’s first line of defense when it comes to these types of attacks.
+
+In our example above, none of these items matched. That makes this a cross-origin request. Luckily, modern browsers have some mechanisms to restrict exactly what these types of requests can do.
+
+One of these is called a “[CORS preflight request](https://developer.mozilla.org/en-US/docs/Glossary/Preflight_request){:target="_blank"}.” When some JavaScript asks your browser to perform complex actions on a cross-origin request, your browser will first send an HTTP OPTIONS request to the target. The target will respond with various HTTP headers that tell the browser what is allowed. The most common of these is the “[Access-Control-Allow-Origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Access-Control-Allow-Origin){:target="_blank"}” header.
+
+If this header is set to `*` or to the website containing the malicious code, then your browser will let the code perform complex HTTP requests and access the responses. This would include shipping results off to a remote server, or performing complex multi-step actions like logging in to a service or gaining access to the session token; basically the code will be interacting with it as if it were a human user.
+
+Another header you may encounter is [Access-Control-Allow-Credentials](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#requests_with_credentials){:target="_blank"}. When set to `true`, the origin specified in `Access-Control-Allow-Origin` can perform credentialed requests utilizing the browser’s active sessions. When origin validation is not done properly and the requesting origin is blindly reflected in `Access-Control-Allow-Origin`, drive-by attacks against authenticated services become much more likely to succeed as they do not need to first guess the password and mimic a logon.
+
+From my experience, the first example (`Access-Control-Allow-Origin: *`) is enabled quite often in development software and open-source projects. Even production-ready applications may intentionally set this header to `*` when started with certain flags that tell them they are running in development mode.
+
+What makes matters worse is that software run in development mode tends to have other relaxed security measures: verbose error logging, default passwords or even debuggers that allow web requests to execute commands on the host operating system. This makes it very easy for malicious JavaScript to turn basic cross-origin requests into full-on drive-by exploits that completely compromise your machine.
+
+**To be very clear, if you are running a web server on your workstation with this header set, you are granting permission to any website you visit to fully interact with your application. If that application has the ability to run commands on your laptop, you could be granting any website you visit permission to run commands on your laptop.**
+
+“*Well, that’s fine*,” you might think. “*I’ll just remove that header and be good to go*”.
+
+Unfortunately, it’s not that simple. The preflight check has a pretty big loophole via something called a “[simple request](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS#simple_requests){:target="_blank"}.” Remote JavaScript is allowed to completely bypass the check if it follows some simple rules, like:
+
+- Must be only GET, HEAD, or POST
+- Must be one of three content types (`application/x-www-form-urlencoded`, `multipart/form-data` or `text/plain`)
+- Must use only a specific set of HTTP headers
+- Cannot read the response from the target service
+
+This is why we had no issues running the “you’re under attack!” example above. It followed the rules and was a simple request.
+
+So, to reiterate:
+
+* Any website on the internet can use your browser to attack any service you have access to as long as the attack follows certain rules.
+* Services that implement strong protections against Cross-Site Request Forgery (CSRF) can be more resilient to these attacks.
+* Services that specifically reduce these protections (like with the `Access-Control-Allow-Origin` header) are vulnerable to any attack, whether they follow the rules or not.
+
+How confident are you that every service you run and test locally has implemented strong CSRF protections and has not removed them while in development mode? And even if they have, how confident are you that they cannot still be exploited via the simple requests described above?
+
+## Example: Drive-by RCE in the GitLab GDK
+
+The GitLab GDK is a tool that helps GitLab contributors install a fully-functioning GitLab instance for development purposes.
+
+In September of 2020, our Red Team was researching how our developers could be targeted by sophisticated attackers. We were able to chain multiple vulnerabilities in the GDK to conduct the exact type of attack described in this blog, demonstrating how developer workstations could be remotely compromised.
+
+**These vulnerabilities were quickly patched, the community was asked to upgrade, and this specific risk no longer exists. Read on below about the specific issues and their fixes.**
+
+The attack targeted two components bundled with the GDK:
+
+* [Better Errors](https://github.com/BetterErrors/better_errors){:target="_blank"}: a Rails error debugging tool
+* [webpack-dev-server](https://github.com/webpack/webpack-dev-server){:target="_blank"}: a development web server that provides static file access
+
+When visited, the first thing the malicious website would do was to load the better_errors console in an invisible iframe. The result of this was a simple `GET` request from the browser to `http://localhost:3000/__better_errors`. 
+
+When this URL was loaded, the better_errors application would generate a unique error code (this is important later on) and then send an HTTP redirect code back to the browser inside the iframe. The URL that it redirected to would include the unique error code, like this:
+
+```
+http://localhost:3000/__better_errors/[ERROR CODE]/eval
+```
+
+Because better_errors did not have the dangerous `Access-Control-Allow-Origin: *` header set, the malicious site could not actually view that response. However, the GDK keeps a lot of log files, including a record of every URL that has been accessed. This meant that the unique error code generated by better_errors was now stored in a log file on the workstation’s filesystem.
+
+The next step targeted the webpack-dev-server. This ran on localhost on port 3808 and was configured with the overly-permissive CORS header `Access-Control-Allow-Origin: *`.  As discussed earlier in the blog, this header tells your browser that any website can interact freely with this service.
+
+webpack-dev-server was configured to serve the contents of the log directory, so our malicious JavaScript could literally download and parse the current log file to extract the unique error code generated above.
+
+Using this error code, the script would then create a specially-crafted HTTP POST request to instruct better_errors to evaluate arbitrary Ruby code. And, of course, with Ruby we can encapsulate operating system commands in backticks to execute any command we wanted to on the host. That request looked like this:
+
+```
+POST http://localhost:3000/__better_errors/[ERROR CODE]/eval
+Content-Type: text/plain
+Accept: text/html
+
+{"index":"0","source":"`touch /tmp/itworked`"}
+```
+
+It is worth noting that better_errors actually **did not** have an overly-permissive CORS header. So, technically, we should not have been able to send the above command. Because the content being sent was actually JSON, it would not have qualified as a “simple request” and would have had to pass a CORS preflight check, which would have failed.
+
+However, the `Content-type` header was not being validated properly. We were able to bypass the preflight check by incorrectly setting the content type to `text/plain` while still providing a JSON payload in the request body.
+
+When the malicious website instructed the browser to send that final request, the command would be executed and the host would be compromised.
+
+![file name](/images/blogimages/drive-by/driveby.png){: .shadow.medium.center}
+The original PoC in action.
+{: .note.text-center}
+
+To summarize the issues that made this possible:
+
+* Better Errors:
+     * Improper validation of content type header
+     * Lack of robust cross-site request forgery protection (CSRF tokens)  
+* webpack-dev-server:
+     * Was configured to serve the entire GitLab directory (via `contentBase: true`)
+     * Overly-permissive CORS header (`Access-Control-Allow-Origin: *`)
+
+While GitLab ended up completely removing Better Errors from the GDK, we did reach out to its author who was incredibly responsive and very quickly [implemented robust protection](https://github.com/BetterErrors/better_errors/pull/474){:target="_blank"} for the issues we disclosed.
+
+The GDK still uses webpack-dev-server, but it has been configured to [stop serving the installation directory](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/41841){:target="_blank"} and to [stop sending the overly-permissive CORS header](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/46459){:target="_blank"}.
+
+You can view the source code for the original PoC exploit at [https://gitlab.com/gitlab-com/gl-security/security-operations/gl-redteam/gdk-driveby-poc-public](https://gitlab.com/gitlab-com/gl-security/security-operations/gl-redteam/gdk-driveby-poc-public){:target="_blank"}.
+
+## How to protect yourself from drive-by attacks
+
+### Secure your code from cross-origin attacks
+
+If you are a developer looking to strengthen your own application, here are two great resources to get you started:
+
+* [OWASP Cross-Site Request Forgery Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html){:target="_blank"}
+* [Portswigger: What is CORS?](https://portswigger.net/web-security/cors){:target="_blank"}
+
+Do not make the mistake of thinking that your application does not require protection just because it is never exposed to the internet. Any application that listens for requests on a network port can be attacked, even if it only ever runs on localhost for testing purposes.
+
+### Inspect your own network
+
+As users of software in general, we need to be aware of the increased attack surface that comes with every piece of software we install.
+
+**How many network services do you have running locally on your workstation right now?** Try one of the following commands, you might be surprised by the results:
+
+```
+# Linux systems
+sudo ss -tlpa
+
+# MacOS systems
+sudo lsof -i -P | grep -i "listen"
+```
+
+How about on your home network? Those are also potential targets for a drive-by attack. If your browser can access them, it can be used to attack them. You can get a quick view using [nmap](https://nmap.org/){:target="_blank"} like this:
+
+```
+# Assuming your LAN is 192.168.1.0/24. Change as needed.
+nmap -sV 192.168.1.0/24
+```
+
+If you uncover anything that looks like a web service, try to inspect the default HTTP response headers with a command like this:
+
+```
+curl -vv -H "Origin: http://attacker.com" http://[IP ADDRESS]
+```
+
+If the response headers include something like `Access-Control-Allow-Origin: *` or `Access-Control-Allow-Origin: http://attacker.com`, then you know right away that there is a high chance it is vulnerable to a drive-by attack.
+
+However, as demonstrated in our example above, even services with properly configured CORS headers can be targeted by drive-by attacks under the right conditions.
+
+### Reducing potential impact and risk
+
+When testing and developing software, we end up executing a lot of code via libraries and dependencies. It’s unlikely that we have the time and resources to personally audit every single line of that code. To make matters worse, we often run local environments with intentionally relaxed security controls because it is just too cumbersome to emulate full production environments on our workstations.
+
+Eliminating these risks totally might be unrealistic, but we can at least make an effort to reduce the potential impact should one of these environments be compromised.
+
+If you were to fall victim to a drive-by attack while running an insecure server on your workstation, you would be in for a very bad day. An attacker with a shell on your system can take over every authenticated web session you have, access all of your local data, and potentially compromise any other remote system you have access to.
+
+The most obvious way to reduce risk would be to not run potentially risky software directly on your workstation. Some easy ways to do this would be:
+
+* Use temporary virtual machines (in the cloud or with local virtualization software) that are reverted to “known good” snapshots often. Ensure these machines contain no sensitive data.
+* Use container technology (LXD, Docker, etc) for launching temporary test environments. Follow best practices to make container escapes more difficult.
+
+Neither of the above are iron-clad protections. Attackers can still target VMs and containers using your workstation’s browser. Sophisticated attackers may even find their way out of that restricted environment and back onto your workstation. But these methods do add another layer between potentially insecure code and your sensitive data.
+
+### Secure your browser
+
+Additional layers of security can also be implemented around the browser, by segmenting it or restricting what it can do. Remember, your browser is what a drive-by attack abuses to gain access to local services. Here are some ideas to consider:
+
+* Use the [Tor Browser](https://www.torproject.org/){:target="_blank"}. Besides coming with enhanced security features enabled by default, it literally [cannot access localhost](https://gitlab.torproject.org/legacy/trac/-/issues/10419){:target="_blank"} or your LAN.
+* In your normal browser, plugins like [uBlock Origin](https://github.com/gorhill/uBlock){:target="_blank"} can limit the ability of JavaScript to execute (see [blocking modes](https://github.com/gorhill/uBlock/wiki/Blocking-mode){:target="_blank"}) and block sites from accessing local IP addresses (enable the "block access to LAN" [filter-list](https://github.com/gorhill/uBlock/wiki/Dashboard:-Filter-lists){:target="_blank"}).
+* Some attacks may use a DNS name that resolves to a local IP address, which would bypass the filter list described above. See if your provider supports something called "DNS rebind protection" (available in dnsmasq, pihole, and services like NextDNS).
+* You can run a web browser inside a virtual machine with limited access to your workstation and/or your LAN. This can be done manually or via products like [QubesOS](https://www.qubes-os.org/){:target="_blank"} and/or [Whonix](https://www.whonix.org/){:target="_blank"}. Use this segmented browser when accessing sites that you do not trust completely. Revert the browser VMs back to a known good state often.
+
+Some of the ideas above, such as using the Tor Browser or a virtual machine, may not be particularly convenient for 100% of your tasks. You can use them selectively when accessing sites that you have specific concerns with (like while conducting incident response or security research).
+
+![file name](/images/blogimages/drive-by/tor-browser.png){: .shadow.medium.center}
+Tor Browser to the rescue!
+{: .note.text-center}
+
+## Understand and protect your attack surface
+
+If you are running software on your computer that listens on a local network port, you are running a server. That server can be accessed and attacked by any website you visit. Because software developers frequently test less-secure services on their local machines, they are at an increased risk of compromise by these types of attacks.
+
+Understanding this attack surface is important, as it lets you make decisions about what additional layers of security you can use to protect yourself. If you have any tips of your own to share, please do so in the comments below.
+
+Thanks for reading!
+
+Cover image by [Pixabay](https://www.pexels.com/@pixabay) on [Pexels](https://www.pexels.com/photo/action-asphalt-back-light-cars-434450/)
+{: .note}

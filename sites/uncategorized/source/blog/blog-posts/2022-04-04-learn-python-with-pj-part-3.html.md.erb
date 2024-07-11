@@ -1,0 +1,124 @@
+---
+title: "Learn Python with Pj! Part 3 - Functions and strings"
+author: Pj Metz
+author_gitlab: PjMetz
+author_twitter: MetzinAround
+categories: engineering
+tags: careers, growth, tutorial
+description: Pj shares his experiences learning how to program functions and strings.
+image_title: /images/blogimages/python.jpg
+twitter_text: GitLab's Pj Metz is learning Python and taking you along for the
+  ride. In part 3, he learns about functions and strings.
+---
+
+_This is the third installment in the Learn Python with Pj! series. Make sure to read [Part 1](/blog/2022/02/08/learn-python-with-pj-part-1/) and [Part 2](/blog/2022/03/01/learn-python-with-pj-part-2/)._
+
+
+In learning Python, I’m happy to have found a language with a straightforward syntax that just seems to make sense. I don’t have to define a type; Python just knows. I don’t have to worry about `let` or `const` or `var` for different use cases; I just make the variable. I’m very glad I learned C# and JavaScript first, as those feel important to understanding exactly what is happening when I write code. In turn, I think it’s made Python easier for me, which is usually true when learning another programming language: Your second and third are easier to learn since your brain understands “programming logic” better now than when you made your first “Hello World”. This week we’re going to talk about what I’ve learned in functions and strings. 
+
+## Functions
+
+Functions are the backbone of any app you write. It’s an important step in learning any language to learn how to put a series of actions inside a single function that can be called later in the code. Python does this simply compared to other languages I’ve learned. 
+
+```python
+def my_first_function(arg1, arg2):
+  print(f”Your input was {arg1} and {arg2}.”)
+
+#prints “Your input was hilarious and unnecessary”
+my_first_function(“hilarious”, “unnecessary”)
+```
+Using the keyword `def` lets Python know that you’re about to write a function. Inside the parentheses, you put any parameters that must be included when calling the function. Some people use argument and parameter interchangeably, but technically, when defining a function, it’s a parameter, and when calling a function, it’s an argument. Either way, when defining the function, include some variables that you’ll expect when the function is called later. Finally, put a colon and then move to the next line. All the code for the function to run is indented. Inside the function, you can run loops, logic, or even other functions. Let’s check out a slightly more complex use. 
+
+```python
+def halloween_horror_nights(days, link,):
+    named = input("What is your name?")
+    name = named.capitalize()
+    if isinstance(days, int):
+        if days == 0:
+            print(f" Hello, {name}. We're ready to see you at HHN. {link}")
+        elif days <= 30:
+            print(f"{name}, You have {days} days until the terror is home. {link}")
+        elif days <= 60:
+            print(f"{name}, The horror comes home in {days} days. Join us in the dark. {link}")
+        elif days < 365 and days > 60:
+            print(f"{name}, Patience is a virtue. You're {days} days away from the top rated Halloween event in the world.{link}")
+        else:
+            print(f"{name}, it can't be more than a year away. It's closer than you think... {link}")
+    else:
+        print("Days must be an int")
+    
+    
+#This will print “{Name input by user}, The horror comes home in 56 days. Join us in the dark. https://orlando.halloweenhorrornights.com/site"
+halloween_horror_nights(56, "https://orlando.halloweenhorrornights.com/site")
+```
+
+For context, Halloween Horror Nights in Orlando is my favorite event of the year. This function takes in a number of days and a link (meant to be days until the event and a link to the HHN web page) and outputs a string that says how many days are left until the event. The string also includes a link to the web page and asks for user input to personalize each string. The function `isinstance()` checks if `days` is an int to make sure the sentence makes sense and returns `True` if the first argument is the type of the second argument. 
+
+I really found functions in Python to be a lot easier than in other languages, though I still miss the curly brackets of C# and JavaScript. Additionally, the simplicity of `def` followed by the function name and any required parameters is really straightforward and makes reading the code easier. And since code is read more than it’s written, that makes Python pretty awesome in my book. 
+
+I also used the f-string format for these print statements, and it’s still one of my favorite ways to concatenate. It feels easier than a lot of the other ways of inserting variables into a string in Python, and a little easier than the way it’s done in JavaScript, at least to me. I use a different method of including variables in a string called `.format()`. 
+
+Making your own functions is important, but there are a bunch of built-in functions in Python. There are also methods, which are similar to functions but are associated with the objects in a class they’re assigned to. Let’s talk about some strings and some methods that come with them.
+
+## Strings
+
+I thought it was strange that I had a whole section on strings in my Codecademy Python curriculum, but I soon realized that it was giving me a lot of very useful methods to use on strings that seemed very versatile. The most interesting thing to me is that strings are an object and act like a list of characters. I’m not entirely sure how strings are treated in other languages, but this really struck me as a cool idea. You can even call specific characters using the same syntax you would for a list. 
+
+```python
+spooky = “Halloween Horror Nights is my favorite thing about Autumn.”
+
+#the following prints “l” since it’s the 3rd char in the string `spooky`. 
+print(spooky[2]) 
+```
+
+Or you can use a for loop on a string.
+
+```python
+#This prints each letter on a new line and capitalizes it. The message now reads vertical in the output.
+for letter in spooky:
+  print(letter.upper())
+```
+
+### String methods	
+
+A few built-in methods exist for strings in Python, like `capitalize()` and `upper()`, two I used in the above examples. In addition to those, there are many more that can do things like remove the whitespace or noise from the beginning and end of a string, tell you the index of the first appearance of something, or join a list of strings into a single string. There are lots of great included methods. Here’s an exercise I took from Codecademy and changed the content to fit this article's theme. 
+
+```python
+#given a string that contains a ton of information separated by semicolons and commas. Each part is a haunted house name, Universal Studios location, and the year the house appeared at the event.
+hhn_houses_location_year = "Chucky;Japan;2016, Run;Orlando;2001, The Orfanage: Ashes to Ashes;Orlando;2010, The Real: Haunted Village;Japan;2021, The Undertaker: No Mercy;Hollywood;2000, Welcome to Silent Hill;Hollywood;2012, American Werewolf in London;Orlando;2013"   
+
+#this splits the string up into a list where each element of the list is the section separated by a comma.
+hhn_houses_list = hhn_houses_location_year.split(",")
+
+#empty list for the next step
+hhn_houses_stripped = []
+
+#this strips any whitespace from the element in the list and adds it to the empty list from before
+for house in hhn_houses_list:
+    hhn_houses_stripped.append(house.strip())
+
+#empty list for next step
+hhn_house_details = []
+
+#the next few lines split the details into their own list. 
+#first, each house, with the details, is split along the semicolons to make a list of lists, with each house being its own element in the larger list
+#next, empty lists are made for each detail
+#finally, using index numbers, each detail is placed in it’s own list so all the houses, locations, and years are separated. 
+for info in hhn_houses_stripped:
+    hhn_house_details.append(info.split(";"))
+
+house = []
+location = []
+year = []
+
+for stuff in hhn_house_details:
+    house.append(stuff[0])
+    location.append(stuff[1])
+    year.append(stuff[2])
+
+#loops through and using .format() prints a sentence that tells about each house. 
+for num in range(0, len(house)):
+  print("{} was located in {} for the {} event".format(house[num], location[num], year[num]))
+```
+
+As you can see, I am obsessed with Halloween horror nights… er, wait, not the point of the article. As you can see, Python’s built-in methods for strings can be pretty useful, especially if you end up with a bunch of data sitting around in unformatted strings. Next time, we’re going to talk about Dictionaries and how they are used in Python! 

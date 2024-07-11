@@ -1,0 +1,101 @@
+---
+title: How to access GitLab on a private network with Tailscale
+author: Brendan O'Leary
+author_gitlab: boleary
+author_twitter: olearycrew
+categories: engineering
+tags: tutorial, open source, integrations
+description: If issues around a private network were preventing a permanent
+  GitLab installation, Brendan O'Leary has the solution with Tailscale.
+image_title: /images/blogimages/locks.jpg
+featured: yes
+twitter_text: "How to use Tailscale to access GitLab
+  on a private network"
+---
+GitLab provides an easy-to-install package for most Linux distributions and even for devices like the [Raspberry Pi](https://docs.gitlab.com/omnibus/settings/rpi.html). However, if you want to install GitLab in a home lab or similar private network, you would then be faced with a new issue: how do you access the instance from outside that private network?
+
+Traditionally, you would set up your router to forward traffic from your public IP address to the server inside your network. However, this comes with several drawbacks:
+
+- Opening a port on your home or private network comes with a sustainable amount of risk.
+- It can be hard or impossible for folks to do depending on their internet service provider and what routing equipment they use.
+- It can be especially tough if your ISP doesn't provide you with a statically assigned IP address which means your address can change from time to time, and you'll need to either update DNS manually or through some third-party [dynamic DNS](https://www.cloudflare.com/learning/dns/glossary/dynamic-dns/) service.
+
+For me, all of these challenges have meant that I've only ever really run GitLab "for fun" on my local network. Given the challenges above, running a permanent installation wasn't an option. That is until [Tailscale](https://tailscale.com) entered my life.
+
+## Tailscale
+
+Tailscale isn't necessarily the "newest" technology. In fact, it is based on the [WireGuard protocol](https://www.wireguard.com/), which has existed in one form or another since 2015 and has seen native kernel support added to various Linux distributions as well as the kernel itself over the past several years.  Wireguard VPN technology makes considerable improvements in the usability and setup of virtual private networks over earlier protocols like IPsec. Even with being easier to use, the "problem" with WireGuard, at least for me, was always that it was still too complex to set up and maintain. Much like configuring my ISP's router for port forwarding, it wasn't _impossible_, but it just wasn't practical.
+
+Enter Tailscale. Tailscale provides a simple piece of client software, available for Linux, Mac, and Windows (and iOS and Android!), which implements the WireGuard protocol and allows you to control your VPN network from a handy web interface. Not only that, it's [free to use](https://tailscale.com/pricing/) for individuals and small networks. When I started using Tailscale, it was to make sure I could connect back to my home network and troubleshoot it while traveling for work. As the only system administrator in my house, this was fantastic.
+
+However, Tailscale also offers the ability to easily access services inside of various networks as well by setting up a mesh VPN between them, all with IP addresses in the 100.x.y.z range. That means for any web service or other service on my network, I can access it with a statically assigned IP address from any other device connected to Tailscale, and create a DNS record to have a domain point to the IP address. At last, I could run GitLab (and other open source tools) at home and safely connect to them from outside my house with as little hassle as possible. So how did I get it to work?
+
+## Tailscale and GitLab together
+
+Assuming you already have a GitLab [installation](/install/) up and running on your network, getting it working through Tailscale involves a few steps:
+
+- Installing Tailscale
+- Setting up DNS for the private address
+- Configuring HTTPS encryption
+
+### Installing Tailscale
+
+Packages are [available](https://tailscale.com/kb/1031/install-linux/) for many Linux distributions. To install Tailscale, you can select your [specific distribution](https://tailscale.com/kb/1031/install-linux/) for detailed instructions. There are also [static binaries](https://tailscale.com/kb/1053/install-static/) if you can't find your particular distribution - they are available for x86 and ARM CPUs for both 32- and 64-bit variants.
+
+Once Tailscale is installed, getting it running is as simple as running the following command on the CLI:
+
+```bash
+sudo tailscale up
+```
+
+The setup dialogue will walk you through the authentication process and get Tailscale running. After that process, you can see your new IP address for this node on your network with the CLI command `tailscale ip -4`. You'll need that IP address for the next steps.
+
+By default, Tailscale will set an expiration date for the token it issues to your device during the authentication process. This is desirable for typical devices that may be transient or portable. However, suppose your device is secured inside your home or another secure place AND is a server you're not accessing all the time. In that case, you can optionally [disable key expiry](https://tailscale.com/kb/1028/key-expiry/) for that particular device.
+
+### Setting up DNS
+
+You should be able to now access your device from any other Tailscale-connected device via the IP address from the last step. However, my goal was to make it easy for me to connect to GitLab, reference it by an URL, and encrypt the traffic end-to-end with TLS. As the next step I set up DNS.
+
+Even though the 100.x.y.z address is a private IP address, you can still create a public DNS record and have the hostname to point to it. That won't mean the whole world can access your server - it just means once you're connected to your Tailscale network, you can resolve that hostname to the IP address and access the web server. For me, I set up an A record for `gitpi.boleary.dev` to resolve to an IPv4 address:
+
+```
+;; QUESTION SECTION:
+;gitpi.boleary.dev.		IN	A
+
+;; ANSWER SECTION:
+gitpi.boleary.dev.	300	IN	A	100.64.205.40
+```
+
+An important note here is that I use Cloudflare as my DNS provider - and I usually love Cloudflare's proxying service to make my "real" IP addresses private. In this case, you have to disable that proxying to make sure that you can resolve the correct address - Cloudflare can't proxy traffic into your Tailscale network.
+
+### Configuring HTTPS
+
+Lastly, configuring HTTPS for your GitLab instance will ensure that all traffic is encrypted end-to-end. While Tailscale encrypts the traffic over the network, this will ensure there are no gaps between your device and your GitLab server.
+
+To accomplish this, we'll use [`certbot`](https://certbot.eff.org/) from the EFF that lets us create and manage [Let's Encrypt](https://letsencrypt.org/) certificates. First, install `certbot` with `sudo apt install certbot` or follow the [instructions for your distribution](https://certbot.eff.org/instructions).
+
+After certbot is installed, issue a certificate to use with GitLab using a DNS challenge. Follow the steps to complete the DNS challenge after running this command:
+
+```bash
+sudo certbot certonly --manual --preferred-challenges dns
+```
+
+The output will show you the specific location of the certificate it created (in my case, in a `gitpi.boleary.dev` folder), and you should link that certificate to GitLab's SSL directory by running:
+
+```bash
+sudo mkdir /etc/gitlab/ssl/
+sudo ln -s /etc/letsencrypt/live/gitpi.boleary.dev/fullchain.pem /etc/gitlab/ssl/gitpi.boleary.dev.crt
+sudo ln -s /etc/letsencrypt/live/gitpi.boleary.dev/privkey.pem /etc/gitlab/ssl/gitpi.boleary.dev.key
+```
+
+Next, configure GitLab to use the new certificate by opening the `gitlab.rb` with
+
+```bash
+sudo vi /etc/gitlab/gitlab.rb
+```
+
+And change the `external_url` value to match the URL for the certificate (e.g. `https://gitpi.boleary.dev`). That "https" will tell GitLab to enable TLS/SSL and use your linked certificate.
+
+## Finishing up
+
+That's it! Now with a simple `gitlab-ctl reconfigure`, GitLab will pick up the new certificate and start responding to requests at that URL. From any device - iOS, Android, laptop, etc. - connected to your Tailscale network, you can access your GitLab installation (securely) from anywhere!

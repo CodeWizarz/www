@@ -1,0 +1,237 @@
+---
+title: "Update: Elasticsearch lessons learnt for Advanced Global Search 2020-04-28"
+author: Dylan Griffith
+author_gitlab: DylanGriffith
+categories: unfiltered
+image_title: "/images/blogimages/enable-global-search-elasticsearch.jpg"
+description: "This extends on previous blog posts that showcase the work done and lessons learnt while building our Advanced Global Search features."
+tags: features, integrations, inside GitLab, performance
+ee_cta: false
+postType: content marketing
+---
+
+{::options parse_block_html="true" /}
+
+
+
+For some time now, GitLab has been working on enabling the Elasticsearch
+integration on GitLab.com to allow as many GitLab.com users as possible access
+to the [Advanced Global
+Search](https://docs.gitlab.com/ee/user/search/advanced_search.html)
+features.
+
+This article follows up with yet more lessons learned on our road to Enabling
+Elasticsearch for GitLab.com. You can read [the first article from
+Mario](/blog/2019/03/20/enabling-global-search-elasticsearch-gitlab-com/) and
+[the second article from
+Nick](/blog/2019/07/16/elasticsearch-update/) to see where we've come
+from.
+
+## Selective indexing
+
+GitLab.com is the largest known installation of GitLab and as such has a lot of
+projects, code, issues, merge requests and other things that need to be indexed
+in Elasticsearch in order for us to support Advanced Global Search. Given the
+volume of data and given that we didn't have much experience running
+Elasticsearch at any scale in the company, it made sense for us to think of a
+way to gradually index our data and learn new lessons at each scaling
+milestone. In order to do this we built in the ability to enable indexing and
+searching of individual groups and projects so we could stagger out the
+release.
+
+Back in June 24, 2019, we enabled the integration for the `gitlab-org` group on
+GitLab.com, and after doing this, we learnt a lot before we were able
+to expand to other groups.
+
+Today, we have enabled Advanced Global Search for over 900 groups already, and
+we are still increasing this rollout. In order to get to this large number, we
+needed to automate the gradual increase in groups by allowing operators to
+[roll out to percentages rather than just one group at a
+time](https://gitlab.com/gitlab-org/gitlab/-/issues/33681). This has been used
+now to get us to 15% of bronze tier customers and will hopefully be useful for
+getting us all the way to 100% of all paying customers.
+
+This post will detail a few key lessons learnt since enabling our first group.
+At the very least it will serve as a reminder of the things we wished we knew
+before we ran into them.
+
+## Defense in depth
+
+One of the first and least expected problems we ran into after enabling this
+feature was a continuous stream of security vulnerabilities caused by the
+complexity of replicating our authorization model in Elasticsearch. We really
+thank our HackerOne community for how quickly they were able to notice the
+mistakes we made in our authorization logic and appreciate the impact they've
+made on ensuring people's data is secure.
+
+Basically, our Elasticsearch integration needs to cover all permutations of user
+permissions, project visibilities, group inheritance, confidential resources,
+and other features that GitLab supports for determining whether or not a user
+can view a specific document. All documents live in a single index, so the only
+way to ensure that searches return the correct set of results a user can see is
+to include the permissions checks in the search query itself. However, this breaks
+one of the first programming rules we've learnt, which is D.R.Y. (Do not Repeat
+Yourself). And that rule in this case manifested in the expected outcome of
+bugs caused by our permission logic being wrong in our Elasticsearch queries.
+
+After fixing bug after bug which fell into this same formula of incorrect
+permission logic, we soon realized we just needed to apply a [2nd layer of
+permission filtering of search
+results](https://gitlab.com/gitlab-org/gitlab/-/issues/33689) using the same
+code we use to check permissions in GitLab. Once we implemented this, the
+vulnerabilities mostly disappeared despite a few lower severity and harder
+to accomplish attacks. This new logic we now call "redacting" search results
+also allowed for an additional threat/bug detection mechanism in GitLab by
+setting up [alerts when the redacting logic was
+triggered](https://gitlab.com/gitlab-org/gitlab/-/issues/36114).
+
+## Sorted sets
+
+GitLab initially followed the common path for indexing our database models by
+simply queueing a background job on every created/updated/deleted record in the
+database that also needed to be in Elasticsearch. This is very easy to
+implement in Rails using [Sidekiq](https://github.com/mperham/sidekiq), but it
+comes with the downside that you end up sending many small updates to
+Elasticsearch. These very frequent writes to ElasticSearch [cause performance
+issues at
+scale](https://www.elastic.co/blog/found-keeping-elasticsearch-in-sync#the-problems-of-too-frequent-updates-and-non-batch-updates).
+
+After reading [Keeping Elasticsearch in
+Sync](https://www.elastic.co/blog/found-keeping-elasticsearch-in-sync) we
+decided to [implement a buffered queue
+approach](https://gitlab.com/gitlab-org/gitlab/issues/34086) based on [Redis
+sorted sets](https://redis.io/commands/zadd). This approach allowed us to
+easily batch updates using the Elasticsearch bulk API every minute, and it also
+had the advantage of automatically de-duplicating updates due to the sorted set
+data structure.
+
+This has now been running for a few months without any major issues. The
+de-duplication turns out to be very powerful given our specific workloads, as
+over a 24hr period of time, 95% of updates are duplicates. These details will
+obviously vary based on the specifics of your application, but in GitLab these
+duplicates happen very close together as people edit issue descriptions, MR
+descriptions and other objects in quick succession, and so de-duplication will
+allow us to reach a considerably larger scale by reducing load on Elasticsearch
+writes.
+
+## Some index settings can cause certain queries to break
+
+A very important [lesson we
+learnt](https://gitlab.com/gitlab-org/gitlab/-/issues/213265) is that it's very
+easy to break your Elasticsearch queries if you change the
+[`index_options`](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-options.html)
+and don't test all the types of queries you are sending. In particular, the
+documentation does mention that "Positions can be used for proximity or phrase
+queries", but it does not clearly mention that if you try to do those queries
+(for example, in the form of [simply query
+string](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html))
+without the positions index options, then your queries will fail.
+
+Of course the other important lesson [included in our
+fix](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/28712) was to
+provide an adequate integration test suite of the different types of queries we
+allow our users to perform to avoid these regressions.
+
+## Just because Elasticsearch allows you to update index mappings doesn't mean it will work
+
+Elasticsearch does [make it clear that updating existing mappings in an index
+is usually not an
+option](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-put-mapping.html#updating-field-mappings),
+but there seem to be some cases where you are able to change the mapping without
+triggering any error at the time of changing the mapping, but later no documents
+will be able to write to the index. We [learnt
+this](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/1758#note_306766802)
+when trying to [update
+`index_options`](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-options.html).
+The lesson was to properly test that you can change the setting and keep writing
+to the index after.
+
+## Remote reindex has some limitations that make it difficult to do quickly
+
+A key part of running Elasticsearch is in production is coming up with a
+strategy for schema changes or other data migrations. We have experience doing
+these kinds of changes with Postgres, and most web application developers will
+have similar experience with migrating relational databases. But Elasticsearch
+doesn't allow for many in-place migrations of schema or data, and as such, it
+generally requires users to
+[reindex](https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-reindex.html)
+all of their data in order to make changes to the schema or data.
+
+In the case of GitLab, we've been making [considerable improvements to the
+storage used by our Elasticsearch
+index](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/25992) which is a
+key step in rolling out the feature on GitLab.com. But changes to the index
+options which reduce storage have meant we needed to reindex the entire
+dataset to see the benefits.
+
+Initially, it seemed like the best way to do this would be to use the  [reindex
+from
+remote](https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-reindex.html#reindex-from-remote)
+feature in Elasticsearch. This seemed appealing as it would mean that the high
+volume of writes which happen during the reindex would not put any load on our
+primary cluster during the reindex process. This benefit was valid, but it
+turned out that we [couldn't get the reindexing process to go quick
+enough](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/1862#note_314447519)
+due to a [limitation in this API where it won't allow you to configure the
+buffer size](https://github.com/elastic/elasticsearch/issues/21185).
+
+## Aliases are really a good idea to do from the start
+
+When reading about reindexing in Elasticsearch, you will likely learn that
+using an [index
+alias](https://www.elastic.co/guide/en/elasticsearch/reference/current/indices-aliases.html)
+is almost always at the heart of these solutions. Without this, it's very
+difficult to perform zero downtime reindexing, because Elasticsearch provides no
+way to rename an index.
+
+As such, we learnt that we probably should have been using aliases from the
+beginning and [plan to implement this functionality
+soon](https://gitlab.com/gitlab-org/gitlab/-/issues/213628).
+
+## There are several settings to speed up reindexing
+
+After realizing that reindex to remote was not going to work well for us, we did
+learn about a bunch of ways to make the in-cluster reindexing happen a lot
+faster. Most of these come from Elastic's excellent guide to [tune for indexing
+speed](https://www.elastic.co/guide/en/elasticsearch/reference/master/tune-for-indexing-speed.html).
+
+The changes we used [when
+reindexing](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/1907) to
+speed things up were:
+
+1. Set `number_of_replicas` to `0` on the destination index. The default is `1`
+   which means 1 replica which means all the data written to the index needs to be
+   written to 2 nodes. Disabling means basically half the amount of writing
+   needed.
+1. Set `refresh_interval` to `-1` on the destination index. The default
+   behaviour is to refresh the indices every second. Because we aren't reading from
+   this new indexing during the reindexing, we can then disable it as we don't mind
+   that searches won't return results.
+1. Set
+   [`translog.durability`](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules-translog.html)
+   to `async` on the destination index. This will allow the cluster to sync the
+   updates to disk asynchronously. It does come with some risk of data loss if
+   a hard disk fails during reindexing, but does come with the advantage of
+   speeding up the process, and when we finish, we can switch this back to the
+   default.
+
+## You can make the replica recovery go faster by changing settings too
+
+As mentioned above, we decided to disable replication during the reindexing, but
+after it finishes, we need to re-enable replication and allow replicas to
+catch up before switching to the new index. This process may take a while but
+you can speed it up by increasing
+[`indices.recovery.max_bytes_per_sec`](https://www.elastic.co/guide/en/elasticsearch/reference/current/recovery.html).
+
+## Use routing to speed up queries but note the limit on number of routing ids in the request
+
+GitLab routes all documents based on the project. This allowed us the
+opportunity [to route searches to the correct nodes when searching within
+projects](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/22261). This
+did [speed up our searches by around
+5x](https://gitlab.com/gitlab-org/gitlab/-/issues/196838#note_303927892).
+
+We did however learn when making this optimization to be careful to not send
+too many routing ids in the request, or you may [exceed the 4096 bytes limit on
+Elasticsearch HTTP
+lines](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/24280).

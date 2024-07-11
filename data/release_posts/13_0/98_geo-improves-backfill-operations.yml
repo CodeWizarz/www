@@ -1,0 +1,28 @@
+features:
+  secondary:
+    - name: "Improved Geo replication performance for Job Artifacts, Uploads and LFS files"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/index.html'
+      reporter: fzimmer
+      stage: systems
+      categories:
+        - "Geo-replication"
+        - "Disaster Recovery"
+      epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/2851'
+      description: | 
+        To determine what needs to be replicated from the primary, Geo compares the tracking database to the read-only secondary database. If Geo’s
+        database queries time out, data can’t be replicated successfully. In
+        GitLab 13.0, we use a [new approach to synchronize Job Artifacts and
+        Uploads](https://gitlab.com/gitlab-org/gitlab/-/issues/210525), thereby
+        eliminating the possibility of database statement timeouts. We also
+        [improved the database query performance to retrieve Job Artifacts, LFS
+        Objects, and Uploads when these files are stored
+        locally](https://gitlab.com/gitlab-org/gitlab/-/issues/213382), which
+        increases the overall scalability and performance of GitLab Geo. 
+
+        These iterations bring us closer to removing Geo's dependency on
+        [Foreign Data
+        Wrappers](https://wiki.postgresql.org/wiki/Foreign_data_wrappers), which
+        were added for improved performance, but makes Geo more complex and
+        harder to maintain.

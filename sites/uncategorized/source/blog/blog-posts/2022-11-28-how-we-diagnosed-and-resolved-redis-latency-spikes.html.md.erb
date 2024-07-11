@@ -1,0 +1,325 @@
+---
+title: How we diagnosed and resolved Redis latency spikes with BPF and other tools
+author: Matt Smiley
+author_gitlab: msmiley
+author_twitter:
+categories: engineering
+image_title: '/images/blogimages/clocks.jpg'
+description: "How we uncovered a three-phase cycle involving two distinct saturation points and a simple fix to break that cycle."
+tags: performance, tutorial, DevOps
+twitter_text: "We take you step by step as we uncover a three-phase cycle of Redis latency spikes involving two distinct saturation points and discover a simple fix to break that cycle."
+featured: yes 
+---
+
+If you enjoy performance engineering and peeling back abstraction layers to ask underlying subsystems to explain themselves, this article’s for you. The context is a chronic Redis latency problem, and you are about to tour a practical example of using BPF and profiling tools in concert with standard metrics to reveal unintuitive behaviors of a complex system.
+
+Beyond the tools and techniques, we also use an iterative hypothesis-testing approach to compose a behavior model of the system dynamics. This model tells us what factors influence the problem's severity and triggering conditions.
+
+Ultimately, we find the root cause, and its remedy is delightfully boring and effective. We uncover a three-phase cycle involving two distinct saturation points and a simple fix to break that cycle. Along the way, we inspect aspects of the system’s behavior using stack sampling profiles, heat maps and flamegraphs, experimental tuning, source and binary analysis, instruction-level BPF instrumentation, and targeted latency injection under specific entry and exit conditions.
+
+If you are short on time, the takeaways are summarized at the end. But the journey is the fun part, so let's dig in!
+
+## Introducing the problem: Chronic latency 
+
+GitLab makes extensive use of Redis, and, on GitLab.com SaaS, we use [separate Redis clusters](/handbook/engineering/infrastructure/production/architecture/#redis-architecture) for certain functions. This tale concerns a Redis instance acting exclusively as a least recently used (LRU) cache.
+
+This cache had a chronic latency problem that started occurring intermittently over two years ago and in recent months had become significantly worse: Every few minutes, it suffered from bursts of very high latency and corresponding throughput drop, eating into its Service Level Objective (SLO). These latency spikes impacted user-facing response times and [burned error budgets](https://gitlab.com/gitlab-org/gitlab/-/issues/360578#note_966597336) for dependent features, and this is what we aimed to solve.
+
+**Graph:** Spikes in the rate of extremely slow (1 second) Redis requests, each corresponding to an eviction burst
+
+![Graph showing spikes in the slow request rate every few minutes](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/00_redis_slow_request_rate_spikes_during_each_eviction_burst.png)
+
+In prior work, we had already completed several mitigating optimizations. These sufficed for a while, but organic growth had resurfaced this as an important [long-term scaling problem](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#why-is-it-important-to-get-to-the-root-of-the-latency-spikes). We had also already ruled out externally triggered causes, such as request floods, connection rate spikes, host-level resource contention, etc. These latency spikes were consistently associated with memory usage reaching the eviction threshold (`maxmemory`), not by changes in client traffic patterns or other processes competing with Redis for CPU time, memory bandwidth, or network I/O.
+
+We [initially thought](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1567) that Redis 6.2’s new [eviction throttling mechanism](https://github.com/redis/redis/pull/7653) might alleviate our eviction burst overhead. It did not. That mechanism solves a different problem: It prevents a stall condition where a single call to `performEvictions` could run arbitrarily long. In contrast, during this analysis we [discovered](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_977816216) that our problem (both before and after upgrading Redis) was related to numerous calls collectively reducing Redis throughput, rather than a few extremely slow calls causing a complete stall.
+
+To discover our bottleneck and its potential solutions, we needed to investigate Redis’s behavior during our workload’s eviction bursts.
+
+## A little background on Redis evictions
+
+At the time, our cache was oversubscribed, trying to hold more cache keys than the [configured `maxmemory` threshold](https://redis.io/docs/reference/eviction/) could hold, so evictions from the LRU cache were expected. But the dense concentration of that eviction overhead was surprising and troubling.
+
+Redis is essentially single-threaded. With a few exceptions, the “main” thread does almost all tasks serially, including handling client requests and evictions, among other things. Spending more time on X means there is less remaining time to do Y, so think about queuing behavior as the story unfolds.
+
+Whenever Redis reaches its `maxmemory` threshold, it frees memory by evicting some keys, aiming to do just enough evictions to get back under `maxmemory`. However, contrary to expectation, the metrics for memory usage and eviction rate (shown below) indicated that instead of a continuous steady eviction rate, there were abrupt burst events that freed much more memory than expected. After each eviction burst, no evictions occurred until memory usage climbed back up to the `maxmemory` threshold again.
+
+**Graph:** Redis memory usage drops by 300-500 MB during each eviction burst:
+
+![Memory usage repeatedly rises gradually to 64 GB and then abruptly drops](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/01_redis_memory_usage_dips_during_eviction_bursts.png)
+
+**Graph:** Key eviction spikes match the timing and size of the memory usage dips shown above
+
+![Eviction counter shows a large spike each time the previous graph showed a large memory usage drop](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/02_redis_eviction_bursts.png)
+
+This apparent excess of evictions became the central mystery. Initially, we thought answering that question might reveal a way to smooth the eviction rate, spreading out the overhead and avoiding the latency spikes. Instead, we discovered that these bursts are an interaction effect that we need to avoid, but more on that later.
+
+## Eviction bursts cause CPU saturation
+
+As shown above, we had found that these latency spikes correlated perfectly with large spikes in the cache’s eviction rate, but we did not yet understand why the evictions were concentrated into bursts that last a few seconds and occur every few minutes.
+
+As a first step, we wanted to verify a causal relationship between eviction bursts and latency spikes.
+
+To test this, we used [`perf`](https://www.brendangregg.com/perf.html) to run a CPU sampling profile on the Redis main thread. Then we applied a filter to split that profile, isolating the samples where it was calling the [`performEvictions` function](https://github.com/redis/redis/blob/6.2.6/src/evict.c#L512). Using [`flamescope`](https://github.com/Netflix/flamescope), we can visualize the profile’s CPU usage as a [subsecond offset heat map](https://www.brendangregg.com/HeatMaps/subsecondoffset.html), where each second on the X axis is folded into a column of 20 msec buckets along the Y axis. This visualization style highlights sub-second activity patterns. Comparing these two heat maps confirmed that during an eviction burst, `performEvictions` is starving all other main thread code paths for CPU time.
+
+**Graph:** Redis main thread CPU time, excluding calls to `performEvictions`
+
+![Heat map shows one large gap and two small gaps in an otherwise uniform pattern of 70 percent to 80 percent CPU usage](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/03_heat_map_of_redis_main_thread_during_eviction_burst__excluding_performEvictions.png)
+
+**Graph:** Remainder of the same profile, showing only the calls to `performEvictions`
+
+![This heat map shows the gaps in the previous heap map were CPU time spent performing evictions](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/04_heat_map_of_redis_main_thread_during_eviction_burst__only_performEvictions.png)
+
+These results confirm that eviction bursts are causing CPU starvation on the main thread, which acts as a throughput bottleneck and increases Redis’s response time latency.  These CPU utilization bursts typically lasted a few seconds, so they were too short-lived to trigger alerts but were still user impacting.
+
+For context, the following flamegraph shows where `performEvictions` spends its CPU time. There are a few interesting things here, but the most important takeaways are:
+* It gets called synchronously by `processCommand` (which handles all client requests).
+* It handles many of its own deletes. Despite its name, the `dbAsyncDelete` function only delegates deletes to a helper thread under certain conditions which turn out to be rare for this workload.
+
+![Flamegraph of calls to function performEvictions, as described above](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/05_flamegraph_of_redis_main_thread_during_eviction_burst__only_performEvictions.png)
+
+For more details on this analysis, see the [walkthrough and methodology](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_854745083).
+
+## How fast are individual calls to `performEvictions`?
+
+Each incoming request to Redis is handled by a call to `processCommand`, and it always concludes by calling the `performEvictions` function. That call to `performEvictions` is frequently a no-op, returning immediately after checking that the `maxmemory` threshold has not been breached. But when the threshold is exceeded, it will continue evicting keys until it either reaches its `mem_tofree` goal or exceeds its configured time limit per call.
+
+The CPU heat maps shown earlier proved that `performEvictions` calls were collectively consuming a large majority of CPU time for up to several seconds.
+
+To complement that, we also measured the wall clock time of individual calls.
+
+Using the `funclatency` CLI tool (part of the [BCC suite of BPF tools](https://github.com/iovisor/bcc)), we measured call duration by instrumenting entry and exit from the `performEvictions` function and aggregated those measurements into a [histogram](https://en.wikipedia.org/wiki/Histogram) at 1-second intervals. When no evictions were occurring, the calls were consistently low latency (4-7 usecs/call). This is the no-op case described above (including 2.5 usecs/call of instrumentation overhead). But during an eviction burst, the results shift to a bimodal distribution, including a combination of the fast no-op calls along with much slower calls that are actively performing evictions:
+
+```
+$ sudo funclatency-bpfcc --microseconds --timestamp --interval 1 --duration 600 --pid $( pgrep -o redis-server ) '/opt/gitlab/embedded/bin/redis-server:performEvictions'
+...
+23:54:03
+     usecs               : count     distribution
+         0 -> 1          : 0        |                                        |
+         2 -> 3          : 576      |************                            |
+         4 -> 7          : 1896     |****************************************|
+         8 -> 15         : 392      |********                                |
+        16 -> 31         : 84       |*                                       |
+        32 -> 63         : 62       |*                                       |
+        64 -> 127        : 94       |*                                       |
+       128 -> 255        : 182      |***                                     |
+       256 -> 511        : 826      |*****************                       |
+       512 -> 1023       : 750      |***************                         |
+```
+
+This measurement also directly confirmed and quantified the throughput drop in Redis requests handled per second: The call rate to `performEvictions` (and hence to `processCommand`) dropped to 20% of its norm from before the evictions began, from 25K to 5K calls per second.
+
+This has a huge impact on clients: New requests are arriving at 5x the rate they are being completed. And crucially, we will see soon that this asymmetry is what drives the eviction burst.
+
+For more details on this analysis, see the [safety check](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_857869826) for instrumentation overhead and the [results walkthrough](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_857907521). And for more general reference, the BPF instrumentation overhead estimate is based on these [benchmark results](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1383).
+
+## Experiment: Can tuning mitigate eviction-driven CPU saturation?
+
+The analyses so far had shown that evictions were severely starving the Redis main thread for CPU time. There were still important unanswered questions (which we will return to shortly), but this was already enough info to [suggest some experiments](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_859236777) to test potential mitigations:
+* Can we spread out the eviction overhead so it takes longer to reach its goal but consumes a smaller percentage of the main thread’s time?
+* Are evictions freeing more memory than expected due to scheduling a lot of keys to be asynchronously deleted by the [lazyfree mechanism](https://github.com/redis/redis/blob/6.2.6/redis.conf#L1079)? Lazyfree is an optional feature that lets the Redis main thread [delegate to an async helper thread](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_859236777) the expensive task of deleting keys that have more than 64 elements. These async evictions do not count immediately towards the eviction loop’s memory goal, so if many keys qualify for lazyfree, this could potentially drive many extra iterations of the eviction loop.
+
+The [answers](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/7172#note_971197943) to both turned out to be no:
+* Reducing `maxmemory-eviction-tenacity` to its minimum setting still did not make `performEvictions` cheap enough to avoid accumulating a request backlog. It did increase response rate, but arrival rate still far exceeded it, so this was not an effective mitigation.
+* Disabling `lazyfree-lazy-eviction` did not prevent the eviction burst from dropping memory usage far below `maxmemory`. Those lazyfrees represent a small percentage of reclaimed memory. This rules out one of the potential explanations for the mystery of excessive memory being freed.
+
+Having ruled out two potential mitigations and one candidate hypothesis, at this point we return to the pivotal question: Why are several hundred extra megabytes of memory being freed by the end of each eviction burst?
+
+## Why do evictions occur in bursts and free too much memory?
+
+Each round of eviction aims to free just barely enough memory to get back under the `maxmemory` threshold.
+
+With a steady rate of demand for new memory allocations, the eviction rate should be similarly steady. The rate of arriving cache writes does appear to be steady. So why are evictions happening in dense bursts, rather than smoothly? And why do they reduce memory usage on a scale of hundreds of megabytes rather than hundreds of bytes?
+
+Some potential explanations to explore:
+* Do evictions only end when a large key gets evicted, spontaneously freeing enough memory to skip evictions for a while? No, the memory usage drop is far bigger than the largest keys in the dataset.
+* Do deferred lazyfree evictions cause the eviction loop to overshoot its goal, freeing more memory than intended? No, the above experiment disproved this hypothesis.
+* Is something causing the eviction loop to sometimes calculate an unexpectedly large value for its `mem_tofree` goal? We explore this next. The answer is no, but checking it led to a new insight.
+* Is a feedback loop causing evictions to become somehow self-amplifying? If so, what conditions lead to entering and leaving this state? This turned out to be correct.
+
+These were all plausible and testable hypotheses, and each would point towards a different solution to the eviction-driven latency problem.
+
+The first two hypotheses we have already eliminated.
+
+To test the next two, we built custom BPF instrumentation to peek at the calculation of `mem_tofree` at the start of each call to `performEvictions`.
+
+## Observing the `mem_tofree` calculation with `bpftrace`
+
+This part of the investigation was a personal favorite and led to a critical realization about the nature of the problem.
+
+As noted above, our two remaining hypotheses were:
+* an unexpectedly large `mem_tofree` goal
+* a self-amplifying feedback loop
+
+To differentiate between them, we used [`bpftrace`](https://github.com/iovisor/bpftrace) to instrument the calculation of `mem_tofree`, looking at its input variables and results.
+
+This set of measurements directly tests the following:
+* Does each call to `performEvictions` aim to free a small amount of memory -- perhaps roughly the size of an average cache entry? If `mem_tofree` ever approaches hundreds of megabytes, that would confirm the first hypothesis and reveal what part of the calculation was causing that large value. Otherwise, it rules out the first hypothesis and makes the feedback loop hypothesis more likely.
+* Does the replication buffer size significantly influence `mem_tofree` as a feedback mechanism? Each eviction adds to this buffer, just like normal writes do. If this buffer grows large (possibly partly due to evictions) and then abruptly shrinks (due to the peer consuming it), that would cause a spontaneous large drop in memory usage, ending evictions and instantly reducing memory usage. This is one potential way for evictions to drive a feedback loop.
+
+To peek at the values of the `mem_tofree` calculation ([script](https://gitlab.com/gitlab-com/gl-infra/scalability/uploads/cab2cd03231f8dd4819f77b44d768cb9/redis_snoop.getMaxmemoryState.sha_25a228b839a93a1395907a03f83e1eee448b0f14.production_thresholds.bt)), we needed to isolate the [correct call from `performEvictions`](https://github.com/redis/redis/blob/6.2.6/src/evict.c#L523) to the [`getMaxmemoryState`](https://github.com/redis/redis/blob/6.2.6/src/evict.c#L374-L407) function and reverse engineer its assembly to find the right instruction and register to instrument for each of the source code level variables that we wanted to capture. From that data we generate histograms for each of the following variables:
+
+```
+mem_reported = zmalloc_used_memory()        // All used memory tracked by jemalloc
+overhead = freeMemoryGetNotCountedMemory()  // Replication output buffers + AOF buffer
+mem_used = mem_reported - overhead          // Non-exempt used memory
+mem_tofree = mem_used - maxmemory           // Eviction goal
+```
+
+_Caveat:_ Our [custom BPF instrumentation](https://gitlab.com/gitlab-com/gl-infra/scalability/uploads/cab2cd03231f8dd4819f77b44d768cb9/redis_snoop.getMaxmemoryState.sha_25a228b839a93a1395907a03f83e1eee448b0f14.production_thresholds.bt) is specific to this particular build of the `redis-server` binary, since it attaches to virtual addresses that are likely to change the next time Redis is compiled. But the approach is able to be generalized. Treat this as a concrete example of using BPF to inspect source code variables in the middle of a function call without having to rebuild the binary. Because we are peeking at the function’s intermediate state and because the compiler inlined this function call, we needed to do binary analysis to find the correct instrumentation points. In general, peeking at a function’s arguments or return value is easier and more portable, but in this case it would not suffice.
+
+The results:
+* Ruled out the first hypothesis: Each call to `performEvictions` had a small target value (`mem_tofree` < 2 MB). This means each call to `performEvictions` did a small amount of work. Redis’s mysterious rapid drop in memory usage cannot have been caused by an abnormally large `mem_tofree` target evicting a big batch of keys all at once. Instead, there must be many calls collectively driving down memory usage.
+* The replication output buffers remained consistently small, ruling out one of the potential feedback loop mechanisms.
+* Surprisingly, `mem_tofree` was usually 16 KB to 64 KB, which is larger than a typical cache entry. This size discrepancy hints that cache keys may not be the main source of the memory pressure perpetuating the eviction burst once it begins.
+
+All of the above results were consistent with the feedback loop hypothesis.
+
+In addition to answering the initial questions, we got a bonus outcome: Concurrently measuring both `mem_tofree` and `mem_used` revealed a crucial new fact – _the memory reclaim is a completely distinct phase from the eviction burst_.
+
+Reframing the pathology as exhibiting separate phases for evictions versus memory reclaim led to a series of realizations, described in the next section. From that emerged a coherent hypothesis explaining all the observed properties of the pathology.
+
+For more details on this analysis, see [methodology notes](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982498636), [build notes](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982499538) supporting the disassembly of the Redis binary, and [initial interpretations](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_977994182).
+
+## Three-phase cycle
+
+With the above results indicating a distinct separation between the evictions and the memory reclaim, we can now concisely characterize [three phases](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982623949) in the cycle of eviction-driven latency spikes.
+
+**Graph:** Diagram (not to scale) comparing memory and CPU usage to request and response rates during each of the three phases
+
+![Diagram summarizes the text that follows, showing CPU and memory saturate in Phase 2 until request rate drops to match response rate, after which they recover](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/06_3_phase_cycle_of_eviction_bursts.png)
+
+Phase 1: Not saturated (7-15 minutes)
+* Memory usage is below `maxmemory`. No evictions occur during this phase.
+* Memory usage grows organically until reaching `maxmemory`, which starts the next phase.
+
+Phase 2: Saturated memory and CPU (6-8 seconds)
+* When memory usage reaches `maxmemory`, evictions begin.
+* Evictions occur only during this phase, and they occur intermittently and frequently.
+* Demand for memory frequently exceeds free capacity, repeatedly pushing memory usage above `maxmemory`. Throughout this phase, memory usage oscillates close to the `maxmemory` threshold, evicting a small amount of memory at a time, just enough to get back under `maxmemory`.
+
+Phase 3: Rapid memory reclaim (30-60 seconds)
+* No evictions occur during this phase.
+* During this phase, something that had been holding a lot of memory starts quickly and steadily releasing it.
+* Without the overhead of running evictions, CPU time is again spent mostly on handling requests (starting with the backlog that accumulated during Phase 2).
+* Memory usage drops rapidly and steadily. By the time this phase ends, hundreds of megabytes have been freed. Afterwards, the cycle restarts with Phase 1.
+
+At the transition between Phase 2 and Phase 3, evictions abruptly ended because memory usage stays below the `maxmemory` threshold.
+
+Reaching that transition point where memory pressure becomes negative signals that whatever was driving the memory demand in Phase 2 has started releasing memory faster than it is consuming it, shrinking the footprint it had accumulated during the previous phase.
+
+What is this **mystery memory consumer** that bloats its demand during Phase 2 and frees it during Phase 3?
+
+## The mystery revealed
+
+[Modeling the phase transitions](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982651298) gave us some useful constraints that a viable hypothesis must satisfy. The mystery memory consumer must:
+* quickly bloat its footprint to hundreds of megabytes on a timescale of less than 10 seconds (the duration of Phase 2), under conditions triggered by the start of an eviction burst
+* quickly release its accumulated excess on a timescale of just tens of seconds (the duration of Phase 3), under the conditions immediately following an eviction burst
+
+**The answer:** The client input/output buffers meet those constraints to be the mystery memory consumer.
+
+Here is how that hypothesis plays out:
+* During Phase 1 (healthy state), the Redis main thread’s CPU usage is already fairly high. At the start of Phase 2, when evictions begin, the eviction overhead saturates the main thread’s CPU capacity, quickly dropping response rate below the incoming request rate.
+* This throughput mismatch between arrivals versus responses **is itself the amplifier** that takes over driving the eviction burst. As the size of that rate gap increases, the proportion of time spent doing evictions also increases.
+* Accumulating a backlog of requests requires memory, and that backlog continues to grow until enough clients are stalled that the arrival rate drops to match the response rate. As clients stall, the arrival rate falls, and with it the memory pressure, eviction rate, and CPU overhead begin to reduce.
+* At the equilibrium point when arrival rate falls to match response rate, memory demand is satisfied and evictions stop (ending Phase 2). Without the eviction overhead, more CPU time is available to process the backlog, so response rate increases above request arrival rate. This recovery phase steadily consumes the request backlog, incrementally freeing memory as it goes (Phase 3).
+* Once the backlog is resolved, the arrival and response rates match again. CPU usage is back to its Phase 1 norm, and memory usage has temporarily dropped in proportion to the max size of Phase 2’s request backlog.
+
+We confirmed this hypothesis via a [latency injection experiment](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_987049036) showing that queuing alone explains the pathology. This outcome supports the conclusion that the extra memory demand originates from response rate falling below request arrival rate.
+
+## Remedies: How to avoid entering the eviction burst cycle
+
+Now that we understand the dynamics of the pathology, we can draw confident conclusions about viable solutions.
+
+Redis evictions are only self-amplifying when all of the following conditions are present:
+* **Memory saturation:** Memory usage reaches the `maxmemory` limit, causing evictions to start.
+* **CPU saturation:** The baseline CPU usage by the Redis main thread’s normal workload is close enough to a whole core that the eviction overhead pushes it to saturation. This reduces the response rate below request arrival rate, inducing self-amplification via increased memory demand for request buffering.
+* **Many active clients:** The saturation only lasts as long as request arrival rate exceeds response rate. Stalled clients no longer contribute to that arrival rate, so the saturation lasts longer and has a greater impact if Redis has many active clients still sending requests.
+
+Viable remedies include:
+* Avoid memory saturation by any combination of the following to make peak memory usage less than the `maxmemory` limit:
+  * Reduce cache time to live (TTL)
+  * Increase `maxmemory` (and host memory if needed, but watch out for [`numa_balancing` CPU overhead](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1889) on hosts with multiple NUMA nodes)
+  * Adjust client behavior to avoid writing unnecessary cache entries
+  * Split the cache among multiple instances (sharding or functional partitioning, helps avoid both memory and CPU saturation)
+* Avoid CPU saturation by any combination of the following to make peak CPU usage for the workload plus eviction overhead be less than 1 CPU core:
+  * Use the fastest processor available for single-threaded instructions per second
+  * Isolate the redis-server process (particularly its main thread) from any other competing CPU-intensive processes (dedicated host, taskset, cpuset)
+  * Adjust client behavior to avoid unnecessary cache lookups or writes
+  * Split the cache among multiple instances (sharding or functional partitioning, helps avoid both memory and CPU saturation)
+  * Offload work from the Redis main thread (io-threads, lazyfree)
+  * Reduce eviction tenacity (only gives a minor benefit in our experiments)
+
+More exotic potential remedies could include a new Redis feature. One idea is to exempt ephemeral allocations like client buffers from counting towards the `maxmemory` limit, instead applying that limit only to key storage. Alternatively, we could limit evictions to only consume at most a configurable percentage of the main thread’s time, so that most of its time is still spent on request throughput rather than eviction overhead.
+
+Unfortunately, either of those features would trade one failure mode for another, reducing the risk of eviction-driven CPU saturation while increasing the risk of unbounded memory growth at the process level, which could potentially saturate the host or cgroup and lead to an OOM, or out of memory, kill. That trade-off may not be worthwhile, and in any case it is not currently an option.
+
+## Our solution
+
+We had already exhausted the low-hanging fruit for CPU efficiency, so we focused our attention on avoiding memory saturation.
+
+To improve the cache’s memory efficiency, we [evaluated](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_990891708) which types of cache keys were using the most space and how much [`IDLETIME`](https://redis.io/commands/object-idletime/) they had accrued since last access. This memory usage profile identified some rarely used cache entries (which waste space), helped inform the TTL, or time to live, tuning by first focusing on keys with a high idle time, and highlighted some useful potential cutpoints for functionally partitioning the cache.
+
+We [decided](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_1014582669) to concurrently pursue several cache efficiency improvements and opened an [epic](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/764) for it. The goal was to avoid chronic memory saturation, and the main action items were:
+* Iteratively reduce the cache’s [default TTL](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1854) from 2 weeks to 8 hours (helped a lot!)
+* Switch to [client-side caching](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_1026821730) for certain cache keys (efficiently avoids spending shared cache space on non-shared cache entries)
+* [Partition](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/762) a set of cache keys to a separate Redis instance
+
+The TTL reduction was the simplest solution and turned out to be a big win. One of our main concerns with TTL reduction was that the additional cache misses could potentially increase workload on other parts of the infrastructure. Some cache misses are more expensive than others, and our metrics are not granular enough to quantify the cost of cache misses per type of cache entry. This concern is why we applied the TTL adjustment incrementally and monitored for SLO violations. Fortunately, our inference was correct: Reducing TTL did not significantly reduce the cache hit rate, and the additional cache misses did not cause noticeable impact to downstream subsystems.
+
+The TTL reduction turned out to be sufficient to drop memory usage consistently a little below its saturation point.
+
+Increasing `maxmemory` had initially not been feasible because the original peak memory demand (prior to the efficiency improvements) was expected to be larger than the max size of the VMs we use for Redis. However, once we dropped memory demand below saturation, then we could confidently [provision headroom](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1868) for future growth and re-enable [saturation alerting](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1883).
+
+## Results
+
+The following graph shows Redis memory usage transitioning out of its chronically saturated state, with annotations describing the milestones when latency spikes ended and when saturation margin became wide enough to be considered safe:
+
+![Redis memory usage stops showing a flat top saturation](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/07_epic_results__memory_saturation_avoided_by_TTL_reductions.png)
+
+Zooming into the days when we rolled out the TTL adjustments, we can see the harmful eviction-driven latency spikes vanish as we drop memory usage below its saturation point, exactly as predicted:
+
+![Redis memory usage starts as a flat line and then falls below that saturation line](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/08_results__redis_memory_usage_stops_saturating.png)
+
+![Redis response time spikes stop occurring at the exact point when memory stops being saturated](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/09_results__redis_latency_spikes_end.png)
+
+These eviction-driven latency spikes had been the biggest cause of slowess in Redis cache.
+
+Solving this source of slowness significantly improved the user experience. This 1-year lookback shows only the long-tail portion of the improvement, not even the full benefit.  Each weekday had roughly 2 million Redis requests slower than 1 second, until our fix in mid-August:
+
+![Graph of the daily count of Redis cache requests slower than 1 second, showing roughly 2 million slow requests per day on weekdays until mid-August, when the TTL adjustments were applied](/images/blogimages/2022-11-28-diagnosing-redis-latency-spikes-with-bpf-and-friends/10_results__1_year_retrospective_of_slow_redis_requests_per_day.png)
+
+## Conclusions
+
+We solved a long-standing latency problem that had been worsening as the workload grew, and we learned a lot along the way. This article focuses mostly on the Redis discoveries, since those are general behaviors that some of you may encounter in your travels. We also developed some novel tools and analytical methods and uncovered several useful environment-specific facts about our workload, infrastructure, and observability, leading to several additional improvements and proposals not mentioned above.
+
+Overall, we made several efficiency improvements and broke the cycle that was driving the pathology. Memory demand now stays well below the saturation point, eliminating the latency spikes that were burning error budgets for the development teams and causing intermittent slowness for users. All stakeholders are happy, and we came away with deeper domain knowledge and sharper skills!
+
+## Key insights summary
+
+The following notes summarize what we learned about Redis eviction behavior (current as of version 6.2):
+* The same memory budget (`maxmemory`) is shared by key storage and client connection buffers. A spike in demand for client connection buffers counts towards the `maxmemory` limit, in the same way that a spike in key inserts or key size would.
+* Redis performs evictions in the foreground on its main thread. All time spent in `performEvictions` is time not spent handling client requests. Consequently, during an eviction burst, Redis has a lower throughput ceiling.
+* If eviction overhead saturates the main thread’s CPU, then response rate falls below request arrival rate. Redis accumulates a request backlog (which consumes memory), and clients experience this as slowness.
+* The memory used for pending requests requires more evictions, driving the eviction burst until enough clients are stalled that arrival rate falls back below response rate. At that equilibrium point, evictions stop, eviction overhead vanishes, Redis rapidly handles its request backlog, and that backlog’s memory gets freed.
+* Triggering this cycle requires all of the following:
+  * Redis is configured with a `maxmemory` limit, and its memory demand exceeds that size. This memory saturation causes evictions to begin.
+  * Redis main thread’s CPU utilization is high enough under its normal workload that having to also perform evictions drives it to CPU saturation. This reduces response rate below request rate, causing a growing request backlog and high latency.
+  * Many active clients are connected. The duration of the eviction burst and the size of memory spent on client connection buffers increases proportionally to the number of active clients.
+* Prevent this cycle by avoiding either memory or CPU saturation. In our case, avoiding memory saturation was easier (mainly by reducing cache TTL).
+
+## Further reading
+
+The following lists summarize the analytical tools and methods cited in this article. These tools are all highly versatile and any of them can provide a massive level-up when working on performance engineering problems.
+
+Tools:
+* [perf](https://www.brendangregg.com/perf.html) - A Linux performance analysis multitool. In this article, we used `perf` as a sampling profiler, capturing periodic stack traces of the `redis-server` process's main thread when it is actively running on a CPU.
+* [Flamescope](https://github.com/Netflix/flamescope) - A visualization tool for rendering a `perf` profile (and other formats) into an interactive subsecond heat map. This tool invites the user to explore the timeline for microbursts of activity or inactivity and render flamegraphs of those interesting timespans to explore what code paths were active.
+* [BCC](https://github.com/iovisor/bcc) - BCC is a framework for building BPF tools, and it ships with many useful tools out of the box. In this article, we used `funclatency` to measure the call durations of a specific Redis function and render the results as a histogram.
+* [bpftrace](https://github.com/iovisor/bpftrace) - Another BPF framework, ideal for answering ad-hoc questions about your system's behavior. It uses an `awk`-like syntax and is [quick to learn](https://github.com/iovisor/bpftrace#readme). In this article, we wrote a [custom `bpftrace` script](https://gitlab.com/gitlab-com/gl-infra/scalability/uploads/cab2cd03231f8dd4819f77b44d768cb9/redis_snoop.getMaxmemoryState.sha_25a228b839a93a1395907a03f83e1eee448b0f14.production_thresholds.bt) for observing the variables used in computing how much memory to free during each round of evictions. This script's instrumentation points are specific to our particular build of `redis-server`, but the [approach is able to be generalized](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982498636) and illustrates how versatile this tool can be.
+
+Usage examples:
+* [Example](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_854745083) - Walkthrough of using `perf` and `flamescope` to capture, filter, and visualize the stack sampling CPU profiles of the Redis main thread.
+* [Example](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_857869826) - Walkthrough (including safety check) of using `funclatency` to measure the durations of the frequent calls to function `performEvictions`.
+* [Example](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/7172#note_971197943) - Experiment for adjusting Redis settings `lazyfree-lazy-eviction` and `maxmemory-eviction-tenacity` and observing the results using `perf`, `funclatency`, `funcslower`, and the Redis metrics for eviction count and memory usage.
+* [Example](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982498636) - This is a working example (script included) of using `bpftrace` to observe the values of a function's variables. In this case we inspected the `mem_tofree` calculation at the start of `performEvictions`. Also, these [companion notes](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_982499538) discuss some build-specific considerations.
+* [Example](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1601#note_987049036) - Describes the latency injection experiment (the first of the three ideas). This experiment confirmed that memory demand increases at the predicted rate when we slow response rate to below request arrival rate, in the same way evictions do. This result confirmed the request queuing itself is the source of the memory pressure that amplifies the eviction burst once it begins.

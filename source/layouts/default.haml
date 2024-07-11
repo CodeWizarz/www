@@ -1,0 +1,18 @@
+- if current_page.data.html_lang
+  - localvar_html_lang = current_page.data.html_lang
+- else 
+  - localvar_html_lang = "en"
+
+!!! 5
+%html{lang: localvar_html_lang}
+  %head
+    = partial "includes/layout/head"
+    - unless (current_page.data.disable_handbook_styles == true)
+      = stylesheet_link_tag "handbook"
+      = stylesheet_link_tag "navigation-helpers"
+  %body{class: "#{page_classes} #{'purple-bg' if current_page.data.purple_bg}", data: {spy: "scroll", target: ".qnav", offset: "90"}}
+    = partial "includes/google/gtm"
+    = partial "includes/layout/header"
+    = partial "includes/layout/headline"
+    = yield
+    = partial "includes/layout/footer"

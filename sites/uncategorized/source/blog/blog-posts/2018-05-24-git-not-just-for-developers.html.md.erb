@@ -1,0 +1,52 @@
+---
+title: "Git: Not just for developers"
+author: Opher Vishnia/Roy Taragan
+author_gitlab:
+author_twitter: opherv
+guest: true
+categories: open source
+image_title: '/images/blogimages/gitlab-loves-open-source.jpg'
+description: "How one company helps video editors, developers, and project managers to collaborate on interactive video, by leveraging the power of open source."
+ee_cta: false
+tags: git, collaboration, open source
+---
+
+In this post I’d like to tell you about how, at [Eko](https://helloeko.com/), we’re using GitLab CE to allow professionals from different disciplines, such as video editors, designers, and software engineers, to collaborate on creating and publishing Interactive Video projects using the Eko platform.
+
+Eko is a unique company. I know practically every company says that about itself, but for us that’s doubly true in that both our platform as well as our users, and our users of users, take part and actively contribute to creative, experimental ideas and technology. At the core of what we do is an exciting new medium called Interactive Video, which enhances storytelling by bridging the gap between the creator and the viewer. The projects themselves are somewhere between a TV show and a video game. These embody a range of creativity  –  from the [official music video for Bob Dylan’s “Like a Rolling Stone,”](https://helloeko.com/mindblown/beats-and-rhymes?publisherID=gitlab) through choose-your-own-adventure style comedies and high-caliber movie studio productions like #WarGames.
+
+[![Bob Dylan's Like a Rolling Stone video](/images/blogimages/eko_mind_blown.png)](https://helloeko.com/mindblown/beats-and-rhymes?publisherID=gitlab){: .shadow.medium.center}
+
+*<small>The official music video for Bob Dylan's "Like a Rolling Stone"</small>*
+
+Our development body creates all the technology for both viewing and authoring these experiences, which are created by small indies as well as big studios and production houses. At the end of the day though, all of these projects, regardless of whether they’re playing on desktop, mobile, or the Xbox, are built with web technologies and run in a browser. Each project is served as a web app, consisting of HTML, JavaScript and CSS files, as well as its video, audio and image assets.
+
+To create these projects, Eko offers a web-based, drag-and-drop interface called Eko Studio. This software provides project creators with an easy interface for uploading and assembling video, connecting the different videos to each other, creating GUI to define the underlying creativity and finally publishing the finished product.
+
+![Eko Studio](/images/blogimages/eko-guest-post/eko-studio.png){: .shadow.large.center}
+
+ *<small>Eko Studio</small>*
+
+In cases where extra logic and functionality is required, such that isn’t yet covered by the set of features in Eko Studio, we offer the Eko SDK, which enables developers to extend the Studio’s functionality by writing their own custom JS and CSS code.
+
+The interesting thing about the creation process of our Interactive Video projects is because of their scope and multi-disciplinary nature, different people with different roles all work on the same project at the same time. For example, a video editor might upload a new scene, a project manager would change the SEO copy and a developer might implement new GUI or functionality. One of the challenges we faced at Eko is that all of this needs to be synchronised and shared by all. The experience needs to be fluid and cohesive for all types of users, regardless of their role.
+
+![Eko Studio commits](/images/blogimages/eko-guest-post/eko-studio-commits.png){: .shadow.large.center}
+
+ *<small>Eko Studio commits</small>*
+
+## Using open source to enable collaboration
+
+So what type of software allows for multiple people to work on the same project without stepping on each other’s toes? Git, of course! With that in mind we set out to find how can we use Git as a backend that could serve our creators, developers and non-developers alike.
+
+In Eko Studio, users can activate the feature that allows extending a project with code. Behind the scenes, the studio then employs GitLab’s API to create a new repository, generates all the code reflecting the current state of the project, and pushes it as the *initial commit*. From this point forward, each time a preview or published version of the project is generated, the process will begin by first pulling the latest version of the code from the repo. Using GitLab’s webhook for push events combined with Firebase, any time a commit is pushed to the repository, the user in Eko Studio is notified and the UI is updated accordingly. The user in Eko Studio can see all the commits (also fetched using the GitLab API) listed as versions, and can revert to an earlier version.
+
+>The less tech-savvy users aren’t even fully aware that by editing the project or adding content they are in fact publishing commits in the project repo
+
+The cool thing here though, is that the Eko Studio itself acts as a Git client behind the scenes. The less tech-savvy users aren’t even fully aware that by editing the project or adding content they are in fact publishing commits in the project repo. The studio interface makes this completely transparent for them. Changes to the project made in Eko Studio are translated into Git commits in the project repo. Over on the dev side though, the software engineers use the Git interface itself using their favorite code editor and Git client.
+
+![Eko Studio code panel](/images/blogimages/eko-guest-post/eko-studio-code-panel.png){: .shadow.large.center}
+
+ *<small>Eko Studio code panel</small>*
+
+The fact that GitLab is open source enabled us to custom tailor a solution for our users with minimal changes, leveraging APIs and webhooks to connect our own infrastructure. The readily available AMI meant that we can easily spool up our own GitLab CE instances without a complicated setup process. While our use case is very specific, the fact we’ve been able to use GitLab CE with minimal effort to implement our platform and tools for creating Interactive Video definitely highlights the flexibility and capabilities of GitLab!

@@ -1,0 +1,237 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Release post content block",
+  "description": "Content blocks for the monthly GitLab release post",
+  "definitions": {
+    "_feature": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Short descriptive title.\nRequired. Title case."
+        },
+        "available_in": {
+          "type": "array",
+          "description": "Tiers the feature is available in.\nFor features only available on GitLab.com 'free', 'bronze', 'silver', 'gold' can be used.\nRequired. ",
+          "items": {
+            "type": "string",
+            "enum": ["core", "starter", "premium", "ultimate", "free", "bronze", "silver", "gold"]
+          }
+        },
+        "documentation_link": {
+          "type": "string",
+          "description": "Absolute URL to relevant documentation.\nRequired."
+        },
+        "image_url": {
+          "type": "string",
+          "description": "Screenshot or image that helps explain the feature.\nImage or video is required for 'top' and 'primary' items."
+        },
+        "image_noshadow": {
+          "type": "boolean",
+          "description": "Removes the shadow applied to images."
+        },
+        "video": {
+          "type": "string",
+          "description": "Embed video URL.\nVideo or image is required for 'top' and 'primary' items."
+        },
+        "reporter": {
+          "type": "string"
+        },
+        "stage": {
+          "type": "string"
+        },
+        "categories": {
+          "type": "array"
+        },
+        "description": {
+          "type": "string"
+        },
+        "gitlab_com": {
+          "type": "boolean"
+        },
+        "issue_url": {
+          "type": ["string", "array"]
+        },
+        "epic_url": {
+          "type": ["string", "array"]
+        },
+        "mr_url": {
+          "type": "string"
+        },
+        "issueboard_url": {
+          "type": "string"
+        },
+        "webpage_url": {
+          "type": "string"
+        },
+        "stage_url": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "available_in", "reporter", "description"]
+    },
+    "feature": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/definitions/_feature" },
+        { "required": ["documentation_link", "stage", "categories"] },
+        { "anyOf": [
+          { "required": ["issue_url"] },
+          { "required": ["epic_url"] },
+          { "required": ["mr_url"] },
+          { "required": ["issueboard_url"] }
+        ]}
+      ]
+    },
+    "deprecation": {
+      "type": "object",
+      "properties": {
+        "feature_name": {
+          "type": "string"
+        },
+        "due": {
+          "type": "string"
+        },
+        "reporter": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": ["feature_name", "due", "reporter", "description"]
+    },
+    "removal": {
+      "type": "object",
+      "properties": {
+        "feature_name": {
+          "type": "string"
+        },
+        "date_of_removal": {
+          "type": "string"
+        },
+        "reporter": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": ["feature_name", "date_of_removal", "reporter", "description"]
+    },
+    "upgrade": {
+      "type": "object",
+      "properties": {
+        "reporter": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": ["reporter", "description"]
+    },
+    "mvp": {
+      "type": "object",
+      "properties": {
+        "fullname": {
+          "type": "string"
+        },
+        "gitlab": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        }
+      },
+      "required": ["fullname", "gitlab", "description"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "features": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/definitions/feature" },
+              { "anyOf": [
+                { "required": ["image_url"] },
+                { "required": ["video"] }
+              ]}
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "primary": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/definitions/feature" },
+              { "anyOf": [
+                { "required": ["image_url"] },
+                { "required": ["video"] }
+              ]}
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "secondary": {
+          "type": "array",
+          "items": {
+            "allOf": [
+              { "$ref": "#/definitions/_feature" },
+              {
+                "if": { "properties": { "name": { "pattern": "^(Bug (F|f)ixes|(Omnibus|Performance|Usability|GitLab Runner|GitLab( Helm)? (C|c)hart) (I|i)mprovements|GitLab Runner ([0-9]+).([0-9]+))$" }}},
+                "then": {},
+                "else": {
+                  "allOf": [
+                    { "$ref": "#/definitions/feature" }
+                  ]
+                }
+              }
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 1
+        }
+      }
+    },
+    "deprecations": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/definitions/deprecation" }
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "removals": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/definitions/removal" }
+        ]
+      },
+      "minItems": 1,
+      "maxItems": 5
+    },
+    "upgrade": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/definitions/upgrade" }
+      ]
+    },
+    "mvp": {
+      "type": "object",
+      "allOf": [
+        { "$ref": "#/definitions/mvp" }
+      ]
+    }
+  }
+}

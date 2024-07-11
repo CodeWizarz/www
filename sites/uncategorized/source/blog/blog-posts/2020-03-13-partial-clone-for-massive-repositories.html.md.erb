@@ -1,0 +1,262 @@
+---
+
+title: "How Git Partial Clone lets you fetch only the large file you need"
+author: James Ramsay
+author_gitlab: jramsay
+author_twitter: "_jramsay"
+categories: open source
+image_title: "/images/blogimages/partial-clone-for-massive-repositories.jpg"
+description: "Work faster with this experimental Partial Clone feature for huge Git repositories, saving you time, bandwidth, and storage, one large file at a time."
+tags: git, performance
+featured: yes 
+postType: product, Product Marketing
+merch_banner: merch_one
+---
+
+The Git project began nearly 15 years ago, on [April 7,
+2005](https://marc.info/?l=linux-kernel&m=111288700902396), and is now the
+[version control system](/topics/version-control/) of choice for developers. Yet, there are certain types of projects that
+often do not use Git, particularly projects that have many large binary files,
+such as video games. One reason projects with large binary files don't use Git
+is because, when a Git repository is cloned, Git will download every version of
+every file in the repo. For most use cases, downloading this history is a
+useful feature, but it slows cloning and fetching for projects with large binary
+files, assuming the project even fits on your computer.
+
+## What is Partial Clone?
+
+Partial Clone is a new feature of Git that replaces [Git
+LFS](https://git-lfs.github.com/) and makes working with very large repositories
+better by teaching Git how to work without downloading every file. Partial Clone
+has been
+[years](https://public-inbox.org/git/xmqqeg4o27zw.fsf@gitster.mtv.corp.google.com/)
+in the making, with code contributions from GitLab, GitHub, Microsoft and
+Google. Today it is experimentally available in Git and GitLab, and can be
+enabled by administrators
+([docs](https://docs.gitlab.com/ee/topics/git/partial_clone.html)).
+
+Partial Clone speeds up fetching and cloning because less data is
+transferred, and reduces disk usage on your local computer. For example, cloning
+[`gitlab-com/www-gitlab-com`](https://gitlab.com/gitlab-com/www-gitlab-com)
+using Partial Clone (`--filter=blob:none`) is at least 50% faster, and transfers
+70% less data.
+
+Note: Partial Clone is one specific performance optimization for very large
+repositories. [Sparse
+Checkout](https://github.blog/2020-01-17-bring-your-monorepo-down-to-size-with-sparse-checkout/)
+is a related optimization that is particularly focused on repositories with
+tremendously large numbers of files and revisions such as
+[Windows](https://devblogs.microsoft.com/bharry/the-largest-git-repo-on-the-planet/)
+code base.
+
+## A brief history of large files
+
+"What about Git LFS?" you may ask. Doesn't LFS stand for "large file storage"?
+
+Previously, extra tools were required to store large files in Git. In 2010,
+[git-annex](https://git-annex.branchable.com/) was released, and five years
+later in 2015, [Git LFS](https://git-lfs.github.com/) was released. Both
+git-annex and Git LFS added large file support to Git in a similar way: Instead
+of storing a large file in Git, store a pointer file that links to the large
+file. Then, when someone needs a large file, they can download it on-demand
+using the pointer.
+
+The criticism of this approach is that there are now two places to store files,
+in Git or in Git LFS. Which means that everyone must remember that big files need
+to go in Git LFS to keep the Git repo small and fast. There are downsides to
+this approach. Besides being susceptible to human error, the pointer encodes
+decisions based on bandwidth and file type into the structure of the repository
+that influence all the people using the repository. Our assumptions about
+bandwidth and storage are likely to change over time, and vary by the location,
+but decisions encoded in the repository are not flexible. Administrators and
+developers alike benefit from flexibility in where to store large files, and
+which files to download.
+
+Partial Clone solves these problems by removing the need for two classes of
+storage, and special pointers. Let's walk through an example to understand how.
+
+## How to get started with Partial Clone
+
+Let's continue to use `gitlab-com/www-gitlab-com` as an example project, since
+it has quite a lot of images. For a larger repository, like a video game with
+detailed textures and models that could take up a lot of disk space, the benefits will be even more significant.
+
+Instead of a vanilla `git clone`, we will include a filter spec which controls
+what is excluded when fetching data. In this situation, we just want to exclude
+large binary files. I've included `--no-checkout` so we can more clearly observe
+what is happening.
+
+```bash
+git clone --filter=blob:none --no-checkout git@gitlab.com/gitlab-com/www-gitlab-com.git
+# Cloning into 'www-gitlab-com'...
+# remote: Enumerating objects: 624541, done.
+# remote: Counting objects: 100% (624541/624541), done.
+# remote: Compressing objects: 100% (151886/151886), done.
+# remote: Total 624541 (delta 432983), reused 622339 (delta 430843), pack-reused 0
+# Receiving objects: 100% (624541/624541), 74.61 MiB | 8.14 MiB/s, done.
+# Resolving deltas: 100% (432983/432983), done.
+
+```
+
+Above we explicitly told Git not to checkout the default branch. Normally
+`checkout` doesn't require fetching any data from the server, because we have
+everything locally. When using Partial Clone, since we are deliberately not downloading everything, Git will need to fetch any missing files when doing a
+checkout.
+
+```bash
+git checkout master
+# remote: Enumerating objects: 12080, done.
+# remote: Counting objects: 100% (12080/12080), done.
+# remote: Compressing objects: 100% (11640/11640), done.
+# remote: Total 12080 (delta 442), reused 9773 (delta 409), pack-reused 0
+# Receiving objects: 100% (12080/12080), 1.10 GiB | 8.49 MiB/s, done.
+# Resolving deltas: 100% (442/442), done.
+# Updating files: 100% (12342/12342), done.
+# Filtering content: 100% (3/3), 131.24 MiB | 4.73 MiB/s, done.
+```
+
+If we checkout a different branch or commit, we'll need to download more missing
+files.
+
+```bash
+git checkout 92d1f39b60f957d0bc3c5621bb3e17a3984bdf72
+# remote: Enumerating objects: 1968, done.
+# remote: Counting objects: 100% (1968/1968), done.
+# remote: Compressing objects: 100% (1953/1953), done.
+# remote: Total 1968 (delta 23), reused 1623 (delta 15), pack-reused 0
+# Receiving objects: 100% (1968/1968), 327.44 MiB | 8.83 MiB/s, done.
+# Resolving deltas: 100% (23/23), done.
+# Updating files: 100% (2255/2255), done.
+# Note: switching to '92d1f39b60f957d0bc3c5621bb3e17a3984bdf72'.
+```
+
+Git remembers the filter spec we provided when cloning the repository so that
+fetching updates will also exclude large files until we need them.
+
+```bash
+git config remote.origin.promisor
+# true
+
+git config remote.origin.partialclonefilter
+# blob:none
+```
+
+When committing changes, you simply commit binary files like you would any other
+file. There is no extra tool to install or configure, no need to treat big files
+differently to small files.
+
+## Network and Storage
+
+If you are already using [Git LFS](https://git-lfs.github.com/) today, you might
+be aware that large files are stored and transferred differently to regular Git
+objects. On GitLab.com, Git LFS objects are stored in object storage (like AWS
+S3) rather than fast attached storage (like SSD), and transferred over HTTP even
+when using SSH for regular Git objects. Using object storage has the advantage
+of reducing storage costs for large binary files, while using simpler HTTP
+requests for large downloads allows the possibility of resumable and parallel
+downloads.
+
+Partial Clone
+[already](https://public-inbox.org/git/20190625134039.21707-1-chriscool@tuxfamily.org/)
+supports more than one remote, and work is underway to allow large files to be
+stored in a different location such as object storage. Unlike Git LFS, however,
+the repository or instance administrator will be able to choose which objects
+should be stored where, and change this configuration over time if needed.
+
+Follow the epic for [improved large file
+storage](https://gitlab.com/groups/gitlab-org/-/epics/1487) to learn more and
+follow our progress.
+
+## Performance
+
+When fetching new objects from the Git server using a [filter
+spec](https://github.com/git/git/blob/v2.25.0/Documentation/rev-list-options.txt#L735)
+ to exclude objects from the response, Git will check each object and exclude
+ any that match the filter spec. In [Git
+ 2.25](https://raw.githubusercontent.com/git/git/master/Documentation/RelNotes/2.25.0.txt),
+ the most recent version, filtering has not been optimized for performance.
+
+[Jeff King (Peff)](https://github.com/peff/) (GitHub) recently
+[contributed](https://public-inbox.org/git/20200214182147.GA654525@coredump.intra.peff.net/)
+performance improvements for blob size filtering, which will likely be included
+in [Git 2.26](https://gitlab.com/gitlab-org/gitaly/issues/2497), and our plan is
+to include it in GitLab 12.10 release.
+
+Optimizing the sparse filter spec option (`--filter:sparse`), which filters
+based on file path is more complex because blobs, which contain the file
+content, do not include file path information. The directory structure of a
+repository is stored in tree objects.
+
+Follow the epic for [Partial Clone performance
+improvements](https://gitlab.com/groups/gitlab-org/-/epics/1671) to learn more
+and follow our progress.
+
+## Usability
+
+One of the drawbacks of Git LFS was that it required installing an additional
+tool. In comparison, Partial Clone does not require any additional tools.
+However, it does require learning new options and configurations, such as to
+clone using the `--filter` option.
+
+We want to make it easy for people get their work done, who simply desire Git to
+just work. They shouldn't need to work out which is the optimal blob size filter
+spec for a project? Or what even is a filter spec?  While Partial Clone remains
+experimental, we haven't made any changes to the GitLab interface to highlight
+Partial Clone, but we are investigating this and welcome your feedback. Please
+join the conversation on this
+[issue](https://gitlab.com/gitlab-org/gitlab/issues/207744).
+
+## File locking and tool integrations
+
+Any conversation of large binary files, particularly in regards to video
+games is incomplete without discussing file locking and tooling integrations.
+
+Unlike plain text [source code](/stages-devops-lifecycle/source-code-management/), resolving conflicts between different versions of
+a binary file is often impossible. To prevent conflicts in binary file editing,
+an exclusive file lock is used, meaning only one person at a time can edit a
+single file, regardless of branches. If conflicts can't be resolved, allowing multiple
+versions of a individual file to be created in parallel on different branches is a bug, not
+a feature. GitLab already has basic file locking support, but it is really only
+useful for plain text because it only applies to the default branch, and is not
+integrated with any local tools.
+
+Local tooling integrations are important for binary asset workflows, to
+automatically propagate file locks to the local development environment, and to
+allow artists to work on assets without needing to use Git from the command
+line. Propagating file locks quickly to local development environments is also
+important because it prevents work from being wasted before it even happens.
+
+Follow the [file locking](https://gitlab.com/groups/gitlab-org/-/epics/1488) and
+[integrations](https://gitlab.com/groups/gitlab-org/-/epics/2704) epics for more
+information about what we're working on.
+
+## Conclusion
+
+Large files are necessary for many projects, and Git will soon support this
+natively, without the need for extra tools. Although Partial Clone is still an
+experimental feature, we are making improvements with every release and the
+feature is now ready for testing.
+
+Thank you to the Git community for your work over the past years on improving
+support for enormous repositories. Particularly, thank you to [Jeff
+King](https://github.com/peff/) (GitHub) and [Christian
+Couder](https://about.gitlab.com/company/team/#chriscool) (senior backend
+engineer on Gitaly at GitLab) for your early experimentation with Partial Clone,
+Jonathan Tan (Google) and [Jeff Hostetler](https://github.com/jeffhostetler)
+(Microsoft) for contributing the [first
+implementation](https://public-inbox.org/git/cover.1506714999.git.jonathantanmy@google.com/)
+of Partial Clone and promisor remotes, and the many others who've also
+contributed.
+
+If you are already using Partial Clone, or would like to help us test Partial
+Clone on a large project, please get in touch with me, [James
+Ramsay](https://about.gitlab.com/company/team/#jramsay) (group manager, product
+for Create at GitLab), [Jordi
+Mon](https://about.gitlab.com/company/team/#jordi_mon) (senior product marketing
+manager for Dev at GitLab), or your account manager.
+
+For more information on Partial Clone, check out [the documentation](https://docs.gitlab.com/ee/topics/git/partial_clone.html).
+
+Cover image by [Simon Boxus](https://unsplash.com/@simonlerouge) on
+[Unsplash](https://unsplash.com/photos/4ftI4lCcByM)
+{: .note}

@@ -1,0 +1,161 @@
+---
+title: "How to use manual jobs with `needs:` relationships"
+author: Dov Hershkovitch
+author_gitlab: dhershkovitch
+author_twitter: dov0211 # ex: johndoe
+categories: engineering
+image_title: "/images/blogimages/11-05-2021-when-job-needs-manual/blog_cover2.png"
+description: "Are you using manual jobs and needs relationship in your CI/CD pipeline? Learn more about the fix that might cause your pipeline to behave differently."
+tags: ci, cd, DevOps
+twitter_text: "Text to tweet" # optional;  If no text is provided it will use post's title.
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/04/30/why-its-crucial-to-break-things-down-into-smallest-iterations/"
+  - "/blog/2021/03/18/iteration-and-code-review/"
+  - "/blog/2021/02/22/pipeline-editor-overview/" # please see related posts section below for details
+merch_banner: merch_one
+---
+
+## A bug when job `needs` a manual job
+
+In [13.12 we fixed a bug](https://gitlab.com/gitlab-org/gitlab/-/issues/31264) that might affect the existing behavior of your pipeline. We explain why we had to fix the bug, the possible impact of this change on your pipeline, and the proposed workaround if you would like to revert this behavior.
+
+## Background on a two-job pipeline
+
+In GitLab [CI/CD](https://about.gitlab.com/topics/ci-cd/) you can easily configure a job to require manual intervention before it runs. The job gets added to the pipeline, but doesn't run until you click the **play** button on it.
+
+Let's look at a two-job pipeline:
+
+```yaml
+stages:
+  - stage1
+  - stage2
+
+job1:
+  stage: stage1
+  script:
+    - echo "this is an automatic job"
+
+manual_job:
+  stage: stage2
+  script:
+    - echo "This is a manual job which doesn't start automatically, and the pipeline can complete without it starting."
+  when: manual # This setting turns a job into a manual one
+```
+
+This is how it looks when we look at the pipeline graph:
+
+![image2](/images/blogimages/11-05-2021-when-job-needs-manual/blog1.png){: .shadow.medium.center.wrap-text}
+
+Notice that the manual job gets skipped, and the pipeline completes successfully even though the manual job did not get triggered. This happens because manual jobs are considered optional, and do not need to run.
+
+Internally, manual jobs have `allow_failure` set to true by default, which means that these skipped manual jobs do not cause a pipeline failure. The YAML code below demonstrates how to write the manual job, which results in the same behavior. The job doesn't automatically start, is skipped, and the pipeline passes.
+
+```yaml
+manual_job:
+  stage: stage2
+  script:
+    - echo "This is a manual job which doesn't start automatically, and the pipeline can complete without it starting."
+  when: manual
+  allow_failure: true # this line is redundant since manual job has this setting by default
+```
+
+You can set `allow_failure` to true for any job, including both manual and automatic jobs, and then the pipeline does not care if the job runs successfully or not.
+
+### How to expand the configuration with `needs` (DAG)
+
+  Last year we introduced the [`needs` keyword which lets you create a Directed Acyclic Graphs (DAG) to speed up your pipeline](https://docs.gitlab.com/ee/ci/yaml/#needs). The `needs` keyword creates a dependency between two jobs regardless of their stage.
+
+Let's look at this example:
+
+```yaml
+stages:
+  - stage1
+  ....
+  - stage10
+
+job1: # this is the first job that runs in the pipeline
+  stage: stage1
+  script:
+    - echo "exit 0"
+.....
+
+job10:
+  needs:  # Defined a "needs" relationship with job1
+    - job1
+  stage: stage10
+  script:
+    - echo "This job runs as soon as job1 completes, even though this job is in stage10."
+```
+
+The `needs` keyword creates a dependency between the two jobs, so `job10` runs as soon as `job1` **finishes running** successfully, regardless of the stage ordering.
+
+So what happens if a job `needs` a manual job, that doesn't start running automatically?
+
+Let's look at the following example:
+
+```yaml
+stages:
+  - build
+  - test
+  - deploy
+
+build:
+  stage: build
+  script: exit 0
+
+test:
+  stage: test
+  when: manual
+  script: exit 0
+
+deploy:
+  stage: deploy
+  script: echo "when should this job run?"
+  needs:
+    - test
+```
+
+Before 13.12, this type of configuration would cause the pipeline to get stuck. The `deploy` job can only start when the `test` job completes, but the `test` job does not start automatically. The rest of the pipeline stops and waits for someone to run the manual `test` job.
+
+![image3](/images/blogimages/11-05-2021-when-job-needs-manual/blog2.png){: .shadow.medium.center.wrap-text}
+
+This behavior is even worse with larger pipelines:
+
+![image4](/images/blogimages/11-05-2021-when-job-needs-manual/blog3.png){: .shadow.medium.center.wrap-text}
+
+The example above shows there is a needs relationship between `post test` job and the `test` job (which is a manual job) as you can see the pipeline is stuck in a running state and any subsequent jobs will not run.
+
+This was not the behavior most users expected, so we improved it in 13.12. Now, if there is a `needs` relationship pointing to a manual job, the pipeline doesn't stop by default anymore. The manual job is considered optional by default in all cases now. Any jobs that have a `needs` relationship to manual jobs are now also considered optional and skipped if the manual job isn't triggered. If you start the manual job, the jobs that need it can start after it completes.
+
+Note that if you start the manual job before a later job that has it in a `needs` configuration, the later job will still wait for the manual job to finishes running.
+
+## What if I don't want this new behavior?
+
+One of the reasons we selected this solution is that you can quickly revert this change. If you made use of this inadvertent behavior and configured your pipelines to use it to block on manual jobs, it's easy to return to that previous behavior. All you have to do is override the default `allow_failure` in the manual job with `allow_failure: false`. This way the manual job is no longer optional, and the pipeline status will be marked as blocked and wait for you to run the job manually.
+
+```yaml
+stages:
+  - build
+  - test
+  - deploy
+
+build:
+  stage: build
+  script: exit 0
+
+test:
+  stage: test
+  when: manual
+  allow_failure: false  # Set to false to return to the previous behavior.
+  script: exit 0
+
+deploy:
+  stage: deploy
+  script: exit 0
+  needs:
+    - test
+```
+
+Share any thoughts, comments, or questions, by opening an issue in GitLab and mentioning me (`@dhershkovitch`).

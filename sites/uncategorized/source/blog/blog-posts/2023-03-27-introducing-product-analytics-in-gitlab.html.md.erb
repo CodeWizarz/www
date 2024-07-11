@@ -1,0 +1,72 @@
+---
+title: "Product Analytics: A sneak peek at our upcoming feature"
+author: Sam Kerr
+author_gitlab: stkerr
+categories: devsecops-platform
+tags: news, product, features
+description: Our journey to add Product Analytics into the DevSecOps platform.
+image_title: /images/blogimages/blog-compliance.jpg
+twitter_text: Check out our journey to add product analytics into GitLab.
+featured: yes
+---
+
+Product analytics are important to understand how your users engage with your application so that you can make data-driven decisions. Identifying features that your users make heavy use of and which they don’t can provide signals to teams on where and how to spend their time most effectively. Without product data, we must use one-off anecdotes or opinions, which can be subject to incorrect assumptions, internal biases, or are missing key details. At the same time, instrumenting applications and processing this data can be challenging, which leads many teams to not do it.
+
+At GitLab, we view this workflow of instrumenting the app, collecting data, and processing it to gain insights as a key piece of the DevSecOps lifecycle. For this reason, we are working on adding Product Analytics capabilities to our platform so you’ll be able to take advantage of them in your own apps. You will be able to instrument features you have built, see how users engage with them, and make decisions using that data – all within GitLab.
+
+In this blog, you'll learn more details on what our vision is, what we are working on, our future plans, and how you can contribute and engage with us.
+
+## What is Product Analytics?
+
+We have a broad vision for what we want to achieve, which we outline in our [product direction page](https://about.gitlab.com/direction/analytics/product-analytics/). The short version is that we want to enable developers to easily add instrumentation to their applications, provide infrastructure to receive and process it, run experiments, and enable consumers of the data, such as product managers or developers, to use GitLab to gain insights that will help them make even better products.
+
+Our initial focus is on web applications, primarily those built with JavaScript and Ruby on Rails. Longer term, we want to add functionality like experiments and support for other web frameworks and additional tech stacks.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/jG42hesT030" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+We plan to use several open-source technologies to make this happen: [Snowplow](http://www.snowplow.io), [ClickHouse](https://clickhouse.com/), [Cube.dev](https://cube.dev/), and [ECharts](https://echarts.apache.org/en/index.html) for instrumentation, data storage, and data visualization, respectively. Each of these projects is great at what they do and we are excited to build with them.
+
+## How to configure Product Analytics
+
+Once publicly available, Product Analytics will need access to a Kubernetes cluster running these applications. GitLab will be able to create and manage this cluster for you or you will be able to provide your own cluster. That cluster will then process, store, and transform your data and display it in relevant GitLab screens. You will then instrument your application’s features with one of our [client-side SDKs](https://gitlab.com/gitlab-org/analytics-section/product-analytics/gl-application-sdk-js). 
+
+With your app instrumented and your Product Analytics cluster set up, you will be able to access reports and dashboards within GitLab to explore the data that is reported. You'll be able to identify usage trends and better understand your users so that you can make improvements in future versions of your product.
+
+We anticipate that one of the unique differentiators GitLab will have with Product Analytics is that all of the dashboard and visualization configurations will be driven by files in your GitLab project. You will be able to collaborate with your team using [merge requests](https://docs.gitlab.com/ee/user/project/merge_requests/), look at previous versions to understand changes, and set up controls over who can make changes – just like you can with code.
+
+![Product Analytics dashboard](/images/blogimages/productanalyticsingitlab/productanalytics2.png){: .shadow}
+
+## We are customer zero 
+
+One of GitLab’s values is [dogfooding](https://about.gitlab.com/handbook/values/#dogfooding) and using our own product. This helps us better understand our users’ pain points and to find where we should make improvements more quickly. We are already dogfooding what we have built in Product Analytics so far.
+
+We added Product Analytics to our internal handbook several months ago and have learned a lot about Product Analytics and how team members use the internal handbook.
+
+Instrumenting the internal handbook helped us work through the user experience for Product Analytics. We built out a workflow in GitLab to configure the cluster, view the Product Analytics dashboards, and view the content on them. This showed us what it would be like to instrument a real application. The steps we had difficulty doing showed what users would also likely have difficulty doing and, therefore, were an indication to focus on fixing those.
+
+Once we had instrumented the handbook, we learned a few things we expected, such as people use the internal handbook primarily on weekdays and we see a massive dropoff in usage on weekends. One thing we didn’t expect was understanding which pages were the most viewed from the handbook. For example, we have various meetings to review [performance indicators](https://about.gitlab.com/handbook/product/#product-performance-indicators) and we saw large spikes in usage for relevant pages when those meetings occurred.
+
+![Screenshot showing spikes](/images/blogimages/productanalyticsingitlab/productanalytics1.png){: .shadow}
+
+## Our continued commitment to user privacy
+
+We know that analytics offerings raise questions about user privacy and how data is being managed. Your data is your data. We want to build Product Analytics from the beginning so that you can respect the privacy of users. We are taking a few steps to accomplish this.
+
+* Product Analytics was designed to honor commonly recognized opt-out signals. That means users browsing the app will not have their activity recorded or analyzed by Product Analytics when an opt-out signal is received. Opt-out signals are becoming more common as a way of respecting privacy and we are excited to use them.
+* We are designing Product Analytics from the beginning to give you full control over the data you collect, rather than requiring it to be sent to a third-party service. Recall how you will have to provide a Kubernetes cluster with Snowplow, ClickHouse, and Cube.dev – you can provide your own cluster and GitLab can connect to it or we can host the cluster for you. In all cases, the data is yours – GitLab will not use this data beyond Product Analytics features and will not sell nor examine it.
+
+## What’s next?
+
+We’re excited for the future of Product Analytics and to provide a way for you to learn even more about your users. Our near-term plans are to take what we have built so far and learn what improvements are needed to make it production ready for you to use. We are also working to give you a variety of options on how to best display Product Analytics data within GitLab so that it is easy for you to get started and to explore your data.
+
+## We’d love to hear from you
+
+As we move forward with Product Analytics, we would love to hear your thoughts, comments, and questions. We have created [this Product Analytics feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/391970) if you want to start a discussion there.
+
+We plan to release Product Analytics iteratively and will start with a small group of existing customers. If you are interested in previewing Product Analytics before it is generally available, please fill out [our contact form](https://forms.gle/3Q3srimfqpM4WCKM8).
+
+<i>Disclaimer: This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab.</i>

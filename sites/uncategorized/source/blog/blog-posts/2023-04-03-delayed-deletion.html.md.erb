@@ -1,0 +1,54 @@
+---
+title: Updates to GitLab’s delayed deletion feature for projects and groups
+author: Christina Lohr
+author_gitlab: lohrc
+author_twitter: 
+categories: news
+image_title: '/images/blogimages/tanukicover.jpg'
+description: Deletion will be delayed by default to help customers avoid costly and time-consuming group and project recoveries.
+tags: product, news, customer
+Twitter_text: “Updates to GitLab’s delayed deletion feature will help prevent accidental deletion of projects and groups”
+featured: yes
+postType: product
+---
+
+To prevent accidental deletion of projects and groups, starting in GitLab 16.0, the delayed deletion feature will be turned on by default for all GitLab Ultimate and Premium customers.
+
+The GitLab support team frequently assists customers who have accidentally deleted groups or projects. Accidental deletions can be a costly, time-consuming, and frustrating process for customers. These incidents can often be prevented simply by enabling the deletion protection setting. Previously, projects were removed immediately upon deletion by default, and it was necessary for an administrator or group owner to turn on deletion protection. 
+
+As part of 16.0, starting on May 22, the option to delete groups and projects immediately from the Admin Area and as a group setting will be removed. Instead, delayed group and project deletion will become the default behavior for the Ultimate and Premium tiers (SaaS and self-managed).
+
+## How project and group delayed deletion works
+Self-managed users will have the option to define a deletion delay period of between 1 and 90 days, and SaaS users will have a non-adjustable default retention period of 7 days. 
+
+![Setting selection](/images/blogimages/2023-04-06-delayed-deletion-will-protect-groups-and-projects/setting-selection.png)
+
+Users of Ultimate and Premium groups can still delete a group or project immediately from the group or project settings via a two-step deletion process. Group or project deletions can be performed by accessing the Settings menu and looking for the deletion option in the Advanced section of the General settings menu. 
+
+![Project deletion first](/images/blogimages/2023-04-06-delayed-deletion-will-protect-groups-and-projects/project-deletion-first.png)
+
+A confirmation is required to delete the group or project, which then puts the deletion into a pending state:
+
+![Deletion confirmation first](/images/blogimages/2023-04-06-delayed-deletion-will-protect-groups-and-projects/deletion-confirmation-first.png)
+
+Projects are renamed automatically during this step, and `-deleted-[projectID]` is added to the project name. This means that you can create a new project with the same name as the deleted project immediately. Groups do not exhibit this behavior yet and keep their original name. In the future, we plan to change the name for groups automatically during the deletion process just like for projects, so that you will be able to create new groups with the same name right away. 
+
+Next, if you want to completely remove the group or project, you can access the Advanced section of the General settings menu again. You will see information about the scheduled deletion date for the group or project in question. 
+
+![Project restore](/images/blogimages/2023-04-06-delayed-deletion-will-protect-groups-and-projects/project-restore.png)
+
+If you want to continue and completely delete the project, simply follow the deletion flow again. 
+
+![Project deletion second](/images/blogimages/2023-04-06-delayed-deletion-will-protect-groups-and-projects/project-deletion-second.png)
+
+After confirming that you want to proceed with the deletion, the group or project in question will be removed right away, which is confirmed by the following message:
+
+![Deletion confirmation second](/images/blogimages/2023-04-06-delayed-deletion-will-protect-groups-and-projects/deletion-confirmation-second.png)
+
+As part of this change, we will also update the API and remove the `delayed_project_deletion` and `delayed_group_deletion` parameters from the /application/settings API Task actions. In addition, the API will follow the UI behavior and will require a double confirmation to completely delete a group or project.
+
+**Note:** Delayed deletion is not applied to Free tier projects or groups.
+
+## We welcome your feedback
+We believe that this change will contribute to a safer deletion process and will be beneficial in preventing accidental deletions. If you have feedback on this change, please comment on [this delayed deletion feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/396996). We'd love to hear from you!  
+

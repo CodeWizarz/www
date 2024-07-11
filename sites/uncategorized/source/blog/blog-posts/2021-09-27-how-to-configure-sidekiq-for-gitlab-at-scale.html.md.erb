@@ -1,0 +1,232 @@
+---
+title: "How to configure Sidekiq for specialized or large-scale GitLab instances"
+author: Craig Miskell
+author_gitlab: cmiskell
+categories: engineering
+image_title: "/images/blogimages/sidekiqmountain.jpg"
+description: "This tutorial unpacks how to configure Sidekiq that suits your GitLab deployment."
+featured: no
+postType: content marketing
+merch_banner: merch_three
+---
+
+Configuring Sidekiq in your own deployment of GitLab is a little complicated, but entirely possible. In this blog post, we share how to set up Sidekiq for GitLab in special cases and at a large scale by sharing some exmaples that may be useful to you.
+
+## Why consider special configuration?
+
+While Sidekiq (both in general, and in a GitLab deployment) will usually _just work_ most of the time, there can be some sharp edges and limits. Raw scale is a clear and obvious driver for needing to take action, and although it may be fine to simply scale out multiple Sidekiq nodes each listening to all the queues, at some point:
+
+1. The uniqueness of workload distribution and job characteristics may require dedicated workers, either sharded on job attributes (as for GitLab.com), or specific workers (based on your workloads), or
+1. Simple saturation on Redis means you need to listen to fewer queues
+
+**[We share [all we learned about configuring Sidekiq on GitLab.com](/blog/2021/09/02/specialized-sidekiq-configuration-lessons-from-gitlab-dot-com/)]**
+
+### Example: Demo systems
+
+In early 2021, our Demo Systems team were running a GitLab deployment for training purposes. Many users would join a training session where the first task was to import a sample project into the provided GitLab instance to work on further during the class. Imports are implemented with a Sidekiq job because they can take anything from a few seconds to hours. What the Demo Systems team found was that the default Sidekiq configuration simply couldn't keep up. The deployment wasn't huge, and neither was the user count, it was the very specific usage of the system that ran into difficulties. So, the team split off a dedicated Sidekiq VM for running imports, with suitably tuned concurrency (based on CPU contention), CPU + memory, and number of workers.
+
+**[[Discover how we scaled our use of Sidekiq on a GitLab instance](/blog/2020/06/24/scaling-our-use-of-sidekiq/)]**
+
+The key lesson here is that large scale isn't always the driver for customizing Sidekiq configuration, and the reason may be specific to your workloads, which means first you have to be able to identify the pain points.
+
+### Using metrics to identify problems
+
+{: #using-metrics-to-identify-problems}
+User experience may tell you something isn't going well, but how do you tell where the actual problem lies? The GitLab UI exposes the Sidekiq UI to administrators, at `/admin/background_jobs` – in the 'Queues' tab, you can see how many jobs are currently pending, and a breakdown by queue. However, that is a snapshot of a point-in-time, and stored metrics/graphs are better for long term visibility, particularly for figuring out what happened an hour ago when someone reported slow pipelines, or to debug that thing that happens twice a day but never when anyone is watching.
+
+To get some visibility, consider installing [gitlab-exporter](https://gitlab.com/gitlab-org/gitlab-exporter/) on (or pointed to) your Redis nodes, with:
+
+* `probe_queues` enabled to get the `sidekiq_queue_size` metric, and/or
+* `probe_jobs_limit` to get `sidekiq_enqueued_jobs`.
+
+`sidekiq_queue_size` reports the length of the all the Sidekiq queues in Redis (equivalent to the data exposed by the Sidekiq UI), but now it's exposed as a Prometheus metric for scraping and graphing. `sidekiq_enqueued_jobs` deserializes the job descriptions as well, meaning it can look inside a routing rule-based named queue with more than one class of jobs in it, and report the distribution of work by class. It has to limit (hence the name) the inspection to the first 1000 jobs in any given queue to contain the potential impact of blocking Redis with many calls to [LRANGE](https://redis.io/commands/lrange) with large responses. Usually this situation is fine. If you have > 1000 jobs in any given queue for a non-trivial amount of time, just knowing what's at the head of the queue is likely sufficient and `sidekiq_queue_size` will still show you the full magnitude of the backlog.
+
+If we were to really simplify it - because there are always exceptions - both those metrics should be at or close to 0 most of the time. In practice, there's often small, brief spikes when batches of work land and cannot be processed immediately, and it may be quite acceptable for some large/slow jobs to be queued for some significant time (e.g., project exports). But a prolonged backlog (or perpetual growth) indicates some class of work is not being processed, either at all, or "fast enough" to keep up. If your team is encountering these problems, it might be time to customize your Sidekiq configuration.
+
+However the backlog in queues may not be the whole story – queuing might be occurring because all your Sidekiq workers are busy with long-running jobs, causing all the other jobs to stall. To observe that you need the `sidekiq_running_jobs` metric, which can be scraped from the [sidekiq exporter](https://docs.gitlab.com/ee/administration/monitoring/prometheus/gitlab_metrics.html#sidekiq-metrics). This is enabled by default on port 8082 for Omnibus, and 3807 in Kubernetes when using our helmcharts. Graphing `sum by (worker) (sidekiq_running_jobs)` will show you what your Sidekiq workers are actively up to right now, and may highlight which worker/queue is causing the problem.
+
+Consider also keeping an eye on your Redis CPU usage – on a modern CPU at smaller scales there's a lot of headroom, but if you're at the point of considering a specialized Sidekiq configuration, now is the time to add a little monitoring and alerting so it doesn't sneak up on you in the future. We use [Process Exporter](https://github.com/ncabatoff/process-exporter) inspecting the `redis-server` process, with `threads=true` (on the command line) to get per-thread details. In Prometheus we use `sum by (threadname) (rate(namedprocess_namegroup_thread_cpu_seconds_total[1m]))`. On Redis 6, the core thread is named 'redis-server'. As always, set your alert level so that you won't get false positives, but will have plenty of headway before saturation becomes a real problem.
+
+### How to customize your Sidekiq configuration
+
+After identifying one or more queues/workers that are backed up, the main task is to get more Sidekiq processing power deployed. As mentioned above, it may be sufficient to simply add one or more [Sidekiq nodes](https://docs.gitlab.com/ee/administration/sidekiq.html) or Sidekiq workload in Kubernetes, allowing you to listen to all the queues in a default configuration. If you choose this approach, make sure you're keeping an eye on Redis CPU per the [metrics](#using-metrics-to-identify-problems) above.
+
+An alternative is to choose to provision some dedicated Sidekiq processing for just the problem work. It could even be said that any complex configuration of Sidekiq for GitLab is just the result of a series of these decisions, progressively adding dedicated processing for specific workloads with a "catchall" or "default" workload picking up the rest, so I'll describe just one such step and you can take it as far as you need.
+
+There is a critical decision to make first, and that's whether to:
+
+1. use queue-selectors on the workers and continue with a queue per worker for all jobs, or
+1. use routing rules.
+
+And if using routing rules, decide whether to:
+
+1. Go entirely to one-queue-per-shard, or
+1. Use a mix of custom-named queues and the default worker-named queues.
+
+Having worked in this area for a little over a year now, **I strongly recommend using routing rules and one-queue-per-shard** for the following reasons:
+
+1. Routing rules are more obvious in their effect/ordering than trying to configure disjointed sets of queues across Sidekiq workloads,
+1. Correlating the target queue names in routing rules with the names of queues listened to by workers is simpler,
+1. There is *far* less complexity in configuring the default/catchall workers,
+1. Load on Redis is significantly reduced with fewer named queues.
+
+It may be easier to see why with an example. In the next section, we run through an example where we assume that you want to provide dedicated resources for `project_exports` because it sees heavy use, and Sidekiq is regularly spending all it's time on that. We'll skip the early phase and assume that you have identified from metrics that the queue name is project_export.
+
+#### Using queue-selectors only
+
+Let's say you want to continue to use one queue per worker and configure each Sidekiq workload to listen to a subset of jobs using queue selectors. The syntax and location for configuring queue selectors is available in our documentation under [Queue selector](https://docs.gitlab.com/ee/administration/operations/extra_sidekiq_processes.html#queue-selector) and [Worker matcher query](https://docs.gitlab.com/ee/administration/operations/extra_sidekiq_routing.html#worker-matching-query) sections.
+
+After creating your new, dedicated Sidekiq workload, configure this in `gitlab.rb` on that workload:
+
+```ruby
+sidekiq['enable'] = true
+sidekiq['queue_selector'] = true
+sidekiq['queue_groups'] = [ 'name=project_export' ]
+```
+
+Keep in mind that this will only run one Sidekiq process which, while multithreaded with one job potentially executing on each thread, can only use one CPU – read up on [multiple processes](https://docs.gitlab.com/ee/administration/operations/extra_sidekiq_processes.html#start-multiple-processes) and [concurrency threading](https://about.gitlab.com/blog/2021/09/02/specialized-sidekiq-configuration-lessons-from-gitlab-dot-com/) for a little more detail, but in short, if you had a 4 CPU VM and you wanted to run 4 project_export processes, you'd configure gitlab.rb like this:
+
+```ruby
+sidekiq['enable'] = true
+sidekiq['queue_selector'] = true
+sidekiq['queue_groups'] = [ 'name=project_export', 'name=project_export', 'name=project_export', 'name=project_export' ]
+```
+
+This also reveals another approach. If your existing workload is running somewhere with spare CPU you could add processes with different sets of queues, gaining some control of workload prioritization without having to deploy new compute resources. For example:
+
+```ruby
+sidekiq['enable'] = true
+sidekiq['queue_selector'] = true
+sidekiq['queue_groups'] = [ 'name=project_export', 'name!=project_export' ]
+```
+
+This may look a little odd at first glance, but it means that one process will be listening to `project_export`, and the other will be listening to every queue that _isn't_ project_export.
+
+A couple of caveats:
+
+1. Concurrency (threading) is set once in `gitlab.rb`, so all jobs running on that node will need to be compatible with that concurrency. Read up on [Concurrency (threading) in the previous blog post](/blog/2021/09/02/specialized-sidekiq-configuration-lessons-from-gitlab-dot-com/) to learn more.
+1. Using the GitLab helmcharts, each pod only runs one process, so there you'd adjust maxReplicas instead.
+
+Speaking of helmcharts, these have the queue-selector configured with the [`queues`](https://docs.gitlab.com/charts/charts/gitlab/sidekiq/#queues) attribute of the pod:
+
+```
+queues: name=project_export
+```
+
+Where, despite being named `queues`, it can take the full queue-selector expression.
+
+After these configurations, your new workload will be listening exclusively to the `project_export` queue/worker. But what is to stop your original workload from also running `project_export`? Absolutely nothing! A default/baseline workload of Sidekiq for GitLab will listen on all the queues. This **may** be acceptable in a simple case – you've provided additional capacity dedicated to the named queue, and occasionally those jobs will still run on the original Sidekiq. In practice, because of the way Sidekiq uses BRPOP with a randomized order of queues, and how Redis distributes work when clients are already waiting on a named queue, the new dedicated workload will most likely pick up the **vast** majority of the work on that queue. But this may not isolate problem work as much as you desire. This could also lead to difficulty in reasoning clearly about what the system is going to do as your customization grows and becomes more specific. Therefore, I strongly recommend that you ensure the sets of queues are disjoint (that is, no overlap). The final step is to configure your original/default Sidekiq with either:
+
+```ruby
+sidekiq['enable'] = true
+sidekiq['negate'] = true
+sidekiq['queue_selector'] = true
+sidekiq['queue_groups'] = [ 'name=project_export' ]
+
+```
+
+or
+
+```ruby
+sidekiq['enable'] = true
+sidekiq['queue_selector'] = true
+sidekiq['queue_groups'] = [ "name!=project_export" ]
+```
+
+Then, as you add more customized workloads in future steps, you would extend the expression to exclude the work that is being picked up elsewhere, e.g., in the negate case if you had added a further workload executing only `feature_category=importers`:
+
+```ruby
+sidekiq['negate'] = true
+sidekiq['queue_groups'] = [ 'name=project_export&feature_category=importers' ]
+```
+
+This is where setting `negate` to "true" can be better – this catchall/default expression can be a simple concatenation of the expressions used on every other workload, separated with `&`. The expression may end up complex, but it can be generated trivially with code. Not using negate and inverting the operators works for simple cases, but may run into difficulty expressing edge cases when the individual expressions become more nuanced or complicated.
+
+#### Use routing rules
+
+Another option is to use [routing rules](https://docs.gitlab.com/ee/administration/operations/extra_sidekiq_routing.html) to achieve the same thing. First, add a new Sidekiq workload configured with:
+
+```ruby
+sidekiq['enable'] = true
+sidekiq['queue_selector'] = false # This is the default and is included only to be explicit
+sidekiq['queue_groups'] = [ 'export' ]
+```
+
+As in the queue-selector approach, you can run more than one by repeating the expression in queue_groups:
+
+```ruby
+sidekiq['queue_groups'] = [ 'export', 'export', 'export', 'export' ]
+```
+
+When using [helm charts](https://docs.gitlab.com/charts/charts/gitlab/sidekiq/index.html#queues) it would be simply the following in the Sidekiq pod definition:
+
+```yaml
+queues: name=export
+```
+
+This is simply explicitly naming queues, but having made up an arbitrary named "export" rather than using a queue name derived from the job class. Next, and most importantly, add the following to `gitlab.rb` on **all** your workloads. In the queue-selector approach, we only had to configure the Sidekiq workload, but here we need to ensure that **everywhere that enqueues Sidekiq jobs has the routing rules** – meaning anywhere running the Rails portion of GitLab, i.e., puma (web) as well as Sidekiq:
+
+```ruby
+sidekiq['routing_rules'] = [
+  ['name=project_export', 'export'],
+  ['*', nil]
+]
+```
+
+And when using [helmcharts](https://docs.gitlab.com/charts/charts/globals.html#sidekiq-routing-rules-settings) deployment:
+
+```yaml
+global:
+  appConfig:
+    sidekiq:
+      routingRules:
+      - ["name=project_export", "export"]
+      - ["*", null]
+```
+
+Some caveats:
+
+1. You most likely want a workload listening to the new queue **before** reconfiguring the routing rules, otherwise jobs will be put into the queue with nothing ready to execute them.
+1. The destination name (`export`) is arbitrary, but must match exactly in Sidekiq queue configuration and the routing rules.
+1. In `gitlab.rb` we use "nil", but in YAML we must use "null".
+
+By using null/nil as the target for `*` this example continues to use the default worker-per-queue strategy for all the other jobs. So you will have gained routing/prioritization control, but Redis will still be doing a lot of work to listen to the other 440+ queues. To avoid that, you can change the target of the final `*` routing rule to "default", e.g.
+
+```ruby
+sidekiq['routing_rules'] = [
+  ['name=project_export', 'export'],
+  ['*', 'default']
+]
+```
+
+In this context "default" is literal. Conveniently there is a built-in 'default' queue that GitLab Sidekiq listens to, although nothing uses it out of the box. These rules will route all remaining jobs to that queue and the original/default Sidekiq workload will pick them up immediately. Then, at your convenience, you can reconfigure the original Sidekiq workload to listen **only** to "default" in the same way you configured the new workload to listen to "export", and gain the performance benefit in Redis.
+
+#### Edge cases
+
+The routing rules example above is simplified slightly for clarity. In practice there are still a small set of queues that need to remain in their **original** dedicated named queue for a variety of reasons. We're working on resolving the blockers, but that may take a while to work through. You can follow along in [this issue](https://gitlab.com/gitlab-com/gl-infra/scalability/-/issues/1087), or you can keep an eye on the routingRules [configuration for GitLab.com](https://gitlab.com/gitlab-com/gl-infra/k8s-workloads/gitlab-com/-/blob/master/releases/gitlab/values/gprd.yaml.gotmpl) – special cases will be at the very top of the rules, routed by worker_name or name, and there will be a comment about why and a link to any related issues, which will help you determine if each is relevant to your needs. Some special cases may be there for GitLab.com-specific reasons and may not be generally applicable. In the long term we expect the list of special cases to reduce, not increase.
+
+Also take into consideration that the special cases may be used for features that you do not use. Specifically:
+
+1. EmailReceiverWorker & ServiceDeskEmailReceiverWorker are for [Incoming email](https://docs.gitlab.com/ee/administration/incoming_email.html)
+1. ProjectImportScheduleWorker is for project mirroring
+
+So you might be able to just ignore them, or route them to a queue that no worker is listening to and alert if `sidekiq_queue_size` is above zero on those queues.
+
+### Migrating when using routing rules
+
+There is one more thing to note. When migrating an active GitLab deployment (rather than configuring this from scratch on a fresh GitLab deployment) the order of steps taken is important, and there's one additional step I haven't mentioned yet:
+
+1. Ensure a Sidekiq workload is listening to the new queues
+1. Change the routing rules
+1. Run the Sidekiq job migration [Rake task](https://docs.gitlab.com/ee/raketasks/sidekiq_job_migration.html)
+   * Any jobs that are scheduled for the future will be migrated to the new queue for correct execution
+1. Stop listening to queues that are no longer in use
+
+These steps will ensure a clean migration. If you do not do step 3, then at future times deferred jobs will be picked up out of their holding place in Redis and might be scheduled to a queue that no Sidekiq is listening to anymore. This is exactly the process we took on GitLab.com when migrating our configuration to one queue per shard.
+
+## Simplifying complex Sidekiq configurations
+
+Any complicated Sidekiq configuration can be broken down into a series of these individual migrations, identifying (using metrics) queues or workers that need specialized handling, spinning up a workload to run them, and then sending/routing the jobs to this new workload.
+
+Cover image by [Jerry Zhang](https://unsplash.com/@z734923105) on [Unsplash](https://www.unsplash.com)
+{: .note}

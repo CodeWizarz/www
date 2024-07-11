@@ -1,0 +1,28 @@
+// Get release posts
+- releases = blog('releases').articles
+// Get blog posts
+- blog = blog('blog').articles.delete_if{ |a| a.data.categories.include?("unfiltered")  }
+// Make a combined list of the 3 newest entries, sorted by date
+- combined = [ releases[0..3], blog[0..3] ].flatten.compact.sort_by(&:date).reverse
+
+.container-fluid{:style => "position: relative"}
+  .custom-gray-bg{:style => "top: 0%; height:60%"}
+  .container
+    %h2.u-margin-top-0.u-margin-bottom-sm.text-center
+      The latest from our blog
+    .grid-layout.grid-layout3
+      - combined[0...3].each do |article|
+        %a.tile-resource.grid-item{ href: "#{article.url}" }
+          - image_title = article.data.image_title ? article.data.image_title : '/images/default-blog-image.png'
+          .tile-background-container{ style: "background-image: url('#{image_title}');" }
+          .tile-info
+            %h4.tile-title
+              = article.title
+            %p.tile-subtitle
+              by
+              = article.data.author
+            %p.tile-description
+              = article.data.description
+            %p.tile-link
+              Learn more
+              %i.fas.fa-arrow-right

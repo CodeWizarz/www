@@ -1,0 +1,61 @@
+---
+title: "A first look at workspaces: On-demand, cloud-based development environments"
+author: Eric Schurter
+author_gitlab: ericschurter
+categories: news 
+image_title: '/images/blogimages/code-editor-workspace.jpg' 
+description: "Remote development workspaces are now available in Beta for GitLab Premium and Ultimate users."
+tags: cloud native, features, news
+guest: false
+twitter_text: "We just gave remote development in GitLab a major upgrade. Workspaces are now available in Beta for GitLab Premium and Ultimate users." 
+featured: yes 
+postType: product
+related_posts:
+  - "/blog/2022/12/15/get-ready-for-new-gitlab-web-ide/"
+---
+
+Cloud-based development tools are quickly gaining popularity for their ability to provide a consistent, secure developer experience and streamline developer onboarding, which can reduce the time it takes for a developer to contribute to a codebase from days to hours, or even minutes. To support this shift in developer workflows, GitLab has introduced a significant upgrade in [remote development](/direction/create/ide/remote_development/) in GitLab 16.0. Secure, on-demand, cloud-based development workspaces are now available in Beta for GitLab Premium and Ultimate users on GitLab.com and on self-managed instances.
+
+The December 2022 [release of the Web IDE Beta](/blog/2022/12/15/get-ready-for-new-gitlab-web-ide/) delivered a familiar, feature-rich editing experience in your browser and the ability to connect to a remote server and interact with a cloud-based runtime environment. Workspaces take experience to the next level by bringing the configuration, orchestration, and management of your remote development environments into GitLab for the first time.
+
+### What is a workspace? 
+A workspace is your personal, ephemeral development environment in the cloud, created using centrally managed and curated dependencies defined in code. Developing with a workspace enables you to spend less time configuring your local development environment and more time focusing on writing code. Instead of managing package updates and troubleshooting version conflicts, consistent and reproducible cloud-based environments are available on demand. 
+
+Each workspace is a unique instance of your environment so you can switch between tasks seamlessly and have confidence that your environment will remain stable between sessions. Whether used as a tool to accelerate developer onboarding, provide stable environments for education purposes, or improve security by limiting the need to clone code locally, workspaces will change how you develop software on GitLab.
+
+### How do you create a workspace? 
+To create a workspace in GitLab, you’ll need: 
+
+- **A cloud platform or self-hosted Kubernetes cluster:** This release is focused on delivering a “bring your own infrastructure” solution. We know that many of you want complete control over your infrastructure and code, so we have prioritized hosting workspaces on your own infrastructure or in the cloud platform of your choice. 
+
+- **An agent:** Everything starts with the GitLab Agent for Kubernetes. Once you have the agent running in a Kubernetes cluster, [configuring remote development](https://docs.gitlab.com/ee/user/workspace/#prerequisites) is a matter of installing a couple of dependencies and adding a few lines of code to the agent configuration. 
+
+- **A devfile:** After you have an agent configured, you need to define your environment in a `.devfile.yaml` file, stored at the root of a project. In this file, you can specify container images, map ports, define volume mounts, [and more](https://docs.gitlab.com/ee/user/workspace/#relevant-schema-properties). 
+
+- **An editor:** In the first iteration, we are supporting the Web IDE and injecting it into the workspace. In future iterations, we will add support for other editors like [Jupyter Notebook](https://gitlab.com/gitlab-org/gitlab/-/issues/408381).
+
+- Optionally, you can [override the default timeout for your workspace](https://docs.gitlab.com/ee/user/workspace/index.html#create-a-workspace) to make sure you’re using cloud resources efficiently. Since workspaces are meant to be ephemeral, the default lifespan is 24 hours, but it can be set as high as a week. 
+
+After you’ve created your workspace, you can launch the Web IDE with a single click and get right to work. 
+
+Want to see it in action? This short video walks you through the configuration of an agent and the creation of a workspace: 
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/lDVaOtO_JVM" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+### What comes next?
+We’re excited to start getting your feedback so we’re introducing this as a Beta for public projects. Your credentials aren't currently being injected into the workspace during its creation, which means you can’t automatically clone private repositories. You can, however, create a workspace and authenticate yourself manually after it’s running. We’ll be working on [injecting credentials](https://gitlab.com/groups/gitlab-org/-/epics/10480) as well as addressing some other points of friction to make this even easier for developers to adopt. We’ll also be working on: 
+
+- [Connecting to a workspace via SSH from your desktop IDE](https://gitlab.com/groups/gitlab-org/-/epics/10478)
+- [Support for alternative editors](https://gitlab.com/groups/gitlab-org/-/epics/10635) like Jupyter Notebook or vim
+- [Configure instance or group-level usage limits to manage cloud resources](https://gitlab.com/groups/gitlab-org/-/epics/10571)
+- [Support for architectures other than amd64](https://gitlab.com/groups/gitlab-org/-/epics/10594)
+
+As you can see, we have an ambitious roadmap ahead of us, and we want to hear from you. Please let us know how you are using workspaces, what features are most important to you, and share any issues you run into along the way in the [public feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/410031). We can’t wait to see how you integrate workspaces into your DevSecOps workflow to improve the developer experience!
+
+**Disclaimer**: This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab.
+
+Cover image by [AltumCode](https://unsplash.com/@altumcode) on [Unsplash](https://unsplash.com/photos/dC6Pb2JdAqs)
+{: .note}
+

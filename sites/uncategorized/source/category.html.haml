@@ -1,0 +1,93 @@
+---
+pageable: true
+suppress_header: true
+extra_css:
+  - blog-landing.css
+extra_js:
+  - blog-home.js
+---
+
+- content_for :title do
+  = categories.to_s.camelize
+
+.wrapper.blog-landing
+  .blog-landing-sidebar
+    .blog-logo-background 
+      %h1
+        - case categories
+        - when "ai-ml"
+          = "AI/ML"
+        - when "devops"
+          = "DevOps"
+        - when "devops platform"
+          = "DevOps Platform"
+        - when "devsecops"
+          = "DevSecOps"
+        - when "devsecops-platform"
+          = "DevSecOps Platform"
+        - when "open source"
+          = "Open Source"
+        - else
+          = categories.to_s.camelize
+
+    .blog-sidebar-module-wrap
+      .blog-sidebar-module.blog-sidebar-module-subscribe
+        %h3 Subscribe
+        = partial "includes/newsletter-signup-short.html"
+
+      = partial "includes/layout/blog_search.html.haml"
+
+      .blog-sidebar-module.blog-sidebar-module-categories
+        %h3
+          Categories
+        = partial "includes/blog/category-nav"
+
+      .blog-sidebar-module.blog-sidebar-module-social
+        %h3
+          Follow Us
+        = partial "includes/social-icon-links.html"
+  // Category pages are paginated, see https://middlemanapp.com/basics/blogging/#pagination for template variables
+  .blog-landing-content
+    = partial "includes/blog/hero-post", locals: {articles: page_articles[0...1]}
+
+    .blog-heading-bar
+      %h3 Recent Posts
+
+    .flex-grid.blog-recent-post-grid
+      = partial "includes/blog/list-with-unfiltered", locals: {articles: page_articles[1...16]}
+
+// Paginator navigation
+.text-center
+  %ul.pagination
+    - if prev_page
+      %li{:class => prev_page ? "" : "disabled"}
+        =link_to "Prev", prev_page.url
+    - else
+      %li 
+        %span Prev
+    - (page_number - 2 .. page_number + 2).select{|i| i > 0 && i <= num_pages}.each do |i|
+      - if i == page_number
+        %li.active
+          %span= i
+      - else
+        %li
+          - p = nil
+          - (i ... page_number).each do p = p ? p.metadata[:locals]['prev_page'] : prev_page; end
+          - (page_number ... i).each do p = p ? p.metadata[:locals]['next_page'] : next_page; end
+          =link_to "#{i}", p && p.url
+    - if next_page
+      %li
+        =link_to "Next", next_page.url
+    - else
+      %li
+        %span Next
+
+:css
+
+  .pagination li span, .pagination li a {
+    padding: 4px 8px
+  }
+
+  .pagination li.active span {
+    text-decoration:underline;
+  }

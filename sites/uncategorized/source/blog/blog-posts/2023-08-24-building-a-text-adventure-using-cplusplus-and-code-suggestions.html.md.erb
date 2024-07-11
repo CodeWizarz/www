@@ -1,0 +1,1163 @@
+---
+title: "Explore the Dragon Realm: Build a C++ adventure game with a little help from AI"
+author: Fatima Sarah Khalid
+author_gitlab: sugaroverflow
+author_twitter: sugaroverflow
+categories: ai-ml
+image_title: "/images/blogimages/compassinfield.jpeg"
+description: "How to use GitLab Duo Code Suggestions to create a text-based adventure game, including magical locations to visit and items to procure, using C++."
+tags: DevSecOps platform, tutorial, workflow, AI/ML
+twitter_text: "Embark on a journey to the Dragon Realm while building a text-based adventure game in C++ with a little help from AI."
+featured: yes
+postType: dev-evangelism
+related_posts:
+    - "/blog/2023/08/03/gitlab-duo-code-suggestions-python/"
+    - "/blog/2023/08/10/learning-rust-with-a-little-help-from-ai-code-suggestions-getting-started/"
+    - "/blog/2023/07/20/supercharge-productivity-with-gitlab-duo/"
+    - "/blog/2023/05/25/code-suggestions-improves-developer-productivity/"
+---
+Learning, for me, has never been about reading a textbook or sitting in on a lecture - it's been about experiencing and immersing myself in a hands-on challenge. This is particulary true for new programming languages. With [GitLab Duo Code Suggestions](https://about.gitlab.com/gitlab-duo/), artificial intelligence (AI) becomes my interactive guide, providing an environment for trial, error, and growth. In this tutorial, we will build a text-based adventure game in C++ by using Code Suggestions to learn the programming language along the way.
+
+You can use this table of contents to navigate into each section. It is recommended to read top-down for the best learning experience.
+
+- [Setup](#setup)
+  - [Installing VS Code](#installing-vs-code)
+  - [Installing Clang as a compiler](#installing-clang-as-a-compiler)
+  - [Setting up VS Code](#setting-up-vs-code)
+- [Getting started](#getting-started)
+  - [Compiling and running your program](#compiling-and-running-your-program)
+- [Setting the text adventure stage](#setting-the-adventure-stage)
+- [Defining the adventure: Variables](#defining-the-adventure-variables)
+- [Crafting the adventure: Making decisions with conditionals](#crafting-the-adventure-making-decisions-with-conditionals)
+- [Structuring the narrative: Characters](#structuring-the-narrative-characters)
+- [Structuring the narrative: Items](#structuring-the-narrative-items)
+- [Applying what we've learned at the Grand Library](#applying-what-weve-learned-at-the-grand-library)
+- [See you next time in the Dragon Realm](#see-you-next-time-in-the-dragon-realm)
+- [Share your feedback](#share-your-feedback)
+
+> Download [GitLab Ultimate for free](https://about.gitlab.com/gitlab-duo/) for a 30-day trial of GitLab Duo Code Suggestions.
+
+## Setup
+You can follow this tutorial in your [preferred and supported IDE](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#enable-code-suggestions-in-other-ides-and-editors). Review the documentation to enable Code Suggestions for [GitLab.com SaaS](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#enable-code-suggestions-on-gitlab-saas) or [GitLab self-managed instances](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#enable-code-suggestions-on-self-managed-gitlab).
+
+These installation instructions are for macOS Ventura on M1 Silicon. 
+
+### Installing VS Code
+
+* Download and install [VS Code](https://code.visualstudio.com/download).
+* Alternatively, you can also install it as a Homebrew cask: `brew install --cask visual-studio-code`.
+
+### Installing Clang as a compiler
+
+* On macOS, you'll need to install some developer tools. Open your terminal and type:
+
+```
+xcode-select --install
+```
+
+This will prompt you to install Xcode's command line tools, which include the [Clang C++ compiler](https://clang.llvm.org/get_started.html).
+
+After the installation, you can check if `clang++` is installed by typing:
+
+```
+clang++ --version
+```
+
+You should see an output that includes some information about the Clang version you have installed. 
+
+### Setting up VS Code
+
+* Launch VS Code.
+* Install and configure [the GitLab Workflow extension](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow).
+* Optionally, in VS Code, install the [C/C++ Intellisense extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cpptools), which helps with debugging C/C++. 
+
+## Getting started
+Now, let's start building this magical adventure with C++. We'll start with a "Hello World" example.
+
+Create a new project `learn-ai-cpp-adventure`. In the project root, create `adventure.cpp`. The first part of every C++ program is the `main()` function. It's the entry point of the program.
+
+When you start writing `int main() {`, Code Suggestions will help autocomplete the function with some default parameters.
+
+![adventure.cpp with a hello world implementation suggested by Code Suggestions](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/0-helloworld.png){: .shadow}
+
+```cpp
+int main()
+{
+    cout << "Hello World" << endl;
+    return 0;
+}
+```
+
+While this is a good place to start, we need to add an include and update the output statement:
+
+```cpp
+#include <iostream> // Include the I/O stream library for input and output
+
+// Main function, the starting point of the program
+int main()
+{
+    // Print "Hello World!" to the console
+    std::cout << "Hello World!" << std::endl;
+
+    // Return 0 to indicate successful execution
+    return 0;
+}
+```
+
+The program prints "Hello World!" to the console when executed.
+
+* `#include <iostream>`: Because we are building a text-based adventure, we will rely on input from the player using input and output operations (I/O) in C++. This include is a preprocessor directive that tells our program to include the `iostream` library, which provides facilities to use input and output streams, such as `std::cout` for output.
+
+* You might find that Code Suggestions suggests `int main(int argc, char* argv[])` as the definition of our main function. The parameters `(int argc, char* argv[])` are used to pass command-line arguments to the program. Code Suggestions added them as default parameters, but they are not needed if you're not using command-line arguments. In that case, we can also define the main function as `int main()`.
+
+* `std::cout << "Hello World!" << std::endl;`: outputs "Hello World" to the console. The stream operator `<<` is used to send the string to output. `std::endl` is an end-line character.
+
+* `return 0;`: we use `return 0;` to indicate the end of the `main()` function and return a value of 0. In C++, it is good practice to return 0 to indicate the program has completed successfully.
+
+### Compiling and running your program
+Now that we have some code, let's review how we'll compile and run this program. 
+* Open your terminal or use the terminal in VSCode (View -> Terminal).
+* Navigate to your project directory.
+* Compile your program by typing:
+
+```bash
+clang++ adventure.cpp -o adventure
+```
+
+This command tells the Clang++ compiler to compile adventure.cpp and create an executable named adventure. After this, run your program by typing:
+
+```
+./adventure
+```
+
+You should see "Hello World!" printed in the terminal. 
+
+Because our tutorial uses a single source file `adventure.cpp`, we can use the compiler directly to build our program. In the future, if the program grows beyond a file, we'll set up additional configurations to handle compilation. 
+
+## Setting the text adventure stage
+Before we get into more code, let's set the stage for our text adventure.
+
+For this text adventure, players will explore the Dragon Realm. The Dragon Realm is full of mountains, lakes, and magic. Our player will enter the Dragon Realm for the first time, explore different locations, meet new characters, collect magical items, and journal their adventure. At every location, they will be offered choices to decide the course of their journey.
+
+To kick off our adventure into the Dragon Realm, let's update our `adventure.cpp main()` function to be more specific. As you update the welcome message, you might find that Code Suggestions already knows we're building a game.
+
+![adventure.cpp - Code Suggestions offers suggestion of welcoming users to the Dragon Realm and knows its a game](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/1-welcome-to-the-realm.png){: .shadow}
+
+```cpp
+#include <iostream> // Include the I/O stream library for input and output
+
+// Main function, the starting point of the program
+int main()
+{
+    // Print "Hello World!" to the console
+    std::cout << "Welcome to the Dragon Realm!" << std::endl;
+
+    // Return 0 to indicate successful execution
+    return 0;
+}
+```
+
+## Defining the adventure: Variables
+A variable stores data that can be used throughout the program scope in the `main()` function. A variable is defined by a type, which indicates the kind of data it can hold.
+
+Let's create a variable to hold our player's name and give it the type `string`. A `string` is designed to hold a sequence of characters so it's perfect for storing our player's name.
+
+```cpp
+#include <iostream> // Include the I/O stream library for input and output
+
+// Main function, the starting point of the program
+int main()
+{
+    // Print "Hello World!" to the console
+    std::cout << "Welcome to the Dragon Realm!" << std::endl;
+
+    // Declare a string variable to hold the player's name
+    std::string playerName;
+
+    // Return 0 to indicate successful execution
+    return 0;
+}
+```
+
+As you do this, you may notice that Code Suggestions knows what's coming next - prompting the user for their player's name.
+
+![adventure.cpp - Code Suggestions suggests welcoming the player with the playerName variable](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/2-player-name-variable.png){: .shadow}
+
+We may be able to get more complete and specific Code Suggestions by providing comments about what we'd like to do with the name - personally welcome the player to the game. Start by adding our plan of action in comments.
+
+```cpp
+    // Declare a string variable to hold the player's name
+    std::string playerName;
+
+    // Prompt the user to enter their player name
+
+    // Display a personalized welcome message to the player with their name
+```
+
+To capture the player's name from input, we need to use the `std::cin` object from the `iostream` library to fetch input from the player using the extraction operator `>>`. If you start typing `std::` to start prompting the user, Code Suggestions will make some suggestions to help you gather user input and save it to our `playerName` variable.
+
+![adventure.cpp - Code Suggestions prompts the user to input their player name](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/2.1-player-name-input.png){: .shadow}
+
+Next, to welcome our player personally to the game, we want to use `std::cout` and the `playerName` variable together:
+
+```cpp
+    // Declare a string variable to store the player name
+    std::string playerName;
+
+    // Prompt the user to enter their player name
+    std::cout << "Please enter your name: ";
+    std::cin >> playerName;
+
+    // Display a personalized welcome message to the player with their name
+    std::cout << "Welcome " << playerName << " to The Dragon Realm!" << std::endl;
+```
+
+## Crafting the adventure: Making decisions with conditionals
+It's time to introduce our player to the different locations in tbe Dragon Realm they can visit. To prompt our player with choices, we use conditionals. Conditionals allow programs to take different actions based on criteria, such as user input.
+
+Let's offer the player a selection of locations to visit and capture their choice as an `int` value that corresponds to the location they picked.
+
+```cpp
+// Display a personalized welcome message to the player with their name
+std::cout << "Welcome " << playerName << " to The Dragon Realm!" << std::endl;
+
+// Declare an int variable to capture the user's choice
+int choice;
+```
+
+Then, we want to offer the player the different locations that are possible for that choice. Let's start with a comment and prompt Code Suggestions with `std::cout` to fill out the details for us.
+
+![adventure.cpp - Code Suggestions suggests a multiline output for all the locations listed in the code below](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3-setup-location-choice.png){: .shadow}
+
+As you accept the suggestions, Code Suggestions will help build out the output and ask the player for their input.
+
+![adventure.cpp - Code Suggestions suggests a multiline output for all the locations listed in the code below and asks for player input](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.1-capture-player-location-choice.png){: .shadow}
+
+```cpp
+    // Declare an int variable to capture the user's choice
+    int choice;
+
+    // Offer the player a choice of 3 locations: 1 for Moonlight Markets, 2 for Grand Library, and 3 for Shimmer Lake.
+    std::cout << "Where will " << playerName << " go?" << std::endl;
+    std::cout << "1. Moonlight Markets" << std::endl;
+    std::cout << "2. Grand Library" << std::endl;
+    std::cout << "3. Shimmer Lake" << std::endl;
+    std::cout << "Please enter your choice: ";
+    std::cin >> choice;
+```
+
+Once you start typing `std::cin >>` or accept the prompt for asking the player for their choice, Code Suggestions might offer a suggestion for building out your conditional flow. AI is non-deterministic: One suggestion can involve if/else statements while another solution uses a switch statement.
+
+To give Code Suggestions a nudge, we'll add a comment and start typing out an if statement: `if (choice ==)`.
+
+![adventure.cpp - Code Suggestions suggests using an if statement to manage choice of locations](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.2-if-statement-locations.png){: .shadow}
+
+And if you keep accepting the subsequent suggestions, Code Suggestions will autocomplete the code using if/else statements.
+
+![adventure.cpp - Code Suggestions helps the user fill out the rest of the if/else statements for choosing a location](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.2.1-if-statement-locations-continued.png){: .shadow}
+
+```cpp
+    // Check the user's choice and display the corresponding messages
+    if (choice == 1) {
+        std::cout << "You chose Moonlight Markets" << std::endl;
+    }
+    else if (choice == 2) {
+        std::cout << "You chose Grand Library" << std::endl;
+    }
+    else if (choice == 3) {
+        std::cout << "You chose Shimmer Lake" << std::endl;
+    }
+    else {
+        std::cout << "Invalid choice" << std::endl;
+    }
+```
+
+`if/else` is a conditional statement that allows a program to execute code based on whether a condition, in this case the player's choice, is true or false. If the condition evaluates to true, the code inside the braces is executed.
+
+* `if (condition)`: used to check if the condition is true.
+* `else if (another condition)`: if the previous condition isn't true, the programs checks this condition.
+* `else`: if none of the previous conditions are true.
+
+Another way of managing multiple choices like this example is using a `switch()` statement. A `switch` statement allows our program to jump to different sections of code based on the value of an expression, which, in this case, is the value of `choice`.
+
+We are going to replace our `if/else` statements with a `switch` statement. You can comment out or delete the `if/else` statements and prompt Code Suggestions starting with `switch(choice) {`.
+
+![adventure.cpp - Code Suggestions helps the user handle the switch statement for the locations](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.3-conditional-switch-locations.png){: .shadow}
+
+![adventure.cpp - Code Suggestions helps the user handle the switch statement for the locations](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.3.1-conditional-switch-locations-continued.png){: .shadow}
+
+```cpp
+    // Evaluate the player's decision
+    switch(choice) {
+        // If 'choice' is 1, this block is executed.
+        case 1:
+            std::cout << "You chose Moonlight Markets." << std::endl;
+            break;
+        // If 'choice' is 2, this block is executed.
+        case 2:
+            std::cout << "You chose Grand Library." << std::endl;
+            break;
+        // If 'choice' is 3, this block is executed.
+        case 3:
+            std::cout << "You chose Shimmer Lake." << std::endl;
+            break;
+        // If 'choice' is not 1, 2, or 3, this block is executed.
+        default:
+            std::cout << "You did not enter 1, 2, or 3." << std::endl;
+    }
+```
+
+Each case represents a potential value that the variable or expression being switched on (in this case, choice) could have. If a match is found, the code for that case is executed. We use the `default` case to handle any input errors in case the player enters a value that isn't accounted for.
+
+Let's build out what happens when our player visits the Shimmering Lake. I've added some comments after the player's arrival at Shimmering Lake to prompt Code Suggestions to help us build this out:
+
+```cpp
+    // If 'choice' is 3, this block is executed.
+    case 3:
+        std::cout << "You chose Shimmering Lake." << std::endl;
+        // The player arrives at Shimmering Lake. It is one of the most beautiful lakes the player has ever seen.
+        // The player hears a mysterious melody from the water.
+        // They can either 1. Stay quiet and listen, or 2. Sing along with the melody.
+
+        break;
+```
+
+Now, if you start writing `std::cout` to begin offering the player this new decision point, Code Suggestions will help fill out the output code.
+
+![adventure.cpp - Code Suggestions helps fill out the output code based on the comments about the interaction at the Lake](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.4-case-3-output.png){: .shadow}
+
+You might find that the code provided by Code Suggestions is very declarative. Once I've accepted the suggestion, I personalize the code as needed. For example in this case, including the melody the player heard and using the player's name instead of "you":
+
+![adventure.cpp - I added the playerName to the output and then prompted Code Suggestions to continue the narrative based on the comments above](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.4.1-customizing-output.png){: .shadow}
+
+I also wanted Code Suggestions to offer suggestions in a specific format, so I added an end line:
+
+![adventure.cpp - I added an end line to prompt Code Suggestions to break the choices into end line outputs](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.4.2-customizing-output-endline.png){: .shadow}
+
+![adventure.cpp - I added an endline to prompt Code Suggestions to break the choices into end line outputs](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.4.3-sub-choices-output.png){: .shadow}
+
+Now, we'd like to offer our player a nested choice in this scenario. Before we can define the new choices, we need a variable to store this nested choice. Let's define a new variable `int nestedChoice` in our `main()` function, outside of the `switch()` statement we set up. You can put it after our definition of the `choice` variable.
+
+```cpp
+    // Declare an int variable to capture the user's choice
+    int choice;
+    // Declare an int variable to capture the user's nested choice
+    int nestedChoice;
+```
+
+Next, returning to the `if/else` statement we were working on in `case 3`, we want to prompt the player for their decision and save it in `nestedChoice`.
+
+![adventure.cpp - I added an end line to prompt Code Suggestions to break the choices into end line outputs](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.4.4-capture-nested-choice.png){: .shadow}
+
+As you can see, Code Suggestions wants to go ahead and handle the user's choice using another `switch` statement. I would prefer to use an `if/else` statement to handle this decision point.
+
+First, let's add some comments to give context:
+
+```cpp
+    // Capture the user's nested choice
+    std::cin >> nestedChoice;
+
+    // If the player chooses 1 and remains silent, they hear whispers of the merfolk below, but nothing happens.
+    // If the player chooses 2 and sings along, a merfolk surfaces and gifts them a special blue gem as a token of appreciation for their voice.
+
+    // Evaluate the user's nestedChoice
+```
+
+Then, start typing `if (nestedChoice == 1)` and Code Suggestions will start to offer suggestions:
+
+![adventure.cpp - Code Suggestions starts to build out an if statement to handle the nestedChoice](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.5-nested-choice-if.png){: .shadow}
+
+If you tab to accept them, Code Suggestions will continue to fill out the rest of the nested `if/else` statements.
+
+![adventure.cpp - Code Suggestions completes the nested ifelse to handle the nestedChoice at the Lake](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.5.1-nested-choice-if.png){: .shadow}
+
+Sometimes, while you're customizing the suggestions that Code Suggestions gives, you may even discover that it would like to make creative suggestions, too!
+
+![adventure.cpp - Code Suggestions makes a creative suggestion to end the interaction with the merfolk by saying "You are now free to go" after you receive the gem.](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.5.2-nested-cs-creative-suggestion.png){: .shadow}
+
+Here's the code for `case 3` for the player's interaction at Shimmering Lake with the nested decision. I've updated some of the narrative dialogue player's name.
+```
+    // Handle the Shimmering Lake scenario.
+    case 3:
+        std::cout << playerName << " arrives at Shimmering Lake. It is one of the most beautiful lakes that" << playerName << " has seen. They hear a mysterious melody from the water. They can either: " << std::endl;
+        std::cout << "1. Stay quiet and listen" << std::endl;
+        std::cout << "2. Sing along with the melody" << std::endl;
+        std::cout << "Please enter your choice: ";
+
+        // Capture the user's nested choice
+        std::cin >> nestedChoice;
+
+        // If the player chooses to remain silent
+        if (nestedChoice == 1)
+        {
+            std::cout << "Remaining silent, " << playerName << " hears whispers of the merfolk below, but nothing happens." << std::endl;
+        }
+        // If the player chooses to sing along with the melody
+        else if (nestedChoice == 2)
+        {
+            std::cout << "Singing along, a merfolk surfaces and gifts " << playerName
+                    << " a special blue gem as a token of appreciation for their voice."
+                    << std::endl;
+        }
+        break;
+```
+
+Our player isn't limited to just exploring Shimmering Lake. There's a whole realm to explore and they might want to go back and explore other locations.
+
+To facilitate this, we can use a `while` loop. A loop is a type of conditional that allows a specific section of code to be executed multiple times based on a condition. For the `condition` that allows our `while` loop to run multiple times, let's use a `boolean` to initialize the loop condition.
+
+```cpp
+    // Initialize a flag to control the loop and signify the player's intent to explore.
+    bool exploring = true;
+    // As long as the player wishes to keep exploring, this loop will run.
+    while(exploring) {
+        // wrap the code for switch(choice)
+    }
+```
+
+We also need to move our location prompt inside the `while` loop so that the player can visit more than one location at the time.
+
+![adventure.cpp - CS helps us write a go next prompt for the locations](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.6-while-loop-go-next.png){: .shadow}
+
+```cpp
+    // Initialize a flag to control the loop and signify the player's intent to explore.
+    bool exploring = true;
+    // As long as the player wishes to keep exploring, this loop will run.
+    while(exploring) {
+
+        // If still exploring, ask the player where they want to go next
+        std::cout << "Where will " << playerName << " go next?" << std::endl;
+        std::cout << "1. Moonlight Markets" << std::endl;
+        std::cout << "2. Grand Library" << std::endl;
+        std::cout << "3. Shimmering Lake" << std::endl;
+        std::cout << "Please enter your choice: ";
+        // Update value of choice
+        std::cin >> choice;
+
+        // Respond based on the player's main choice
+        switch(choice) {
+```
+
+Our `while` loop will keep running as long as `exploring` is `true`, so we need a way for the player to have the option to exit the game. Let's add a case 4 that allows the player to exit by setting `exploring = false`. This will exit the loop and take the player back to the original choices.
+
+```cpp
+    // Option to exit the game
+    case 4:
+        exploring = false;
+        break;
+```
+
+**Async exercise**: Give the player the option to exit the game instead of exploring a new decision.
+
+We also need to update the error handling for invalid inputs in the `switch` statement. You can decide whether to end the program or use the `continue` statement to start a new loop iteration.
+
+```cpp
+        default:
+            std::cout << "You did not enter a valid choice." << std::endl;
+            continue; // Errors continue with the next loop iteration
+```
+
+Using I/O and conditionals is at the core of text-based adventure games and helps make these games interactive. We can combine user input, display output, and implement our narrative into decision-making logic to create an engaging experience.
+
+Here's what our `adventure.cpp` looks like now with some comments:
+
+```cpp
+#include <iostream> // Include the I/O stream library for input and output
+
+// Main function, the starting point of the program
+int main()
+{
+    std::cout << "Welcome to the Dragon Realm!" << std::endl;
+
+    // Declare a string variable to store the player name
+    std::string playerName;
+
+    // Prompt the user to enter their player name
+    std::cout << "Please enter your name: ";
+    std::cin >> playerName;
+
+    // Display a personalized welcome message to the player with their name
+    std::cout << "Welcome " << playerName << " to The Dragon Realm!" << std::endl;
+
+    // Declare an int variable to capture the user's choice
+    int choice;
+    // Declare an int variable to capture the user's nested choice
+    int nestedChoice;
+
+    // Initialize a flag to control the loop and signify the player's intent to explore.
+    bool exploring = true;
+    // As long as the player wishes to keep exploring, this loop will run.
+    while(exploring) {
+
+        // If still exploring, ask the player where they want to go next
+        std::cout << "Where will " << playerName << " go next?" << std::endl;
+        std::cout << "1. Moonlight Markets" << std::endl;
+        std::cout << "2. Grand Library" << std::endl;
+        std::cout << "3. Shimmering Lake" << std::endl;
+        std::cout << "Please enter your choice: ";
+        // Update value of choice
+        std::cin >> choice;
+
+        // Respond based on the player's main choice
+        switch(choice) {
+            //  Handle the Moonlight Markets scenario
+            case 1:
+                std::cout << "You chose Moonlight Markets." << std::endl;
+                break;
+            // Handle the Grand Library scenario.
+            case 2:
+                std::cout << "You chose Grand Library." << std::endl;
+                break;
+            // Handle the Shimmering Lake scenario.
+            case 3:
+                std::cout << playerName << " arrives at Shimmering Lake. It is one of the most beautiful lakes that" << playerName << " has seen. They hear a mysterious melody from the water. They can either: " << std::endl;
+                std::cout << "1. Stay quiet and listen" << std::endl;
+                std::cout << "2. Sing along with the melody" << std::endl;
+                std::cout << "Please enter your choice: ";
+
+                // Capture the user's nested choice
+                std::cin >> nestedChoice;
+
+                // If the player chooses to remain silent
+                if (nestedChoice == 1)
+                {
+                    std::cout << "Remaining silent, " << playerName << " hears whispers of the merfolk below, but nothing happens." << std::endl;
+                }
+                // If the player chooses to sing along with the melody
+                else if (nestedChoice == 2)
+                {
+                    std::cout << "Singing along, a merfolk surfaces and gifts " << playerName
+                            << " a special blue gem as a token of appreciation for their voice."
+                            << std::endl;
+                }
+                break;
+            // Option to exit the game
+            case 4:
+                exploring = false;
+                break;
+            // If 'choice' is not 1, 2, or 3, this block is executed.
+            default:
+                std::cout << "You did not enter a valid choice." << std::endl;
+                continue; // Errors continue with the next loop iteration
+        }
+    }
+
+    // Return 0 to indicate successful execution
+    return 0;
+}
+```
+
+Here's what the build output looks like if we run `adventure.cpp` and the player heads to the Shimmering Lake.
+
+![adventure.cpp build output - the player is called sugaroverflow and heads to the Shimmering Lake and receives a gem](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/3.6.1-full-case-3-output.png){: .shadow}
+
+## Structuring the narrative: Characters
+Our player can now explore the world. Soon, our player will also be able to meet people and collect objects. Before we can do that, let's organize the things our player can do with creating some structure for the player character.
+
+In C++, a `struct` is used to group different data types. It's helpful in creating a group of items that belong together, such as our player's attributes and inventory, into a single unit. `struct` objects are defined globally, which means at top the file, before the `main() function.
+
+If you start typing `struct Player {`, Code Suggestions will help you out with a sample definition of a player struct.
+
+![adventure.cpp - Code Suggestions helps with setting up the struct definition for the player](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/4-player-struct-definition.png){: .shadow}
+
+After accepting this suggestion, you might find that Code Suggestions is eager to define some functions to make this game more fun, such as hunting for treasure.
+
+![adventure.cpp - Code Suggestions provides a suggestion for creating functions to hunt for treasure.](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/4.1-player-struct-treasure-suggestion.png){: .shadow}
+
+```cpp
+// Define a structure for a Player in the game.
+struct Player{
+    std::string name;  // The name of the player.
+    int health;        // The current health of the player.
+    int xp;            // Experience points gained by the player. Could be used for leveling up or other game mechanics.
+};
+```
+
+Giving the player experience points was not in my original plan for this text adventure game, but Code Suggestions makes an interesting suggestion. We could use `xp` for leveling up or for other game mechanics as our project grows.
+
+`struct Player` provides a blueprint for creating a player and details the attributes that make up a player. To use our player in our code, we must instantiate, or create, an object of the `Player` struct within our `main()` function. Objects in C++ are instances of structures that contain attributes. In our example, we're working with the `Player` struct, which has attributes like name, health, and xp.
+
+As you're creating a `Player` object, you might find that Code Suggestions wants to name the player "John."
+
+![adventure.cpp - code suggestions suggests naming the new Player object John.](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/4.2-player-struct-instance-john.png){: .shadow}
+
+```cpp
+int main() {
+    // Create an instance of the Player struct
+    Player player;
+    player.health = 100; // Assign a default value for HP
+```
+
+Instead of naming our player "John" for everyone, we'll use the `Player` object to set the attribute for name. When we want to interact with or manipulate an attribute of an object, we use the dot operator `.`. The dot operator allows us to access specific members of the object. We can set the player's name using the dot operator with `player.name`.
+
+Note that we need to replace other mentions of `playerName` the variable with `player.name`, which allows us to access the player object's name directly.
+
+* Search for all occurrences of the `playerName` variable, and replace it with `player.name`.
+* Comment/Remove the unused `std::string playerName` variable after that.
+
+What your `adventure.cpp` will look like now:
+
+```cpp
+#include <iostream> // Include the I/O stream library for input and output
+
+// Define a structure for a Player in the game.
+struct Player{
+    std::string name;  // The name of the player.
+    int health;        // The current health of the player.
+    int xp;            // Experience points gained by the player. Could be used for leveling up or other game mechanics.
+};
+
+// Main function, the starting point of the program
+int main()
+{
+    std::cout << "Welcome to the Dragon Realm!" << std::endl;
+
+    // Create an instance of the Player struct
+    Player player;
+    player.health = 100; // Assign a default value for HP
+
+    // Prompt the user to enter their player name
+    std::cout << "Please enter your name: ";
+    std::cin >> player.name;
+
+    // Display a personalized welcome message to the player with their name
+    std::cout << "Welcome " << player.name << " to The Dragon Realm!" << std::endl;
+
+    // Declare an int variable to capture the user's choice
+    int choice;
+    // Declare an int variable to capture the user's nested choice
+    int nestedChoice;
+
+    // Initialize a flag to control the loop and signify the player's intent to explore.
+    bool exploring = true;
+    // As long as the player wishes to keep exploring, this loop will run.
+    while(exploring) {
+
+        // If still exploring, ask the player where they want to go next
+        std::cout << "Where will " << player.name << " go next?" << std::endl;
+        std::cout << "1. Moonlight Markets" << std::endl;
+        std::cout << "2. Grand Library" << std::endl;
+        std::cout << "3. Shimmering Lake" << std::endl;
+        std::cout << "Please enter your choice: ";
+        // Update value of choice
+        std::cin >> choice;
+
+        // Respond based on the player's main choice
+        switch(choice) {
+            //  Handle the Moonlight Markets scenario
+            case 1:
+                std::cout << "You chose Moonlight Markets." << std::endl;
+                break;
+            // Handle the Grand Library scenario.
+            case 2:
+                std::cout << "You chose Grand Library." << std::endl;
+                break;
+            // Handle the Shimmering Lake scenario.
+            case 3:
+                std::cout << player.name << " arrives at Shimmering Lake. It is one of the most beautiful lakes that" << player.name << " has seen. They hear a mysterious melody from the water. They can either: " << std::endl;
+                std::cout << "1. Stay quiet and listen" << std::endl;
+                std::cout << "2. Sing along with the melody" << std::endl;
+                std::cout << "Please enter your choice: ";
+
+                // Capture the user's nested choice
+                std::cin >> nestedChoice;
+
+                // If the player chooses to remain silent
+                if (nestedChoice == 1)
+                {
+                    std::cout << "Remaining silent, " << player.name << " hears whispers of the merfolk below, but nothing happens." << std::endl;
+                }
+                // If the player chooses to sing along with the melody
+                else if (nestedChoice == 2)
+                {
+                    std::cout << "Singing along, a merfolk surfaces and gifts " << player.name
+                            << " a special blue gem as a token of appreciation for their voice."
+                            << std::endl;
+                }
+                break;
+            // Option to exit the game
+            case 4:
+                exploring = false;
+                break;
+            // If 'choice' is not 1, 2, or 3, this block is executed.
+            default:
+                std::cout << "You did not enter a valid choice." << std::endl;
+                continue; // Errors continue with the next loop iteration
+        }
+    }
+
+    // Return 0 to indicate successful execution
+    return 0;
+}
+```
+
+## Structuring the narrative: Items
+An essential part of adventure games is a player's inventory - the collection of items they acquire and use during their journey. For example, at Shimmering Lake, the player acquired a blue gem.
+
+Let's update our Player `struct` to include an inventory using an array. In C++, an `array` is a collection of elements of the same type that can be identified by an index. When creating an array, you need to specify its type and size. Start by adding `std::string inventory` to the Player `struct`:
+
+![adventure.cpp - Code Suggestions shows us how to add an array of strings to the player struct to use as the players inventory](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/5-add-inventory-player-struct.png){: .shadow}
+
+You might find that Code Suggestions wants our player to be able to carry some gold, but we don't need that for now. Let's also add `int inventoryCount;` to keep track of the number of items in our player's inventory.
+
+![adventure.cpp - Code Suggestions shows us how to add an integer for inventoryCount to the player struct](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/5.1-add-inventory-count-player-struct.png){: .shadow}
+
+```cpp
+// Define a structure for a Player in the game.
+struct Player{
+    std::string name;  // The name of the player.
+    int health;        // The current health of the player.
+    int xp;            // Experience points gained by the player. Could be used for leveling up or other game mechanics.
+    std::string inventory[10];  // An array of strings for the player's inventory.
+    int inventoryCount = 0;  // The number of items in the player's inventory.
+};
+```
+In our Player `struct`, we have defined an array for our inventory that can hold the names of 10 items (type:string, size: 10). As the player progresses through our story, we can assign new items to the inventory array based on the player's actions using the array index.
+
+Sometimes Code Suggestions gets ahead of me and tries to add more complexity to the game by suggesting that we need to create a `struct` for some Monsters. Maybe later, Code Suggestions!
+
+![adventure.cpp - Code Suggestions wants to add a struct for Monsters we can battle](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/5.2-suggestion-gets-distracted-by-monsters.png
+){: .shadow}
+
+Back at the Shimmering Lake, the player received a special blue gem from the merfolk. Let's update the code in `case 2` for the Shimmering Lake to add the gem to our player's inventory.
+
+You can start by accessing the player's inventory with `player.inventory` and Code Suggestions will help add the gem.
+
+![adventure.cpp - Code Suggestions shows us how to add a gem to the player's inventory using a post-increment operation and the inventory array from the struct object](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/5.3-add-gem-to-inventory.png){: .shadow}
+
+```cpp
+    // If the player chooses to sing along with the melody
+    else if (nestedChoice == 2)
+    {
+        std::cout << "Singing along, a merfolk surfaces and gifts " << player.name
+                << " a special blue gem as a token of appreciation for their voice."
+                << std::endl;
+        player.inventory[player.inventoryCount] = "Blue Gem";
+        player.inventoryCount++;
+    }
+```
+
+* `player.inventory`: accesses the inventory attribute of the player object
+* `player.inventoryCount`: accesses the integer that keeps track of how many items are currently in the player's inventory. This also represents the next available index in our inventory array where an item can be stored.
+* `player.inventoryCount++`: increments the value of inventoryCount by 1. This is a post-increment operation. We are adding “Blue Gem” to the next available slot in the inventory array and incrementing the array for the newly added item.
+
+Once we've added something to our player's inventory, we may also want to be able to look at everything in the inventory. We can use a `for` loop to iterate over the inventory array and display each item.
+
+In C++, a `for` loop allows code to be repeatedly executed a specific number of times. It's different from the `while` loop we used earlier because the `while` executes its body based on a condition, whereas a `for` loop iterates over a sequence or range, usually with a known number of times.
+
+After adding the gem to the player's inventory, let's display all the items it has. Try starting a for loop with `for ( ` to display the player's inventory and Code Suggestions will help you with the syntax.
+
+![adventure.cpp - Code Suggestions demonstrates how to write a for loop to loop through the players inventory](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/5.4-loop-over-players-inventory.png){: .shadow}
+
+```cpp
+std::cout << player.name << "'s Inventory:" << std::endl;
+// Loop through the player's inventory up to the count of items they have
+for (int i = 0; i < player.inventoryCount; i++)
+{
+    // Output the item in the inventory slot
+    std::cout << "- " << player.inventory[i] << std::endl;
+}
+```
+
+A `for` loop consists of 3 main parts:
+
+* `int i = 0`: is the initialization where you set up your loop variable. Here, we start counting from 0.
+* `i < player.inventoryCount`: is the condition we're looping on, our loop checks if `i`, the current loop variable, is less than the number of items in our inventory. It will keep going until this is true.
+* `i++`: is the iteration. This updates the loop variable each time the loop runs.
+
+To make sure that our loop doesn't encounter an error, let's add some error handling to make sure the inventory is not empty when we try to output it.
+
+```
+std::cout << player.name << "'s Inventory:" << std::endl;
+// Loop through the player's inventory up to the count of items they have
+for (int i = 0; i < player.inventoryCount; i++)
+{
+    // Check if the inventory slot is not empty.
+    if (!player.inventory[i].empty())
+    {
+        // Output the item in the inventory slot
+        std::cout << "- " << player.inventory[i] << std::endl;
+    }
+}
+```
+
+With our progress so far, we've successfully established a persistent `while` loop for our adventure, handled decisions, crafted a `struct` for our player, and implemented a simple inventory system. Now, let's dive into the next scenario, the Grand Library, applying the foundations we've learned.
+
+**Async exercise**: Add more inventory items found in different locations.
+
+Here's what we have for `adventure.cpp` so far:
+
+```cpp
+#include <iostream> // Include the I/O stream library for input and output
+
+// Define a structure for a Player in the game.
+struct Player{
+    std::string name;  // The name of the player.
+    int health;        // The current health of the player.
+    int xp;            // Experience points gained by the player. Could be used for leveling up or other game mechanics.
+    std::string inventory[10];  // An array of strings for the player's inventory.
+    int inventoryCount = 0;
+};
+
+// Main function, the starting point of the program
+int main()
+{
+    std::cout << "Welcome to the Dragon Realm!" << std::endl;
+
+    // Create an instance of the Player struct
+    Player player;
+    player.health = 100; // Assign a default value for HP
+
+    // Prompt the user to enter their player name
+    std::cout << "Please enter your name: ";
+    std::cin >> player.name;
+
+    // Display a personalized welcome message to the player with their name
+    std::cout << "Welcome " << player.name << " to The Dragon Realm!" << std::endl;
+
+    // Declare an int variable to capture the user's choice
+    int choice;
+    // Declare an int variable to capture the user's nested choice
+    int nestedChoice;
+
+    // Initialize a flag to control the loop and signify the player's intent to explore.
+    bool exploring = true;
+    // As long as the player wishes to keep exploring, this loop will run.
+    while(exploring) {
+
+        // If still exploring, ask the player where they want to go next
+        std::cout << "--------------------------------------------------------" << std::endl;
+        std::cout << "Where will " << player.name << " go next?" << std::endl;
+        std::cout << "1. Moonlight Markets" << std::endl;
+        std::cout << "2. Grand Library" << std::endl;
+        std::cout << "3. Shimmering Lake" << std::endl;
+        std::cout << "Please enter your choice: ";
+        // Update value of choice
+        std::cin >> choice;
+
+        // Respond based on the player's main choice
+        switch(choice) {
+            //  Handle the Moonlight Markets scenario
+            case 1:
+                std::cout << "You chose Moonlight Markets." << std::endl;
+                break;
+            // Handle the Grand Library scenario.
+            case 2:
+                std::cout << "You chose Grand Library." << std::endl;
+                break;
+            // Handle the Shimmering Lake scenario.
+            case 3:
+                std::cout << player.name << " arrives at Shimmering Lake. It is one of the most beautiful lakes that" << player.name << " has seen. They hear a mysterious melody from the water. They can either: " << std::endl;
+                std::cout << "1. Stay quiet and listen" << std::endl;
+                std::cout << "2. Sing along with the melody" << std::endl;
+                std::cout << "Please enter your choice: ";
+
+                // Capture the user's nested choice
+                std::cin >> nestedChoice;
+
+                // If the player chooses to remain silent
+                if (nestedChoice == 1)
+                {
+                    std::cout << "Remaining silent, " << player.name << " hears whispers of the merfolk below, but nothing happens." << std::endl;
+                }
+                // If the player chooses to sing along with the melody
+                else if (nestedChoice == 2)
+                {
+                    std::cout << "Singing along, a merfolk surfaces and gifts " << player.name
+                            << " a special blue gem as a token of appreciation for their voice."
+                            << std::endl;
+                    player.inventory[player.inventoryCount] = "Blue Gem";
+                    player.inventoryCount++;
+
+                    std::cout << player.name << "'s Inventory:" << std::endl;
+                    // Loop through the player's inventory up to the count of items they have
+                    for (int i = 0; i < player.inventoryCount; i++)
+                    {
+                        // Check if the inventory slot is not empty.
+                        if (!player.inventory[i].empty())
+                        {
+                            // Output the item in the inventory slot
+                            std::cout << "- " << player.inventory[i] << std::endl;
+                        }
+                    }
+
+                }
+                break;
+            // Option to exit the game
+            case 4:
+                exploring = false;
+                break;
+            // If 'choice' is not 1, 2, or 3, this block is executed.
+            default:
+                std::cout << "You did not enter a valid choice." << std::endl;
+                continue; // Errors continue with the next loop iteration
+        }
+    }
+
+    // Return 0 to indicate successful execution
+    return 0;
+}
+```
+
+![adventure.cpp - A full output of the game at the current state - our player sugaroverflow visits the Lake, receives the gem, adds it to their inventory, and we display the inventory before returning to the loop](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/5.5-full-output-shimmering-lake.png){: .shadow}
+
+## Applying what we've learned at the Grand Library
+
+Now let's explore another location from our original prompt and apply what we've learned so far.
+
+The player can choose to go to the Grand Library where they will meet a wise librarian by the name of Eldric, who offers to share some ancient knowledge. Librarians are very interesting characters in the Dragon Realm. They can hold several items, including riddles, the answers to those riddles, some ancient books that they can offer to our player, and a map to the library.
+
+Let's use the `struct` object to define what librarians can do. In C++, you can use [Doxygen-style comments](https://www.doxygen.nl/manual/docblocks.html) to document your code, especially elements like structs that have attributes. This documentation for defining the `Librarian` struct might us get better suggestions from Code Suggestions.
+
+```cpp
+/**
+ * @brief Represents a librarian character in our game.
+ *
+ * The `Librarian` struct captures essential attributes of a librarian,
+ * including their name, riddles they present, and answers to those riddles.
+ * Additionally, the librarian possesses a collection of ancient books
+ * and might have a map to a significant library.
+ */
+```
+
+As you start typing struct Librarian {`, Code Suggestions will help will fill out the details.
+
+![adventure.cpp - Code Suggestions offers some member attributes for the Librarian struct like name and arrays for riddles and answers](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6-struct-librarian-definition.png){: .shadow}
+
+```cpp
+/**
+ * @brief Represents a librarian character in our game.
+ *
+ * The `Librarian` struct captures essential attributes of a librarian,
+ * including their name, riddles they present, and answers to those riddles.
+ * Additionally, the librarian possesses a collection of ancient books
+ * and might have a map to a significant library.
+ */
+struct Librarian {
+    std::string name;
+    std::string riddles[10];
+    std::string answers[10];
+    std::string ancientBooks[3];
+    bool hasMapToLibrary;
+};
+```
+
+I added an `array` of `ancientBooks` and a `boolean` flag for `hasMapToLibrary` to the `struct`.  After defining our librarian, we can initialize Eldric as a `Librarian`.
+
+Create a new `Librarian` object after the `Player` object in the `main()` function, outside of our exploration loop.
+
+![adventure.cpp - Code Suggestions instantiates a Librarian object, gives it the name Eldric, and starts to suggest riddles for the riddle array](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.2-librarian-instance.png){: .shadow}
+
+```cpp
+    // Create an instance of the Player struct
+    Player player;
+    player.health = 100;
+
+    Librarian eldric = {
+        "Eldric",
+        {
+            "What has keys but can't open locks?",
+            "The more you take, the more you leave behind. What am I?",
+            "What comes once in a minute, twice in a moment, but never in a thousand years?",
+            "What has a heart that doesn't beat?",
+            "What comes down but never goes up?",
+            "I speak without a mouth and hear without ears. What am I?",
+            "What has many keys but can't open a single lock?",
+            "What is full of holes but still holds water?",
+            "What is so fragile that saying its name breaks it?",
+            "What gets wet while drying?"
+        },
+        {
+            "Piano",
+            "Steps",
+            "M",
+            "Artichoke",
+            "Rain",
+            "An echo",
+            "A piano",
+            "A sponge",
+            "Silence",
+            "A towel"
+        },
+        {"The Book of Shadows", "Mystical Creatures", "Time's Passage"},
+        true
+    };
+```
+
+Note that I added some content to Eldric's `riddles`, `answers`, `ancientBooks` arrays, and set the `hasMapToLibrary` flag to `true`.
+
+Once the player arrives at the Grand Library, they will be greeted by Eldric and presented with a riddle challenge. We can use the `rand` function to select one of Eldric's many riddles to present to the player. The `rand()` function is used in C++ to generate a random number.
+
+To use this, we'll need to include some new headers:
+
+```cpp
+    #include <cstdlib>   // Needed for rand() function.
+    #include <ctime>     // Needed to seed the random number generator with a time value.
+```
+
+In the `main()` function, we seed our random number generator with `std::srand`:
+
+```cpp
+    std::srand(std::time(0));  // This ensures a different sequence of random numbers each time the program runs.
+```
+
+Now, we're ready to meet Eldric in the Grand Library. Let's head back to our `switch(choice)` and start adding an interaction to handle `case 2:`.
+
+Here are some comments to describe the interaction:
+
+```cpp
+
+    // Handle the Grand Library scenario.
+    case 2:
+        // The player enters the Grand Library, a vast room filled with ancient books, tomes, and scrolls. Standing in the middle is a wise old librarian named Eldric.
+        // If the player answers Eldric's riddle correctly, they will receive a book.
+```
+
+We're going to update the `std::cout` line with `std::cout << player.name` to customize our welcome into the Grand Library.
+
+![adventure.cpp - Code Suggestions suggests an implementation](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.3-case-3-the-library.png){: .shadow}
+
+```cpp
+        case 2:
+        {
+            // The player enters the Grand Library, a vast room filled with ancient books, tomes, and scrolls. Standing in the middle is a wise old librarian named Eldric.
+            // If the player answers Eldric's riddle correctly, they will receive a book.
+            std::cout << player.name << " enters the Grand Library, a vast room filled with ancient books, tomes, and scrolls. Standing in the middle is a wise old librarian named Eldric." << std::endl;
+            std::cout << "Eldric: Ah, a seeker of knowledge. Answer my riddle correctly, and I will share with you a book from my collection." << std::endl;
+        }
+```
+
+We'll use the `rand` function to select one of the riddles from Eldric's collection at random. Start by defining a `int riddleIndex` to calculate our random array index.
+
+![adventure.cpp - Code Suggestions suggests an implementation](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.4-eldric-riddle-random-calculation.png){: .shadow}
+
+See if you can fill out the rest of this case with the following requirements:
+
+* `riddleIndex` needs to be a random number between 0 and 9
+* capture the player's answer in a new variable, `playerAnswer`
+
+```cpp
+// Get a random index between 0 and 4
+int riddleIndex = std::rand() % 5;
+std::cout << eldric.name << " says: Answer my riddle! " << eldric.riddles[riddleIndex] << std::endl;
+std::string playerAnswer;
+std::cin >> playerAnswer;
+```
+
+Now that we have the riddle and the player's answer, it's time to check if the answer was correct. First, let's define the logic we're aiming for:
+
+```cpp
+    // If the player's answer is correct, Eldric will be pleased.
+    // If the player's answer is incorrect, Eldric will be disappointed and the player will leave the library, unable to explore.
+    // If the player's answer is correct and Eldric has a map, there's a 35% chance that he will offer it.
+```
+
+Once you have these comments, you can prompt Code Suggestions to help you out by evaluating the player's answer and performing the corresponding actions. (Hint: Start with `if(playerAnswer ==)`.)
+
+![adventure.cpp - Code Suggestions helps write the logic for the player answering the riddle correctly](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.4.1-eldric-riddle-correct-conditional.png){: .shadow}
+
+It seems Code Suggestions wants creative liberty over our librarians, in particular:
+
+![adventure.cpp - Code Suggestions suggests that eldric would thank the player for a correct answer](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.4.2-eldric-thanks-you.png){: .shadow}
+
+![adventure.cpp - Code Suggestions suggests penalizing player for an incorrect answer ](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.4.3-eldric-riddle-incorrect-conditional.png){: .shadow}
+
+I hadn't considered penalizing the player for making a mistake on the riddle, but Code Suggestions doesn't want this game to be too easy:
+
+![adventure.cpp - Code Suggestions suggests cutting the player's health if they guess the riddle incorrectly](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.4.4-eldric-riddle-penalty.png){: .shadow}
+
+Finally, handling the logic for the 35% chance to get the map:
+
+![adventure.cpp - Code Suggestions suggests giving the map if incorrect](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.4.5-eldric-map-chance.png){: .shadow}
+
+Here's the overall code for `case 2`, exploring the Library to check your work:
+
+```cpp
+    case 2:
+        {
+            // Display the setting and introduce Eldric, the librarian.
+            std::cout << player.name << " enters the Grand Library, a vast room filled with ancient books, tomes, and scrolls. Standing in the middle is a wise old librarian named Eldric." << std::endl;
+            std::cout << "Eldric: Ah, a seeker of knowledge. Answer my riddle correctly, and I will share with you a book from my collection." << std::endl;
+
+            // Choose a random riddle from Eldric's collection for the player to answer.
+            int riddleIndex = std::rand() % 5;  // Randomly select one of the 5 riddles.
+            std::cout << eldric.name << " says: Answer my riddle! " << eldric.riddles[riddleIndex] << std::endl;
+            std::string playerAnswer;  // Stores the player's answer to the riddle.
+            std::cin >> playerAnswer;
+
+            // Check if the player's answer matches the correct answer to the riddle.
+            if (playerAnswer == eldric.answers[riddleIndex])
+            {
+                // Reward the player if they answered correctly.
+                std::cout << "Correct! Eldric seems pleased." << std::endl;
+                player.health += 10;  // Increase player health.
+                player.inventory[player.inventoryCount++] = "Book of Shadows";  // Add a book to the player's inventory.
+            }
+            else
+            {
+                // Penalize the player for an incorrect answer.
+                std::cout << "Incorrect. Eldric seems unhappy." << std::endl;
+                player.health -= 10;  // Decrease player health.
+            }
+
+            // Check if Eldric has a map and if the player has a chance to receive it.
+            if (eldric.hasMapToLibrary && rand() % 100 < 35)  // 35% probability to trigger the following block.
+            {
+                // Eldric offers the player a map to the Grand Library.
+                std::cout << eldric.name << " whispers, 'You've impressed me.' He discreetly hands you a map of the Grand Library." << std::endl;
+                player.inventory[player.inventoryCount++] = "Map of the Grand Library";  // Add the map to the player's inventory.
+                eldric.hasMapToLibrary = false;  // Eldric no longer has the map.
+            }
+
+            break;
+        }
+```
+
+Note that we've encapsulated `case 2:` in brackets `{ }`. This case introduces the player to the Grand Library where the Librarian Eldric, challenges the player to answer one of his riddles in exchange for a valuable book.
+
+* `int riddleIndex = std::rand() % 5;`: A random index is used to determine which riddle is presented.
+* `player.health += 10;`:  If the player answers correctly, their health is increased by 10 points, and vice versa for incorrect answers. This is a reward mechanism, suggested by Code Suggestions.
+* `if (eldric.hasMapToLibrary && rand() % 100 < 35)`: This conditional check determines if Eldric possesses a map of the Grand Library. If he does, there's a 35% chance that he will offer it to the player. It simulates an true random event roughly 35% of the time.
+
+**Async exercise**: Handle the player's health with more error handling. What if the player doesn't have any health left after answering a bunch of riddles wrong?
+
+Introducing randomness in the Grand Library was one of the first ways we added excitement to our game by adding a layer of unpredictability. As we build out more of this text adventure, we'll introduce more dynamic components to make the game interesting.
+
+![adventure.cpp - the visual output of running adventure.cpp and visiting the Grand Library to answer a riddle correctly](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.5-grand-library-output.png){: .shadow}
+
+## See you next time in the Dragon Realm!
+As we journeyed through the Dragon Realm, we only used the basics of C++ to build our game. In the next few parts of our adventure, we'll continue to learn more about C++ and build on what we've learned. We'll:
+* Optimize and refactor our code with functions, classes, and objects for better readability and maintainability.
+* Dive deeper into the Dragon Realm to introduce new locations, characters, and challenges.
+* Configure debugging and write automated tests to help ensure that future changes to our adventure don't introduce new bugs.
+* Set up File I/O for saving and loading the game state.
+* Introduce a combat system with dragons and other monsters (so that Code Suggestions can finally build us that `struct` it wanted).
+* Briefly dive into game logic and algorithms to make our code efficient.
+
+You can check out and build upon [the existing project we've created](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-ai-cpp-adventure) - I'd love to see your MRs!
+
+Also, learn more about [Code Suggestions Beta](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html).
+
+### Learning C++
+If you're looking to expand your knowledge on C++, here are some online resources and books that would be helpful:
+* [Accelerated C++: Practical Programming by Example](https://www.amazon.com/Accelerated-C-Practical-Programming-Example/dp/020170353X) by Andrew Koenig
+* [Effective C++: 55 Specific Ways to Improve Your Programs and Designs](https://www.amazon.com/Effective-Specific-Improve-Programs-Designs/dp/0321334876) by Scott Meyers
+* [Learncpp.com](https://www.learncpp.com/) is a website devoted to teaching you how to program in C++
+* [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines) is a living document that helps C++ programmers write simpler, more efficient code
+
+### Async C++ practice
+If you're looking to practice and hone what you've learned, here are some suggestions to further your understanding of C++:
+* Ensure input validation by ensuring that a player is re-prompted when they enter an invalid input as a response.
+* Add more locations and scenarios by applying what you've learned about flow control in C++.
+* Extend the inventory - review `vector` objects in C++ and refactor the code to use a `vector` instead of an `array` for the player's inventory to allow dynamic size changes.
+* Introduce more randomness to make the experience more fun. For example, there might be a 10% chance that a mysterious stranger approaches the player in the Moonlight Marketplace with a unique item.
+* Organize the librarian's riddles and answers into a pair using the std::pair data structure
+
+## Share your feedback
+We'd love to hear from you about what programming language you're interested in learning. Come chat with us in [our community discord](https://discord.gg/gitlab)!
+
+If you are using Code Suggestions Beta with [GitLab Duo](https://about.gitlab.com/gitlab-duo/) already, please share your thoughts and feedback on [this issue](https://gitlab.com/gitlab-org/gitlab/-/issues/405152).
+
+Happy adventuring and see you next time in the Dragon Realm!
+
+![adventure.cpp - a full output of the game with a player called sugaroverflow visits the lake, gets a gem, and then visits the library to answer a riddle correctly](/images/blogimages/2023-08-21-building-a-text-adventure-using-cplusplus-and-code-suggestions/6.6-full-game-output.png){: .shadow}

@@ -1,0 +1,56 @@
+---
+title: Guide to pre_clone_script changes on GitLab SaaS Linux Runners
+author: Darren Eastman
+author_gitlab: DarrenEastman
+categories: news
+image_title: '/images/blogimages/tanukicover.jpg'
+description: "Learn about the change from CI_PRE_CLONE_SCRIPT to pre_get_sources_script on GitLab SaaS Linux Runners."
+tags: CI, CD, features
+twitter_text: "We are removing the CI_PRE_CLONE_SCRIPT variable on GitLab SaaS Runners. Find out why and what it means to you."
+featured: no
+postType: product
+---
+
+In GitLab 16.0, on GitLab SaaS Runners on Linux, we are removing the `CI_PRE_CLONE_SCRIPT` variable support in CI/CD workflows. If you use the `CI_PRE_CLONE_SCRIPT` variable in your GitLab SaaS CI pipelines, you must change to the new method to ensure your workflows run as expected.
+
+## What is the pre_clone_script?
+
+The [`pre_clone_script`](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runners-section) configuration option is a powerful pre-build script feature that enables you to execute custom logic before a GitLab Runner clones the project repository and runs your CI jobs. For example, you could use this feature in your environment to automate the cleanup of files from the build directory that aren’t useful for subsequent builds. Other use cases include retrieving files needed for the build or running other commands before the git initialization of the build directory.
+
+To use this feature on GitLab SaaS Runners on Linux, you must first define a project CI/CD variable, `CI_PRE_CLONE_SCRIPT`, and include that variable in the `.gitlab-ci.yml` pipeline file.
+
+While this Runner pre-build script hook configuration has proven helpful for our customers, we needed to devise a more straightforward solution, while introducing additional guard rails. Enter the new [`pre_get_sources_script`](https://docs.gitlab.com/ee/ci/yaml/index.html#hookspre_get_sources_script) keyword in the `.gilab-ci.yml` file syntax.
+
+## What is the pre_get_sources_script hook?
+
+The `pre_get_sources_script` hook is a simple-to-use method that enables you to have your script executed by the GitLab Runner before the git clone, init, and CI build scripts. Using the new `pre_get_sources_script` script is as simple as entering the following syntax in your `.gitlab-ci.yml` pipeline file.
+
+``` yaml
+test_job:
+   stage: test
+   hooks:
+      pre_get_sources_script:
+      - echo 'hello run commands here before fetching the project repository'
+   script:
+     - echo 'this is the start of my CI build job script
+
+```
+
+Since the hook now is visible as code in your pipeline, you have immediate visibility into the script the Runner will execute before running the build job.
+
+## How to prepare for `pre_get_sources_script`?
+
+To prepare for the change to `pre_get_sources_script` in GitLab 16.0, follow these steps: 
+
+1. Check your CI jobs on GitLab SaaS to confirm if the `CI_PRE_CLONE_SCRIPT` variable is used.
+1. If the `CI_PRE_CLONE_SCRIPT` is used, then replace the script definition with a `pre_get_sources_script` hook in your `.gitlab-ci.yml` file.
+1. If you have any issues during testing of your pipelines with `pre_get_sources_script`, connect with us by leaving a comment below.
+
+## What's next: Support for `post_get_source`
+
+On self-managed GitLab Runners, the `pre_get_sources_script` hook is only one of many hooks you can use to run code in various CI/CD pipeline stages. Those hooks include `post_get_sources`, `pre_build`, and `post_build` hooks, configurable only on the Runner host. More details are available in the [`[[runners]]`](https://docs.gitlab.com/runner/configuration/advanced-configuration.html#the-runners-section) section in the advanced configuration documentation.
+
+In the future, we plan to add support for `post_get_sources` in the YAML syntax of the `gitlab-ci.yml` pipeline.
+
+_Disclaimer: This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab._
+

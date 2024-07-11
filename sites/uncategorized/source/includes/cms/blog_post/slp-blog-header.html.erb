@@ -1,0 +1,34 @@
+<header class="slpBlog__header">
+  <%= partial "includes/cms/blog_post/slp-breadcrumbs" %>
+  <% if current_article.tags != nil %>
+    <%= partial "includes/cms/blog_post/slp-tags", locals: { label_enabled: false } %>
+  <% end %>  
+  <div class="slp-text-center slp-text-grayscale-333 slp-max-w-7xl slp-py-40 slp-mx-auto">
+    <h1 class="slp-text-4xl slp-leading-tight slp-mb-24 sm:slp-mb-48 slp-font-normal slp-text-grayscale-333">
+      <%= current_article.title %>
+    </h1>
+    <div class="slp-text-sm slp-leading-8 slp-mb-6 slp-flex slp-flex-wrap slp-justify-center">
+      <div class="slp-flex-initial slp-order-last sm:slp-order-first">
+        <% if current_article.data.author == "GitLab" or current_article.data.author == nil %>
+          <a href="/company/team/" class="slp-text-ui-secondary slp-underline slp-mr-2" data-ga-name="gitlab author" data-ga-location="header">
+            GitLab
+          </a>
+        <% elsif author %>  
+          <a href="/company/team/#<%= author.gitlab %>" class="slp-text-ui-secondary slp-underline slp-mr-2" data-ga-name="<%= author.name %>" data-ga-location="header">
+            <%= author.name %>
+          </a>
+        <% else %>  
+          <%= current_article.data.author %>
+        <% end %>
+        <span class="slp-mr-2 slp-hidden sm:slp-inline-block">·</span>
+      </div>
+      <div class="slp-flex-initial">
+        <span class="slp-mr-2 slp-text-grayscale-333 slp-font-normal"><%= current_article.date.to_time.strftime '%b %e, %Y' %></span>
+        <span class="slp-mr-2 slp-text-grayscale-333 slp-font-normal">·</span>
+        <span class="slp-mr-2 slp-text-grayscale-333 slp-font-normal"><%= reading_time(current_article.body) %></span>
+      </div>
+      <%= partial "includes/cms/blog_post/slp-blog-avatar", locals: { author: author } %>
+    </div>
+  </div>
+  <hr class="slp-border-t slp-border-grayscale-c3"/>
+</header>  

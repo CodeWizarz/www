@@ -1,0 +1,218 @@
+---
+title: "How to use GitLab security features to detect log4j vulnerabilities" 
+author: "Michael Friedrich and Brendan O'Leary"
+author_gitlab: gitlab
+author_twitter: gitlab
+categories: company
+image_title: '/images/blogimages/security-cover.png'
+description: "Detailed guidance to help customers detect vulnerabilities."
+tags: security, kubernetes, tutorial 
+twitter_text: "How to use @gitlab's security features to detect log4j vulns" 
+featured: yes 
+postType: dev-evangelism 
+---
+
+_Note: Out of an abundance of caution, we encourage users who are using older versions of GitLab SAST and Dependency Scanning to update to the latest versions. You can find more information and recommended actions in [this blog post](/blog/2021/12/15/updates-and-actions-to-address-logj-in-gitlab/)._
+
+_Any customer leveraging the [recommended includes](https://docs.gitlab.com/ee/user/application_security/sast/#configure-sast-in-your-cicd-yaml) for GitLab SAST has automatically received the new patched versions released Dec 13, 2021._
+
+In light of the recently discovered log4j vulnerabilities, we would like to demonstrate how GitLab can be used to assess and remediate the log4j vulnerability as well as other security vulnerabilities that may exist in your projects.
+
+The solutions shared here are: 
+* [Dependency Scanning (Ultimate)](#use-gitlab-dependency-scanning-to-detect-and-mitigate-log4j-vulnerabilities)
+* [Container Scanning (Ultimate)](#detect-log4j-vulnerabilities-with-container-scanning)
+* [Cluster image scanning (Ultimate)](#detect-vulnerable-containers-in-your-kubernetes-cluster)
+* [Advanced Search (Premium)](#search-gitlab-projects-which-use-the-log4j-java-library)
+
+Free users wishing to access Premium and Ultimate features can do so by signing up for a [free trial](https://about.gitlab.com/free-trial/) of GitLab. 
+
+### Use GitLab dependency scanning to detect and mitigate log4j vulnerabilities 
+
+[Dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning) uses Gemnasium, which has been [updated](https://gitlab.com/gitlab-org/security-products/gemnasium-db/-/merge_requests/11381) to detect the log4j vulnerability, to automatically find security vulnerabilities in your software dependencies.
+
+Let’s try dependency scanning with a vulnerable project. Navigate to `Create new project > Import project > from URL` and use `https://github.com/christophetd/log4shell-vulnerable-app.git`. 
+
+Next, navigate to `Security & Compliance > Security dashboard` and select to configure `Dependency Scanning`. This will create a new merge request enabling the dependency scanner, and you can immediately see the first [scanning results](https://gitlab.com/gitlab-de/playground/log4shell-vulnerable-app/-/pipelines/427550530/security) in the [merge request](https://gitlab.com/gitlab-de/playground/log4shell-vulnerable-app/-/merge_requests/1). 
+
+Alternatively, you can edit the `.gitlab-ci.yml` configuration file and include the Dependency Scanning CI/CD template.
+
+```yaml
+include:
+- template: Security/Dependency-Scanning.gitlab-ci.yml
+```
+
+Create a new merge request and wait for the pipeline to finish. Inspect the security reports. 
+
+![GitLab security report](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image2.png){: .shadow}
+
+Take action on the critical vulnerability, open the details and create a new confidential security issue to follow-up. 
+
+![Details of security vulnerability](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image9.png){: .shadow}
+
+After merging the MR to add dependency scanning, future MRs and code changes will detect the log4j vulnerabilities. This helps to avoid accidentally introducing older versions again. Open the `Security report` in `Security & Compliance` to get an overview of the vulnerabilities. 
+
+![Panel showing security vulnerabilities](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image4.png){: .shadow}
+
+You can customize the default settings using [CI/CD variables](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings), for example increasing the log level to debug with `SECURE_LOG_LEVEL: ‘debug’`. 
+
+The project created in the examples above is located [here](https://gitlab.com/gitlab-de/playground/log4shell-vulnerable-app). 
+
+### Detect log4j vulnerabilities with Container Scanning
+
+Vulnerabilities in container images can come not only from the source code for the application, but also from packages and libraries that are installed on the base image. Images can inherit packages and vulnerabilities from other container images using the `FROM` keyword in a `Dockerfile`. [Container Scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/) helps detect these vulnerabilities for the Operating System including packages. The latest release adds language vulnerability scans as a new optional feature to help detect the log4j library vulnerability using the underlying scanners (Trivy as default, Grype optional). You can also use this capability to scan remote images using the `DOCKER_IMAGE` variable.
+
+You can enable the `CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN` variable to [scan for language specific packages](https://docs.gitlab.com/ee/user/application_security/container_scanning/#report-language-specific-findings). Please note that the additionally detected language dependencies can cause duplicates when you enable Dependency Scanning too. 
+
+To try it, navigate to `CI/CD > Pipeline Editor` and add the following configuration for Container Scanning:
+
+```yaml
+include:
+    - template: Security/Container-Scanning.gitlab-ci.yml
+
+variables:
+    # Use Trivy or Grype as security scanners (Trivy is the default in the included template)
+    # CS_ANALYZER_IMAGE: "registry.gitlab.com/security-products/container-scanning/trivy:4"
+    # CS_ANALYZER_IMAGE: "registry.gitlab.com/security-products/container-scanning/grype:4"
+    # Detect language libraries as dependencies
+    CS_DISABLE_LANGUAGE_VULNERABILITY_SCAN: "false"
+    # Test the vulnerable log4j image 
+    DOCKER_IMAGE: registry.gitlab.com/gitlab-de/playground/log4shell-vulnerable-app:latest 
+```
+
+Create a new branch, commit the changes and create a new MR. Once the pipeline has completed, inspect the security report in the MR. 
+
+![List of vulnerabilities detected by container scanning](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image6.png){: .shadow}
+
+After merging the MR, you can view the vulnerabilities that exist in your default branch by navigating to `Security & Compliance > Vulnerability Report`. 
+
+![Panel showing security vulnerabilities](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image7.png){: .shadow}
+
+Inspect the vulnerability details to take action.
+
+![Detail on vulnerability](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image8.png){: .shadow}
+
+This feature is available for customers using the default CI/CD templates, or the tagged `:4` scanner images from  GitLab's Container Registry (registry.gitlab.com). If you are using custom images, please rebuild them based on the latest release.
+
+### Detect vulnerable containers in your Kubernetes cluster
+
+You can use [cluster image scanning in Kubernetes](https://docs.gitlab.com/ee/user/application_security/cluster_image_scanning/) which uses Starboard and [uses Trivy as a security scanner](https://aquasecurity.github.io/starboard/v0.13.1/integrations/vulnerability-scanners/trivy/) under the hood. Trivy’s vulnerability DB is able to detect CVE-2021-44228.
+
+Let’s try it! A quick way to bring up a Kubernetes cluster is in Civo Cloud. Create an account, and follow the documentation on [how to set up the CLI](https://www.civo.com/learn/kubernetes-cluster-administration-using-civo-cli) with an API token. Next, create a k3s cluster. 
+
+```shell
+$ civo kubernetes create log4j
+$ civo kubernetes config log4j --save
+$ kubectl config use-context log4j
+$ kubectl get node
+```
+
+`registry.gitlab.com/gitlab-de/playground/log4shell-vulnerable-app:latest` provides a vulnerable container image we can deploy and then scan. 
+
+```shell
+$ vim deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log4j
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: log4j
+  template:
+    metadata:
+      labels:
+        app: log4j
+    spec:
+      containers:
+        - image: registry.gitlab.com/gitlab-de/playground/log4shell-vulnerable-app:latest
+          name: log4j
+
+$ kubectl apply -f deployment.yaml
+```
+
+```shell
+$ vim service.yaml
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: log4j
+  labels:
+    app: log4j
+spec:
+  ports:
+    - name: "log4j"
+      port: 8080
+  selector:
+    app: log4j
+
+$ kubectl apply -f service.yaml
+```
+
+Test the application container with port forwarding, and open your browser at http://localhost:80808. You can close the connection with `ctrl+c`. 
+
+```
+$ kubectl port-forward service/log4j 8080:8080
+```
+
+After the deployment is finished, let’s add the cluster image scanning integration. Follow the [Starboard Operator](https://aquasecurity.github.io/starboard/v0.13.1/operator/installation/kubectl/) installation documentation. Next, configure the [Kubernetes Cluster Image Scanning](https://docs.gitlab.com/ee/user/application_security/cluster_image_scanning/#use-the-cluster-image-scanning-analyzer) with GitLab. 
+
+The final step is to integrate the CI/CD template and run the pipelines. 
+
+```yaml
+​​include:
+  - template: Security/Cluster-Image-Scanning.gitlab-ci.yml
+```
+
+Navigate into `Security & Compliance > Vulnerability report` and select the `Operational vulnerabilities` tab to inspect the vulnerabilities. There you can see that `log4j` was detected in the deployed application running in our Kubernetes cluster 💜. 
+
+![Panel showing security vulnerabilities](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image5.png){: .shadow}
+
+Inspect the `log4j` vulnerability to see more details. 
+
+![Detail on vulnerability](/images/blogimages/2021-12-15-use-gitlab-to-detect-log4j/image3.png){: .shadow}
+
+The full project is located [here](https://gitlab.com/gitlab-de/playground/log4j-kubernetes-container-scanning).
+
+### Search GitLab projects which use the log4j Java library
+
+You can use the [advanced search with scope blobs](https://docs.gitlab.com/ee/api/search.html#scope-blobs). Let’s try it! Navigate to your profile and add a new personal access token (PAT). Export it into the environment to access it in the next step:
+
+```shell
+$ export GITLAB_TOKEN=xxxxxxxxx
+
+$ curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/search?scope=blobs&search=log4j" 
+```
+
+Tip: Install jq to format the JSON body. More insights in [this blog post](/blog/2021/04/21/devops-workflows-json-format-jq-ci-cd-lint/). 
+
+```shell
+$ curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/search?scope=blobs&search=log4j" | jq
+
+  {
+    "basename": "src/main/resources/log4j",
+    "data": "log4j.rootLogger=ERROR, stdout\n \n# Direct log messages to stdout\n",
+    "path": "src/main/resources/log4j.properties",
+    "filename": "src/main/resources/log4j.properties",
+    "id": null,
+    "ref": "9a1df407e1a5365950a77f715163f6dba915fdf4",
+    "startline": 2,
+    "project_id": 12345678
+  },
+
+```
+
+You can use `jq` to further transform and filter the result set, for example only listing the paths where `log4j` as a string exists.  
+
+```
+curl --header "PRIVATE-TOKEN: $GITLAB_TOKEN" "https://gitlab.com/api/v4/search?scope=blobs&search=log4j" | jq -c '.[] | select (.path | contains ("log4j"))' | jq
+```
+
+### Next steps 
+
+The GitLab security team is continuing to proactively monitor the situation and ensure our product and customers are secure. We will continue to communicate should we identify additional opportunities to help our customers and community navigate through this situation. Please [subscribe to our security alerts mailing list](https://about.gitlab.com/company/preference-center/).
+
+Please visit the public [log4j-resources project](https://gitlab.com/gitlab-de/log4j-resources) and visit our [forum](https://forum.gitlab.com/c/devsecops-security/) for additional information. 
+

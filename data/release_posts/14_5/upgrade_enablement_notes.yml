@@ -1,0 +1,7 @@
+---
+upgrades:
+  - reporter: dorrino
+    description: |
+      - The Task Runner pod is used to execute periodic housekeeping tasks within the GitLab application, and is often confused with the GitLab Runner. To remove confusion, the [Task Runner is renamed to Toolbox](https://gitlab.com/groups/gitlab-org/charts/-/epics/25) in GitLab 14.5. This results in the rename of the sub-chart `gitlab/task-runner` to `gitlab/toolbox`. The resulting pods are named according to the pattern `{{ .Release.Name }}-toolbox`, which often results in pods named `gitlab-toolbox`. You can locate them with the label `app=toolbox`.
+
+      - Sidekiq deployments were changed from having a `-v1` suffix to `-v2`. Due to the deployment name changing, Sidekiq shutdown of the old pods and start of the new is handled by separate deployments, and as a result there could be a period of time during the upgrade where there are no Sidekiq pods running. Sidekiq works on asynchronous jobs, so impact might be a delay in background job processing like running new CI jobs and updating merge requests diffs. [We are implementing `podAntiAffinity`](https://gitlab.com/gitlab-org/charts/gitlab/-/merge_requests/2227) in such way that allows to spread out Sidekiq pods across the cluster.

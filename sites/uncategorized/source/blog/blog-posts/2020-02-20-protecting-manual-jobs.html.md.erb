@@ -1,0 +1,92 @@
+---
+title: "How to limit access to manual pipeline gates and deployments using GitLab"
+author: Thao Yeager
+author_gitlab: thaoyeager
+author_twitter: thaoyeager
+categories: engineering
+image_title: "/images/blogimages/protect_manual_jobs.jpg"
+description: "Let's look at how to use protected environments to set up access controls for production deployments and manual gates."
+tags: CI/CD, demo, workflow, features, DevOps
+ee_cta: false #
+install_cta: false #
+merch_banner: merch_three
+twitter_text: "Protect against unauthorized production deployments using @gitlab protected environments"
+postType: content marketing
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2020-02-21.
+{: .alert .alert-info .note}
+
+In our world of automation, why would anyone want to do something manually? Manual has become almost synonymous with inefficient. But, when it comes to CI/CD pipelines, a properly configured **manual** job can be a powerful way to control deployments and satisfy compliance requirements. Let’s take a look at how manual jobs can be defined to serve two important use cases: Controlling who can deploy, and setting up manual gates.
+
+## Limit access to deploy to an environment
+
+Deploying to production is a mission-critical occurence that should be protected. Projects with a Kubernetes cluster could benefit from moving to a continuous deployment (CD) model in which a [branch or merge request, once merged, is auto-deployed to production](https://docs.gitlab.com/ee/topics/autodevops/index.html#auto-deploy), and the absence of human intervention avoids mishaps. But for projects not yet configured for CD, let's consider this use case: Imagine a pipeline with a manual job to deploy to prod, which can be triggered by any user with access to push code. The risk of a unplanned, unintended production deployment is very real.
+
+Fortunately, it’s possible to use [protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments/) to prevent just anyone from deploying to production. When [configuring a protected environment](https://docs.gitlab.com/ee/ci/environments/protected_environments.html#protecting-environments), you can define the roles, groups, or users to whom deploy access is granted. The protected environment can then be defined in a manual job to deploy which limits who can run it. The configuration could look something like this:
+
+```yaml
+deploy_prod:
+  stage: deploy
+  script:
+    - echo "Deploy to production server"
+  environment:
+    name: production
+    url: https://example.com
+  when: manual
+  only:
+    - master
+```
+
+In the example above, the keyword `environment` is used to reference a protected environment (as [configured in project settings](https://docs.gitlab.com/ee/ci/environments/protected_environments.html#protecting-environment)) with a list of users who can run the job, in this case deploy to the named environment. Users without access see a disabled **play** button and are unable to execute the job.
+
+## Add an approval step
+
+Compliance rules may specify that approval is required for certain activities in a workflow, even if they aren't technically a deployment step themselves. In this use case, an approval step can also be added in the pipeline that prompts an authorized user to take action to continue. This can be achieved by structuring your pipeline with an "approve" stage containing a special manual job – for example, the YAML to insert an approval stage before deployment could look like this:
+
+```yaml
+stages:
+  - build
+  - approve
+  - deploy
+
+build:
+  stage: build
+  script:
+    - echo Hello!
+
+approve:
+  stage: approve
+  script:
+    - echo Hello!
+  environment:
+    name: production
+    url: https://example.com
+  when: manual
+  allow_failure: false
+  only:
+    - master
+
+deploy:
+  stage: deploy
+  script:
+    - echo Hello!
+  environment:
+    name: production
+    url: https://example.com
+  only:
+    - master
+```
+
+In the YAML above, `allow_failure: false` [defines the manual job as "blocking"](https://docs.gitlab.com/ee/ci/yaml/#whenmanual), which will cause the pipeline to pause until an authorized user gives "approval" by clicking on the **play** button to resume. Only the users part of that environment list will be able to perform this action. In this scenario, the UI view of the pipeline in the example CI configuration above would look like this:
+
+![Pipeline view of approval stage manual job](/images/blogimages/manual_job_approve_stage_ui.png){: .shadow}
+
+## Summary
+
+As illustrated in the YAML examples and image above, manual jobs defined with protected environments and blocking attributes are effective tools for handling compliance needs as well as for ensuring there are proper controls over production deployments.
+
+Tell us how using protected environments with manual jobs has secured your deployments or whether blocking manual jobs helps you meet compliance and auditing. [Create an issue in the GitLab project issue tracker](https://gitlab.com/gitlab-org/gitlab/issues/new) to share your feedback with us.
+
+Cover image by [Diane Walton](https://unsplash.com/photos/BNnzmBmnPg4) on [Unsplash](https://unsplash.com)
+{: .note}

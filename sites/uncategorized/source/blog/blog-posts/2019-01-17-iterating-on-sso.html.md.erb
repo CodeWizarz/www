@@ -1,0 +1,48 @@
+---
+title: "How we are iterating on Group Single Sign On for GitLab.com"
+author: Eric Brinkman
+author_gitlab: ebrinkman
+author_twitter: gitlab
+categories: company
+description: "Here's some insight into our approach to improving a key enterprise capability for GitLab.com, SSO."
+tags: features, inside GitLab, security
+postType: product
+---
+
+At GitLab, we do things a little differently. We believe in shipping what we call the MVC, or minimum viable change, rather than waiting for something to be perfect. We’d rather our customers get their hands on a portion of the feature to ensure we are on the right track and that our next iteration is spot on, than wait several months to ship a full feature that may not be exactly what customers desire. In fact, [iteration is one of our six core values](/handbook/values/#iteration) at GitLab, and it’s something that drives our day-to-day decision making. In this blog post, we’ll take a look at how a recent enterprise authentication feature challenged our organization with respect to prioritization, core values, and [transparency](/handbook/values/#transparency) with customers. We’ll also discuss our vision for GitLab.com, and the associated challenges we’ve come across while ensuring it’s a solution that works seamlessly for enterprise adoption of GitLab.
+
+Single Sign On, or SSO, has been at the forefront of most enterprises’ digital transformation requirements for quite some time. Enterprise organizations require access to software to be controlled by their Identity Provider of choice as there are hundreds, if not thousands, of users. Manually provisioning users and revoking access across multiple systems when employees leave is not scalable and is error prone in organizations of any size.
+
+We’ve long had [support for SAML, LDAP, and OAuth configuration](https://docs.gitlab.com/ee/administration/auth/) for self-managed GitLab, which assumes our customers have admin access at the instance level. While this works great for individual instances, a different approach is needed for GitLab.com, which is a giant, multi-tenant version of a single instance, primarily segregated at the group level for enterprises.
+
+In [GitLab 11.0](/releases/2018/06/22/gitlab-11-0-released/#saml-single-sign-on-for-groups-beta), shipped in June 2018, we launched the [MVC to take the first step in SAML-based SSO on GitLab.com](https://gitlab.com/groups/gitlab-org/-/epics/40). When we launched this functionality, we knew it wasn’t going to solve 100 percent of enterprise authentication needs, but rather than keeping this functionality private until we had other SSO features (such as automated provisioning of users and revocation of permissions), we decided to launch it to get as much feedback as possible, and to ensure our product velocity stays at the high levels we’ve come to expect.
+
+Here are some of the factors at play and how we're moving forward:
+
+### 1. We haven't always focused on enterprise features for GitLab.com
+
+GitLab.com has typically been the GitLab solution for hobbyists and small development teams. Enterprises have typically gravitated towards self-managed, self-hosted GitLab. Because of this bifurcation, enterprise features such as SSO were not prioritized as high in mid-2018.
+
+### The fix: We are now prioritizing enterprise features
+
+This includes features like SSO at the top of our list. In 2019, enterprise customers looking to use GitLab are coming with a SaaS-first approach, led by a desire to get out of traditional hosting arrangements, shying away from long procure times, and looking for quick time to market on SaaS implementation. Most importantly, we’ve heard this directly from enough customers recently that we couldn't sit idly by and not activate on this.
+
+### 2. Security issues have burdened our Manage team
+
+The [Manage](/stages-devops-lifecycle/) team, responsible for authentication at GitLab, has been hit with the most security issues of any team (170 open issues) and has been required to prioritize these over new feature releases. Manage has released [eight security fixes](https://gitlab.com/groups/gitlab-org/-/issues?scope=all&utf8=%E2%9C%93&state=closed&milestone_title=Any&label_name[]=Manage&label_name[]=security) that we've made public since September. We're proud of this work, as it’s required to protect our customers.
+
+### The fix: Measures to improve our velocity in finding and fixing security issues
+
+We will continue to prioritize P1 security issues above all new features and functionality, consistent with our [prioritization framework](/handbook/product/product-processes/#how-we-prioritize-work) and ensuring a secure application. If GitLab isn’t a secure application where customers can trust that their data is safe and secure, all of the features in the world won’t make a difference as we won’t be around for long. In order to improve our security posture and increase the velocity at which we identify and fix security vulnerabilities, we've launched our [HackerOne Bug Bounty Program](https://hackerone.com/gitlab) with rewards of up to $12,000! [This program was launched](/blog/2018/12/12/gitlab-hackerone-bug-bounty-program-is-public-today/) on Dec. 12, 2018 and has already paid out over $265,000 in bug bounties, over 215 reports!
+
+### 3. The Manage team has been stretched
+
+The Manage team has an incredibly broad scope, ranging from permissions and authentication, to cycle analytics and DevOps scoring for organizations. In the few spare cycles our engineering team has had in between security issues, we had to spend time on high-severity, non-security bugfixes and promised features – like [adding smart card support](https://gitlab.com/gitlab-org/gitlab-ee/issues/726) and keeping instances more secure by [prohibiting admin impersonation](https://gitlab.com/gitlab-org/gitlab-ce/issues/40385). Simply put, we didn’t have enough resources to activate on all fronts.
+
+### The fix: We're growing to meet demand
+
+GitLab will grow from ~400 employees at the start of 2019 to ~800 by the end of the year. We will be splitting Manage into several teams, starting with the [Fulfillment team](https://gitlab.com/gitlab-com/www-gitlab-com/merge_requests/18087), allowing for more resources to push along each of these areas in parallel.
+
+GitLab.com is one of our highest-growth areas based on most Key Performance Indicators, including monthly active users, revenue, and feature usage. It’s the quickest way to get started using GitLab, and we need to do a better job knocking down barriers for large organization adoption. We’re already activating heavily on [SAML-based SSO for enterprises](https://gitlab.com/groups/gitlab-org/-/epics/731) in early 2019 and look forward to regaining our customers’ trust in being a company that quickly adapts to your feedback.
+
+If this type of organization and [product philosophy](/handbook/product/) seems exciting to you, drop me a note at ebrinkman@gitlab.com. We will be doubling the size of the product team and are looking for talented product managers to help us scale GitLab and drive the direction and growth of our application.

@@ -1,0 +1,128 @@
+---
+title: "Mobile DevOps with GitLab, Part 3 - Code signing for iOS with GitLab CI and Fastlane"
+author: Darby Frey
+author_gitlab: darbyfrey
+author_twitter: gitlab
+categories: devops
+tags: mobile, DevOps, security
+featured: yes
+description: Learn how to use Project-level Secure Files with Fastlane Match to sign an iOS app.
+image_title: '/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-3-code-signing-for-ios-with-gitlab-and-fastlane/vinicius-amnx-amano-IPemgbj9aDY-unsplash.jpg'
+twitter_text: In this third and final part in our Mobile DevOps tutorial series, learn how to use Project-level Secure Files to code sign for iOS with GitLab and CI Fastlane."
+---
+
+This post is the third in a series of three blog posts showing how GitLab makes code signing easier using a new feature called Project-level Secure Files.
+
+- [Part 1](/blog/2022/09/20/mobile-devops-with-gitlab-part-1/) introduces the Project-level Secure Files feature and the basics of getting started.
+- [Part 2](/blog/2022/09/28/mobile-devops-with-gitlab-part-2/) shows an example of how to use Project-level Secure Files to sign an Android app.
+- This post shows how to use the integration with Fastlane Match to sign an iOS app.
+
+Code signing for iOS projects is [notoriously](https://twitter.com/davidcrawshaw/status/1159083791232765953) [difficult](https://twitter.com/bc3tech/status/692778139517255680) and can lead to a lot of time spent debugging errors, but a tool called Fastlane makes it much easier. [Fastlane](https://fastlane.tools/) is an open source tool that greatly simplifies the complexity of the code signing process for iOS development.
+
+In [Fastlane 2.207.2](https://github.com/fastlane/fastlane/pull/20386) we released support for Project-level Secure Files as a storage backend for Fastlane Match, making it even easier for mobile projects to manage their signing certificates and provisioning profiles within GitLab. Now, we will cover a couple of ways to get started using Project-level Secure Files in a Fastlane project.
+
+## Set up Fastlane Match
+
+If your project doesn't have a Fastlane Matchfile yet, you can generate one by running the following:
+
+```
+bundle exec fastlane match init
+```
+
+This command will prompt you to choose which storage backend you want to use (select `gitlab_secure_files`) and to input your project path (for example: `gitlab-org/gitlab`). It will then generate a Fastlane Matchfile configured to use your project's secure files for Fastlane Match.
+
+![Initialize Fastlane Match](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-3-code-signing-for-ios-with-gitlab-and-fastlane/match-init.png)
+
+## Generate a Personal Access Token
+
+Next, you'll need a GitLab Personal Access Token to use Fastlane Match from your local machine. To create a Personal Access Token, visit the Access Tokens section in your GitLab profile (for example: [https://gitlab.com/-/profile/personal_access_tokens](https://gitlab.com/-/profile/personal_access_tokens)). Create a new token with the “api” scope. Take note of the token you just created, we'll be using it later.
+
+## Generate and upload 
+
+If you have not created signing certificates or provisioning profiles yet for your project, running Fastlane Match will do all of the work for you. Run the command below with your Personal Access Token:
+
+```
+PRIVATE_TOKEN=YOUR-TOKEN bundle exec fastlane match 
+```
+
+You may be prompted to log in with your Apple developer account. Once authenticated, this command will generate development certificates and profiles in the Apple Developer portal and upload those files to GitLab. You'll be able to view the files in your project's CI/CD settings as soon as the command completes.
+
+You can also generate other certificate types by specifying the type in the command, for example:
+
+```
+PRIVATE_TOKEN=YOUR-TOKEN bundle exec fastlane match appstore
+```
+
+## Upload-only
+
+If you have already created signing certificates and provisioning profiles for your project, you can use Fastlane Match Import to load your existing files into Project-level Secure Files. Simply run:
+
+```
+PRIVATE_TOKEN=YOUR-TOKEN bundle exec fastlane match import
+```
+
+You'll be prompted to input the path to your files. Once those options are provided, your files will be uploaded and visible in your project's CI/CD settings. (Note: If you are prompted for the git_url during the import, it is safe to leave it blank and hit enter.)
+
+![Fastlane Match Import](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-3-code-signing-for-ios-with-gitlab-and-fastlane/match-import.png)
+
+## CI/CD pipelines
+
+With your signing certificates and provisioning profiles loaded in Project-level Secure Files, it's now easy to use those files in your [CI/CD pipelines](/topics/ci-cd/). No access tokens are needed when running jobs in GitLab, so you can load your files into a CI/CD job by adding the fastlane command to a CI job script. For example:
+
+```
+test:
+  stage: test
+  script:
+    bundle exec fastlane match –readonly
+```
+
+Using the –readonly flag on CI is suggested to prevent any unintended changes to signing certificates by Fastlane. The Fastlane Match command will sync the certificates to the machine, but does not build the application. To run match and build, configure a lane in your project's Fastfile to do both steps. For example:
+
+**Fastfile**
+
+```
+default_platform(:ios)
+
+platform :ios do
+  desc "Build the App"
+  lane :build do
+    setup_ci
+    match(type: 'appstore', readonly: is_ci)
+    build_app(
+      clean: true,
+      project: "ios_demo.xcodeproj", 
+      scheme: "ios_demo"
+    )
+  end
+end
+```
+
+**Matchfile**
+
+```
+gitlab_project("gitlab-org/incubation-engineering/mobile-devops/ios_demo")
+storage_mode("gitlab_secure_files")
+type("appstore")
+```
+
+**.gitlab-ci.yml File**
+
+```
+build:
+  stage: build
+  script:
+    - bundle exec fastlane build
+```
+
+With all of that in place, you'll have a CI pipeline that runs a single build job. That job will use the `:build` lane from fastlane to run `setup_ci`, `match`, and `build_app`. The result from that job will be a build of your app, signed with the certificates stored in your project with Project-level Secure Files. You could then extend fastlane to push that build to Test Flight or the App Store.
+
+Fastlane does a good job of handling the complexity associated with certificate management, so you don't have to worry about it, but there is a bit of a learning curve to getting used to Fastlane. Take a look at [this branch](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/ios_demo/-/tree/fastlane_build) in the ios_demo project to for a full working example. Please add any feedback you have in the [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/362407).
+
+## Better Mobile DevOps
+
+With Project-level Secure Files, you no longer need to rely on hacks or workarounds to automate code signing, and it can be easily added to new or existing [CI/CD pipelines](/topics/ci-cd/).
+
+For more about how we are working to make better Mobile DevOps at GitLab, check out the [Mobile DevOps Docs](https://docs.gitlab.com/ee/ci/mobile_devops.html), [SaaS runners on macOS](https://docs.gitlab.com/ee/ci/runners/saas/macos_saas_runner.html), and the [Mobile DevOps Playlist](https://www.youtube.com/playlist?list=PL05JrBw4t0KoVEdembEIySgiciCuZj7Zl) on GitLab Unfiltered.
+
+Cover image by <a href="https://unsplash.com/@viniciusamano?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Vinicius "amnx" Amano</a> on <a href="https://unsplash.com/s/photos/complex-to-simple?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>
+  

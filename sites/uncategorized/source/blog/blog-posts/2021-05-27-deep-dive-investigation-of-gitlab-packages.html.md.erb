@@ -1,0 +1,116 @@
+---
+title: "A deep dive into how we investigate and secure GitLab packages"
+author: Vitor Meireles De Sousa
+author_gitlab: vdesousa
+author_twitter: Muffinbox33
+categories: security
+image_title: '/images/blogimages/gabriel-sollmann-unsplash.png'
+description: "Supply chain attacks aren't new, but that doesn't mean extra vigilance and protection aren't needed. We take a look at how we secure our packages and registries."
+tags: security, inside GitLab
+twitter_text: "Supply chain attacks aren't new, but that doesn't mean extra vigilance and protection aren't needed. We take a look at how we secure our packages and registries at @gitlab." # optional;  If no text is provided it will use post's title.
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/04/28/devops-platform-supply-chain-attacks/"
+  - "/blog/2020/10/06/gitlab-latest-security-trends/"
+  - "/blog/2020/12/16/how-we-made-gitlab-more-secure-in-twenty-twenty/" # please see related posts section below for details
+---
+
+Recent high-profile supply chain and dependency confusion attacks have been a cross-industry wake-up call on the impact breadth and depth these value-chain or third-party attacks can have on customers, business operations, and brand reputation.
+Security teams know supply chain attacks aren't new – they've been around for decades. But, what may have once been considered mainly nation-state threats have now increased in prevalence and sophistication. Malicious actors are now setting their sights on widely used technology like software applications and code repositories to compromise unsuspecting suppliers.
+
+## So how do we protect our customers and product?
+
+We're doing deep dives and making improvements across our product, processes, and practices as well as the controls we have in place for our partner and third-party vendor ecosystem to fortify the security of our supply chain. This blog post details our early steps to ensure packages and registries operate the way we expect them to and are continually monitored and secured.
+
+Back in December of 2020, we talked about the work our [Security Research](/handbook/security/#security-research) team is doing to identify malicious packages through the development of a [tool called Package Hunter](/blog/2020/12/16/how-we-made-gitlab-more-secure-in-twenty-twenty/). Package Hunter uses dynamic behavior analysis to identify malicious packages that try to exfiltrate sensitive data or run unintended code. It's currently running in our internal pipelines at GitLab, providing our code reviewers with valuable information when reviewing dependency updates. We currently plan to open source Package Hunter in the near future (watch this space!) and integrate it with [GitLab CI](/topics/ci-cd/), so that you can run it in your own pipelines. By making Package Hunter available to the wider community, we hope to put users in a position to proactively detect unexpected dependency behavior, such as the behavior exhibited in the recent Dependency Confusion attacks, and contribute to the security of CI environments.
+
+## A look at GitLab package managers
+
+GitLab has an [open core](/company/stewardship/) business model and is proud to ship open and source-available source code which has been built in part by members of the GitLab community.
+
+To help our customers in their development process, GitLab offers several package managers, but we mainly use three programming languages:
+
+* Ruby
+* Javascript
+* Go
+
+We also provide package registries for different types of packages managers, the following being the most popular:
+
+* Composer
+* Conan
+* Go
+* Maven
+* Npm
+* NuGet
+* Pypi
+
+As well as a container registry (to store Docker images) and a storage proxy for your frequently-used Docker images.
+
+### How dependency confusion happens
+
+As we saw in the recent [high-profile novel supply chain attacks](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610), dependency confusion attacks are a logic flaw in the default way that software development tools pull in third-party packages from public and private repositories. Malicious actors can exploit this issue and "trick" an environment into pulling in a malicious package instead of the intended custom package.
+
+For a dependency confusion to happen, there are some conditions that need to be met, like:
+
+* The existence of a private package that has not yet been published to an official package registry (i.e., https://npmjs.org)
+* A package manager client configured in a way that prefers the official package registry
+
+While controlling the user environment is challenging, we can and should make sure that the behavior of our GitLab package registries is as intended and secure.
+
+### Investigating the behavior of package registries
+
+To investigate, we opened an [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/321423) to review the behavior of our package registries and also some more dangerous aspects like the ability to run pre/post install scripts, override packages that are supported by package managers or using `--extra-index-url` with PyPi. Check out these instructions on [how to install a PyPI package](https://docs.gitlab.com/ee/user/packages/pypi_repository/#install-a-pypi-package).
+
+#### The TL;DR on our package registry checks
+
+Long story short: Of the multiple packages GitLab offers, only the npm package registry checks the official package registry, [npmjs.org](https://www.npmjs.com/package/npmjs.org), and this comes after verifying the presence of a package on gitlab.com. This means the implementations of our package managers follow best practices! 💪
+
+Another interesting area we explored more deeply is the variety of ways one could maliciously use a package to interact or obtain information from a system. Thankfully, we are already checking for suspicious behavior like this with Package Hunter.
+
+## Beyond registry investigation
+
+### Dependencies of our Ruby codebase
+
+Reviewing our registries wasn't enough. We have an important list of Ruby projects (about 300), and verifying if we were impacted was relatively easy. Thanks to a tool developed by my teammate and senior Security engineer, [Michael Henriksen](/company/team/#mhenriksen), I was able to quickly grab the Gemfiles to check and extract the source to make sure we are using the official [https://rubygems.org](https://rubygems.org). Our investigation indicates this was the case.
+
+### Verifying and updating NPM
+
+JavaScript is the second most frequently used programming language, so we needed to be sure that all our packages (around 160) were present on npmjs.org. This investigation showed us one package was not present: `@conventionalcomments/cc-parse`, a package that was developed by a previous team member. While we do use it internally, we had no reason to keep it only on gitlab.com. To ensure this didn't become an issue in the future we decided to [publish the package](https://www.npmjs.com/package/cc-parse) on npmjs.org.
+
+### Referencing Go
+
+Due to the way Go modules work, confusion attacks are not possible. Other types of attacks are possible, however, and I recommend reading [Michael Henriksen](/company/team/#mhenriksen)' blog post the summarizes his research, ["Finding Evil Go Packages"](https://michenriksen.com/blog/finding-evil-go-packages/).
+
+Referencing Go packages is very simple: You just need to provide the package URL such as `import "github.com/stretchr/testify"` and that's it. Any URL can be provided, which makes evaluating legitimate Go packages difficult. Nevertheless, we're looking at how we can close the gap and better protect customers using Go packages.
+
+## How do we avoid confusion attacks?
+
+Currently only the npm package registry supports forwarding requests to npmjs.org when nothing is found on gitlab.com, this is an option which is [enabled by default](https://docs.gitlab.com/ee/administration/settings/continuous_integration.html#npm-forwarding) for self-managed users and currently enabled on our SaaS offering. Implementation of new package registries will make sure we always check first on GitLab prior to searching in public official registries.
+
+### Control the chaos
+
+We recently published a blog post around how [GitLab helps protect against supply chain attacks](/blog/2021/04/28/devops-platform-supply-chain-attacks/), including ways that customers can combine our powerful DevSecOps platform with a holistic security program to quickly gain control and visibility of their software supply chain.
+
+In 2021, our plan is to introduce a new product category aptly called the Dependency Firewall. We believe that this planned set of features will help users prevent suspicious dependencies from being downloaded. As it stands today, the anticipated new product would include the ability to:
+
+* Verify package integrity from one single place. Users will be able to see what has been changed and test those packages for security vulnerabilities.
+* Filter the available upstream packages to include only approved, allow-listed packages.
+* Delay updates from packages that have been recently updated under suspicious circumstances. For example, users will be able to delay any packages in which the following circumstances have occurred:
+     * Author change
+     * Author information change
+     * Programming language change
+     * Activity after a long period of inactivity
+     * Large code changes
+     * [Introduction of an executable](https://blog.reversinglabs.com/blog/mining-for-malicious-ruby-gems)
+     * [Executable files with a non-executable extension like .png](https://blog.reversinglabs.com/blog/mining-for-malicious-ruby-gems)
+     * Name very similar to a popular package (typosquatting)
+* Audit and mirror every dependency to ensure users are running and requiring developers to take an active, documented role in vetting external dependencies.
+
+Thanks to [Tim Rizzi](/company/team/#trizzi) for their contributions to this section.
+{: .note.text-center}
+
+Supply chain attacks are ongoing and increasing. So too then must be the work, vigilance and research of our security teams. We'll continue sharing information about the ways we're making our product stronger and more secure, but if you've got a specific question or topic area that you'd like to hear from us about, leave us a comment or get in touch with me on Twitter [@muffinbox33](https://twitter.com/Muffinbox33).
+
+Cover image by [Gabriel Sollmann](https://unsplash.com/@gabons?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/storage?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

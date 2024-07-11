@@ -1,0 +1,137 @@
+---
+title: "How to use HashiCorp Waypoint to deploy with GitLab CI/CD"
+author: "Brendan O'Leary"
+author_gitlab: brendan
+author_twitter: olearycrew
+canonical_path: "/blog/2020/10/15/use-waypoint-to-deploy-with-gitlab-cicd/"
+categories: news
+image_title: '/images/blogimages/using-hashicorp-waypoint-deploy-gitlab-cicd.jpg'
+description: "Learn how to use Waypoint using GitLab CI/CD by following this step-by-step demo."
+tags: cloud native, DevOps
+#ee_cta: false # required only if you do not want to display the EE-trial banner
+#install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+#twitter_text: "Learn how to use HashiCorp Waypoint to deploy with @GitLab CI/CD"
+#featured: yes
+#postType: corporate, dev-evangelism
+#merch_banner: merch_one
+---
+
+HashiCorp announced a new project at [HashiConf Digital](https://hashiconf.com/) called [Waypoint](https://www.waypointproject.io/). 
+
+## Hashicorp Waypoint
+
+Hashicorp Waypoint uses an HCL based configuration file to describe how to build, deploy, and release applications to various cloud platforms, ranging from Kubernetes to AWS to Google Cloud Run. Think of Waypoint as if Terraform and Vagrant came together to describe how to build, deploy, and release your applications.
+
+True to form, Hashicorp released Waypoint as open source and with a lot of examples. The orchestration layer is up to you – Waypoint ships as a binary you can run right on your laptop or from whatever CI/CD orchestration tool you choose. Where you deploy is up to you as well since Waypoint shipped with support for Kubernetes, Docker, Google Cloud Run, AWS ECS, and a few others.
+
+## Benefits of Hashicorp Waypoint
+
+Hashicorp Waypoint is an open-source developer workflow that can run from any laptop or CI/CD tool. Deployment is also easier because Hashicorp ships to several platforms like Kubernetes, AWS, and more. 
+
+When using Hashicorp to build, deploy, and release applications, there are several features to keep in mind:
+
+* Waypoint provides a number of workflow examples as guides.
+
+* Build, deploy, and release your application with the single command of “waypoint up.”
+
+* Execute commands in a deployed application just as easily using “waypoint exec.”
+
+* Get a real-time look at application logs to help to debug quickly when necessary.
+
+## Orchestrating Waypoint using GitLab CI/CD
+
+Using the fantastic [Waypoint documentation](https://www.waypointproject.io/docs) and the excellent [example applications](https://github.com/hashicorp/waypoint-examples) that HashiCorp provided, we decided to take a look at orchestrating Waypoint using [GitLab CI/CD](/topics/ci-cd/). To do this, we’ll start from the simple [AWS ECS Node.js app](https://github.com/hashicorp/waypoint-examples/tree/main/aws-ecs/nodejs) from the example repository.
+
+After cloning, we can see the structure of a Node.js application that displays a single page.
+
+![Folder structure of the Waypoint example and the page it produces](/images/blogimages/waypoint-example.png)
+
+You’ll see that Dockerfile is missing from that project. There isn’t one included in the example, and we actually won’t need one because Waypoint is going to take care of that for us. Take a closer look at the `waypoint.hcl` file to see what it will do.
+
+```hcl
+project = "example-nodejs"
+
+app "example-nodejs" {
+  labels = {
+	"service" = "example-nodejs",
+	"env" = "dev"
+  }
+
+  build {
+	use "pack" {}
+	registry {
+  	use "aws-ecr" {
+    	region = "us-east-1"
+    	repository = "waypoint-gitlab"
+    	tag = "latest"
+  	}
+	}
+  }
+
+  deploy {
+	use "aws-ecs" {
+  	region = "us-east-1"
+  	memory = "512"
+	}
+  }
+}
+```
+
+In the build step, Waypoint uses [Cloud Native Buildpacks (CNB)](https://buildpacks.io/) to detect the language of the project and create a Docker image without any Dockerfile. This is actually the same technology that GitLab uses as part of [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/) in the Auto Build step. We’re excited to see CNB from the CNCF get more adoption by users in the industry.
+
+Once that image is built, Waypoint will automatically push the image to our AWS ECR registry to get it ready for the deploy. Once the build has completed, the deploy step uses the [AWS ECS plugin](https://www.waypointproject.io/plugins/aws-ecs) to deploy our application to our AWS account.
+
+From my laptop, that’s easy. I can have Waypoint installed, be already authenticated to my AWS account, and it "just works". But what if I want to expand this beyond my laptop? And what if I want to automate this deployment as part of my overall CI/CD pipeline where all of my current unit, security, and other tests run today? That’s where GitLab CI/CD comes in!
+
+## Waypoint in GitLab CI/CD
+
+To orchestrate all of this in GitLab CI/CD, let’s take a look at what we’ll need for our `.gitlab-ci.yml` file:
+
+1. First, we’ll need a base image to run inside of. Waypoint works on any Linux distribution and just needs Docker to run, so we can start from a generic Docker image.
+1. Next, we’ll install Waypoint to that image. In the future, we could build a [meta build image](/blog/2019/08/28/building-build-images/) to containerize this process for us.
+1. Finally, we’ll run the Waypoint commands.
+
+Above is all we’ll need for our pipeline to run the scripts required to get the deploy done, but we will need one more thing in order to deploy to AWS: We’ll have to authenticate to our AWS account. On [Waypoint’s roadmap](https://www.waypointproject.io/docs/roadmap), there are some mentions of plans around authentication and authorization. HashiCorp also released an exciting project in this space this week, [Boundary](https://www.boundaryproject.io/). But for now, we can handle authentication and authorization ourselves relatively simply.
+
+To authenticate GitLab CI/CD with AWS, there are a few options. The first option is to use GitLab’s integration with [HashiCorp Vault](https://www.vaultproject.io/) if your team is already using Vault for credential management. Alternatively, if your team manages authorization through AWS IAM, you can ensure that the deploy job runs on a [GitLab runner](https://docs.gitlab.com/runner/) that is authorized to run the deployment with IAM. But if you’re just getting started with Waypoint and want to get going quickly, the final option is to add your AWS API Key and Secret Key as a [GitLab CI/CD variable](https://docs.gitlab.com/ee/ci/variables/) named `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`.
+
+## Putting it all together with Waypoint
+
+Once the authentication is handled, we’re ready to go! Our final `.gitlab-ci.yml` looks like this:
+
+```yml
+waypoint:
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+  # Define environment variables, e.g. `WAYPOINT_VERSION: '0.1.1'`
+  variables:
+    WAYPOINT_VERSION: ''
+    WAYPOINT_SERVER_ADDR: ''
+    WAYPOINT_SERVER_TOKEN: ''
+    WAYPOINT_SERVER_TLS: '1'
+    WAYPOINT_SERVER_TLS_SKIP_VERIFY: '1'
+  script:
+    - wget -q -O /tmp/waypoint.zip https://releases.hashicorp.com/waypoint/${WAYPOINT_VERSION}/waypoint_${WAYPOINT_VERSION}_linux_amd64.zip
+    - unzip -d /usr/local/bin /tmp/waypoint.zip
+    - rm -rf /tmp/waypoint*
+    - waypoint init
+    - waypoint build
+    - waypoint deploy
+    - waypoint release
+```
+
+You can see that we start from the generic `docker:latest` image and set up some variables required by Waypoint. In the `script` section, we grab the latest Waypoint binary and install it to our local bin. Since our runner is already authorized with AWS, it’s as simple as running `waypoint init`, `build`, `deploy`, and `release`.
+
+The output of the build job shows us the endpoint we’re deploying to:
+
+![Folder structure of the Waypoint example and the page it produces](/images/blogimages/waypoint-job-output.png)
+
+Waypoint is one of multiple [HashiCorp solutions that GitLab works great with](/partners/technology-partners/hashicorp/). For example, in addition to application delivery, we could orchestrate the underlying infrastructure with [Terraform through GiLab](https://docs.gitlab.com/ee/user/infrastructure/) as well. To standardize security in the SDLC, we could also integrate [GitLab with Vault](https://docs.gitlab.com/ee/ci/examples/authenticating-with-hashicorp-vault/) to manage secrets and tokens within CI/CD pipelines that provides consistency for developers and operators relying on secrets management during development testing as well as in production use.
+
+The joint solutions developed by HashiCorp and GitLab are helping organizations find a better way for application development, and keeping delivery, and infrastructure management workflows in lock step. Waypoint is just another step in the right direction and we’re excited to see where the project goes from here. 
+
+## Getting started with Hashicorp Waypoint
+
+You can learn more about Waypoint at [waypointproject.io](https://www.waypointproject.io/). Also check out their [documentation](https://www.waypointproject.io/docs) and [roadmap](https://www.waypointproject.io/docs/roadmap) for the project. We have [contributed](https://github.com/hashicorp/waypoint/pull/492) everything we learned to the [GitLab CI/CD integration docs](https://www.waypointproject.io/docs/automating-execution/gitlab-cicd). You can also find a full working GitLab example in [this repository](https://gitlab.com/brendan-demo/waypoint) if you want to try it for yourself!

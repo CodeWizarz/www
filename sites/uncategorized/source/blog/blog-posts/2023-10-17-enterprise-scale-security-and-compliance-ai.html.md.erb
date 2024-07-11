@@ -1,0 +1,82 @@
+---
+title: Enterprise-scale security and compliance policy management in the AI era
+author: Grant Hickman
+author_gitlab: g.hickman
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/securitycheck.png'
+description: "A look at how GitLab Security Policy Management can help your security and compliance keep up with the pace of software development."
+tags: DevSecOps, security, compliance
+twitter_text: "Use GitLab security policies to develop secure and compliant software at enterprise scale in the AI era." 
+featured: no
+postType: product
+---
+Security teams have been challenged to keep up with the pace of software development. And they continue to face obstacles such as leaders who errantly overlooked the importance of security in the development process and the gearing ratio of developers to security personnel. Now AI is here - pushing that pace even more. The speed of development will only increase as companies scale to enterprise levels. Therefore, the security tools used to govern development processes must match that growth.
+
+Application security teams need to effectively manage and prioritize vulnerabilities. With [GitLab's security policies](https://docs.gitlab.com/ee/user/application_security/policies/), along with our suite of security tools, organizations can foster collaboration between AppSec and development teams, enabling efficient vulnerability detection, triage, and remediation. Security policies also provide a mechanism for automating security compliance and managing it at enterprise scale.
+
+While scanning more potential sources of vulnerabilities offers greater opportunities for early detection and issue resolution, the sheer volume of findings can overwhelm AppSec teams. Identifying what is actionable is only becoming more of a challenge as we collectively gain insight into vulnerabilities from additional scanning. 
+
+## Processes for vulnerability management triage
+Today, there are a few common approaches to handling vulnerability triage:
+
+- **Common Vulnerability Scoring System:** CVSS provides a standardized method for assessing vulnerability severity. By leveraging CVSS scores, organizations can prioritize vulnerabilities based on their potential impact and allocate resources accordingly.
+
+- **Risk-based scoring:** Risk-based scoring allows organizations to assess vulnerabilities based on their likelihood of exploitation and potential business impact. By considering contextual factors, such as asset value, threat actor capabilities, and exploit prevalence, organizations can effectively prioritize vulnerabilities.
+
+- **Threat modeling:** Threat modeling is an approach that involves identifying and evaluating potential threats to an application or system. By conducting a comprehensive analysis of the system's architecture, data flow, and potential attack vectors, organizations can prioritize vulnerabilities based on their relevance to likely threats. This approach helps allocate resources effectively by focusing on vulnerabilities that are more likely to be exploited.
+
+- **Business Impact Analysis (BIA):** BIA is a technique used to assess the potential impact of vulnerabilities on business operations and objectives. It involves identifying critical assets, evaluating their importance to the organization, and quantifying the potential consequences of a successful attack. By considering the potential financial, reputational, and operational impact, organizations can prioritize vulnerabilities that pose the most significant risk to their core business functions.
+
+As the proliferation of AI-generated code increases, so does the number of unintentional vulnerabilities that are introduced. Techniques such as these become vital in helping businesses triage and understand how to prioritize. So how do we take these conceptual frameworks and apply them in the real world? Let's explore how we can put these techniques into practice.
+
+## Security policy management
+[Security policies](https://docs.gitlab.com/ee/user/application_security/policies/) are the answer for decomposing business-level policies and compliance requirements into tangible operating instructions that are baked into your DevSecOps practices and the software development lifecycle. By creating rules within GitLab's security policies, organizations can define granular criteria for vulnerability assessment, ensuring that only actionable findings are flagged for further attention.
+
+Security policies allow you to execute on your security and compliance requirements and best practices by instantiating them in code. [Scan execution policies](https://docs.gitlab.com/ee/user/application_security/policies/scan-execution-policies.html) enforce scanners to run within specific projects based on your needs and requirements, ensuring that any vulnerabilities and exposures are detected before merging code to production.
+
+You can also leverage [scan result policies](https://docs.gitlab.com/ee/user/application_security/policies/scan-result-policies.html) to create customized workflows to address vulnerabilities. The policies evaluate security and compliance scanner results to prevent or block merge requests from merging unless they’ve been thoroughly reviewed and approved based on the rules you’ve defined.
+
+By utilizing scan result policies and scan execution policies, you can add a layer of oversight into the development process. This can ensure that code written by humans - or otherwise - has been automatically scanned and that policy violations encourage collaboration between Engineering and AppSec where it's most actionable. 
+
+### Define granular rules in scan result policies
+To take it a step further, you can define granular rules within scan result policies based on the filters and attributes shared below. These rules can help you determine which vulnerabilities are most actionable and find a signal in the static:
+
+- **Vulnerability status:** Security policies can be targeted based on the status of a vulnerability, often focused on newly detected vulnerabilities that need triage. It’s also possible to create rules based on previously detected vulnerabilities with a given severity, or to include/exclude vulnerabilities if they have been dismissed.
+
+- **Branch:** Target enforcement only on particular branches, such as by focusing enforcement on the default branch of critical projects, or by targeting any protected branches.
+
+- **Fix available:** Filter out findings from dependency and containers scanning results where a fix is not available. Often these depend on upstream changes from third parties, and are not yet actionable. Issues can be created from the vulnerabilities and tracked with a due date to address them when a fix becomes available.
+
+- **False positive:** When our GitLab scanners determine a finding to be a false positive (for container and dependency scanning), we’ll mark the state within the vulnerability. Security policies can then utilize this to filter false positives from the security policy oversight, allowing AppSec engineers and developers to ignore these findings and merge code undeterred. Vulnerabilities will still be available in the vulnerability report for deeper analysis if required.
+
+- **Age or service-level agreement (SLA):** At times, lower severity vulnerabilities can be tolerated by organizations for a time, but should be planned and addressed within a reasonable SLA. With security policies, you can set an SLA based on the severity of a finding, such as allowing medium vulnerabilities to be merged without requiring approvals for an SLA of 60 days (which can be addressed in a follow-up issue with a due date). But if the vulnerability is detected as exceeding the 60-day SLA, it will block merge requests and require the vulnerability to be addressed.
+
+![Scan result policy filters enable precision in security compliance](/images/blogimages/security-policies-rules-ds-all-filters.png){: .shadow}
+Scan result policy filters enable precision in security compliance
+{: .note.text-center}
+
+
+### Prioritize critical findings across the organization
+One common approach for handling large volumes of vulnerabilities is to start small and prioritize the most critical findings discovered across your organization. A vulnerability management triage SLA can help you achieve this, by defining rules to address vulnerabilities within a given SLA based on the vulnerability severity. Here's a quick demo of leveraging a GitLab scan result policy to enforce a different SLA for each vulnerability severity level. In this case, if a High severity finding is detected, merge requests will not be blocked for 30 days, giving developers time to remediate the issue within the SLA window.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/cOsAaLXdV2k" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+### Ensure separation of duties
+Security policies can be managed in a number of ways, but are best managed in an isolated GitLab project that ensures separation of duties between security professionals and development teams. Policies are stored in YAML. This policy-as-code approach empowers your security team and offers many benefits, including a Git history of any changes to the policies for visibility, version control to more easily roll back disruptive changes, oversight and required approvals of any policy changes (if required), auditability through GitLab audit events, and concrete controls that can be shared as evidence to auditors.
+
+![Example of security policies stored in YAML](/images/blogimages/gitlab_security-policies_policy-yml.png){: .shadow}
+Example of security policies stored in YAML
+{: .note.text-center}
+
+
+## Tying it all together
+Managing the ever-growing influx of vulnerabilities requires a precision approach that balances thorough scanning with efficient triaging and remediation. GitLab's security policies provide a powerful solution that enables collaboration, offers flexibility in defining customized policy rules, and a means to precisely operationalize business requirements and compliance frameworks. By leveraging GitLab's security tools and applying custom filters and attributes, organizations can streamline vulnerability management and focus their efforts on addressing the most critical risks, ultimately enhancing their overall security posture, and meeting the requirements of external bodies. And while fears may loom over AI-generated code, the three pillars of security (people, processes, and technology) still stand. By incorporating security policies into your business processes, you can protect your business against such risks.
+
+Beyond utilizing security policies to enforce policy-as-code at scale, the GitLab DevSecOps Platform offers a robust suite of security tools. In our recent [2023 Global DevSecOps Report](https://learn.gitlab.com/devsecops-survey-2023/), 57% of security professionals said they use six or more tools for software development and 69% of security professionals said they want to consolidate their toolchain. Consolidation of tools is on the minds of many CISOs and GitLab helps reduce the toolchain sprawl. We offer the core security scanning solutions – static application security testing (including for infrastructure as code), secret detection, dynamic application security testing (including for APIs), dependency scanning, and API security. We also enable vulnerability management for AppSec teams with dynamic vulnerability reports. And we close the loop on compliance with compliance frameworks, compliance adherence reports, and audit events.
+
+Learn more about how to manage [application security](https://docs.gitlab.com/ee/user/application_security/#use-security-scanning-tools-with-merge-request-pipelines) using GitLab.

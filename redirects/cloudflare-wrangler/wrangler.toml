@@ -1,0 +1,69 @@
+name = "about-gitlab-com"
+main = "src/main.ts"
+compatibility_date = "2023-05-18"
+minify = true
+
+# NOTE: these settings that are not env-scoped apply to wrangler deploys
+# for specific MRs. For the worker that handles the rest of `*.about.gitlab-review.app`,
+# the settings that apply are in the REVIEW environment section below.
+
+kv_namespaces = [
+  { binding = "REDIRECTS", id = "5eb09bc635304ed8b677addfb7050e3c", preview_id = "57c79e00ac5b485a97f0b5bc27c09135" }
+]
+
+[[rules]]
+type = "Text"
+globs = ["*.yml"]
+fallthrough = true
+
+[define]
+DEBUG = "true"
+
+[vars]
+ENVIRONMENT = "review"
+BUCKET = "about.gitlab-review.app"
+
+##############
+# PRODUCTION #
+##############
+
+[env.production]
+route = { pattern = "*about.gitlab.com/*", zone_name = "about.gitlab.com" }
+
+[env.production.vars]
+ENVIRONMENT = "production"
+DEFAULT_CACHE_TTL = 0
+
+[env.production.define]
+DEBUG = "false"
+
+###########
+# STAGING #
+###########
+
+# [env.staging]
+# route = { pattern = "*about.staging.gitlab.com/*", zone_name = "staging.gitlab.com" }
+#
+# [env.staging.vars]
+# ENVIRONMENT = "staging"
+#
+# [env.review.define]
+# DEBUG = "true"
+
+##########
+# REVIEW #
+##########
+
+[env.review]
+kv_namespaces = [
+  { binding = "REDIRECTS", id = "5eb09bc635304ed8b677addfb7050e3c", preview_id = "57c79e00ac5b485a97f0b5bc27c09135" }
+]
+
+route = { pattern = "*.about.gitlab-review.app/*", zone_name = "about.gitlab-review.app" }
+
+[env.review.vars]
+ENVIRONMENT = "review"
+BUCKET = "about.gitlab-review.app"
+
+[env.review.define]
+DEBUG = "true"

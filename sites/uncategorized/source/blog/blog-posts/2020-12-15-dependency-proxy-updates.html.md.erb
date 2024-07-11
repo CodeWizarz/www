@@ -1,0 +1,215 @@
+---
+title: "Using the Dependency Proxy to improve your pipelines"
+author: Steve Abrams
+author_gitlab: sabrams
+author_twitter: imsteveabrams
+categories: unfiltered
+image_title: '/images/blogimages/dependency_proxy_header.jpg'
+description: "The Dependency Proxy helps make pipelines faster and mitigates Docker Hub rate limits."
+tags: CI/CD, features
+related_posts:
+  - "/blog/2020/10/30/mitigating-the-impact-of-docker-hub-pull-requests-limits/"
+  - "/blog/2020/10/30/minor-breaking-change-dependency-proxy/"
+  - "/blog/2020/11/18/docker-hub-rate-limit-monitoring/"
+---
+
+{::options parse_block_html="true" /}
+
+
+
+Hi! I'm Steve, a backend engineer at GitLab. I work on the Package stage, which includes the Dependency Proxy.
+
+In versions 13.6 and 13.7, we improved the [Dependency Proxy](https://docs.gitlab.com/ee/user/packages/dependency_proxy/) so it's no longer an [MVC feature](https://about.gitlab.com/handbook/product/product-principles/#the-minimal-viable-change-mvc). Before, the Dependency Proxy was only available to paid users who may have been wary to use it, because they did not want to be forced to use a public group. Now the Dependency Proxy is a robust free feature that can really provide value for free and paid users alike.
+
+If you haven't tried the feature out before, now is a great time to take a look. If you have previously tried the Dependency Proxy and found it was not quite the solution you were looking for, I invite you to take a look at the new functionality detailed here. The Dependency Proxy is more available, more secure, and easier to use than ever. These updates also come right as Docker Hub has rolled out rate limits on image pulls, which the Dependency Proxy can help alleviate.
+
+You can also watch a demo of most of these features in this video:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/Nc4nUo7Pq08" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Move to Core
+
+In 13.6, we moved the [Dependency Proxy to Core](/releases/2020/11/22/gitlab-13-6-released/#the-dependency-proxy-is-now-open-source). The ability to speed up pipelines and create a safety net behind Docker Hub seemed like functionality that everyone should benefit from.
+
+## Support for private groups
+
+Starting in 13.7, you can now use the Dependency Proxy with all groups. Each group and subgroup can have its own space to cache images.
+
+![Dependency Proxy interface](/images/blogimages/dependency_proxy_interface.png)
+
+## Authentication
+
+[Authentication](https://docs.gitlab.com/ee/user/packages/dependency_proxy/#authenticate-with-the-dependency-proxy) is also new in 13.7. If you had previously used the Dependency Proxy, you will need to update your CI scripts or workflow to make sure that you are now logged in.
+
+Authentication was not only necessary to enable the ability to support private groups with the Dependency Proxy, but it's also a security upgrade. The Dependency Proxy caches image data in your group's storage, so without authentication, public groups could easily be abused to store images that your group might not even be using.
+
+### How does it work
+
+The Dependency Proxy is a proxy, so from the perspective of the Docker client, it is just another registry to authenticate with:
+
+```shell
+docker login --username stanley --password tanuki gitlab.com
+```
+
+When Docker makes a request to a registry it first asks:
+
+```shell
+GET gitlab.com/v2 # are you a registry?
+```
+
+To which GitLab responds:
+
+```shell
+401 Unauthorized
+
+WWW-Authenticate: Bearer realm=https://gitlab.com/auth/jwt, service=dependency_proxy
+# Yes! But you have to get permission to access me.
+# Please request a token from this other URL first.
+```
+
+Then Docker requests a token using the username and password you supplied, and if things check out, GitLab returns a JWT. Docker uses it to make its next request, which in the case of the Dependency Proxy is the image pull. If things don't check out, you'll likely see a `403 Forbidden` error.
+
+## Docker Hub rate limiting
+
+In November 2020, Docker Hub began rate limiting image pulls. The Dependency Proxy was already caching the image layers (blobs), so it made sense that [the Dependency Proxy should help mitigate this problem for users](https://docs.gitlab.com/ee/user/packages/dependency_proxy/#docker-hub-rate-limits-and-the-dependency-proxy).
+
+It is not uncommon for a project's pipeline to run every time a user pushes a commit. In an active project or group, this could happen many times in an hour. If your CI script starts with something as simple as:
+
+```yaml
+image: node:latest
+```
+
+Every time your pipeline runs, even though you are using the same image every time, Docker will count an additional image pull against your account.
+
+An image consists of many different files, and a `docker pull` command will make several requests. So what counts as one image pull?
+
+There are two types of files that make up an image. First is the manifest. You can think of it as a table of contents for an image. It contains information about what layers, or blobs, the image is made of. Once the Docker client has received the manifest, it will make a request for each blob described in the manifest.
+
+Docker uses the [manifest requests to count the image pulls](https://docs.docker.com/docker-hub/download-rate-limit/). This means that if the Dependency Proxy is going to help mitigate the rate limiting, it needs to store the manifest in addition to the blobs. This presents a small problem: a manifest is usually requested by tag name, which is a mutable reference. If I request `node:latest` this week, it might be different than the `node:latest` I requested last week. Each manifest contains a digest, or hash signature, that can be used to tell if it has changed. You can see this digest when you pull the image:
+
+```shell
+$ docker pull alpine:latest
+
+latest: Pulling from library/alpine
+Digest: sha256:a126728cb7db157f0deb377bcba3c5e473e612d7bafc27f6bb4e5e083f9f08c2
+Status: Image is up to date for alpine:latest
+docker.io/library/alpine:latest
+```
+
+Docker has allowed HEAD requests to be made for a manifest for free. The HEAD request response contains the digest of the underlying manifest. So we can make a HEAD request to determine if the manifest we have cached in the Dependency Proxy is up to date.
+
+```shell
+curl --head -H "Authorization: Bearer $TOKEN" https://registry-1.docker.io/v2/library/alpine/manifests/latest
+
+HTTP/1.1 200 OK
+Content-Length: 2782
+Content-Type: application/vnd.docker.distribution.manifest.v1+prettyjws
+Docker-Content-Digest: sha256:a126728cb7db157f0deb377bcba3c5e473e612d7bafc27f6bb4e5e083f9f08c2
+Docker-Distribution-Api-Version: registry/2.0
+Etag: "sha256:a126728cb7db157f0deb377bcba3c5e473e612d7bafc27f6bb4e5e083f9f08c2"
+Date: Wed, 15 Dec 2020 03:34:24 GMT
+Strict-Transport-Security: max-age=31536000
+RateLimit-Limit: 100;w=21600
+RateLimit-Remaining: 72;w=21600
+```
+
+The response even contains information telling us how many requests we have remaining within our rate limit. In this example, we see we have 72 out of 100 remaining.
+
+When the Dependency Proxy first receives a request for the manifest, it decides whether or not it needs to pull an image from Docker Hub based on a few rules:
+
+![Dependency Proxy manifest caching](/images/blogimages/dependency_proxy_flow_chart.png)
+
+The really great thing about the Dependency Proxy is that you don't have to do anything special to take advantage of these abilities. If you simply update your CI script with your Dependency Proxy image prefix to something like:
+
+```yaml
+image: gitlab.com/super-awesome-group/dependency_proxy/containers/node:latest
+```
+
+Then you will automatically bypass Docker Hub rate limiting and your cache will have the most up-to-date version of each image tag.
+
+## CI/CD
+
+The Dependency Proxy makes the most sense as a compliment to CI/CD pipelines. Rather than pulling directly from Docker Hub, you can use the Dependency Proxy to speed up your pipelines, avoid rate limiting, and create security in case of an upstream outage.
+
+As of 13.9, runners log in to the Dependency Proxy automatically, so you don't need to explicitly log in unless you want to for reasons like using specific tokens.
+
+To make the Dependency Proxy easier to use, we have added a few predefined environment variables you can use in your `.gitlab-ci.yml` files.
+
+- `CI_DEPENDENCY_PROXY_USER`: A CI user for logging in to the Dependency Proxy.
+- `CI_DEPENDENCY_PROXY_PASSWORD`: A CI password for logging in to the Dependency Proxy.
+- `CI_DEPENDENCY_PROXY_SERVER`: The server for logging in to the Dependency Proxy.
+- `CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX`: The image prefix for pulling images through the Dependency Proxy. This pulls through the top-level group.
+- `CI_DEPENDENCY_PROXY_DIRECT_GROUP_IMAGE_PREFIX` (starting in version 14.3): An alternative image prefix for pulling images through the Dependency Proxy. This pulls through the subgroup, or direct group the project exists in.
+
+Depending on how your scripts and pipelines look you can use these variables in a variety of ways. If you are manually pulling images in the script using `docker pull`, you can log in and pull like this:
+
+```yaml
+# .gitlab-ci.yml
+
+dependency-proxy-pull-master:
+  # Official docker image.
+  image: docker:latest
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker login -u "$CI_DEPENDENCY_PROXY_USER" -p "$CI_DEPENDENCY_PROXY_PASSWORD" "$CI_DEPENDENCY_PROXY_SERVER"
+  script:
+    - docker pull "$CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX"/alpine:latest
+```
+
+If you want to use the Dependency Proxy to pull images defined as `image` yaml attributes (the base images of the script), you can [create a custom environment variable](https://docs.gitlab.com/ee/ci/variables/#custom-cicd-variables) named `DOCKER_AUTH_CONFIG` with a value of:
+
+```yaml
+{
+    "auths": {
+        "https://gitlab.com:443": { # if you are using $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX, you should explicitely include the port here.
+            "auth": "(Base64 of username:password)"
+        }
+    }
+}
+```
+
+You will need to calculate the base64 value of your credentials. You can do this from the command line:
+
+```shell
+# The use of "-n" - prevents encoding a newline in the password.
+echo -n "my_username:my_password" | base64
+
+# Example output to copy
+bXlfdXNlcm5hbWU6bXlfcGFzc3dvcmQ==
+
+# A personal access token also works!
+echo -n "my_username:personal_access_token" | base64
+```
+
+Once you have the custom environment variable defined, you can use the Dependency Proxy without having to manually log in within your CI script:
+
+```yaml
+# This is a working script that would publish an NPM package to the GitLab package registry
+# if a properly formatted package.json file exists in the project root.
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/node:latest
+
+stages:
+  - deploy
+
+deploy:
+  stage: deploy
+  script:
+    - echo "//gitlab.com/api/v4/projects/${CI_PROJECT_ID}/packages/npm/:_authToken=${CI_JOB_TOKEN}">.npmrc
+    - npm publish
+```
+
+## Support when Docker Hub is offline
+
+By caching all files that make up an image, we also now have the ability to keep pipelines green even if Docker Hub experiences an outage. As long as the Dependency Proxy has the image you are using cached, when it makes the HEAD request to check if the cached image is stale or not, if the HEAD request fails, we will just fall back to the cached image.
+
+Thanks for reading! If you haven't used the Dependency Proxy yet, [get started using it today](https://docs.gitlab.com/ee/user/packages/dependency_proxy/)!
+
+## Updates
+
+Since this was published in December 2020, there have been many additional improvements and changes to the Dependency Proxy. As a result, some of the suggested approaches in this post have been improved or have become outdated. I suggest looking through [the most recent documentation](https://docs.gitlab.com/ee/user/packages/dependency_proxy/) to learn more.

@@ -1,0 +1,16 @@
+features:
+  secondary:
+    - name: "Reduced index size in Advanced Global Search"
+      documentation_link: 'https://docs.gitlab.com/ee/integration/elasticsearch.html#adding-gitlabs-data-to-the-elasticsearch-index'
+      available_in: [starter, premium, ultimate]
+      reporter: jmcguire
+      stage: data_stores
+      categories:
+        - 'Global Search'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/27918'
+      description: |
+         In previous versions of GitLab, Advanced Global Search's indexing process supported partial matching by storing a list of all partial words in the index. Partial words provide better results for natural-language search queries, but users performing code searches frequently search for specific text, like function definitions.
+
+         Partial matching for code has been disabled in GitLab 13.1, reducing the index size by 75%. If desired, users can continue using partial matching by using wildcards in their code search query. Partial matching for other content types, like issues or merge requests, is still supported.
+
+         Self-managed customers who have enabled Advanced Global Search must reindex after updating to take advantage of this reduction in index size.

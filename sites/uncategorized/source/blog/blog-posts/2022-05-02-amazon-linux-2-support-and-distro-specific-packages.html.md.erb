@@ -1,0 +1,141 @@
+---
+title: "Amazon Linux 2 support and distro-specific packages for GitLab"
+author: Darwin Sanoy
+author_gitlab: DarwinJS
+postType: product
+categories: news
+image_title: '/images/blogimages/2022-04-amazon-linux-2/gitlab-blog-banner.png'
+description: Learn how to do early testing as well as how to peg your automation to the EL 7 packages until you are able to properly integrate the changes into your automation.
+tags: releases, CI, CD, tutorial, AWS
+twitter_text: "GitLab now has AWS Amazon Linux 2 specific packages for building instances and runners. Learn how to do early testing as well as how to peg your automation to the EL 7 packages until you are able to properly integrate the changes into your automation."
+featured: no
+---
+
+GitLab’s Distribution Engineering team has been hard at work getting Amazon Linux 2 distro-specific packages ready in preparation for GitLab’s official support of Amazon Linux 2. Starting with Version 15.0 of GitLab, Amazon Linux 2 is a supported distro and packages are available for both x86 and Graviton ARM architectures.
+
+## What is Amazon Linux 2?
+
+Amazon Linux 2 is the next-generation Amazon Linux operating system that provides a modern application environment with the most recent enhancements from the Linux community alongside long-term support. Amazon Linux 2 is accessible as a virtual machine image for on-premises development and testing. This lets you easily develop, test, and certify your applications right from your local development environment. 
+
+According to the AWS FAQ page for Amazon Linux 2, the primary elements of this latest version of the operating system include:
+
+1. A Linux kernel tuned for performance on Amazon EC2.
+
+2. A set of core packages including systemd, GCC 7.3, Glibc 2.26, Binutils 2.29.1 that receive Long Term Support (LTS) from [AWS](/blog/2020/12/15/deploy-aws/).
+
+3. An extras channel for rapidly evolving technologies that are likely to be updated frequently and outside the Long Term Support (LTS) model.
+
+Amazon Linux 2 has a support lifespan through June 20, 2024, to allow enough time for users to migrate to Amazon Linux 2022.
+
+
+## Safely moving forward to Amazon Linux 2 packages from EL7
+
+While Amazon Linux 2 has not been officially supported before 15.0, as a convenience to customers who wanted to use yum and RPM packages to install the EL7 packages, GitLab configured a workaround in our packaging services to direct Amazon Linux 2 yum requests to the EL7 packages. If you’ve been using GitLab’s yum repo registration script, you many not know that you were using EL7 packages and not distro-specific packages.
+
+This workaround will be deprecated and requests from Amazon Linux 2 will get the distro-specific packages with the release of GitLab 15.3.0 on August 22, 2022.
+
+As a convenience for those of you who have automation that depends directly on this workaround, we wanted to provide you with information on how to do early testing as well as how to peg your automation to the EL 7 packages until you are able to properly integrate the changes into your automation.
+
+GitLab documentation demonstrates how to call our managed yum repository setup scripts by downloading the latest copy and running it directly in [the instructions for installing instances](https://about.gitlab.com/install/#centos-7) and [the instructions for installing runners](https://docs.gitlab.com/runner/install/linux-repository.html).
+
+Any organization using GitLab’s EL 7 packages for Amazon Linux 2 will want to test with - and update to - the distro-specific packages as soon as possible as GitLab will only be testing Amazon Linux 2 with the Amazon Linux 2 specific packages going forward.
+
+We also understand that the timing of the testing and migration to these packages must be done in a coordinated cutover so that the package type does not change in your existing stacks without you having made any changes. This can be more important if a GitLab stack has undergone platform qualification for compliance purposes.
+
+Amazon Linux 2 specific packages are only available for GitLab 14.9.0 and later. If your automation depends directly on GitLab’s repo configuration script and it is still pegged to a GitLab version prior to 14.9.0 when this change becomes GA, then action must be taken to prevent breaking that automation. We have devised an idempotent two-line script solution that you can put in place now to prevent disruption if you are still on a pre-14.9.0 version at the time the new behavior of `script.rpm.sh` becomes GA on August 22, 2022 with the release of GitLab 15.3.0.
+
+GitLab rake-based backup and restore will continue to work seamlessly across the distro-specific package changes if you have to restore to your Amazon Linux 2 built stack from an EL7 backup. If you are using third-party backup, you may wish to trigger a new backup immediately after transitioning to the new distro packages to avoid the scenario altogether.
+
+## Amazon Linux 2 packages for building GitLab instances before 15.3.0
+
+The following code inserts two lines of code between those originally outlined in [the instructions for installing using RPM packages](/install/#centos-7). The first one (starts with `sed`) splices in the Amazon Linux 2 yum repo endpoint edits into the repository configuration file created by script.rpm.sh. The second one (starts with `if yum`) cleans the yum cache if the package was already installed so that the new location will be used.
+
+> Sudo note: If you are using these commands interactively under the default SSH or SSM session manager user, then using `sudo su` before running this code is necessary. If you are using these commands in Infrastructure as Code (e.g. CloudFormation userdata scripts), then sudo may cause ‘command not found’ errors when the user running automation is already root equivalent. Be mindful about using interactively tested commands directly in your automation.
+
+```bash
+#Existing packaging script from https://about.gitlab.com/install/#centos-7
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.rpm.sh | sudo bash
+
+#Patch to preview and/or peg Amazon Linux 2 specific packages
+sed -i "s/\/el\/7/\/amazon\/2/g" /etc/yum.repos.d/gitlab_gitlab*.repo
+
+#Reset the cache if the package was previously installed (not needed for installs onto a clean machine)
+if yum list installed gitlab-ee; then yum clean all ; yum makecache; fi
+
+#Existing install command (remove "-y" to validate package and arch mapping before install)
+yum install gitlab-ee -y
+```
+
+> Notice in this output that the **Version** ends in `.amazon2`. In this case the **Arch** is `aarch64` - indicating 64-bit Graviton ARM.
+
+![Resolved GitLab Dependencies](/images/blogimages/2022-04-amazon-linux-2/gl-instance-dependencies-resolved.png)
+
+### Moving to Amazon Linux 2 packages early for a seamless post-GA transition
+
+When the script.rpm.sh script is cut over to always point Amazon Linux 2 to the new distro-specific packages, the sed command will no longer be necessary. However, sed is also idempotent and will not make edits if the search text is not found. This means you can use the sed command to switch over early, but not have to worry about a breaking change when the `script.rpm.sh` is updated.
+
+### Pegging EL 7 and/or a GitLab version prior to 14.9.0 for a seamless post-GA transition
+
+If your automation is pegged to an earlier version of GitLab, you will need to keep using EL7 packages, and, in fact, after the cutover you would need to implement the opposite command (which is also idempotent to be implemented now).
+
+```bash
+#Patch to peg GitLab Version to EL 7 Packages (only does something after GA of gitlab repo script)
+sed -i "s/\/amazon\/2/\/el\/7/g" /etc/yum.repos.d/gitlab_gitlab*.repo
+
+#Reset the cache if the package was previously installed (not needed for installs onto a clean machine)
+if yum list installed gitlab-ee; then yum clean all ; yum makecache; fi
+```
+
+Just like the sed command for taking distro-specific packages early, this command can be implemented immediately with no bad effects - which will seamlessly keeping your automation pegged to the EL 7 packages when `script.rpm.sh` is updated.
+
+## Amazon Linux 2 package for building GitLab Runners before 15.3.0
+
+The following code inserts two lines of code between those originally [outlined in the instructions](https://docs.gitlab.com/runner/install/linux-repository.html). The first one (starts with `sed`) splices in the Amazon Linux 2 yum repo endpoint edits into the repository configuration file created by script.rpm.sh. The second one (starts with `if yum`) cleans the yum cache if the package was already installed so that the new location will be used.
+
+> Sudo note: If you are using these commands interactively under the default SSH or SSM session manager user, then using `sudo su` before running this code is necessary. If you are using these commands in Infrastructure as Code (e.g. CloudFormation userdata scripts), then sudo may cause ‘command not found’ errors when the user running automation is already root equivalent. Be mindful about using interactively tested commands directly in your automation.
+
+```bash
+#Existing packaging script from https://docs.gitlab.com/runner/install/linux-repository.html
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.rpm.sh" | sudo bash
+
+#Patch to test or peg Amazon Linux 2 specific packages
+sed -i "s/\/el\/7/\/amazon\/2/g" /etc/yum.repos.d/runner_gitlab*.repo
+
+#Reset the cache if the package was previously installed (not needed for installs onto a clean machine)
+if yum list installed gitlab-runner; then yum clean all ; yum makecache; fi
+
+#Existing install command (remove "-y" to validate package and arch mapping before install)
+yum install gitlab-runner -y
+```
+
+> Notice in this output that **Version** is not distro-specific. In this case the **Arch** is `aarch64` - indicating 64-bit Graviton ARM.
+
+![Resolved GitLab Runner Dependencies](/images/blogimages/2022-04-amazon-linux-2/gl-runner-dependencies-resolved.png)
+
+## Pegging to EL 7 and/or a GitLab Runner version prior to 14.9.1 for a seamless post-GA transition
+
+The underlying package for EL 7 and Amazon Linux 2 is literally a copy of the same package. However, the Amazon Linux 2 endpoint for Runner RPM packages have only been uploaded from GitLab Runner 14.9.1 and later, so if you have runners that need to be on an earlier version, you would need to stay pointed at EL 7 for those packages to continue to resolve as available. The following code shows how to do that for GitLab Runner.
+
+```bash
+#Patch to peg GitLab Version to EL 7 Packages (only does something after GA of gitlab repo script)
+sed -i "s/\/amazon\/2/\/el\/7/g" /etc/yum.repos.d/runner_gitlab*.repo
+
+#Reset the cache if the package was previously installed (not needed for installs onto a clean machine)
+if yum list installed gitlab-runner; then yum clean all ; yum makecache; fi
+```
+
+## Need-to-know takeaways
+
+- Amazon Linux 2 is a supported distro for GitLab instances and runner as of the release of version 15.0 on May 22, 2022.
+- Amazon Linux 2 packages are available for x86 and ARM for GitLab Version 14.9.0 and higher. (Prior to 14.9.0 the EL7 packages must be used as they have a long version history).
+- This is the first availability of ARM RPM packages of GitLab for Amazon Linux 2.
+- In 15.3 (August 22, 2022), the script.rpm.sh will automatically start directing to the Amazon Linux 2 packages where it had previously directed Amazon Linux 2 yum requests to the EL7 packages.
+- It is common to have taken a dependency directly on the latest version of this GitLab script in other automation.
+- Before the GA cutover date of August 22, 2022 (15.3.0 GitLab Release), for these scripts, you have the opportunity to pre-test these packages and determine whether they create any issues with your automation or GitLab configuration.
+- You can also peg to the Amazon Linux 2 packages early or peg to the EL7 packages in advance if you find problems that you need more time to resolve. Both of these pegging types are idempotent, meaning the code changes do not do anything that causes problems after the change over happens.
+- Existing Amazon Linux 2 installations that were installed using the EL7 packages can use a regular yum upgrade command to start using the new Amazon Linux 2 packages. This operation may also be an upgrade of the product version at the same time. For existing installations you will need to patch the yum repo files as explained in this article in order to upgrade directly to Amazon Linux 2 from EL7 using packages. 
+
+> **Note**
+> This blog post and linked pages contain information related to upcoming products, features, and functionality. It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog post and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc.
+
+![AWS Partner Logo](/images/blogimages/2022-04-amazon-linux-2/awsgravitonready.png){: .right}

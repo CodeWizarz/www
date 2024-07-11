@@ -1,0 +1,91 @@
+---
+title: How to automate the creation of GitLab Runners
+author: Darren Eastman
+author_gitlab: DarrenEastman
+author_twitter:
+categories: engineering
+image_title: '/images/blogimages/tanukicover.jpg'
+description: "Follow this step-by-step guide for automating runner setup using new runner creation workflows."
+tags: tutorial, workflow, performance
+twitter_text: "Follow this step-by-step guide for automating runner setup using new runner creation workflows."
+featured: no
+postType: product
+---
+
+Automating the creation of GitLab Runners is an essential tactic in optimizing the operations and management of a runner fleet. Since announcing the [deprecation and planned removal of the legacy runner registration token](https://docs.gitlab.com/ee/architecture/blueprints/runner_tokens/#next-gitlab-runner-token-architecture) last year, there have been various questions by customers and the user community regarding the impact of the new workflow on any automation they rely on for creating and registering runners. This is a step-by-step guide for automating runner setup using the new runner creation workflows as depicted in the sequence diagram.
+
+![GitLab Runner create - sequence diagram](/images/blogimages/2023-06-19-how-to-automate-creating-runners/runner_create_sequence_diagram.png){: .shadow}
+
+## New terminology and concepts
+Before we dive into the automation steps, let’s first review a few new concepts with the runner creation process and how that differs from the registration token-based method. With the `registration token` method, a `registration token` is available for the instance, for each group, and for each project. Therefore, in a large GitLab installation, with many groups, sub-groups, and projects, you can have tens of hundreds of registration tokens that any authorized user can use to connect a runner. There are two steps to authorizing a runner (the application that you install on a target computing platform) to a GitLab instance:
+1. Retrieve a registration token.
+2. Run the register command in the runner application using the previously retrieved registration token.
+
+The workflow images below depict the runner setup steps using the registration token compared with the new runner creation process.
+
+![GitLab Runner registration workflows](/images/blogimages/2023-06-19-how-to-automate-creating-runners/runner_registration_workflows.png){: .shadow}
+
+### Reusable runner configurations
+Now, in the registration token method, if you authenticated multiple runners using the same registration token (a valid use case), each runner entity would be visible in the UI in a separate row in the list view. The new creation method introduces the concept of a reusable runner configuration. For example, if you have to deploy multiple runners at the instance level, each with the same configuration (executor type, tags, etc.), you simply create a runner and configuration **once**, then register each individual runner with the same authentication token that you retrieved from the first runner creation. Each of these runners is now displayed in the UI in a nested hierarchy.
+
+![Runner detailed view with shared configurations](/images/blogimages/2023-06-19-how-to-automate-creating-runners/runner_detail_shared_configs.png){: .shadow}
+
+We heard from many of you that your Runners view was cluttered because each runner created received its own row in the table, even if they were the exact same configuration as 100 others. With this change, our intent is to ensure that you have the flexibility you need to configure a runner fleet at scale while ensuring that you can still easily understand and manage the fleet in the GitLab Runners view. We understand that this is a paradigm shift that may take some getting used to.
+
+## Automation steps for creating a runner
+Here are the automation steps to create a runner.
+
+### Step 1: Create an access token
+You will first need to create an access token. A [personal access token](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) for an administrator account will allow you to create runners at the instance, group, and project levels.
+
+If you only need to create a group or project runner, then it is best to use a group access token or project access token, respectively. For a group or project, navigate to `Settings / Access Tokens` and create a token. You must specify a name, the token expiration date, role, and scope. For the role, select `Owner`; for the scopes, select `create_runner`.
+
+Note: The access token is only visible once in the UI. You will need to store this token in a secure location - for example, a secrets management solution such as [Hashicorp Vault](https://docs.gitlab.com/ee/ci/examples/authenticating-with-hashicorp-vault/) or the [Keeper Secrets Manager Terraform plugin](https://docs.keeper.io/secrets-manager/secrets-manager/integrations/terraform).
+
+![GitLab Runner registration workflows](/images/blogimages/2023-06-19-how-to-automate-creating-runners/project_access_token.png){: .shadow}
+
+### Step 2: Use the access token to create a runner in the GitLab instance
+Now that you have an access token scoped to the instance, group, or project, the next step is to use that token to create a runner automatically. In this example, we will simply invoke a POST REST endpoint in a terminal using CURL.
+
+```
+curl -sX POST https://gitlab.example.com/api/v4/user/runners --data runner_type=group_type --data "group_id=<target_group_or_project_id>" --data "description=software-eng-docker-builds-runner" --data "tag_list=<your comma-separated tags>" --header "PRIVATE-TOKEN: <your_access_token>"
+```
+
+Once this step is complete, the newly created runner configuration is visible in the GitLab UI. As the actual runner has not yet been configured, the status displayed is `Never contacted`.
+
+The API will return a message with the following fields: `id`, `token`, and `token_expires_at`. You must save the value for the `token` as it will only be displayed once. 
+
+As mentioned above, a critical point to note in the new runner creation is that you can reuse the runner token value to register multiple runners. If you choose to do that, runners created with the same token will be grouped in the Runners list. Whichever runner contacted GitLab most recently will be the one whose unique data (IP address, version, last contact time and status) displays in the list. You can still view all the runners in that group _and_ compare all of their unique data by going to the details page for that runner. Each runner in the group is uniquely identified by their `system_id`.
+
+At this point, you might ask yourself, what’s the difference between this new workflow and the workflow that relies on the registration token? The benefits are:
+1. You can now quickly identify the user that created a runner configuration. Not only does this add a layer of security compared to the old method, but it also simplifies troubleshooting runner performance issues, especially when your fleet expands.
+1. Only the creator of the runner or administrator(s) can edit crucial configuration details like tags, the ability to run untagged jobs, the setting to lock to only run jobs in the current projects it is shared with, and more.
+
+## Automation of runner install and registration
+With the runner configuration creation steps completed, you now have a runner or runners configured in your GitLab instance and valid runner tokens that you can use to register a runner. You can manually install the runner application to a target compute host or automate the runner application installation. If you plan to host the runner on a public cloud virtual machine instance – for example, [Google Cloud Compute Engine](https://cloud.google.com/compute/docs/instances) – then a good [example pattern](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/1932#note_1172713979) provided by one of our customers for automating the runner install and registration process is as follows:
+1. Use [Terraform infrastructure as code](https://docs.gitlab.com/ee/user/infrastructure/iac/) to install the runner application to a virtual machine hosted on GCP.
+1. Use the [GCP Terraform provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/compute_instance) and specifically the `metadata` key to automatically add the runner authentication token to the runner configuration file on the newly created GCP virtual machine.
+1. Register the newly installed runner with the target GitLab instance using a [cloud-init](https://cloudinit.readthedocs.io/en/latest/index.html#) script populated from the GCP terraform provider.
+
+**Example cloud-init script**
+
+```shell
+#!/bin/bash
+apt update
+
+curl -L "https://packages.gitlab.com/install/repositories/runner/gitlab-runner/script.deb.sh" | bash
+GL_NAME=$(curl 169.254.169.254/computeMetadata/v1/instance/name -H "Metadata-Flavor:Google")
+GL_EXECUTOR=$(curl 169.254.169.254/computeMetadata/v1/instance/attributes/gl_executor -H "Metadata-Flavor:Google")
+apt update
+apt install -y gitlab-runner
+gitlab-runner register --non-interactive --name="$GL_NAME" --url="https://gitlab.com" --token="$RUNNER_TOKEN" --request-concurrency="12" --executor="$GL_EXECUTOR" --docker-image="alpine:latest"
+systemctl restart gitlab-runner
+```
+
+## What's next?
+So there you have it, an overview of how to automate runner creation, installation, and registration. To summarize in three simple steps:
+1. Use the API to create a runner token and configuration.
+1. Store the retrieved authentication token in a secrets management solution.
+1. Use infrastructure as code to install the runner application on a target compute host.
+
+Our long-term vision is to directly incorporate this automation lifecycle into the product to simplify your day-to-day runner fleet management operations.

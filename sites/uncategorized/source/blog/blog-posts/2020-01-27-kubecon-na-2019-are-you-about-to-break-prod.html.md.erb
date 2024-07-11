@@ -1,0 +1,286 @@
+---
+title: "KubeCon NA: Are you about to break Prod?"
+author: Erin Krengel, Pulumi
+author_twitter: eckrengel
+categories: open source
+image_title: '/images/default-blog-image.png'
+description: Use Pulumi and GitLab to build a pipeline that validates your application, infrastructure, and deployment process.
+tags: testing, Kubernetes, open source, CI/CD, integrations, events
+guest: true
+twitter_text: Test your infrastructure with @PulumiCorp like you test your code
+postType: product
+---
+
+A couple of months ago, my [Pulumi](https://www.pulumi.com/) colleague Sean Holung, staff sofware engineer, and I had the opportunity to present ["Are you about to break prod? Acceptance Testing with Ephemeral Environments"](https://www.youtube.com/watch?v=jAQhDZiRzBQ) at KubeCon NA 2019. In this talk, we covered what is an ephemeral environment, how to create one, and then we walked the audience through a concrete example. Given our limited time, we had to move quickly through a ton of information. This post will recap our presentation and add a few more details we weren't able to cover.
+
+As software engineers, our job is to deliver business value. To do this, we need to be delivering software both quickly and reliably.
+
+So the question we ask you is: are you about to break prod? Everyone will break production at some point because there are things we miss. As independent software lead Alexandra Johnson sums up so well in a tweet: "Failures are part of the cost of building and shipping large systems." Building a robust pipeline allows us to move quickly in the case of failure and gain confidence around making changes to our infrastructure and applications.
+
+{::options parse_block_html="false" /}
+
+<div class="center">
+
+<blockquote class="twitter-tweet"><p lang="en" dir="ltr">Big takeaway from <a href="https://twitter.com/hashtag/KubeCon?src=hash&amp;ref_src=twsrc%5Etfw">#KubeCon</a>: none of us want to break prod, but failures are part of the cost of building and shipping large systems. Using tools like <a href="https://twitter.com/hashtag/AcceptanceTesting?src=hash&amp;ref_src=twsrc%5Etfw">#AcceptanceTesting</a> (<a href="https://twitter.com/eckrengel?ref_src=twsrc%5Etfw">@eckrengel</a>) and <a href="https://twitter.com/hashtag/ChaosEngineering?src=hash&amp;ref_src=twsrc%5Etfw">#ChaosEngineering</a> (<a href="https://twitter.com/Ana_M_Medina?ref_src=twsrc%5Etfw">@Ana_M_Medina</a>) can increase your confidence in your infrastructure changes!</p>&mdash; Alexandra Johnson (@alexandraj777) <a href="https://twitter.com/alexandraj777/status/1198373475049623552?ref_src=twsrc%5Etfw">November 23, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+
+</div>
+
+With this in mind, we use Pulumi and GitLab to build a pipeline that validates both our application, infrastructure, and deployment process. 
+
+## Ephemeral environments
+
+What is an ephemeral environment? It is a short-lived environment that mimics a production environment. To maintain agility, boundaries are defined in the environment to only encompass the first-level dependencies of the particular microservice that is being deployed. It means you don't have to spin up every single microservice or piece of infrastructure that's running in production. Yet you may need to spin up extra pieces of infrastructure to properly test the microservice. For example, you may need to create a subscription to pull from a PubSub topic your microservice writes to. This subscription would allow your acceptance tests to pull from a topic in order to validate an outbound message is published.
+
+## Why this is important
+
+Infrastructure is a key part of an application's behavior. The architecture and requirements are continually evolving. How can you incorporate these into a testing suite to give us a high degree of confidence?
+
+Ephemeral environments allow you to integrate infrastructure and deployment processes into a testing suite. They ensure your testing environment is always in-sync with production and therefore allow you to iterate quickly to meet new requirements.
+
+Ephemeral environments also encourage you to lean on automated tests over manual tests. If you use ephemeral environments as a replacement for a testing environment, there is not enough time to go in and run a manual check. Shifting your mindset to automated tests can be challenging, yet it's imperative that we do so. Automated tests guarantee your application behaves as expected today as well as months from now when you're out on vacation.
+
+## Our demo application
+
+To demonstrate the effectiveness of integrating acceptance testing with ephemeral environments into your deployment process, we created a simple demo application. The service is written in Go and accepts a message on the `/message` endpoint, then places it in a storage bucket and sends a notification about the new object on a PubSub topic. The code for this application lives in our [main.go](https://gitlab.com/rocore/demo-app/blob/master/main.go) file. While you can walk through this code yourself, the most important thing to call out is that our application is *configurable*. This means we take configuration in at the very beginning of our main function and shut down the application if the values are not present.
+
+```go
+func main() {
+    ...
+	// Get configuration from environment variables. These are
+	// required configuration values, so we use an helper
+	// function get the values and exit if the value is not set.
+	project := getConfigurationValue("PROJECT")
+	topicName := getConfigurationValue("TOPIC")
+	bucketName := getConfigurationValue("BUCKET")
+    ...
+}
+
+func getConfigurationValue(envVar string) string {
+	value := os.Getenv(envVar)
+	if value == "" {
+		log.Fatalf("%s not set", envVar)
+	}
+	log.Printf("%s: %s", envVar, value)
+	return value
+}
+```
+
+### Infrastructure
+
+There are many pieces of infrastructure to spin up and we can use Pulumi to easily wire it all together. Our architecture looks like this:
+
+![Pulumi Architecture](/images/blogimages/pulumidemoarch.jpg){: .medium.center}
+
+You can check out the Pulumi code that we use to reproduce both our ephemeral environments as well as production in the [infrastructure/index.ts](https://gitlab.com/rocore/demo-app/blob/master/infrastructure/index.ts) file. The neat thing about using Pulumi is that we can create the Google Cloud Platform (GCP) resources we need and then directly reference them in our Kubernetes deployment. Using Pulumi ensures we're always configuring our application with the correct GCP resources for that environment.
+
+For example, in our Kubernetes deployment, we set the environment variables by using the topic and bucket variables created just above.
+
+```typescript
+// Create a K8s Deployment for our application.
+const appLabels = { appClass: name };
+const deployment = new k8s.apps.v1.Deployment(name, {
+    metadata: { labels: appLabels },
+    spec: {
+        selector: { matchLabels: appLabels },
+        template: {
+            metadata: { labels: appLabels },
+            spec: {
+                containers: [{
+                    ...
+                    env: [
+                        { name: "TOPIC", value: topic.name }, // referencing topic just created
+                        { name: "BUCKET", value: bucket.name }, // referencing bucket just created
+                        { name: "PROJECT", value: project },
+                        {
+                            name: "GOOGLE_APPLICATION_CREDENTIALS",
+                            value: "/var/secrets/google/key.json"
+                        },
+                    ],
+                    ...
+                }]
+            }
+        }
+    },
+});
+```
+
+### Acceptance tests
+
+The acceptance tests validate that our service, when stood up, functions as expected. They are run against an ephemeral environment. The tests live in the `acceptance/acceptance_test.go` [file](https://gitlab.com/rocore/demo-app/blob/master/acceptance/acceptance_test.go). You'll notice we're once again using the helper function `getConfigurationValue`. Our acceptance test must also be configured to ensure they're validating against the correct resources for that particular ephemeral environment.
+
+Since the service is only accessible from within the Kubernetes cluster, we use a Kubernetes job to run our acceptance tests. Using a Kubernetes job is a good technique to use when your CI is running externally, such as from GitLab, and you do not want to expose your service publicly. Our ephemeral environment plus acceptance test looks like this:
+
+![Acceptance Tests](/images/blogimages/pulumiacceptancetestarch.jpg){: .medium.center}
+ 
+We spin up a Kubernetes Job and additional resources by using an if statement at the bottom of our `infrastructure/index.ts` file. The conditional depends on the environment's name as follows:
+
+```typescript
+// If it's a test environment, set up acceptance tests.
+let job: k8s.batch.v1.Job | undefined;
+if (ENV.startsWith("test")) {
+    job = acceptance.setupAcceptanceTests({
+        ...
+    });
+}
+
+// Export the acceptance job name, so we can get the logs from our
+// acceptance tests.
+export const acceptanceJobName = job ? job.metadata.name : "unapplicable";
+```
+
+That covers all the major aspects of our application and infrastructure, and if you'd like to view the code in detail, it is available in our `demo-app` [GitLab repository](https://gitlab.com/rocore/demo-app).
+
+## Our pipeline
+
+When developing a new service, we must establish a solid deployment strategy upfront. We want to make sure we're building in quality from day one. As we develop the service, we can add acceptance tests for every feature we add while the context and requirements are still fresh in our minds. This ensures we have thorough coverage of our app's functionality.
+
+We used GitLab to set up our pipeline. We chose GitLab because it's straightforward to set up and allows us to run our pipeline on our Docker image of choice. We use a [base-image](https://gitlab.com/rocore/global-infra/blob/master/base-image/Dockerfile) that has all our dependencies installed and then reference that Docker image and tag in our `demo-app` pipeline. The Docker image allows us to bundle and version the dependencies for building our application and infrastructure.
+
+![GitLab Pipelines](/images/blogimages/pulumibloggitlabci.png){: .shadow.medium.center}
+ 
+1. **Test and Build** - This runs our unit tests and builds both our application and acceptance test images. To build our images, we used [Kaniko](https://github.com/GoogleContainerTools/kaniko), a tool for building images within a container or Kubernetes cluster. GitLab has excellent documentation on [how to incorporate Kaniko](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html) into your pipeline. The application image is an immutable image that is used for both running our acceptance tests and deploying to production.
+1. **Acceptance Test** - This is what spins up our ephemeral environments and runs our acceptance tests. This acts as a quality gate catching issues before production.
+
+    Our ephemeral environment and Kubernetes job are all spun up in the `script` portion of the acceptance test job definition. We do a bit of setup for our new acceptance test stack and then run `pulumi up`. Here is the print out from our acceptance tests.
+
+    ```bash
+    ...
+    $ pulumi stack init rocore/$ENV-app
+    Logging in using access token from PULUMI_ACCESS_TOKEN
+    Created stack 'rocore/test-96425413-app'
+    $ pulumi config set DOCKER_TAG $DOCKER_TAG
+    $ pulumi config set ENV $ENV
+    $ pulumi config set gcp:project rocore-k8s
+    $ pulumi config set gcp:zone us-west1-a
+    $ pulumi up --skip-preview
+    Updating (rocore/test-96425413-app):
+    ...
+    Resources:
+        + 16 created
+
+    Duration: 4m10s
+
+    Permalink: https://app.pulumi.com/rocore/demo-app/test-96425413-app/updates/1
+    ```
+
+    The `after_script` destroys our stack as well as prints the logs of both our Kubernetes job and deployment, which help with debugging if our tests were to fail. We use the `after_script` to make sure that we always clean up and print logs even when our acceptance tests fail.
+    
+    ```bash
+    ...
+    $ pulumi stack select rocore/$ENV-app
+    $ kubectl logs -n rocore --selector=appClass=$ENV-demo-app-acc-test --tail=200
+    === RUN   TestSimpleHappyPath
+    === RUN   TestSimpleHappyPath/message_is_sent_to_PubSub_topic
+    === RUN   TestSimpleHappyPath/message_is_stored_in_bucket
+    --- PASS: TestSimpleHappyPath (3.89s)
+        acceptance_test.go:45: CONFIGURATION: {project:rocore-k8s serviceName:test-96425413-demo-app-t1st88qm   bucketName:test-96425413-demo-app-08f572c subscriptionName:test-96425413-demo-app-acc-test-9c0deed}
+        --- PASS: TestSimpleHappyPath/message_is_sent_to_PubSub_topic (2.21s)
+        --- PASS: TestSimpleHappyPath/message_is_stored_in_bucket (0.17s)
+            acceptance_test.go:152: Stored message: map[message:Ruby is awesome!!!]
+    === RUN   TestSimpleSadPath
+    === RUN   TestSimpleSadPath/posting_a_incorrectly_formatted_message_returns_400
+    --- PASS: TestSimpleSadPath (0.00s)
+        --- PASS: TestSimpleSadPath/posting_a_incorrectly_formatted_message_returns_400 (0.00s)
+    PASS
+    ok  	gitlab.com/rocore/demo-app	4.174s
+    $ kubectl logs -n rocore --selector=appClass=$ENV-demo-app --tail=200
+    2019/11/16 21:55:22 PROJECT: rocore-k8s
+    2019/11/16 21:55:22 TOPIC: test-96425413-demo-app-4f3f3c0
+    2019/11/16 21:55:22 BUCKET: test-96425413-demo-app-08f572c
+    2019/11/16 21:55:22 starting server
+    2019/11/16 21:59:03 writing to bucket
+    2019/11/16 21:59:03 writing to PubSub
+    $ pulumi destroy --skip-preview -s rocore/$ENV-app
+    Destroying (rocore/test-96425413-app):
+    ...
+    Resources:
+        - 16 deleted
+
+    Duration: 24s
+
+    Permalink: https://app.pulumi.com/rocore/demo-app/test-96425413-app/updates/2
+    ...
+    ```
+
+1. **Prod Pulumi Preview** - This is what previews changes to our production infrastructure. Some teams may choose to start with this stage as a manual gate and then switch to an automated stage once they've built up confidence.
+
+    We can incorporate this into our merge request review process, allowing us to validate our infrastructure changes are as we expect. Here we can see only our Kubernetes deployment is getting updated, meaning only our application was changed.
+
+    ```bash
+    $ pulumi stack select rocore/demo-app/prod
+    Logging in using access token from PULUMI_ACCESS_TOKEN
+    $ pulumi config set DOCKER_TAG $DOCKER_TAG
+    $ pulumi preview
+    Previewing update (rocore/prod):
+
+        pulumi:pulumi:Stack demo-app-prod running
+        pulumi:pulumi:Stack demo-app-prod running read pulumi:pulumi:StackReference rocore/global-infra/global-infra
+        pulumi:pulumi:Stack demo-app-prod running read pulumi:pulumi:StackReference rocore/global-infra/global-infra
+        pulumi:providers:kubernetes prod-demo-app  
+        gcp:storage:Bucket prod-demo-app  
+        gcp:pubsub:Topic prod-demo-app  
+        gcp:serviceAccount:Key prod-demo-app  
+        kubernetes:core:Service prod-demo-app  
+        gcp:pubsub:TopicIAMMember prod-demo-app  
+        kubernetes:core:Secret prod-demo-app  
+        gcp:storage:BucketIAMMember prod-demo-app  
+     ~  kubernetes:apps:Deployment prod-demo-app update [diff: ~spec]
+        pulumi:pulumi:Stack demo-app-prod  
+
+    Outputs:
+    ...
+
+    Resources:
+        ~ 1 to update
+        9 unchanged
+
+    Permalink: https://app.pulumi.com/...
+    ```
+
+1. **Prod Pulumi Up** - This is what performs changes to our production infrastructure and releases our production deployment. This only gets run on master.
+
+For more details on how to set this up, you can view the GitLab configuration for setting up this pipeline in our [.gitlab-ci.yml](https://gitlab.com/rocore/demo-app/blob/master/.gitlab-ci.yml) file.
+
+## Creating ephemeral environments
+
+Although we reviewed a lot of code, the difference between what we would need to run our application in production and the extra code needed for an ephemeral environment is quite minimal. The following is what enables us to create ephemeral environments:
+
+1. **Infrastructure as Code** - This allowed us to create a consistently reproducible environment. Using an IaC tool enables us to use the same code to define our infrastructure in both our ephemeral and production environments. It gives us a high degree of confidence that we are mimicking production accurately.
+
+1. **Unique name for our ephemeral environment** -  We used GitLab's pipeline ID and set our environment name to be `test-$CI_PIPELINE_ID`. Having a unique name for our ephemeral environment allows us to run multiple tests (and multiple pipelines) at once.
+
+1. **Configurable infrastructure** - We prepended our environment name to all the resources we create. It allows us to distinguish our test resources and ensures that resources don't conflict when running multiple tests at once. It also means that if something goes wrong, and we have lingering resources, we can use regex and a cron job to clean up these extra resources.
+
+1. **Configurable application & tests** - We made both our application and tests configurable ensuring they are always using the right resources for their environment. We can deploy the same immutable image of our application to run our acceptance tests against as we deploy to production.
+
+1. **Conditionally provision test infrastructure**- There are some extra pieces of infrastructure needed to acceptance test our application. We needed to be able to conditionally provision these extra pieces as well as our test itself during an acceptance test.
+
+1. **Clean up resources** - We needed to be able to cleanly tear down all the resources we created for our ephemeral environment. We used the `pulumi destroy` command to do this.
+
+1. **Trade-offs** - Some resources can take longer to spin up than others. For example, a brand new Kubernetes cluster takes considerably longer to spin up than a new PubSub topic. You need to balance the speed of your tests with how closely the environment mimics production. We chose to place these longer-lived resources in a separate [GitLab repository](https://gitlab.com/rocore/global-infra) called `global-infra`.
+
+    We reference these longer-lived pieces of infrastructure in our `demo-app` by using a [stack reference](https://www.pulumi.com/docs/intro/concepts/organizing-stacks-projects/#inter-stack-dependencies).
+    
+    ```typescript
+    const globalStackRef = new pulumi.StackReference("rocore/global-infra/global-infra");
+    ```
+
+## GitLab + Pulumi in the real world
+
+Ephemeral environments have uses beyond just mimicking production. For example, [Menta Network](https://www.menta.com.mx) is a professional services company located in Mexico City that provides quality assurance and monitoring for their customers' applications and infrastructure. They regularly have to spin up, scale and destroy ephemeral environments as part of their managed load testing solution.
+ 
+According to Menta Network's CTO, Ernesto Mendoza, "Using Pulumi and GitLab provides the Menta team with a simple and robust platform for developing, managing and deploying our managed load testing solution. It reduced the complexity of configuration by enabling us to standardize on Python for all of our code from infrastructure to application to load tests."
+
+## In summary
+
+To maintain agility, you need a process that thoroughly tests an application and gives us the confidence to move quickly. Using ephemeral environments to run acceptance tests allows you to test your application, infrastructure, and deployment process all at once.
+
+Pulumi and GitLab are both open source, and you can get started today for free! Some resources to get you going:
+
+* [Pulumi Get Started](https://www.pulumi.com/docs/get-started/)
+* [GitLab Get Started](https://about.gitlab.com/get-started/)
+* [GitLab Integration CI Guide](https://www.pulumi.com/docs/guides/continuous-delivery/gitlab-ci/)
+
+### About the guest author
+
+_Erin is a staff software engineer at Pulumi, where she works on their SaaS product. Previously she worked at Nordstrom on a number of DevOps teams responsible for Go microservices, their infrastructure, CI/CD pipelines and production support. She embraces DevOps at work, has a bias for automation and building inclusive teams._

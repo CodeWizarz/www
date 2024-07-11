@@ -1,0 +1,239 @@
+---
+title: "How to create efficient DevSecOps workflows with rules for conditional CI/CD pipelines"
+author: Abubakar Siddiq Ango
+author_gitlab: abuango
+author_twitter: sarki247
+categories: engineering
+image_title: '/images/blogimages/library/engineering.png'
+description: "CI/CD pipelines can be simple or complex, what makes them efficient are CI rules that define when and how they run."
+tags: tutorial, CI, CD, DevSecOps, DevSecOps platform
+twitter_text: "Learn about CI/CD rules and how they can help you build efficient DevSecOps pipelines."
+featured: no
+postType: dev-evangelism
+---
+
+CI/CD pipelines can be simple or complex – what makes them efficient are rules that define when and how they run. By using rules, you create smarter CI/CD pipelines, which increase teams' productivity and allow organizations to iterate faster. In this tutorial, you will learn about the different types of CI/CD pipelines and rules and their use cases.
+
+## What is a pipeline?
+A pipeline is a top-level component of [continuous integration](https://docs.gitlab.com/ee/ci/introduction/index.html#continuous-integration) and [continuous delivery](https://docs.gitlab.com/ee/ci/introduction/index.html#continuous-delivery)/[continuous deployment](https://docs.gitlab.com/ee/ci/introduction/index.html#continuous-deployment), and it comprises [jobs](https://docs.gitlab.com/ee/ci/jobs/index.html), which are lists of tasks to be executed. Jobs are organized in [stages](https://docs.gitlab.com/ee/ci/yaml/index.html#stages), which define when the jobs run.
+
+A pipeline can be a [basic one](https://docs.gitlab.com/ee/ci/pipelines/pipeline_architectures.html#basic-pipelines) in which jobs run concurrently in each stage. Pipelines can also be complex, like [parent-child pipelines](https://docs.gitlab.com/ee/ci/pipelines/downstream_pipelines.html#parent-child-pipelines), [merge trains](https://docs.gitlab.com/ee/ci/pipelines/merge_trains.html), [multi-project pipelines](https://docs.gitlab.com/ee/ci/pipelines/downstream_pipelines.html#multi-project-pipelines), or the more advanced [Directed Acyclic Graph pipelines](https://docs.gitlab.com/ee/ci/directed_acyclic_graph/index.html) (DAG).
+
+![Complex pipeline showing dependencies](/images/blogimages/2023-06-15-efficient-devsecops-workflows-with-rules-for-conditional-pipelines/complex-pipelines.png)
+
+A [gitlab-runner pipeline](https://gitlab.com/gitlab-org/gitlab-runner/-/pipelines/798871212/) showing job dependencies.
+{: .note.text-center}
+
+![Directed Acyclic Graph](/images/blogimages/2023-06-15-efficient-devsecops-workflows-with-rules-for-conditional-pipelines/dag-pipelines.png)
+
+Directed Acyclic Graph pipeline
+{: .note.text-center}
+
+
+Use cases determine how complicated a pipeline can get. A use case might require testing an application and packaging it into a container; the pipeline can even further deploy the container to an orchestrator like Kubernetes or a container registry. Another use case might involve building applications that target different platforms with varying dependencies, which is where DAG pipelines shine.
+
+## What are CI/CD rules?
+CI/CD rules are the key to managing the flow of jobs in a pipeline. One of the powerful features of GitLab CI/CD is the ability to control when a CI/CD job runs, which can depend on context, changes made, [workflow](https://docs.gitlab.com/ee/ci/yaml/workflow.html) rules, values of CI/CD variables, or custom conditions. Aside from using `rules`, you can also control the flow of CI/CD pipelines using:
+
+* [`needs`](https://docs.gitlab.com/ee/ci/yaml/index.html#needs): establishes relationships between jobs and used in DAG pipelines
+* [`only`](https://docs.gitlab.com/ee/ci/yaml/index.html#only--except): defines when a job should run
+* [`except`](https://docs.gitlab.com/ee/ci/yaml/index.html#only--except): defines when a job should not run
+* [`workflow`](https://docs.gitlab.com/ee/ci/yaml/workflow.html): controls when pipelines are created
+
+`only` and `except` should not be used with `rules` as this can lead to unexpected behavior. It is recommended to use `rules`, learn more in the following sections.
+
+## What is the `rules` feature?
+`rules` determine when and if a job runs in a pipeline. If you have multiple rules defined, they are all evaluated in order until a matching rule is found and the job is executed according to the specified configuration.
+
+[Rules](https://docs.gitlab.com/ee/ci/yaml/#rules) can be defined using the keywords: `if`, `changes`, `exists`, `allow_failure`, `variables`, `when` and `needs`.
+
+### `rules:if`
+The `if` keyword evaluates if a job should be added to a pipeline. The evaluation is done based on the values of [CI/CD variables](https://docs.gitlab.com/ee/ci/variables/index.html) defined in the scope of the job or pipeline and [predefined CI/CD variables](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html).
+
+```yaml
+job:
+  script:
+    - echo $(date)
+  rules:
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == $CI_DEFAULT_BRANCH
+```
+
+In the CI/CD script above, the job prints the current date and time with the `echo` command. The job is only executed if the source branch of a merge request (`CI_MERGE_REQUEST_SOURCE_BRANCH_NAME`) is the same as the project's default branch (`CI_DEFAULT_BRANCH`) in a [merge request pipeline](https://docs.gitlab.com/ee/ci/pipelines/merge_request_pipelines.html). You can use the `==` and `!=` operators for comparison, while `=~` and `!~` allow you to compare a variable to a regular expression. You can combine multiple expressions using the `&&` (AND), `||` (OR) operators, and parentheses for grouping expressions.
+
+### `rules:changes`
+With the `changes` keyword, you can watch for changes to certain files or folders for a job to execute. GitLab uses the output of [Git diffstat](https://git-scm.com/docs/git-diff#Documentation/git-diff.txt---statltwidthgtltname-widthgtltcountgt) to determine files that have changed and match them against the array of files provided for the `changes` rule. A use case is an infrastructure project that houses resource files for different components of an infrastructure, and you want to execute a `terraform plan` when changes are made to the terraform files.
+
+```yaml
+job:
+  script:
+    - terraform plan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - terraform/**/*.tf
+```
+
+In this example, the `terraform plan` is only executed when files with the `.tf` extension are changed in the `terraform` folder and its subdirectories. An additional rule ensures the job is executed for [merge request pipelines](https://docs.gitlab.com/ee/ci/pipelines/merge_request_pipelines.html).
+
+The `changes` rule can look for changes in specific files with `paths`:
+
+```yaml
+job:
+  script:
+    - terraform plan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - terraform/main.tf
+```
+
+Changes to files in a source reference (branch, tag, commit) can also be compared against other references in the Git repository. The CI/CD job will only execute when the source reference differs from the [specified reference value defined in `rules:changes:compare_to`](https://docs.gitlab.com/ee/ci/yaml/#ruleschangescompare_to). This value can be a Git commit SHA, tag, or branch name. The following example compares the source reference to the current `production` branch (`refs/head/production`).
+
+```yaml
+job:
+  script:
+    - terraform plan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        paths:
+          - terraform/main.tf
+        compare_to: 'refs/head/production'
+```
+
+### `rules:exists`
+Like `changes`, you can execute CI/CD jobs only when specific files exist [using `rules:exists` rules](https://docs.gitlab.com/ee/ci/yaml/#rulesexists). For example, you can run a job that checks whether a `Gemfile.lock` file exists. The following example audits a Ruby project for vulnerable versions of gems or insecure gem sources using the [bundler-audit project](https://github.com/rubysec/bundler-audit).
+
+```yaml
+job:
+  script:
+    - bundle-audit check --format json --output bundle-audit.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        exits:
+          - Gemfile.lock
+```
+
+### `rules:allow_failure`
+There are scenarios where the failure of a job should not affect the following jobs and stages of the pipeline. This can be useful in use cases where non-blocking tasks are required as part of a project but don't impact the project in any way. The [`rules:allow_failure` rule](https://docs.gitlab.com/ee/ci/yaml/#rulesallow_failure) can be set to `true` or `false`. It defaults to `false` implicitly when the rule is not specified.
+
+```yaml
+job:
+  script:
+    - bundle-audit check --format json --output bundle-audit.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_PROTECTED == "false"
+      changes:
+        exits:
+          - Gemfile.lock
+      allow_failure: true
+```
+
+In this example, the job can fail only if a merge request event triggers the pipeline and the target branch is not protected.
+
+### `rules:needs`
+Disabled by fault, [`rules:needs`](https://docs.gitlab.com/ee/ci/yaml/#rulesneeds) was introduced in [GitLab 16](https://about.gitlab.com/releases/2023/05/22/gitlab-16-0-released/) and can be enabled with the `introduce_rules_with_needs` [feature flag](https://docs.gitlab.com/ee/user/feature_flags.html). [`needs`](https://docs.gitlab.com/ee/ci/yaml/index.html#needs) is used to execute jobs out of order without waiting for other jobs in a stage to complete. When used with `rules`, it replaces the job's `needs` specification when the set conditions are met.
+
+```yaml
+stages:
+  - build
+  - qa
+  - deploy
+
+build-dev:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+  script: echo "Building dev version..."
+
+build-prod:
+  stage: build
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  script: echo "Building production version..."
+
+qa-checks:
+  stage: qa
+  script:
+    - echo "Running QA checks before publishing to Production...."
+
+deploy:
+  stage: deploy
+  needs: ['build-dev']
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+      needs: ['build-prod', 'qa-checks']
+    - when: on_success # Run the job in other cases
+  script: echo "Deploying application."
+
+```
+
+In the example above, the deploy job has the `build-dev` job as a dependency before it runs; however, when the commit branch is the project's default branch, its dependency changes to `build-prod` and `qa-checks`. This can allow for extra checks to be implemented based on context.
+
+### `rules:variables`
+In some situations, you only need certain variables in specific conditions, or their values change based on content; you can use the [`rules:variables`](https://docs.gitlab.com/ee/ci/yaml/#rulesvariables) rule to define variables when specific conditions are met. This also allows to create more dynamic CI/CD execution workflows.
+
+```
+job:
+  variables:
+    DEPLOY_VERSION: "dev"
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+      variables:
+        DEPLOY_VERSION: "stable"
+  script:
+    - echo "Deploying $DEPLOY_VERSION version"
+```
+
+### `workflow:rules`
+So far, we have looked at controlling when jobs run in a pipeline using the `rules` keyword. Sometimes, you want to control how the entire pipeline behaves: That's where [`workflow:rules` provide a powerful option](https://docs.gitlab.com/ee/ci/yaml/#workflowrules). `workflow:rules` are evaluated before jobs and take precedence over the job rules. For example, if a job has rules that allow it to run against a specific branch, but the workflow rules set jobs running against the branch to `when: never`, the jobs will not run.
+
+All the features of `rules` mentioned in the previous sections work for `workflow:rules`.
+
+```yaml
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "push"
+      when: never
+    - when: always
+```
+
+In the example above, the CI/CD pipeline runs except when a schedule or push event is triggered.
+
+## Use cases for CI/CD rules
+In the previous section, we looked at different ways of using the `rules` feature of GitLab CI/CD. In this section, we will explore practical use cases.
+
+### Developer experience
+One of the benefits of a DevSecOps platform is to allow developers to focus on what they do best: writing their code and doing as little operations as possible. A company's [DevOps](https://about.gitlab.com/topics/devops/) or Platform team can create CI/CD templates for different stages of their development lifecycle and use rules to add CI/CD jobs to handle specific tasks based on their technology stack. A developer only needs to include a default CI/CD script and pipelines are automatically created based on files detected, refs used, or defined variables, leading to increased productivity.
+
+### Security and quality assurance
+A major function of CI/CD pipelines is to catch bugs or vulnerabilities before they are deployed into production infrastructure. Using CI/CD rules, security and quality assurance teams can dynamically run extra checks on changes introduced when certain factors are introduced. For example, malware scans can be added when new file extensions not in an approved list are detected, or more advanced performance tests are automatically added when a certain level of change has been introduced to the codebase. With GitLab's built-in security, including security in your pipelines can be done with just a few lines of code.
+
+```yaml
+include:
+  # Static
+  - template: Jobs/Container-Scanning.gitlab-ci.yml
+  - template: Jobs/Dependency-Scanning.gitlab-ci.yml
+  - template: Jobs/SAST.gitlab-ci.yml
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+  - template: Jobs/SAST-IaC.gitlab-ci.yml
+  - template: Jobs/Code-Quality.gitlab-ci.yml
+  - template: Security/Coverage-Fuzzing.gitlab-ci.yml
+  # Dynamic
+  - template: Security/DAST.latest.gitlab-ci.yml
+  - template: Security/BAS.latest.gitlab-ci.yml
+  - template: Security/DAST-API.latest.gitlab-ci.yml
+  - template: API-Fuzzing.latest.gitlab-ci.yml
+```
+
+### Automation
+The power of CI/CD rules shines through in the (nearly) limitless possibilities of automating your CI/CD pipelines. GitLab [AutoDevOps](https://docs.gitlab.com/ee/topics/autodevops/) is an example. It uses an opinionated best-practice collection of [GitLab CI/CD templates](https://gitlab.com/gitlab-org/gitlab/-/tree/master/lib/gitlab/ci/templates) and rules to detect the technology stack used. AutoDevOps creates relevant jobs that take your application all the way to production from a push. You can review the [AutoDevOps template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Auto-DevOps.gitlab-ci.yml) to learn how it leverages CI/CD rules for greater efficiency.
+
+### Using CI/CD components
+Growth comes with several iterations of work and creating best practices. While building CI/CD pipelines, your DevOps team would have made several CI/CD scripts that they repurpose across pipelines using the [`include`](https://docs.gitlab.com/ee/ci/yaml/#include) keyword. In [GitLab 16](https://about.gitlab.com/releases/2023/05/22/gitlab-16-0-released/), GitLab [introduced CI/CD Components](https://about.gitlab.com/releases/2023/05/22/gitlab-16-0-released/#cicd-components), an experimental feature that allows your team to create reusable CI/CD components and publish them as a catalog that can be used to build smarter CI/CD pipelines rapidly. You can learn more [about using CI/CD components](https://docs.gitlab.com/ee/ci/components/) and the [component catalog direction](https://about.gitlab.com/direction/verify/component_catalog/).
+
+GitLab CI/CD enables you to run smarter pipelines, and it does so together with [GitLab Duo, AI-powered workflows](/gitlab-duo/) to help you build more secure software, faster.

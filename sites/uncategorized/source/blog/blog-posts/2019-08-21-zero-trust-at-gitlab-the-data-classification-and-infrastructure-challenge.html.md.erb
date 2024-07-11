@@ -1,0 +1,74 @@
+---
+title: "Zero Trust at GitLab: The data classification and infrastructure challenge"
+author: Mark Loveless
+author_gitlab: mloveless
+author_twitter: simplenomad
+categories: security
+image_title: '/images/blogimages/close-up-colorful-colors-40799.jpg'
+description: "The classification of data is a huge step in the right direction when it comes to handling Zero Trust, but it comes with its own set of challenges."
+tags: inside GitLab, security, zero trust
+twitter_text: "The classification of data is a huge step in the right direction when it comes to handling #ZeroTrust, but it comes with its own set of challenges"
+postType: content marketing
+---
+
+Update: This is part 3 of an ongoing [Zero Trust series](/blog/tags.html#zero-trust). See our next post: [Zero Trust at GitLab: Mitigating challenges with data zones and authentication scoring](/blog/2019/09/06/zero-trust-at-gitlab-data-zones-and-authentication-scoring/).
+{: .alert .alert-info .note}
+
+
+Zero Trust is the practice of shifting access control from the perimeter of the org to the individuals, the assets, and the endpoints. For GitLab, Zero Trust means that all devices trying to access an endpoint or asset within our GitLab environment will need to authenticate and be authorized. This is part three of a multi-part series.
+
+Check out these other posts to get up to speed:
+* Part one: [The evolution of Zero Trust](/blog/2019/04/01/evolution-of-zero-trust/)
+* Part two: [Zero Trust at GitLab: Problems, goals, and coming challenges](/blog/2019/08/09/zero-trust-at-gitlab-problems-goals-challenges)
+
+One of the main objectives for the Security team at GitLab is to protect data, regardless of whether it is our customer data or employee data. Instead of simply viewing Zero Trust Networking (ZTN) as some type of solution for authentication, we also look at it as a way to further our data protection. This poses specific challenges for both the data and the infrastructure the data resides upon.
+
+### Dealing with data classification
+
+We’ve established a [classification of data policy](/handbook/security/data-classification-standard.html) at GitLab, so we understand the protections necessary. The emphasis of the data classification policy is to define mapping between access controls and data, where the level of sensitivity of the data can appropriately be protected. To help with the understanding and to allow for quicker identification, the four data classification levels are mapped to a color coding. The color codings are `RED`, `ORANGE`, `YELLOW`, and `GREEN` – with `RED` being the most sensitive data, down to `GREEN` being public data.
+
+This classification of data is a huge step in the right direction when it comes to handling ZTN. That being said, when it comes to data classification there are a few areas where we anticipate challenges with regards to ZTN:
+
+* **The state of data changes over time.** Data that is in one classification may change over time based upon any number of factors. An example is `ORANGE` sales data for a public company – if disclosed before a certain date this could lead to insider trading. However after a certain date the sales data would become public, or `GREEN` data.
+
+* **Tracking of data/metadata.** The tracking of data and its metadata, including origin and classification that define requirements for handling, is non-trivial. Applying labels (data classification labels, not to be confused with the [labeling done within the GitLab software itself](https://docs.gitlab.com/ee/user/project/labels.html)) to data helps in enabling control of the data. These labels can be related to the data’s function as well as conditional access controls needed.
+     * For example, a US DoD instance of GitLab might require certain data labels such as “US citizen,” “on US soil when accessing,” “part of the US DoD project team,” and “GitLab team member not a contractor” in addition to other more standard restrictions. It is notable that the process of data labeling could be beneficial to meeting compliance standards as well, e.g. GDPR article 15 removal requests.
+
+* **Time limits on certain data.** Applying data classification labels to data will require time limits. In the above example, the label is “part of the US DoD project team,” and access to this data may expire after 30 days and need to be removed/re-applied for/auto-extended under certain circumstances, etc.
+
+* **Capability of data.** Departmental data collected might be subject to classification based upon what it is capable of instead of what it actually seems to be (think Tenable scanning data). The same would apply to customer-generated data, such as ZenDesk tickets. Basically, because we cannot control what a customer might say or what a security scan might find. It is possible that someone could have access to a system or even manage parts of that system, yet should not be able to see all of its data.
+
+* **Movement of data.** Departmental data that is transferred between systems, either automated or manual, could affect the classification of itself or the surrounding data, especially if the data is transformed or cleansed in some way. For example, situations and potential security problems reported via ZenDesk or HackerOne are often transferred to GitLab.com so we can “work the issue.” These are often sanitized to a degree. Here is a more detailed example to illustrate this:
+     * If the XYZ corporation reports a problem which is entered into ZenDesk, an issue is created for the Security team to work to resolution, and the data is in essence transformed. If the problem is authentication bypass using the APIs and it affects all customers on GitLab.com, only the mechanics of the bypass itself are considered relevant, and the fact that XYZ corporation reported it is not important to the resolution process. Therefore, XYZ corporation can be scrubbed from the Security team’s issue (and should be). As the original issue impacted XYZ corporation, it might have been considered `ORANGE` data impact, but the real impact affects more than one customer, so the problem is considered an impact to `RED` data. After a patch and resolution of the problem, we make the details of the situation public and include vulnerability, patch, and resolution information. We state it was reported to us by “a customer.” Association with XYZ corporation would still be `ORANGE` data. However, the previous `RED` classification of the problem itself is now considered `GREEN` since the problem is resolved and we have made the problem and its solution public.
+
+As you can see, on the surface there seems to be no problem with securing our data with the assistance of ZTN, but once you start to explore "edge cases" one begins to reach the conclusion that these are not actually edge cases, but working examples of how we interact with our data. In most examples, this will not be a problem as we have granular control over our data, but when it comes to ZTN we need to make sure we consider the changing state of our data. The main thing we wish to avoid is an authentication decision being made based upon a particular classification of data on a system when the classification of that data is known to change over time.
+
+Granular data access is typically controlled at the system level, so we should be just fine. A closer look at our infrastructure may indicate otherwise, so a more detailed examination is required.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+### The infrastructure
+The infrastructure needs to be defined, including some semblance of where the data resides and how it is accessed. For the systems we directly manage and control down to the very lowest level, we have a good grasp on what we have to work with and what controls are available to regulate access to the data they contain. However, a decent part of our infrastructure resides on systems we do not fully control.
+
+In the modern cloud age, the rise of [software as a service](https://en.wikipedia.org/wiki/Software_as_a_service) (SaaS) applications has become an important part of everyday business operations. Instead of maintaining servers in a server room, a vendor uses the cloud and makes the application accessible over the internet. Each company has their own private set of data maintained by the SaaS provider, and may have different levels of features based upon price that allow them to manipulate and control the data. Examples include Expensify for handling expenses, BambooHR for handling HR functions, and so on. GitLab is no exception to this process. Deployment is often as easy as setting up accounts, and while we’re [working to unify our authentication process under Okta](/handbook/business-technology/okta/#how-is-gitlab-using-okta), it is still not fully deployed.
+
+As we are an all-remote company, our infrastructure is all-remote. We do the bulk of our company activity inside the GitLab.com software itself, but we also use roughly two dozen SaaS companies’ offerings as well. There are the usual suspects such as Slack and Zoom, but as mentioned we are currently using Expensify, BambooHR, ZenDesk, and many others.
+
+Simply put, our infrastructure poses some unique challenges:
+
+* **Cloud controls.** We are a GCP organization. Also AWS. And Azure. Did I mention DigitalOcean as well? As one might expect, this can create challenges if one has to use parts of the underlying cloud controls to help with authentication and enforcement of access controls, and software components are being moved from platform to platform. Customers don’t notice, but team members handling administrative access might.
+* **Who controls what?** This is not as bad as it sounds, but it is often not 100% clear who has administrative access to different systems. I’d say it is a symptom of a rapidly growing company, but after having experienced the same thing in most companies I’ve worked at, this is a fairly common phenomenon. The problem at GitLab stems from the amount of growth and our own rather unique history: When the company was very small, a single team member might be in control of a piece of infrastructure that slowly scaled up and became huge. Then, if that team member leaves the company, most likely the team member’s department assumes control. Does anyone or everyone have that control now? Does each team member understand all of the data residing in that system? Do they understand that data in relationship to the data classification?
+* **The enforcement of SaaS application privileges.** For systems where we do not have control over the underlying components, enforcing privileges becomes tricky. If a SaaS app has a regular user authentication and the main screen has an “Admin” button to escalate privileges, does our authentication system handle this programmatically?
+
+Fortunately we can leverage a number of the [compliance](/handbook/security/security-assurance/security-compliance/) efforts within the company to gain insight into what levels of control we can impose onto each system.
+
+### What's next
+
+It sure seems like we have a lot of unique challenges! But we do have a huge leg up. For many organizations, the coming of ZTN means the end of the corporate VPN and the falling of huge chunks of the perimeter network. [GitLab doesn’t have a corporate VPN](/handbook/security/#why-we-dont-have-a-corporate-vpn) to dismantle, and as we’ve said before [we’re an all-remote company](/company/culture/all-remote/) so there is no perimeter.
+
+We’ve discussed a lot of challenges, in the next installment of this series we’ll start talking about a few specifics we are designing to help make things easier. If you’re researching, implementing, or considering ZTN, what are the challenges you’re tackling? Tell us in the comments.
+
+*Special shout-out to the entire security team for their input on this blog series.*
+
+Photo by [Pixabay](https://www.pexels.com/@pixabay) on [Pexels](https://www.pexels.com/photo/red-office-yellow-school-40799/)
+{: .note}

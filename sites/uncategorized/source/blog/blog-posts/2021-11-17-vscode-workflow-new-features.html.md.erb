@@ -1,0 +1,98 @@
+---
+title: "Four new tools for your Visual Studio Code and GitLab tool belt"
+author: Tomas Vik
+author_gitlab: viktomas
+author_twitter: viktomas_com
+categories: engineering
+image_title: '/images/blogimages/2021-11-05-vscode-workflow-new-features/cover.jpg'
+description: "Learn about new features that can help you review MRs and interact with GitLab"
+tags: integrations, tutorial, DevOps
+postType: content marketing
+featured: no
+twitter_text: "Tips to increase your @gitlab efficiency when working in @code"
+related_posts:
+  - "/blog/2018/03/01/gitlab-vscode-extension/"
+  - "/blog/2020/07/31/use-gitlab-with-vscode/"
+  - "/blog/2020/11/30/vscode-extension-development-with-gitlab/"
+  - "/blog/2021/01/25/mr-reviews-with-vs-code"
+  - "/blog/2021/05/29/vscode-workflows-for-working-with-gitlab/"
+---
+
+In our [previous post](/blog/2021/01/25/mr-reviews-with-vs-code/), we talked about merge request (MR) Reviews. We explained how the GitLab Workflow extension helps you review MRs without leaving VS Code. Since releasing and polishing the MR reviews, we've been working on improvements to the extension. In this post, we will show you how the latest features fit into your workflow.
+
+### Do you have a lot to say? Use a snippet patch!
+
+On GitLab's web UI there's the "suggestions" feature. It's handy for suggesting small changes in the MR review. The VS Code platform doesn't let us recreate the same experience, but the extension offers an alternative: Snippet patches.
+
+Snippet patches are code changes (git patches) of arbitrary size shared as GitLab snippets. Because they don't have a size limit, they are perfect for suggesting changes to multiple files during the MR review.
+
+The extension has two commands, `Create snippet patch` and `Apply snippet patch`. These commands use `git diff` and `git apply`, respectively, which means people can still apply the snippet patch even if they don't use the GitLab Workflow extension.
+
+If a suggestion in the comment is a hammer, then a snippet patch is a pneumatic tamping machine. Next time you'll review an MR, and you see a lot of space for improvement, remember the adage: "A patch is worth a thousand words".
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/QQxpLoKJULQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+### What's going on with my pipeline? - Improved CI status display
+
+The extension always showed the latest CI pipeline status in both the status bar and the sidebar. However, if you tried to gauge your pipeline status, you probably run into one or more surprises. The status was hard to understand. Sometimes it related to a different branch, or it was out of date.
+
+We've made the pipeline status much more reliable and readable. For starters, you can now see individual jobs and their status in the sidebar. Click on any job, and the extension opens a browser window with the GitLab job page.
+
+We also improved the consistency of showing the pipeline status. The status bar and sidebar are now in sync and always showing pipeline for the current branch.
+
+We are excited about the cleaner code. It makes it easier for anyone to contribute functionality. If you'd be interested in giving it a shot, we recommend starting with the [Download artifacts from the latest pipeline](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues/106) feature request. 
+
+
+![VS Code status bar](/images/blogimages/2021-11-05-vscode-workflow-new-features/ci-pipeline-panel.png){: .shadow.medium.center}
+VS Code CI Pipeline status overview from GitLab extension.
+{: .note .text-center}
+
+### Make the MR your own - Working with checked out code
+
+Two recent improvements play well together to make your review more interactive. They help you spend less time on actions that don't directly relate to reviewing code. These improvements let you check out the MR branch and open a local file during a review.
+
+#### Check out the MR branch
+
+You can checkout any MR locally, as long as it is not coming from a forked project. Right-click the MR in the side tree and select "Checkout MR Branch". After the command finishes, you'll have the MR branch checked out in your project. Now you can review and run the code.
+
+<figure class="video_container">
+  <video src="https://gitlab.com/gitlab-org/gitlab-vscode-extension/uploads/db804234ed4d338dea31a27778dba72e/checkout-mr-branch.mp4" controls="true" data-setup="{}" data-title="checkout-mr-branch" preload="metadata" width="560"></video>
+</figure>
+{: .shadow.medium.center}
+
+#### Open a local file during a review
+
+When you look at a changed file in an MR, you can click on a small "file" icon in the top-right corner. The extension will open the same file in your local repository.
+
+If your local branch is different from the MR branch, the local file might not be the same as the MR file.
+
+Opening the local file is useful when you want to explore the surroundings of the file quickly. The VS Code automatically focuses the file in the file tree, which lets you see all the neighbouring files.
+
+<figure class="video_container">
+  <video src="https://gitlab.com/gitlab-org/gitlab-vscode-extension/uploads/de2839b1ceb1be6c33cd80d7fe72bc6d/open-mr-file.mp4" controls="true" data-setup="{}" data-title="open-mr-file" preload="metadata" width="560"></video>
+</figure>
+{: .shadow.medium.center}
+
+### Commitment problems? Browse repositories without checking them out
+
+At GitLab, we've got some large repositories. The largest, which all GitLabbers use daily, is [www-gitlab-com](https://gitlab.com/gitlab-com/www-gitlab-com), the website you see when you visit `about.gitlab.com`. This 6 GB colossus takes several minutes to check out.
+
+Exploring this repository is a perfect use case for our latest feature: Remote Repositories, [contributed by Ethan Reesor](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/merge_requests/321), a community member.
+
+Run the `GitLab: Open Remote Repository` command, pick which project and branch you want to use, and _voilà_.  The extension opens the repository in your local workspace, but it doesn't store data on your local machine.
+
+Remote repositories are useful when you want to browse a repository for a reference but don't plan to change the code.
+
+This is the first iteration, and it's got some limitations - you can't use full-text search, fuzzy file navigation, and the files are read-only. It's useful nonetheless.
+
+<iframe width="560" height="315" src="https://www.youtube-nocookie.com/embed/p4GTVx_Nd2s" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+### Thank you community!
+
+Most of the features introduced in this post are either implemented or suggested by a community member. Ahmed Mohamadeen [suggested](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues/390) opening local file during MR review, Musisimaru [created initial implementation](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/merge_requests/203) of checking out MR branch, and Ethan Reesor [implemented](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/merge_requests/321) remote repositories.
+
+
+If you'd like to shape the future of the GitLab Workflow VS Code extension, you can create issues in [our issue tracker](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues), or look for [issues where we accept MRs](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/issues?label_name%5B%5D=Accepting+merge+requests). Our [CONTRIBUTING](https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/blob/main/CONTRIBUTING.md) guide is an excellent place to start.
+
+Cover image by [Ljubica Petkovic](https://ljubicapetkovic.com), licensed under [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/)
+{: .note}

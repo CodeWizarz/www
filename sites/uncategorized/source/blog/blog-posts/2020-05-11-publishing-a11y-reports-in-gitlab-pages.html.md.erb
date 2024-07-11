@@ -1,0 +1,95 @@
+---
+title: "Publishing Accessibility Reports in GitLab Pages"
+author: James Heimbuck 
+author_gitlab: jheimbuck_gl
+author_twitter: gitlab
+categories: unfiltered
+image_title: "/images/blogimages/publish_a11y_reports/a11y-report-html.jpg"
+description: "How to setup the Automated Accessibility Scanning feature in GitLab and publish the report to GitLab Pages."
+tags: CI/CD, features
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "Scan for Accessibility and publish the report to GitLab pages with every merge."
+postType: product # i.e.: content marketing, product, corporate
+merch_banner: merch_three
+---
+
+{::options parse_block_html="true" /}
+
+
+
+At GitLab, we believe [everyone can contribute](/company/strategy/#contribute-with-gitlab) and we build software that reinforces this concept and helps others live up to that value. We also believe that bringing test data to developers as quickly as possible following a commit is one of the best ways to shorten cycle times and deliver features to customers more efficiently. The Automated Accessibility testing in GitLab is one area of that testing.
+
+But how can we share the results of these accessibility scans with others in our organization outside of the context of the Merge Request? Taking inspiration from another [blog post](https://about.gitlab.com/blog/2016/11/03/publish-code-coverage-report-with-gitlab-pages/) and making use of [GitLab Pages](https://docs.gitlab.com/ee/user/project/pages/) I set out to do just that.
+
+## What is accessibility testing? 
+
+I talked about accessibility testing, why it's important, and our vision for this category in a [previous post](https://about.gitlab.com/blog/2020/03/04/introducing-accessibility-testing-in-gitlab/). It's worth your time to take a few minutes and read that first if you haven't already.
+
+If you read the blog, welcome back! Now, let's get to HOW you can use this new feature. After some initial testing, I wanted to record a video showing how to use this new feature. I ran into some problems though, some of my own making and some unexpected. I thought a blog would be great follow-up to that [video](https://www.youtube.com/watch?v=LsW5D5HhuyE) and help explain some of what I ran into. Let's get to it!
+
+## Setting up accessibility testing in GitLab
+
+Introduced as part of the [Minimum Viable Change](https://about.gitlab.com/handbook/values/#minimal-viable-change-mvc) to make testing accessibility easier, we created a template that can be included into your project's .gitlab-ci.yml file and adds the accessibility testing job to your pipeline. You can do this at any point throughout your pipeline but, ultimately, we want to decrease that cycle time between when a change is made and when an accessibility issue is found for the developer. To accomplish this, we will run the job AFTER our change is deployed to a review application.
+
+I created a walkthrough for the GitLab Unfiltered YouTube channel to walk through the process of setting this up. After some trial and error I got this working. The relevant portion of the resulting .gitlab-ci.yml entry is below.
+
+```yml
+
+stages:
+ - build
+ - test
+ - deploy review
+ - deploy staging
+ - accessibility
+ - deploy production
+ - production tests
+ - cache
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  policy: pull
+  paths:
+    - node_modules/
+
+include:
+  - template: "Verify/Accessibility.gitlab-ci.yml"
+
+variables:
+  STAGING_DOMAIN: nimblealizer-staging.surge.sh
+  PRODUCTION_DOMAIN: nimblealizer.surge.sh
+  a11y_urls: "http://nimblealizer-staging.surge.sh"
+
+```
+
+To summarize what changed to add the accessibility job:
+
+1. Add the stage for accessibility. It is important to note that this happens AFTER the deploy to staging, which is the site I want to scan.
+2. Include the template that runs the test.
+3. Add the ally_urls variable so the template knows what to scan. In this case I added the staging site URL to scan.
+
+## What happens now?
+
+After committing this change, a pipeline will kickoff that builds the website, runs some tests, deploys to staging, and then runs the accessibility scan.
+
+The result of this scan is shown on the Merge Request page just by including the template because it is using the `artifacs:expose_as` keyword. This is great news for the developer since the report is now easy to view. The Pa11y engine also produces a  an easy to read report that explains where issues are in the code and provide links to information about how how to resolve them.
+
+![Accessibility report as a build artifact](/images/blogimages/publish_a11y_reports/a11y-merge-request-build-artifact.png){: .shadow}
+The resulting build artifact on the Merge Request Pages
+{: .note.text-center}
+
+But what if we wanted to share this report across the organization, or even better link to it from other places like group dashboards? Then we have an issue. The job value will always be changing and we don't want to force other things to update to reflect our change. What if instead we could publish this report to the same place every time, so that the latest version was always at the same URL?
+
+## GitLab pages to the rescue!
+
+In my 6 months as the Product Manager for the Testing categories, I had probably already sent the link to this [excellent blog](https://about.gitlab.com/blog/2016/11/03/publish-code-coverage-report-with-gitlab-pages/) from Grzegorz a dozen or more times to customers, prospects or coworkers explaining how to publish a coverage report through Pages. I had a strong suspicion that we could do the same thing with the HTML report that came out of the accessibility scan. I followed along with the blog post and after some trial and error, I was able to get the deploy job running and the accessibility report published! All I had to do was navigate to where pages publishes by default and . . . well dang it.
+
+![404 page](/images/blogimages/publish_a11y_reports/a11y-404.png){: .shadow}
+That didn't go according to plan
+{: .note.text-center}
+
+After I ended the video I realized my mistake and made some changes to the .gitlab-ci.yml in order to publish the report in a cleaner fashion. Now after moving the generated file to the public directory it is renamed index.html. You can see this in the example project's [.gitlab-ci.yml file](https://gitlab.com/jheimbuck_gl/my-static-website/-/blob/master/.gitlab-ci.yml). You can see the latest report [here](https://jheimbuck_gl.gitlab.io/my-static-website/).
+
+## Summary
+
+So I spent an hour and a half of wall clock time I got it all working which wasn't great but overall not bad since I hadn't tried it before. As I said in the video I thought a blog would help explain some of the issues I ran into and help you get this setup done quicker. I hope this post has inspired you to add an accessibility job to your existing Gitlab pipeline and maybe even post that report to a Pages site so it is available for more of your team to use.

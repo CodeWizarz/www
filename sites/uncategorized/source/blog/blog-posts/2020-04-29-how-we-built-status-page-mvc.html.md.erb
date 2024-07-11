@@ -1,0 +1,97 @@
+---
+title: "How we built Status Page"
+author: "Olena Horal-Koretska"
+author_gitlab: ohoral
+author_twitter: sharlatta
+categories: engineering
+image_title: "/images/blogimages/status-page/red-green-chilli.jpg"
+description: "Get the scoop on the process behind engineering and troubleshooting the implementation of the Status Page"
+tags: DevOps
+cta_button_text: "Give it a try!"
+cta_button_link: "https://docs.gitlab.com/ee/operations/incident_management/status_page.html"
+twitter_text: "How @gitlab built the Status Page: May all your systems be operational"
+postType: content marketing
+merch_banner: merch_six
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2020-05-08.
+{: .alert .alert-info .note}
+
+The [Status Page](https://docs.gitlab.com/ee/operations/incident_management/status_page.html) is a new tool for communicating incident status and maintenance times, and is available to [GitLab Ultimate users](/pricing/ultimate/) (though the frontend is available to anyone). We are building the Status Page at GitLab to provide the best incident management experience both for our internal team and our customers.
+
+###  Current Status update approach
+
+Incident handling in GitLab happens inside the issue in a dedicated public project. The team discusses and posts updates in the issue. Public updates are manually published by engineer-on-call to [status.gitlab.com](https://status.gitlab.com/) every 15 minutes. But this setup is not ideal - responders lose precious time during fire-fight by switching tools and duplicating information. Also having public project for incident management means:
+
+1. Massive load on your instance in the "hard times"
+2. Higher monetary cost
+3. No access to status updates if your GitLab instance is down
+4. Sensitive information that comes up in a discussion is public and may cause vulnerability exploit while it is being fixed
+
+### Requirements
+
+Our first customer was the GitLab team. We [dogfood everything](/handbook/engineering/development/principles/#dogfooding), and the Status Page was no exception. So requirements were built based on the needs of our internal team:
+
+1. **No tool switching for incidents updates:** People that handle incidents have enough with responsibilities with fixing incidents so we should spare them the countless pings about the incident. These pings might be about what happened, the status of the incident, and how the incident is progressing. Granted, there are some users who want to receive immediate updates on the incident. Incident status should be updated in one place both for peer-problem-solvers and the public.
+
+1. **Ability to control level of visibility: Determine which updates are published and which are not**: When you have a problem in your product you do not necessarily want to shout it out: "Hey, you malicious hacker, we've got a problem - go exploit it." Instead, you want your team address the vulnerability calmly and in a timely manner. Balancing the need for sending assuasive messages to the public without distracting fire-fight team can be achieved when you have control over the degree of visibility for the incident.
+
+1. **Display all types of data from GitLab incident description and comments on Status Page.** As incidents are handled in GitLab issues, there are a few options for how the data is represented to communicate the problem and/or solution, including images, embedded charts, etc. This rich data must be available in public updates.
+
+## Building the Status Page
+
+We updated the design of the Status Page to address all of the concerns described in the previous section. Before we started building the Status Page, we lead a [Spike exercise](/handbook/engineering/development/ops/monitor/#spike) because we weren't entirely sure which approach to take for implementation.
+
+Our initial plan was to leverage one of the many open-source solutions for implementing the Status Page, but none of them could really satisfy all of our requirements. So instead we decided to go ahead and build our own implementation.
+
+#### Backend and data scraping
+
+ When we started, we first brainstormed all the different solutions we could use to collect data from incidents issues to be automatically published to the Status Page:
+
+**Option 1: (GitLab) Webhooks: User sets up the endpoint to which GitLab will post incident updates**
+![Webhook](/images/blogimages/status-page/webhook.png){: .center}
+
+**Option 2: Alerts coming directly from Prometheus Alertmanager**
+![ALerts](/images/blogimages/status-page/alerts.png){: .center}
+
+**Option 3: Status page itself monitoring other services**
+![Monitoring](/images/blogimages/status-page/monitoring.png){: .center}
+
+**Option 4: Users manually pushing a markdown file to git or calling the API with some utility, e.g., `curl`**
+![Git Commit](/images/blogimages/status-page/gitcommit.png){: .center}
+
+**Option 5: CI job running manually or scheduled to run during certain intervals**
+![CI Job](/images/blogimages/status-page/cijob.png){: .center}
+
+Those approaches required either manual user input, additional CI resources, or building a sophisticated piece of software that was unnecessary for this case.
+
+We didn't implement any of the five flows. But decided that the incident issue will be converted to JSON and published to the Status Page by a background job. This means no over-engineering and instant feedback on the Status Page.
+
+#### Frontend
+
+Here at GitLab we love VueJS so much we contribute to it, so the team has great expertise in VueJS. Consequently, our component library [GitLab UI](https://gitlab-org.gitlab.io/gitlab-ui/) and styling utilities are based on VueJS.
+
+You could guess that we didn't have to debate which frontend framework to use! Besides the UI library as a dependency, GitLab provides `eslint`, `stylelint`, and SVGs as npm packages. It was very convenient to have them handy, as any new project setup always raises lots of questions about best practices and best tools. With all of this, the Status Page was able to be GitLab-branded. Feel free to use GitLab utilities in your own project too.
+
+Notably, the Status Page is a stand-alone application, hosted in a separate GitLab repository that uses JSON files generated by a background job. It is distributed under MIT license and can be used separately from GitLab given that correct data source is provisioned. You'll get the best experience by using our Status Page with GitLab.
+
+Frontend along with generated JSON data sources is published to [cloud storage](https://www.youtube.com/watch?v=27GgP6BXR6A). We currently only support Amazon S3 because we are hosted on Google Cloud and want our Status Page to be available even if Google Cloud (and, by extension, GitLab.com) is down. Credentials are provided by the user when setting up incident tracking project for Status Page.
+
+#### The Status page solution
+
+Once an incident issue is created/updated in GitLab (manually or via [alert](https://docs.gitlab.com/ee/operations/incident_management/index.html#incident-management)), its description (with all types of data) along with comments that were marked as public will be picked by background job, converted to JSON, and mirrored on the Status Page.
+
+![Status Page flow](/images/blogimages/status-page/status-page-flow.png){: .center}
+
+### Hat tip to our Monitor:Health team
+
+There are many more technical details that can be explained and that still to be implemented. It is the collaborative efforts of the [Monitor:Health team](/handbook/engineering/development/ops/monitor/respond/) that help make this possible. I'm thankful for all heated discussions, great insights, quick iterations, fast fails – the collaboration from the Monitor: Health team are advantages that have played out in the implementation of the Status Page feature.
+
+### Give the Status Page a try
+
+Here's a great [step by step guide](https://docs.gitlab.com/ee/operations/incident_management/status_page.html) on how to set-up a Status Page for your project with GitLab.
+
+Enjoy and may all your systems be operational!
+
+Cover image by [Melina Yakas](https://unsplash.com/@myakas16) on [Unsplash](https://unsplash.com/photos/OBWEXPOurWo)
+{: .note}

@@ -1,0 +1,51 @@
+---
+title: Announcing 14.6 Composition Analysis deprecations and behavior changes 
+author: Nicole Schwartz
+author_gitlab: nicoleschwartz
+author_twitter: gitlab
+categories: news
+twitter_image: '/images/blogimages/tanuki-bg-full.png'
+twitter_text: "Learn about upcoming deprecations and behavior changes for @gitlab Dependency Scanning and License Compliance features."
+description: Upcoming deprecations and behavior changes for the Dependency Scanning and License Compliance features.
+tags: features, releases
+---
+
+The Composition Analysis group would like to announce two deprecations and one change in a variable's behavior with the 14.6 and December 22, 2021, release.
+
+- Variable DS_EXCLUDED_PATHS behavior changed so that it now pre-filters.
+- Dependency Scanning is deprecating bundler-audit.
+- License Compliance is deprecating “approved” and “blacklisted” from the `managed_licenses` API.
+
+## Variable DS_EXCLUDED_PATHS behavior now pre-filters
+
+For users of the Dependency Scanning variable DS_EXCLUDED_PATHS, it will now pre-filter. Dependency Scanning now considers DS_EXCLUDED_PATHS when searching for supported projects and will pre-filter out those that match. Pre-filtering prevents the analyzer from logging warnings or failing when processing dependency files that have been explicitly excluded using DS_EXCLUDED_PATHS. This enables users to skip dependency files and build files if desired, and can lead to a performance increase in some cases. 
+
+This change was made December 2, 2021, for Gemnasium; December 6, 2021, for gemnasium-python; and December 7, 2021, for gemnasium-maven. This change applies to all versions as the change is backported. 
+
+You should not need to take any action. However, if you were expecting this post-filtering behavior, and wrote custom tooling to handle that, you will need to adjust your custom tools. For example, before this change, you may have needed to manually, or using a script, delete specific files to avoid a warning or error occurring.
+
+The previous behavior was causing failures and unexpected errors for users and, after discussions, we found that this, pre-filter as opposed to post filter, was the more expected and desired behavior.
+
+[Issue](https://gitlab.com/gitlab-org/gitlab/-/issues/292457)
+
+[Configuration Documentation](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#configuring-dependency-scanning) 
+
+## Deprecation of bundler-audit Dependency Scanning tool
+
+As of 14.6, bundler-audit is being deprecated from Dependency Scanning. It will continue to be in our CI/CD template while deprecated. We are removing bundler-audit from Dependency Scanning on May 22, 2022, in 15.0. After this removal Ruby scanning functionality will not be affected as it is still being covered by Gemnasium.
+
+If you have explicitly excluded bundler-audit using DS_EXCLUDED_ANALYZERS, you will need to clean up (remove the reference) in 15.0. If you have customized your pipeline's Dependency Scanning configuration – for example, to edit the `bundler-audit-dependency_scanning` job – you will want to switch to gemnasium-dependency_scanning before removal in 15.0, to prevent your pipeline from failing. If you have not used the DS_EXCLUDED_ANALYZERS to reference bundler-audit, or customized your template specifically for bundler-audit, you will not need to take action.
+
+[Issue](https://gitlab.com/gitlab-org/gitlab/-/issues/289832) 
+
+See all upcoming deprecations on our [Deprecation Page](https://docs.gitlab.com/ee/update/deprecations) 
+
+## Deprecate legacy approval status names from the License Compliance API
+
+We deprecated legacy names for approval status of license policy (blacklisted, approved) in the `managed_licenses` API but they are still used in our API queries and responses. They will be removed in 15.0. 
+
+If you are using our License Compliance API, you should stop using the “approved” and “blacklisted” query parameters. They are now “allowed” and “denied". In 15.0, the responses will also stop using “approved” and “blacklisted”. You will want to adjust any of your custom tools to be able to use the old and new values so they do not break with the 15.0 release. 
+
+[Issue](https://gitlab.com/gitlab-org/gitlab/-/issues/335707) 
+
+See all upcoming deprecations on our [Deprecation Page](https://docs.gitlab.com/ee/update/deprecations) 

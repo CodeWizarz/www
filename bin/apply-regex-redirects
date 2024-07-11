@@ -1,0 +1,108 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../lib/redirect'
+
+def literal_err_template(target, errno)
+  <<~EOS
+  if ( obj.status == #{errno} ) {
+    set obj.status = 301;
+    set obj.response = "Moved Permanently";
+    set obj.http.Location = "https://" req.http.host "#{target}";
+    synthetic {""};
+    return (deliver);
+  }
+  EOS
+end
+
+def literal_err_template_ext(target, errno)
+  <<~EOS
+  if ( obj.status == #{errno} ) {
+    set obj.status = 301;
+    set obj.response = "Moved Permanently";
+    set obj.http.Location = "#{target}";
+    synthetic {""};
+    return (deliver);
+  }
+  EOS
+end
+
+def literal_recv_template(source, errno)
+  <<~EOS
+  if ( req.url ~ "^#{source}" ) {
+    error #{errno} "Permanent Redirect";
+  }
+  EOS
+end
+
+def regex_err_template(target, errno)
+  <<~EOS
+  if ( obj.status == #{errno} ) {
+    set obj.status = 301;
+    set obj.response = "Moved Permanently";
+    set obj.http.Location = "https://" req.http.host "#{target}" req.http.capture_group_1;
+    synthetic {""};
+    return (deliver);
+  }
+  EOS
+end
+
+def regex_err_template_ext(target, errno)
+  <<~EOS
+  if ( obj.status == #{errno} ) {
+    set obj.status = 301;
+    set obj.response = "Moved Permanently";
+    set obj.http.Location = "#{target}" req.http.capture_group_1;
+    synthetic {""};
+    return (deliver);
+  }
+  EOS
+end
+
+def regex_recv_template(source, errno)
+  <<~EOS
+  if ( req.url ~ "^#{source}(.*)" ) {
+    set req.http.capture_group_1 = re.group.1;
+    error #{errno} "Permanent Redirect";
+  }
+  EOS
+end
+
+HTTPS_REGEXP = /^https?:\/\//.freeze
+
+literal_err_data = "content="
+literal_recv_data = "content="
+regex_err_data = "content="
+regex_recv_data = "content="
+errno = 704
+
+Gitlab::Homepage::Redirect.from_definitions_file do |redirect|
+  if redirect.comp_op == '^~'
+    redirect.sources.each do |source|
+      if redirect.target =~ HTTPS_REGEXP
+        literal_err_data += literal_err_template_ext(redirect.target, errno)
+      else
+        literal_err_data += literal_err_template(redirect.target, errno)
+      end
+
+      literal_recv_data += literal_recv_template(source, errno)
+      errno += 1
+    end
+  elsif redirect.comp_op == '~'
+    redirect.sources.each do |source|
+      if redirect.target =~ HTTPS_REGEXP
+        regex_err_data += regex_err_template_ext(redirect.target, errno)
+      else
+        regex_err_data += regex_err_template(redirect.target, errno)
+      end
+
+      regex_recv_data += regex_recv_template(source, errno)
+      errno += 1
+    end
+  end
+end
+
+Gitlab::Homepage::Redirect.fastly_snippet_patch(ENV['FASTLY_LITERAL_ERR_SNIPPET_ID'], literal_err_data)
+Gitlab::Homepage::Redirect.fastly_snippet_patch(ENV['FASTLY_LITERAL_RECV_SNIPPET_ID'], literal_recv_data)
+Gitlab::Homepage::Redirect.fastly_snippet_patch(ENV['FASTLY_REGEX_ERR_SNIPPET_ID'], regex_err_data)
+Gitlab::Homepage::Redirect.fastly_snippet_patch(ENV['FASTLY_REGEX_RECV_SNIPPET_ID'], regex_recv_data)

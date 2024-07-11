@@ -1,0 +1,138 @@
+---
+title: "A journey from the first code to CI/CD deployments in 5 minutes?"
+author: Michael Friedrich
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: unfiltered
+image_title: '/images/blogimages/snow-speed-unsplash.jpg'
+description: "From writing, building, and testing code to reviewing, releasing, and deploying in 5 minutes. Is this possible? Learn which hurdles you might encounter and how to solve them. Spoiler: Without Kubernetes."
+tags: CI, CD, community
+#cta_button_text: 
+#cta_button_link:
+guest: false
+ee_cta: false
+install_cta: false
+twitter_text: "A journey from first code to CI/CD deployments in 5 minutes? #CICD #SeeingIsBelieving"
+postType: corporate, dev-evangelism
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+
+
+Software architecture and [DevOps](/topics/devops/) strategies are hard. Trust me, I know from experience. In my previous role, I was involved in "all the things" relating to our DevOps lifecycle, and we faced issues with everything from [continuous deployment (CD)](/topics/ci-cd/) to database management to implementing microservices.
+
+Do any of these scenarios sound familiar?
+
+- We want to adopt microservices but our application is not ready.
+- We know Kubernetes and containers are awesome but we cannot figure out how to get started.
+- We want to do CD but we are still doing manual deployments.
+
+If you are facing one of these situations, you are not alone. I have lived through them in past roles and now spend my days talking to and helping folks across the industry who are facing these problems (and worse). These common problems lead to a larger conversation at GitLab: Why does it take 20 minutes or more to create a production app in 2020?
+
+This question is why we challenged ourselves (okay, it's why Sid challenged us) to create a 5 minute production app. The goal is to get from having a free AWS account to a Rails/Node production app with a persistent [serverless](/topics/serverless/) database, Auto DevOps, Single Sign-On (SSO), Redis, object storage, and email in 5 minutes using only the GitLab UI.
+
+Our vision for the 5 minute production app is to provide everyone with a pathway to efficient deployments by minimizing infrastructure dependencies. This builds on learned lessons from [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/) and [Infrastructure as Code with Terraform](https://docs.gitlab.com/ee/user/infrastructure/) (for example, by removing the requirement for Kubernetes).
+
+### Common problems
+
+#### Kubernetes and microservices
+
+Kubernetes and containers can be overwhelming. The value they add comes with increased levels of complexity. Similarly, microservices can improve efficiency and high availability but they may not fit for all application architectures. Large rewrites might be necessary to take advantage of the benefits they provide.
+
+Heroku and Cloud Native Build Packs are a great way to automate Docker image creation with all dependencies but not all use cases are covered. When these deployments break, debugging can be hard without in-depth knowledge of the components. Defining and maintaining the dependencies in the build process by yourself can help, for example in your own Docker container group using the [GitLab Container Registry](https://docs.gitlab.com/ee/user/packages/container_registry/).
+
+#### Backend requirements
+
+A web application can have a stateful backend where it stores persistent data. This can be a file on disk, a database server or an object storage in the cloud. The stored data can be user settings, inputs into web forms and generated content for example.
+
+Depending on the programming language, the interaction with the backend can get complex. A database client library is required to communicate with a PostgreSQL server. The database schema needs to be initialised, and future changes require incremential schema updates. The schema update migrations can be automated by the application. This requires client libraries providing this functionality. Ruby on Rails uses rake db tasks while it can get more complicated with PHP.
+
+The database server needs to be running in order for the web application to work. This can happen on the same host, a central database cluster, or a cloud service such as Amazon Aurora. Someone must be responsible for keeping the server running, monitoring it, and managing software updates.
+
+All backend solutions require maintenance. As a developer, you want to have these steps automated and abstracted. Your code communicates with the backend interfaces as a blackbox, expecting them to be healthy and operational when the application starts.
+
+### Path to resolution
+
+#### Deploy and run the application
+
+The production environment for a basic web application requires the following steps:
+
+- Start/Detect the database server or service
+- Initialize/Migrate the database schema
+- Start the web application
+- Schedule periodic health checks and add performance monitoring
+
+In addition to the boot steps, these web applications can depend on additional libraries and packages. Common best practice is to define them in the programming language's package dependency manager, for example `requirements.txt` with Python, or `Gemfile` with Ruby. The software deployment process evolved over the years with packaging the application into container images, containing the application and all dependencies. The CI/CD jobs do not need to add any extra steps for software installation. As a developer, you don’t care about the OS or distribution where the application is deployed.
+
+#### Choose your stack
+
+The decision to choose the "right" tools for the job can be hard. It helps to define the required steps and map them onto existing functionality provided by GitLab:
+
+- Provision a new virtual machine
+- Define the state with Infrastructure as Code
+- Build and deploy the application
+- Run the application
+
+We have decided start with AWS as a deployment scenario:
+
+- Ask for AWS credentials for EC2
+- Run Terraform and provision the VM
+- Create AWS Aurora RDS as PostgreSQL backend
+- Install application package dependencies into a container image
+- Pull the image on the host
+- Run and monitor the application
+
+This process involves lots of steps, requiring different tools and frameworks. After all those years, isn’t there a ready-to-use workflow to abstract this and have everything automatically deployed?
+
+### How we settled on the stack for the 5 min production app
+
+1. AWS: Biggest cloud
+2. Terraform: Most popular infrastructure provisioning
+3. Auto DevOps: Same direction
+
+We have refined the decisions during the implementation of the deployment process. The first iteration attempted to work without container images. This resulted in having many different ways to distribute and install software. We decided to take one step back and use container images to build the web application as package. The GitLab container registry works as package repository. The container image is pulled and run on the deployed host.
+
+AWS provides Aurora RDS as serverless PostgreSQL database service. We decided to use an existing service in the first iteration, and evaluate database instance management in the future. Terraform as deployment provisioner allows us to build on the foundation from our [Infrastructure as Code integration](https://docs.gitlab.com/ee/user/infrastructure/). The first apps are written in Ruby on Rails and [Python](https://gitlab.com/gitlab-de/5-min-prod-app-python-web), we are planning with more to come soon.
+
+![GitLab CI/CD pipeline deployment](/images/blogimages/5-min-prod-app/gitlab_cicd_pipeline_deployed.png){: .shadow.medium.center}
+
+![AWS EC2 view](/images/blogimages/5-min-prod-app/aws_ec2_view.png){: .shadow.medium.center}
+
+Our vision for the 5 minute production app flow:
+
+1. Go to GitLab.com.
+2. Sign in with your AWS account.
+3. New Project.
+4. Rails/Node/etc. template.
+5. Write some code and create a merge request.
+6. Get a review app and test results in the MR.
+7. Merge the MR.
+8. Automatically deployed to production.
+9. Share URL of production app with a friend.
+10. Production app has a persistent state and can reset passwords via email (DB, s3, redis, mail) and provides the full Auto DevOps features (Monitoring, etc.).
+11. No manual steps for setting up DB, s3, redis, mail. Terraform takes care of automated setup.
+12. All within AWS in the free tier.
+13. No command line or terminal required, everything accessible in the GitLab UI.
+
+### What comes next
+
+The next iterations include more scenarios and questions:
+
+- Domain and SSL support
+- Review environments and rollbacks
+- Python web application with database migrations
+- NodeJS app with a PostgreSQL backend
+- Support for more cloud providers and local deployments
+- Decoupled database server management
+
+The deployment template will soon be [merged into GitLab Core](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/49487). This is great news for everyone joining us for feedback and tests. Let us know what you think, and follow our progress with these resources:
+
+- [Direction](https://about.gitlab.com/direction/5-min-production/)
+- [Issue Board](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/boards)
+- [Recordings on YouTube](https://www.youtube.com/playlist?list=PL05JrBw4t0Krf0LZbfg80yo08DW1c3C36)
+- [Deploy Template project](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template)
+
+Cover image by [Nicolas J Leclercq](https://unsplash.com/@nicolasjleclercq?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/speed-snow)

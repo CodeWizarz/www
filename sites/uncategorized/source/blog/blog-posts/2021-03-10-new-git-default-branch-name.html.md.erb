@@ -1,0 +1,47 @@
+---
+title: "The new Git default branch name"
+author: Daniel Gruesso
+author_gitlab: danielgruesso
+author_twitter: danielgruesso
+categories: news
+image_title: '/images/blogimages/git_gitlab.jpg'
+description: Why we're joining the Git community and updating "master" to "main".
+tags: Git
+twitter_text: "Git's default branch name is changing. What you need to know."
+featured: no
+postType: product
+merch_banner: merch_eight
+---
+
+**Note:** We have added release 13.12 to our release schedule. 13.12 is due to ship on 2021-05-22. This will cause the next major release 14.0 to ship in June instead of May as originally stated. The below content has been updated to reflect the new release date for 14.0 of 2021-06-22.
+{: .note}
+
+Every Git repository has an initial or original branch, which is the first branch to be created when a new repository is generated. Historically, the default name for this initial branch was `master`. This term came from Bitkeeper, a predecessor to Git. Bitkeeper referred to the source of truth as the "master repository" and other copies as "slave repositories". This shows how common master/slave references have been in technology, and the difficulty in knowing how the term master should be interpreted.
+
+## A more descriptive and inclusive name
+
+The Git project maintainers, in coordination with the broader community, have been listening to the development community’s feedback on determining a more descriptive and inclusive name for the default or primary branch and offering users options to change the name of the default branch name (usually `master`) of their repository. There have already been significant steps toward this goal:
+
+* Git 2.28.0, released in July 2020, introduced the `init.defaultBranch` configuration option, which allows Git users to define and configure a default branch name other than `master`. [In June 2020, the Software Freedom Conservancy released a statement](https://sfconservancy.org/news/2020/jun/23/gitbranchname/) summarizing why the default term `master` is offensive to many users because of its history.
+
+* Git maintainers are actively working toward a permanent change for the default name from `master` to `main`. You can read more about this change on [this post from the Git mailing list](https://lore.kernel.org/git/pull.656.v4.git.1593009996.gitgitgadget@gmail.com/). A large part of this effort involves [updating all existing tests](https://lore.kernel.org/git/xmqqa6vf437i.fsf@gitster.c.googlers.com/T/#t) in the Git project.
+
+## Changing GitLab's default branch name
+
+GitLab has already introduced changes that allow users to change the default branch name both at the [instance level](https://docs.gitlab.com/ee/user/project/repository/branches/default.html) (for self-managed users) and at the [group level](https://docs.gitlab.com/ee/user/project/repository/branches/default.html) (for both SaaS and self-managed users). To further align with the community, we will make the following changes in the upcoming releases:
+
+1. **Default branch name changes for GitLab.com and self-managed users**: When creating a new project in GitLab, the default branch name will change from `master` to `main`. We are planning to implement this change in two phases:
+
+    * Phase 1 (GitLab.com): We plan to update GitLab's underlying Git version to 2.31.0 as part of GitLab’s 13.11 release, shipping on April 22, 2021. We will additionally change the default branch name on GitLab.com from `master` to `main` on May 24th, 2021.
+
+    * Phase 2 (Self-managed): We will change the default branch name from `master` to `main` for self-managed GitLab as part for our next major release 14.0, shipping on June 22, 2021. Any project created in GitLab post 14.0 will use the new default. This does not affect existing projects.
+
+    - **Action required**: When upgrading a self-managed instance to GitLab 14.0, new projects created via the [GitLab GUI](/features/) will use `main` as the default branch name. If your project is running CI/CD jobs configured in another project, hard-coded references to the `master` branch will need to be updated to use either `main` or to use a default branch name [CI/CD variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html), such as `CI_DEFAULT_BRANCH`. You can continue to use `master` by configuring a [custom default branch name](https://docs.gitlab.com/ee/user/group/#custom-initial-branch-name).
+
+1. **Default branch name change for the GitLab project (and its related projects)**: The [GitLab project](https://gitlab.com/gitlab-org/gitlab) and its related projects will change their default branch name from `master` to `main`. Some projects have already been updated (for example [GitLab Shell](https://gitlab.com/gitlab-org/gitlab-shell)) and we plan to update the rest between now and the release of 14.0 on June 22, 2021.
+
+    - **Action required**: If during the switchover you created a contribution for the GitLab project and are still using the `master` branch locally, you will need to rebase your changes prior to pushing to consume the new default branch name of `main`.
+
+Please note this **will only affect new projects** created in GitLab. Existing projects will not be affected. You can learn more about the change in the [default branch rename epic](https://gitlab.com/groups/gitlab-org/-/epics/3600).
+
+We welcome the use of `main` as a more inclusive default branch name and are happy to see that our peers at [GitHub](https://github.blog/changelog/2020-10-01-the-default-branch-for-newly-created-repositories-is-now-main/) and [Atlassian](https://bitbucket.org/blog/moving-away-from-master-as-the-default-name-for-branches-in-git) also support this change.

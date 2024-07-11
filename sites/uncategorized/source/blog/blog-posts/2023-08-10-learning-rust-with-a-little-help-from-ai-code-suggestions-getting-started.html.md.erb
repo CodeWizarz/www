@@ -1,0 +1,532 @@
+---
+title: 'Learning Rust with a little help from AI'
+author: Michael Friedrich
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: ai-ml
+image_title: '/images/blogimages/aipower.jpeg'
+description: "Use this guided tutorial, along with GitLab Duo Code Suggestions, to learn a new programming language."
+tags: DevSecOps platform, tutorial, workflow, AI/ML
+twitter_text: "Use this guided tutorial, along with AI-powered GitLab Duo Code Suggestions, to learn a new programming language such as Rust."
+featured: yes
+postType: dev-evangelism
+related_posts:
+    - "/blog/2023/08/03/gitlab-duo-code-suggestions-python/"
+    - "/blog/2023/07/20/supercharge-productivity-with-gitlab-duo/"
+    - "/blog/2023/05/25/code-suggestions-improves-developer-productivity/"
+    - "/blog/2023/05/16/code-suggestions-for-all-during-beta/"
+---
+Learning a new programming language can help broaden your software development expertise, open career opportunities, or create fun challenges. However, it can be difficult to decide on one specific approach to learning a new language. Artificial intelligence (AI) can help. In this tutorial, you'll learn how to leverage AI-powered GitLab Duo Code Suggestions for a guided experience in learning the Rust programming language.
+
+- [Preparations](#preparations)
+  - [VS Code](#vs-code)
+  - [Code Suggestions](#code-suggestions)
+- [Learning a new programming language: Rust](#learning-a-new-programming-language-rust)
+    - [Development environment for Rust](#development-environment-for-rust)
+    - [Hello, World](#hello-world)
+- [Cargo: Bringing structure into Rust](#cargo-bringing-structure-into-rust)
+- [Automation: Configure CI/CD pipeline for Rust](#automation-configure-cicd-pipeline-for-rust)
+- [Continue learning Rust](#continue-learning-rust)
+    - [Define variables and print them](#define-variables-and-print-them)
+    - [Explore variable types](#explore-variable-types)
+    - [Flow control: Conditions and loops](#flow-control-conditions-and-loops)
+    - [Functions](#functions)
+    - [Testing](#testing)
+- [What is next](#what-is-next)
+    - [Async learning exercises](#async-learning-exercises)
+    - [Share your feedback](#share-your-feedback)
+
+
+## Preparations 
+Choose your [preferred and supported IDE](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#enable-code-suggestions-in-other-ides-and-editors), and follow the documentation to enable code suggestions for [GitLab.com SaaS](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#enable-code-suggestions-on-gitlab-saas) or [GitLab self-managed instances](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#enable-code-suggestions-on-self-managed-gitlab).
+
+Programming languages can require an install of the language interpreter command-line tools or compilers that generate binaries from source code to build and run the application.
+
+Tip: You can also use [GitLab Remote Development workspaces](/blog/2023/06/26/quick-start-guide-for-gitlab-workspaces/) to create your own cloud development environments, instead of local development environments. This blog post focuses on using VS Code and the GitLab Web IDE. 
+
+### VS Code
+On macOS, you can [install VS Code](https://code.visualstudio.com/download) as a Homebrew cask or manually download and install it. 
+
+```shell
+brew install --cask visual-studio-code 
+```
+
+Navigate to the `Extensions` menu and search for `gitlab workflow`. Install the [GitLab workflow extension for VS Code](https://marketplace.visualstudio.com/items?itemName=GitLab.gitlab-workflow). 
+
+Tip: VS Code will also detect the programming languages, and offer to install additional plugins for syntax highlighting and development experience. 
+
+### Code Suggestions
+It can help to familiarize yourself with suggestions before actually verifying the suggestions. GitLab Code Suggestions are provided as you type, so you do not need use specific keyboard shortcuts. To accept a code suggestion, press the `tab` key. Also note that writing new code works more reliably than refactoring existing code. AI is non-deterministic, which means that the same suggestion may not be repeated after deleting the code suggestion. While Code Suggestions is in Beta, we are working on improving the accuracy of generated content overall. Please review the [known limitations](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#known-limitations), as this could affect your learning experience. 
+
+## Learning a new programming language: Rust 
+Now, let's dig into learning Rust, which is one of the [supported languages in Code Suggestions](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html#supported-languages). 
+
+[Rust by Example](https://doc.rust-lang.org/rust-by-example/) provides a great tutorial for beginners, together with the official [Rust book](https://doc.rust-lang.org/book/). The [Hands-on Rust book](https://hands-on-rust.com/) shows how to build a 2D game as a more practical approach. More examples are shared in [this Rust book list](https://github.com/sger/RustBooks). 
+
+Before diving into the source code, make sure to set up your development environment.
+
+### Development environment for Rust
+1) Create a new project `learn-rust-ai` in GitLab, and clone the project into your development environment. All code snippets are available in [this "Learn Rust with AI" project](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-rust-ai).
+
+```shell
+git clone https://gitlab.com/NAMESPACE/learn-rust-ai.git
+
+cd learn-rust-ai
+
+git status
+```
+
+2) Install Rust and the build toolchain. Fortunately, this is straightforward [following the Rust install documentation](https://www.rust-lang.org/tools/install).
+
+Tip for using the generic installer: Download the script and run it after review. 
+
+```
+# Download and print the script before running it
+curl -Lvs https://sh.rustup.rs -o rustup-init.sh
+
+# Run the Rust installer script
+sh rustup-init.sh 
+```
+
+Example on macOS using Homebrew:
+
+```
+brew install rust
+```
+
+1) Optional: Install the [rust-analyzer VS Code extension](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+
+2) Each exercise will invite you to compile the code with the [`rustc` command](https://doc.rust-lang.org/rustc/what-is-rustc.html), and later using [`cargo` as build tool and package manager](https://doc.rust-lang.org/cargo/index.html).
+
+You are all set to learn Rust! 
+
+### Hello, World
+We will start with [Rust by Example](https://doc.rust-lang.org/rust-by-example/), and follow the [Hello, World exercise](https://doc.rust-lang.org/rust-by-example/hello.html).
+
+Create a new file `hello.rs` in the root directory of the project and start with a comment saying `// Hello world`. Next, start writing the `main` function, and verify the code suggestion.
+
+![VS Code hello.rs Rust code suggestion, asking to accept](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_hello_world_suggested.png){: .shadow}
+
+Accept the suggestion by pressing the `tab` key and save the file (keyboard shortcut: cmd s). 
+
+```
+// Hello world
+
+fn main() {
+    println!("Hello, world!");
+}
+```
+
+![VS Code hello.rs Rust code suggestion, accepted](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_hello_world_accepted.png){: .shadow}
+
+Commit the change to the Git repository. In VS Code, use the keyboard shortcut `ctrl shift G`, add a commit message, and hit `cmd enter` to submit. 
+
+Use the command palette (`cmd shift p`) and search for `create terminal` to open a new terminal. 
+
+Build and run the code.
+
+```shell
+rustc hello.rs
+
+./hello
+```
+
+![hello.rs Rust code suggestion, accepted, compiled, run](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_hello_world_cli_build.png){: .shadow}
+
+Tip: Adding [code comments in Rust (`//`)](https://doc.rust-lang.org/reference/comments.html) before you start writing a function or algorithm will help Code Suggestions with more context to provide better suggestions. In the example above, we did that with `// Hello world`, and will continue doing so in the next exercises. 
+
+## Cargo: Bringing structure into Rust
+[Cargo](https://doc.rust-lang.org/rust-by-example/cargo.html) is the official Rust package management tool. It is more than that - you can run build and test commands because Cargo understands them as well. 
+
+You can initialize a new Cargo configuration in the current directory tree with the following command:
+
+```shell
+cargo init
+```
+
+The directory tree invites you to add the source code into the `src/` directory, while `Cargo.toml` manages the dependencies and used compiler versions. The `.gitignore` file is also added including best practices. 
+
+```shell
+tree
+.
+├── Cargo.toml
+├── README.md
+├── hello
+├── hello.rs
+└── src
+    └── main.rs
+```
+
+Try building the code and running it using `cargo`.
+
+```shell
+cargo build
+
+cargo run
+```
+
+Commit all changes and push them to your GitLab project.
+
+```shell
+git commit -avm "Initialize Cargo"
+
+git push
+```
+
+After exploring Cargo, let's make sure that our code is continuously tested while learning Rust. The next section explains how to set up [GitLab CI/CD](https://about.gitlab.com/topics/ci-cd/) for Rust. 
+
+## Automation: Configure CI/CD pipeline for Rust
+The [CI/CD pipeline](https://docs.gitlab.com/ee/ci/) should run two jobs in two stages: Build and test the code. The default container [image](https://docs.gitlab.com/ee/ci/yaml/#image), `rust:latest`, works in the first iteration. In order to save resources, the CI/CD configuration also supports [caching](https://docs.gitlab.com/ee/ci/caching/) for downloaded dependencies and build objects. The `CARGO_HOME` variable is set to the CI/CD job home directory to ensure everything gets appropriately cached.
+
+```yaml
+stages:
+  - build
+  - test 
+
+default:
+  image: rust:latest
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:                      
+      - .cargo/bin
+      - .cargo/registry/index
+      - .cargo/registry/cache
+      - target/debug/deps
+      - target/debug/build
+    policy: pull-push
+
+# Cargo data needs to be in the project directory to be cached. 
+variables:
+  CARGO_HOME: ${CI_PROJECT_DIR}/.cargo      
+```
+
+The CI/CD jobs inherit the [`default`](https://docs.gitlab.com/ee/ci/yaml/#default) values, and specify the cargo commands in the [`script` section](https://docs.gitlab.com/ee/ci/yaml/#script).
+
+```yaml
+build-latest:
+  stage: build
+  script:
+    - cargo build --verbose
+
+test-latest:
+  stage: build
+  script:
+    - cargo test --verbose
+```
+
+You can see an example in [this MR](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-rust-ai/-/merge_requests/1/diffs).
+
+## Continue learning Rust 
+Make sure to add new source code into the `src/` directory. 
+
+### Define variables and print them
+Practice adding a few more [print](https://doc.rust-lang.org/rust-by-example/hello/print.html) statements into `src/main.rs`, and then build and run the code again.
+
+1) Define a variable called `name` and assign your name as string value.
+
+2) Print the name, including a string prefix saying `Hello, `. 
+
+![VS Code main.rs Rust code suggestion, first step in print](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_print_variable_first.png){: .shadow}
+
+![VS Code main.rs Rust code suggestion, second step in print](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_print_variable_second.png){: .shadow}
+
+1) Open a new terminal in VS Code using the command palette (keyboard shortcut `cmd + shift + p`) and search for `terminal`.
+
+2) Build and run the code with the `cargo build` and `cargo run` commands. 
+
+![VS Code terminal with cargo build and run output](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_print_variable_cargo_build_run_terminal.png){: .shadow}
+
+An example solution can be found [here](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-rust-ai/-/blob/main/solutions/variable_print.rs). 
+
+### Explore variable types 
+Define different variable value types ([primitives](https://doc.rust-lang.org/rust-by-example/primitives.html)) and embed them into the `print` statements. Maybe they feel familiar with other programming languages?
+
+Tip: Use code comments to see which code suggestions can be useful to learn. Start with typing `// Integer addition` and see what code suggestions you can add.
+
+![VS Code main.rs Rust code suggestion, primitive types with literals and expressions](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_primitive_types_literals_operators.png)
+
+Experiment with GitLab Duo Code Suggestions. The shown examples are non-deterministic, but you may be able to add additions, subscriptions, multiplications, etc., and the corresponding `println` statements just by accepting code suggestions and continuing the flow with `enter` or completing the code statements. This workflow can create a chain of code suggestions that can help you learn the Rust language. 
+
+![Literals and expressions, first suggestion](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_literals_expressions_01.png){: .shadow}
+![Literals and expressions, second suggestion](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_literals_expressions_02.png){: .shadow}
+![Literals and expressions, third suggestion](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_literals_expressions_03.png){: .shadow}
+
+An example solution can be found [here](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-rust-ai/-/blob/main/solutions/literals_expressions.rs). 
+
+The code suggestions are not perfect. Sometimes there are errors that require you to fix the problems. When writing this blog post, I had to fix two missing semicolons at the end of the code lines. The great thing about the Rust compiler is that the error messages tell you exactly where the problem happens with suggestions to fix them. Code Suggestions and the Rust-provided build chain make writing Rust code more efficient. 
+
+```rust
+println!("Hello, {}!", name)
+
+// Integer subtraction
+let y = 9 - 4
+```
+
+![Terminal build, errors, Rust compiler help](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_terminal_errors_rust_help.png){: .shadow}
+
+You can try to provoke the same error by removing a semicolon at the end of a statement and then running `cargo build` in the terminal again. The Rust compiler will also warn you about unused variables to help with better code quality. The screenshot shows warnings for variable definitions, and also a CLI command to fix them. 
+
+![Terminal build, warnings, Rust compiler help](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_terminal_warnings_rust_help.png){: .shadow}
+
+### Flow control: Conditions and loops 
+Next, let's focus on [flow control](https://doc.rust-lang.org/rust-by-example/flow_control.html) with conditions, loops, etc., and how to implement them.
+
+1) Start typing `// Flow control` and see which suggestions are provided.
+
+2) Experiment with the code, and continue defining a boolean variable `v` which is set to true. 
+
+```rust
+  // Flow control
+  let v = true;
+
+```
+
+![Conditions, boolean variable](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_flow_control_conditions_01.png){: .shadow}
+![Conditions, boolean variable, if condition](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_flow_control_conditions_02.png){: .shadow}
+
+
+1) Start typing `// Loops` and experiment with the code suggestions. 
+
+Let's assume the loop looks the like following snippet. It does not have a loop counter which gets printed on every loop execution.
+
+```rust
+// Loops
+let mut count = 0;
+
+loop {
+    count += 1;
+
+    if count == 10 {
+        break;
+    }
+}
+```
+
+2) Start typing `println!` and see which code suggestions are provided, for example `println!("Count: {}", count);`. 
+
+![Loops, loop counter print suggestion](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_flow_control_loops_print_counter.png)
+
+3) Apply the suggestions, and execute `cargo build && cargo run` on the terminal again. 
+
+Let's learn more: Rust supports different loop types, for example [while loops](https://doc.rust-lang.org/rust-by-example/flow_control/while.html), [for loops](https://doc.rust-lang.org/rust-by-example/flow_control/for.html), etc. 
+
+1) Type `// While loop` and verify the code suggestions. Repeat the same for `// For loop`.
+
+```rust
+// While loops
+let mut count = 0;
+
+while count < 10 {
+    count += 1;
+    println!("Count: {}", count);
+}
+
+// For loops
+let a = [10, 2, 3, 4, 5];
+
+for element in a {
+    println!("Element: {}", element);
+}
+```
+
+There is more to learn with loops and conditions: Iterate over arrays, lists, maps, slices. Practice with writing comments for `// Maps and sets` and `// Vectors and strings`. 
+
+![Vectors, strings](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_flow_control_vectors_strings.png){: .shadow}
+
+
+```rust
+  // Maps and sets
+  let mut scores = HashMap::new();
+
+  scores.insert(String::from("Blue"), 10);
+  scores.insert(String::from("Yellow"), 50);
+
+  for (key, value ) in &scores {
+      println!("{}: {}", key, value);
+  }
+
+  // Vectors and strings
+  let mut v = Vec::new();
+
+  v.push(1);
+  v.push(2);
+
+  for element in &v {
+      println!("Element: {}", element);
+  }  
+```
+
+This snippet will fail because the `HashMap` type needs to be imported from `std::collections::HashMap`. Add the following line on top before the main function definition: 
+
+```rust
+use std::collections::HashMap;
+``` 
+
+2) Build and run the code with `cargo build && cargo run`. 
+
+An example solution is provided [here](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-rust-ai/-/blob/main/solutions/flow_control.rs).
+
+**Async exercise**: 
+
+1) Modify the input values for the different data types, and build and run the code again.
+
+2) Add a condition into the loops that print the items only when a specific condition is met (for example, the number is odd or even). 
+
+
+### Functions 
+
+[Functions](https://doc.rust-lang.org/rust-by-example/fn.html) help increase code readability and testability with unit tests. Practice creating functions with the following steps: 
+
+1) Two functions `isEven` and `isOdd` to evaluate whether a number is even or odd.
+
+```rust
+fn isEven(x: i32) -> bool {
+    x % 2 == 0
+}
+
+fn isOdd(x: i32) -> bool {
+    x % 2 != 0
+}
+```
+
+2) `isPrime` function to check whether a given integer value is a prime number.
+
+```rust
+fn isPrime(x: i32) -> bool {
+    let mut i = 2;
+
+    while i * i <= x {
+        if x % i == 0 {
+            return false;
+        } else {
+            i += 1;
+        }
+    } 
+
+    return true
+}
+```
+
+3) Create an array of integer values, loop over it, and call the functions. Let GitLab Code Suggestions guide you with the implementation by starting to type the if conditions followed by the function name. 
+
+```rust
+  // Functions
+  let mut integers = vec![1, 2, 3, 4, 5];
+
+  for i in integers.iter() {
+
+      if (isEven(i)) {
+          println!("{} is even", i);
+      }
+
+      if (isOdd(i)) { 
+          println!("{} is odd", i);
+      }
+
+      if (isPrime(i)) { 
+          println!("{} is prime", i);
+      }
+
+      println!("{}", i);
+  }
+```
+
+Note that passing a reference value to a function may result in an error from the Rust compiler. Follow the suggestions and build the code again. 
+
+```shell
+$ cargo build && cargo run 
+
+error[E0308]: mismatched types
+   --> src/main.rs:112:21
+    |
+112 |         if (isPrime(i)) { 
+    |             ------- ^ expected `i32`, found `&{integer}`
+    |             |
+    |             arguments to this function are incorrect
+    |    
+note: function defined here
+   --> src/main.rs:136:4
+    |
+136 | fn isPrime(x: i32) -> bool {
+    |    ^^^^^^^ ------
+help: consider dereferencing the borrow
+    |
+112 |         if (isPrime(*i)) { 
+    |                     +
+```
+
+An example solution is provided [here](https://gitlab.com/gitlab-de/use-cases/ai/learn-with-ai/learn-rust-ai/-/blob/main/solutions/functions.rs).
+
+**Async exercise**: Create a function `containsString` and test it with an array of string values, and a string to search for, in a loop. The screenshot shows a potential implementation. 
+
+![containsString function, and vector with string elements to test, suggesting its usage in the main function](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_function_implemented_then_suggested_in_main.png){: .shadow}
+
+### Testing 
+While learning programming, adopt [testing](https://doc.rust-lang.org/rust-by-example/testing.html) into your process. This can be unit tests for functions, documentation testing, and integration testing. Practice with testing the previously created functions `isEven`, `isOdd`, and `isPrime`. Starty by typing `mod tests {` followed by a new line with `use super::*` to implement the example from the [Rust documentation for unit tests](https://doc.rust-lang.org/rust-by-example/testing/unit_testing.html).
+
+
+```rust
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_even() {
+        assert!(isEven(2)); 
+        assert!(!isEven(3));
+    }
+
+    #[test] 
+    fn test_is_odd() {
+        assert!(!isOdd(2));
+        assert!(isOdd(3));
+    }
+
+    #[test]
+    fn test_is_prime() { 
+        assert!(isPrime(2));
+        assert!(!isPrime(3));
+    }
+}
+```
+
+Run `cargo test` to run the unit tests. Modify the test values to experiment with the results. 
+
+```shell
+cargo test
+```
+
+![Function unit tests, cargo test output in the VS Code terminal](/images/blogimages/learn-rust-with-ai-code-suggestions-getting-started/learn_rust_ai_gitlab_code_suggestions_function_unit_tests_terminal_run.png)
+
+Create unit tests that fail, and commit and push the changes to GitLab. The CI/CD pipelines will fail in this simulated breakage. The example above needs a fix for the `test_is_prime` test. Commit and push the change to verify that the pipeline passes again. 
+
+```diff
+-        assert!(!isPrime(3));
++        assert!(!isPrime(4));
+```
+
+## What is next 
+In an upcoming blog, we will look into advanced learning examples with asynchronous operations, services and external API communication in future blog posts. Until then, here are a few recommendations for practicing async.
+
+### Async learning exercises
+- [`std misc`](https://doc.rust-lang.org/rust-by-example/std_misc.html) provides asynchronous operations with threads, channels and file I/O
+- Book: [Hands-on Rust: Effective Learning through 2D Game Development and Play](https://pragprog.com/titles/hwrust/hands-on-rust/)
+- Tutorial: [Are we game yet?](https://arewegameyet.rs/resources/tutorials/)
+- Use case: [Web server with rocket.rs](https://rocket.rs/v0.5-rc/guide/quickstart/#running-examples)
+
+Here are a few more exercises and ideas for additional learning:
+1) The Rust compiler might have created warnings that need to be addressed. Follow the instructions from the `cargo build` commands and check the Git diff. 
+
+```
+cargo fix --bin "learn-rust-ai"
+
+git diff 
+```
+
+2) [Error handling](https://doc.rust-lang.org/rust-by-example/error.html) is required when failure is detected, and the caller should know. Some errors can be recovered from within the application, others require program termination. 
+
+3) The [`std` library](https://doc.rust-lang.org/rust-by-example/std.html) extends primitive types and makes programming more efficient. 
+
+### Share your feedback
+Which programming language are you learning or considering learning? Start a new topic on our [community](/community/) forum or Discord and share your experience.  
+
+If you are using Code Suggestions Beta with [GitLab Duo](/gitlab-duo/) already, please share your thoughts and feedback [in this issue](https://gitlab.com/gitlab-org/gitlab/-/issues/405152). 

@@ -1,0 +1,61 @@
+---
+title: How we boosted WebAuthn adoption from 20 percent to 93 percent in two days
+author: Eric Rubin
+author_gitlab: ericrubin
+categories: security
+tags: security, compliance, inside GitLab
+description: With phishing campaigns on the rise across the industry, we accelerated rollout of a program to further enhance our security hygiene program. This is how we did it.
+image_title: '/images/blogimages/webauthn.jpg'
+twitter_text: When phishing campaigns increased across the industry, we accelerated our already-in-the-works plans to further enhance our security hygiene program. Here is how we raised WebAuthn adoption from 20% of our workforce to over 90% in just two days.
+featured: yes
+---
+In light of the high-profile phishing campaigns that breached public technology companies (e.g. [Twilio](https://techcrunch.com/2022/08/08/twilio-breach-customer-data/), [Uber](https://www.wired.com/story/uber-hack-mfa-phishing/), [Dropbox](https://www.securityweek.com/hackers-stole-source-code-personal-data-dropbox-following-phishing-attack), and others), GitLab decided to accelerate the implementation of the next phase of our security hygiene program, which would further enhance our security posture. As part of this acceleration, GitLab’s IT and Security teams recommended a swift adoption of phishing-resistant authentication across the entire company.
+
+## What did we decide to implement?
+
+We already required multi-factor authentication (MFA) for all team members to log in to Okta, our primary launching point for the SaaS applications we use. The majority of our team members were primarily using the Okta Verify mobile app for push notifications, although they also had the options of using time-based one-time password ([TOTP](https://www.techtarget.com/searchsecurity/definition/time-based-one-time-password-TOTP)) codes, or [WebAuthn/FIDO2](https://webauthn.guide/) devices such as biometric (for example, Touch ID and Face ID) or security keys. 
+
+We decided to mandate the use of WebAuthn devices as the sole method for logging into Okta and remove other methods, and to get almost all team members enrolled within 48 hours from the date of launch.
+
+## Why is using WebAuthn important?
+
+Other two-factor authentication methods have known limitations. We already prohibited the use of SMS as a method for MFA as it is vulnerable to [SIM swap attacks](https://9to5mac.com/2021/10/01/protections-against-sim-swap/#:~:text=A%20port%2Dout%20attack%20is,new%20account%2C%20which%20they%20control); additionally, SMS provides a long duration for the texted code to be used by a phisher on the legitimate website. TOTP codes have a shorter duration, but still could allow for [relay attacks](https://intel471.com/blog/otp-password-bots-telegram). Push-based MFA such as the Okta Verify mobile app is vulnerable to [MFA fatigue attacks](https://www.uber.com/newsroom/security-update), where an attacker repeatedly bombards the user in the hope that they either get frustrated and approve a notification to make it stop, or otherwise accidentally approve one. 
+
+We decided that we needed to go back to fundamentals – strong MFA that is phishing-resistant. WebAuthn uses public cryptography, which verifies that the website you are logging into is the correct one. Additionally, the website only allows specifically enrolled devices to complete the authentication. The WebAuthn device effectively takes the human out of the loop – you can’t send the credentials to a phishing site. 
+
+## How did we communicate the change to mandatory WebAuthn?
+
+The communication to team members about the transition to WebAuthn started with a company wide Slack announcement from our CEO and co-founder [Sid Sijbrandij](https://gitlab.com/sytses). The message was delivered on a Tuesday evening Pacific Time, with an implementation completion date of Thursday evening Pacific Time. 
+
+We also:
+- Created a dedicated Slack channel for team member questions.
+- Circulated a Google Doc FAQ with more than 47 questions populated by team members and answered by the [DRI](/handbook/people-group/directly-responsible-individuals/) for the implementation or other team members. At GitLab everyone is encouraged to contribute.
+- Highlighted the change in our internal newsletter.
+- Added documentation, including easy-to-follow instructions, to our [handbook](/handbook/business-technology/okta/).
+
+## How did we implement the change to WebAuthn?
+
+How could we roll out WebAuthn so quickly, with more than 1,700 team members working remotely across more than 65 countries? We had already started the ball rolling earlier this year. First, we pre-tested with a small group of IT, and then company-wide volunteers, providing instructions for team members to use. Uptake was low though, so we knew we had to be more assertive. 
+
+GitLab is a majority Mac company, so we were able to take advantage of the built-in Touch ID capability already available on team members' laptops. It was also very helpful that users were familiar with the technology from using it on their smartphones.
+
+For the ~5% of users who are on Linux, we instructed them to use their YubiKeys, and if they didn’t already have one, we facilitated delivery via Yubico’s [YubiEnterprise Delivery](https://www.yubico.com/products/yubienterprise-delivery/). We allowed any team member who wanted a YubiKey to get one via our deal, including Mac users who wanted to use Firefox ([Touch ID isn’t supported yet](https://bugzilla.mozilla.org/show_bug.cgi?id=1536482)), those who work with their laptop docked and didn’t want a new Touch ID external keyboard, or any other reason. In all, we had about 20% of our team members take up our offer to obtain YubiKeys.
+
+Our biggest win after the start of rollout was the discovery of how to add new WebAuthn devices to Okta (such as a new laptop or smartphone) via QR code scanning. This meant that as long as team members had a single enrolled device (either their laptop or their phone), they could [self-service](/handbook/business-technology/okta/#i-want-to-add-touch-id--face-id-to-okta-for-my-mobile-device-iphone-android-tablet) the WebAuthn enrollment of a new device, without requiring IT Helpdesk support. This helped us to speed the rollout and reinforced our security posture at a quicker pace, and meant that we didn’t have to send all team members YubiKeys that would only be used in the relatively rare event of needing to enroll a new device.
+
+## Initial results 
+
+After the Slack announcement was posted, our IT Helpdesk team held virtual “office hours” on Zoom staffed for at least two hours per region. During the virtual office hours team members could drop in and get real-time help. After 24 hours from the launch of the initiative, we found that 80% of team members had already enrolled!
+
+To push us further along, a Slack Bot was created and customized messages were sent directly to team members who had not yet enrolled and their managers. This additional step brought our enrollment efforts to the 93% mark of our team members.
+
+At our deadline, we implemented carefully crafted new policies in Okta, locking down the vast majority of team members to using only WebAuthn. Small exception groups were created for those on PTO (because it would be frustrating for them and create unnecessary troubleshooting requests for the IT Helpdesk), as well as some users awaiting arrival of their shipped YubiKeys.
+
+The new Okta policy and communication efforts were quite successful for us, and we have been pleased at the low volume of support requests, given the magnitude of the change and the timeframe given.
+
+## Going forward 
+
+We know that [threat vectors are always evolving](/blog/2022/11/07/top-challenges-to-securing-the-software-supply-chain/) and we will continue to monitor them closely. We also will continue to assess our security posture and iterate to make improvements as needed.
+
+Cover image by [FLY:D](https://unsplash.com/@flyd2069) on Unsplash.
+{: .note}

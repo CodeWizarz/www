@@ -1,0 +1,4 @@
+upgrades:
+  - reporter: dorrino
+    description: |
+      - When there is a Horizontal Pod Autoscaler (HPA) controlling the desired number of Pods, we will not provide the `.spec.replicas` value. We expect from rolling out this change, there will be a 1-time behavior regression, where during the first upgrade on an existing chart install the `Replicaset` will reduce itself down to a single Pod temporarily, rather than the count of currently running Pods. This will fix itself after the HPA kicks in and rescales the deployment. The reason this change is being implemented is to ensure that Pod capacity is not reduced unnecessarily during chart upgrades, but instead Pods will continue to remain properly scaled during deployments.

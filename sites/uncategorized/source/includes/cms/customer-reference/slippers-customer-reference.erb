@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <!-- Set up meta data for template that is pulled from data file -->
+    <% 
+      current_page.data.title = customer.seo_title
+      current_page.data.title = customer.title  
+      current_page.data.twitter_image = customer.twitter_image
+      current_page.data.canonical_path = customer.canonical_path
+
+      if customer.twitter_text     
+       current_page.data.description = customer.twitter_text
+      else 
+        current_page.data.description = customer.cover_description
+      end
+    %>
+    <%= partial "includes/layout/head" %>
+    <%= partial "includes/cms/reusable-blocks/schema", locals: { schema: customer.schema } %>
+  </head>
+  <body class="slp-bg-white">
+    <%= partial "includes/google/gtm" %>
+    <%= partial "includes/layout/header" %>
+    <!-- Sidebar -->
+    <%= partial "includes/cms/customer-reference/slp-sidebar" %>
+    <main
+        class="customer-reference slp-commit-grid slp-px-16 slp-container slp-mx-auto lg:slp-px-60"
+      >
+      <div
+        class="slp-col-span-full sm:slp-col-span-8 md:slp-col-span-9 lg:slp-col-span-10 md:slp-max-w-6xl lg:slp-max-w-full"
+      >    
+        <%= partial "includes/cms/customer-reference/slp-hero" %>
+  
+        <% if customer.customer_stats %>
+          <%= partial "includes/cms/customer-reference/slp-hero-callout" %>
+        <% end %>
+        <%= partial "includes/cms/customer-reference/slp-sidebar-mobile" %>
+
+        <section class="slp-mb-64">
+          <h2 class="slp-text-xxs slp-uppercase slp-mt-16">Overview</h2>
+          <p class="slp-text-xl">
+            <%= customer.customer_overview %>
+          </p>
+          <div
+            class="slp-prose slp-max-w-none slp-mt-16"
+          > 
+            <%= kramdown(customer.cover_description) %>
+          </div>
+        </section>
+        
+        <% if customer.customer_study_quotes %>
+          <% customer.customer_study_quotes.each_with_index do |quote, index| %>
+            <% if index == 0 %>
+              <%= partial "includes/cms/reusable-blocks/pull-quote", locals: { quote: quote }  %>
+            <% end %>
+          <% end %>
+        <% end %>
+
+        <% customer.customer_study_content.each_with_index do |content, ind| %>
+          <% if ind == 0 %>
+            <%= partial "includes/cms/customer-reference/slp-body", locals: { content: content } %>
+          <% end %>
+        <% end %>
+
+        <% customer.customer_study_content.each_with_index do |content, ind| %>
+          <% if ind == 1 %>
+            <%= partial "includes/cms/customer-reference/slp-body", locals: { content: content } %>
+          <% end %>
+        <% end %>
+
+        <% customer.customer_study_content.each_with_index do |content, ind| %>
+          <% if ind == 2 %>
+            <%= partial "includes/cms/customer-reference/slp-body", locals: { content: content } %>
+          <% end %>
+        <% end %>
+        <% if customer.customer_study_quotes %>
+          <% customer.customer_study_quotes.each_with_index do |quote, index| %>
+            <% if index == 1 %>
+              <%= partial "includes/cms/reusable-blocks/pull-quote", locals: { quote: quote }  %>
+            <% end %>
+          <% end %>
+        <% end %>
+        
+        <% customer.customer_study_content.each_with_index do |content, ind| %>
+          <% if ind == 3 %>
+            <%= partial "includes/cms/customer-reference/slp-body", locals: { content: content } %>
+          <% end %>
+        <% end %>
+
+        <% if customer.customer_study_quotes %>
+          <% customer.customer_study_quotes.each_with_index do |quote, index| %>
+            <% if index == 2 %>
+              <%= partial "includes/cms/reusable-blocks/pull-quote", locals: { quote: quote }  %>
+            <% end %>
+          <% end %>
+        <% end %>
+
+        <% customer.customer_study_content.each_with_index do |content, ind| %>
+          <% if ind == 4 %>
+            <%= partial "includes/cms/customer-reference/slp-body", locals: { content: content } %>
+          <% end %>
+        <% end %>
+
+        <% if customer.customer_study_quotes %>
+          <% customer.customer_study_quotes.each_with_index do |quote, index| %>
+            <% if index == 3 %>
+              <%= partial "includes/cms/reusable-blocks/pull-quote", locals: { quote: quote }  %>
+            <% end %>
+          <% end %>
+        <% end %>
+
+        <p class="slp-text-xxs slp-mb-32 slp-mt--32">
+          All information and persons involved in case study are accurate at
+          the time of publication.
+        </p>
+
+        <div class="slp-block md:slp-hidden">
+          <%= partial "includes/cms/customer-reference/slp-sidebar-cta" %>
+        </div>
+
+        <%= partial "includes/cms/customer-reference/resource-cards" %>
+
+      </div>
+    </main>
+    <!-- Standard footer, also needed for all the scripts -->
+    <%= partial "includes/layout/footer" %>
+    <script src="/javascripts/generate-navigation-helpers.js"></script>
+    <script src="/javascripts/pathfactory-navigation-hide.js" type="text/javascript"></script>
+  </body>
+</html>

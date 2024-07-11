@@ -1,0 +1,86 @@
+---
+title: "Git security audit: Inside the hunt for - and discovery of - CVEs"
+author: Joern Schneeweisz
+author_gitlab: joernchen
+author_twitter: joernchen
+categories: security
+image_title: '/images/blogimages/closeup-photo-of-black-and-blue-keyboard-1194713.jpg'
+description: "Get a behind-the-scenes look at how I helped discover the vulnerability that became CVE-2022-41903."
+tags: security, security research
+twitter_text: Peek behind the curtains of a Git security audit and how the discovery of a vulnerability became etched as CVE-2022-41903.
+postType: content marketing
+---
+
+Keeping a secure development environment is my daily focus here at GitLab. My team and I are committed to hunting for vulnerabilities and mitigating them before they impact others. I feel equally enthusiastic about helping the development community identify potential risk. So when I had the opportunity to join an open-source security audit of Git, funded by the [Open Source Technology Improvement Fund (OSTIF)](https://ostif.org/), I jumped at it. Little did I know it would lead to the discovery of [CVE-2022-41903](https://github.com/git/git/security/advisories/GHSA-475x-2q3q-hvwq).
+
+Here's how it all unfolded.
+
+### How we set up a collaboration environment
+
+The Git security audit was run by [X41 D-Sec](https://x41-dsec.de/) on behalf of OSTIF. Due to [prior](https://gitlab.com/gitlab-com/gl-security/disclosures/blob/master/003_git_submodule/advisory.md) [experiences](https://www.mail-archive.com/linux-kernel@vger.kernel.org/msg1466490.html) in finding vulnerabilities in Git, I was very keen on joining the audit. When Markus at X41 suggested a collaboration to the OSTIF they were very open to it, so all I had to do was convince my manager to spend some time on this audit.
+
+This wasn't a problem at all. The to-be-done work fits nicely into our Security Research Team's [Ecosystem Security Testing](/handbook/security/threat-management/security-research/#gitlab-ecosystem-security-testing) efforts. So we decided to donate a good chunk of my working hours towards the audit.
+
+Markus and Eric on X41's side and myself on the GitLab end were able to work closely together by collaborating in a shared group on `gitlab.com`. We used an issue tracker and a repository to draft the report. Together with some free-tier runner minutes, we were all set up on the infrastructure side in 20 minutes, the time I needed to set up the CI for rendering the report. The findings were documented in the issues and via Merge Requests to the report repository, and we also had a shared chat and a couple of synchronous calls to tackle the vast codebase of Git together.
+
+### Finding CVE-2022-41903
+
+Git is compiled out of about a quarter million lines of C code — way too much
+to tackle with only three people in about a month, which was the number allocated for the audit.
+So we had to prioritize a lot in order to get some good results. I personally tried to dive into more "obscure" features of the codebase as those, in my experience, are typically a bit more error prone. I searched a bit through the documentation for `git archive` while diving into [`archive.c`](https://git.kernel.org/pub/scm/git/git.git/tree/archive.c?h=v2.38.1&id=d5b41391a472dcf9486055fd5b8517f893e88daf)'s source code.
+In that documentation the `export-ignore` and `export-subst` [attributes](https://git-scm.com/docs/git-archive/2.29.0#ATTRIBUTES) caught my attention, my `this is the obscure thing you're looking for` radar went off. 
+
+With `export-ignore` in the `.gitattributes` file it is possible to prevent individual files from being exported by `git archive`. With `export-subst` we can mark files to have [substitutions](https://git-scm.com/docs/gitattributes#_export_subst) taking place when they're exported via `git archive`. Those substitutions are using Git's [`pretty format`](https://git-scm.com/docs/git-log#_pretty_formats).
+
+Looking at the `pretty formats` documentation I did an educated guess by simply messing a bit with the [padding specifiers](https://git-scm.com/docs/git-log#Documentation/git-log.txt-emltltNgttruncltruncmtruncem). Having read a bit of the Git source code already it seemed juicy to me to allow for presumably arbitrary padding width. All those bytes must fit somewhere, right? Within the audit team we already noted the notorious use of the signed type `int` for length variables. Because of that I pretty much right away tried to create a huge padding with a very short format string. 
+
+The initial proof of concept looked like this:
+
+I had a `testfile` in a Git repository with the following content:
+
+```
+$Format:%>(1073741824)%h$
+$Format:%>(1073741824)%h$
+$Format:%>(1073741824)%h$
+$Format:%>(1073741824)%h$
+$Format:%>(1073741824)%h$
+```
+
+This `testfile` was also referenced in the `.gitattributes` for export substitution:
+
+```
+testfile export-subst
+```
+
+After committing both files to the repository I was able to trigger a heap corruption by calling `git archive` in the repository. The five padding specifiers sum up to `5368709120`, which is way beyond what an `int` could take. Markus, Eric, and I tracked the root cause down to [`format_and_pad_commit()`](https://git.kernel.org/pub/scm/git/git.git/tree/pretty.c?h=v2.38.1&id=d5b41391a472dcf9486055fd5b8517f893e88daf#n1668) in `pretty.c`.
+
+It was a good mix of luck and gut feeling about a certain feature that led to the identification of [CVE-2022-41903](https://github.com/git/git/security/advisories/GHSA-475x-2q3q-hvwq).
+
+This first critical finding was the tip of the iceberg, and you can refer to [the public report](https://www.x41-dsec.de/static/reports/X41-OSTIF-Gitlab-Git-Security-Audit-20230117-public.pdf) for the full list of findings made during the audit.
+
+### Wider collaboration
+
+This issue, the first critical one identified within the audit, put me into an interesting position. Being involved in the GitLab security, the heap corruption was pretty relevant for my "normal" job outside of this audit. However, there was the obvious need for discretion around the vulnerability. After aligning with all involved parties, we decided to post the vulnerability to the git-security mailing list early, even though the audit was still ongoing. As a few GitLab team members have access to this list, this was the official way to create a security incident at GitLab without any unfair advantage and still keep the vulnerability embargoed.
+
+On the git-security mailing list, [Patrick Steinhardt](/company/team/#pks-gitlab) from our Gitaly team quickly picked up the vulnerability. On a closer look by Patrick, the formatting specifiers were a bit of a minefield and he got really involved with identifying more issues, developing fixes and even extending Git's own fuzzing harness to cover the pretty formats.
+
+### The upshot of this vulnerability hunt
+
+It was a smooth collaboration between all involved parties.
+
+I'd really like to thank:
+* The folks on the git-security mailing list who had to deal with our findings
+* The OSTIF for making this happen and giving me a chance to participate
+* Markus and Eric from X41 for high-quality hacking time
+
+In the end, this joint effort could strenghten the security of Git, which is a fundamental part not only of GitLab but almost the whole software developing world.
+
+### References
+
+* [Git announcement](https://www.openwall.com/lists/oss-security/2023/01/17/4)
+* [CVE-2022-41903 advisory](https://github.com/git/git/security/advisories/GHSA-475x-2q3q-hvwq)
+* [CVE-2022-23521 advisory](https://github.com/git/git/security/advisories/GHSA-c738-c5qq-xg89)
+* [OSTIF blogpost](https://ostif.org/the-audit-of-git-is-complete/)
+* [X41 blogpost](https://x41-dsec.de/security/research/news/2023/01/17/git-security-audit-ostif/)
+* [Full public report](https://www.x41-dsec.de/static/reports/X41-OSTIF-Gitlab-Git-Security-Audit-20230117-public.pdf)
+* [GitLab critical security release addressing the issues](/releases/2023/01/17/critical-security-release-gitlab-15-7-5-released/)

@@ -1,0 +1,93 @@
+---
+title: "Meet Praefect: The traffic manager making your Git data highly available"
+author: Zeger-Jan van de Weg
+author_gitlab: zj-gitlab
+author_twitter: zjvandeweg
+categories: engineering
+image_title: '/images/blogimages/traffic-intersection.jpg'
+description: "This router and transaction manager ensures there are multiple copies of each Git repository available in the event of an outage – no NFS required."
+tags: engineering, git, inside GitLab, iteration, open source
+twitter_text: "Meet Praefect: @GitLab's solution for high availability #git storage"
+featured: yes
+ee_cta: false
+postType: content marketing
+related_posts:
+  - "/blog/2018/09/12/the-road-to-gitaly-1-0/"
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+  - "/blog/2020/09/11/gitlab-pg-upgrade/" 
+merch_banner: merch_seven
+---
+
+As critical software projects grow, scaling infrastructure to make the service [highly available](https://en.wikipedia.org/wiki/High_availability) is key. At GitLab, our biggest struggle in scaling was right in our name: Git.
+
+## The trouble with scaling Git
+
+Git is software that is distributed, but not usually run in a ‘highly available cluster,’ which is what GitLab needs. At first, we solved this with a [boring solution](/handbook/values/#boring-solutions), NFS – which exposes a shared filesystem across multiple machines and generally worked. As we’d soon find out, most NFS appliances were for bulk storage and not fast enough. This led to problems with GitLab’s Git access being slow.
+
+To solve the speed problem we built [Gitaly, our service that provides high-level RPC access to Git repositories](https://docs.gitlab.com/ee/administration/gitaly/). 
+
+When we started with [Gitaly v1.0](/blog/2018/09/12/the-road-to-gitaly-1-0/), our goal was to remove the need for a network-attached filesystem access for Git data. When that was complete, the next problem to tackle was that all your data is only stored once. So, if you have a server down, or your hard disk dies, or something happens to this one copy, you're in deep trouble until a backup is restored. This is an issue for GitLab.com, but it’s also a big risk for our customers and community.
+
+Back at our [Summit in Cape Town](/company/culture/contribute/previous/#summit-in-cape-town-south-africa) in 2018, the Gitaly team (at the time, that was [Jacob Vosmaer](/company/team/?department=all#jacobvosmaer-gitlab) and me) and some other engineers discussed pursuing a fault-tolerant, highly available system for Git data. For about a month we went back and forth about how we would go about it – ranging from wild ideas to smaller iterations towards what we want. The challenge here was that the ultimate aim is always going to be 100% availability, but you’re never going to make that. So let's aim for a lot of nines (three nines being 99.9%, five being 99.999%, etc.) Ideally, we'd be able to iterate to 10 nines if we wanted to. 
+
+Eventually we chose the design of a proxy: introduce a new component in the GitLab architecture, which is Praefect, and then route all the traffic through it to Gitaly storage nodes to provide a [Gitaly Cluster](https://docs.gitlab.com/ee/administration/gitaly/praefect.html). Praefect inspects the request and tries to route it to the right Gitaly backend, checks that Gitaly is up, makes sure the copies of your data are up to date, and so on. 
+
+## First iteration: Eventual consistency
+
+To cut the scope, for our first iterations we settled on eventual consistency, which is fairly common – we even use it for some GitLab features. With Git data, if we are behind a minute, it's not a big deal because at GitLab at least 90% of operations on our Git data are just reads, compared to a very small volume of writes. If I run `git pull` and I'm one commit behind master, that's not ideal, but not a deal breaker in most cases. 
+
+With eventual consistency, each repository gets three copies: one primary and two secondary. We replicate your data from the primary to the other copies, so that if your primary is inaccessible, we can at least give you read access to the secondary copies until we recover the primary. There’s a chance the secondaries are one or two commits behind your primary, but it’s better than no access.
+
+We rolled this out in [13.0](/releases/2020/05/22/gitlab-13-0-released/#gitaly-cluster-for-high-availability-git-storage) as generally available. 
+
+## Strong consistency
+
+The next stage was to work on strong consistency, where all of your three copies are always up to date. 
+
+When you write to your Git repository, there’s a moment where Praefect says, “OK, I'm going to update branch A from #abc to #cbd.” If all three copies agree on the updates, then Praefect tells everyone to apply this update and now, almost at the same moment in time, they'll update the data to the same thing. Now you've got three copies that are up to date.
+
+So, if one copy is offline for some reason – let’s say a network partition, or the disk is corrupted – we can serve from the other two copies. Then the data remains available, and you have more time to recover the third copy as an admin. Effectively, while you always have a designated primary, it's actually more like having _three_ primaries, because they are all in the same state. 
+
+If the default state of a system is consistent it requires maintaining this consistency on each mutation to the data that's performed. All possible requests to Gitaly are grouped into two classes: mutators and accessors. Meaning that there was a risk we had to migrate each mutator RPC individually. That would've been a major effort, and if possible, we wanted to push this problem to Git. Gitaly uses Git for the majority of write operations, and was thus the largest common denominator.
+
+So Git had to become aware of transactions, which ideally isn't part of Git. There are more areas where it would be nice if Git was aware of business logic, but if we're honest with ourselves, it's not really Git's concern: authentication and authorization. At GitLab we use [Git Hooks](https://git-scm.com/docs/githooks.html#_hooks) for that. So the idea [applied and contributed](https://public-inbox.org/git/1de96b96e3448c8f7e7974f7c082fd08d2d14e96.1592475610.git.ps@pks.im/T/#m9ae42f583968aa1d8ca43bd3007333cf51a618cc) (thanks, [Patrick Steinhardt](/company/team/#pks-gitlab)!) was the same: when events happen with Git, execute a hook and allow Gitaly to exeucte business logic. Through the exit code of the hook, Git is signaled on how to proceed. In Git, these events are updates of any reference (for example, branches or tags). When this happens Git will then allow Gitaly to participate in a [three-phase commit](https://en.wikipedia.org/wiki/Three-phase_commit_protocol) transaction by communicating back to Praefect, and enforce consistency. So we got that released in Git, fixed a bug, and now we’re [rolling it out to almost all write requests](https://gitlab.com/gitlab-org/git/-/issues/79).
+
+## A defensible cost increase
+
+Now strong consistency is great, but we are effectively asking our customers, “Instead of one copy, why don't you triple your storage costs and your server costs and whatnot, and you have zero benefits unless something goes wrong.” That wasn't really appealing for most customers, but now we’ve sweetened the deal with increased performance and making the cost increase more manageable. 
+
+So, if you have three copies of your data that are up to date, then all of them could serve any request that doesn't mutate the data, right? Because you know they're up to date. Right now, [Pavlo](/company/team/?department=gitaly-team#8bitlife) is working on [read distribution, which we are making generally available in 13.8](https://gitlab.com/gitlab-com/www-gitlab-com/-/merge_requests/71960) (coming Jan. 22, 2021). [We rolled it out briefly before](https://gitlab.com/gitlab-com/www-gitlab-com/-/merge_requests/58694), but it didn’t scale as expected, so we’ve worked with QA to mitigate that.
+
+Right now, Praefect is rolled out to a very limited subset of projects on GitLab.com, because running it is expensive already. When I first proposed rolling it out for everyone, it was very quick to calculate that that will triple our Gitaly Clusters – not within the budget at all! So we're trying to iterate towards that goal. The first step is to work on allowing a [variable replication factor](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#variable-replication-factor). It can be expensive to store a lot of data multiple times, so why don't we make it so that you can store some repositories three times and some just one time, and you don't get the guarantees and the availability of those with three copies.
+
+## Challenges and lessons learned
+
+So we have Praefect, this new component, but it's not installed by default on GitLab Omnibus –
+you have to enable it yourself. The [GitLab Development Kit](https://gitlab.com/gitlab-org/gitlab-development-kit) uses it as well as the tests on GitLab.com, for GitLab projects, but that wasn’t always the case. When you have an optional part in your architecture, if you’re debugging or talking with customers, there is the additional mental burden of verifying what the architecture looks like. Without it, you can make much quicker assumptions on what's going on and why it's working or why it isn't. Officially, we have deprecated NFS, so it makes sense to make it a required component so we can depend on it being there.
+
+Also, as we add more features to Praefect, if it’s still optional then some customers get those added benefits and some don’t.
+
+### We should have put it in production sooner
+
+Our first iteration was just proxying the traffic, doing nothing with it, and verifying that it works. We didn't put it in production because it offered nothing to the community. But, it includes new components in your architecture, which our SREs need to know about, and there were a couple of bugs we found out much later. I was hesitant to put something in production that didn't offer anything in return, but if we’d been a little more aggressive with putting it out there – even just for a small subset of projects – we would understand more quickly what we're running, what was working, and what wasn't. 
+
+### Applying big architectural changes takes time
+
+If you ask customers to make giant architectural changes, it's going to take longer than you think. When we released Praefect and Gitaly Clusters in 13.0, it was fairly rough around the edges and some things weren't working as you would expect, but it was a good time to release because now, six months later, we see customers finally starting to implement it. They want to validate, try it out on a subset, and then finally roll it out for their whole GitLab instance. While that took longer than I expected, it's cool to see the numbers going up now, and adoption is growing quite rapidly.
+
+## More than just a traffic manager
+
+Praefect does much more than just inspect the traffic. If Gitaly goes down, ideally you want to notice that before you actually fire a request, which Praefect does. It does failover, so if one fails and it was designated as a primary, then it fails over to a secondary, which is now designated as a primary. 
+
+I'm really excited for the next few years and the kind of things we are planning to build in Praefect and what that will deliver to GitLab.com and our customers and community. Where before we didn’t have very granular control over what we were doing or why we were doing it, now we can intercept and optimize.
+
+## What's next
+
+We're shipping [HA Distributed Reads](https://gitlab.com/gitlab-org/gitaly/-/issues/3334) in GitLab 13.8 (Jan. 22, 2021). For 13.9, we're shooting for [strong consistency in the Gitaly Cluster](https://gitlab.com/groups/gitlab-org/-/epics/1189) and [variable replication factor](https://gitlab.com/groups/gitlab-org/-/epics/3372).
+
+For GitLab self-managed users, consider enabling Praefect if you have high availability requirements. Visit our [Gitaly Clusters documentation](https://docs.gitlab.com/ee/administration/gitaly/praefect.html) to get started.
+
+_Major thanks to [Rebecca Dodd](/company/team#rebecca) who contributed to this post._
+
+Cover image by [Yoel J Gonzalez](https://unsplash.com/@yoeljgonzalez?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText") on [Unsplash](https://unsplash.com/s/photos/traffic?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText)
+{: .note}

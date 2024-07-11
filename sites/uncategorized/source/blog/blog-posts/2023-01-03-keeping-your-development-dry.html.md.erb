@@ -1,0 +1,201 @@
+---
+title: "DRY development: A cheatsheet on reusability throughout GitLab"
+author: Joe Randazzo, Noah Ing
+author_gitlab: gitlab
+guest: true
+categories: engineering
+tags: CI, CD, DevOps, DevSecOps
+description: "How to follow the DevOps principle of 'don't repeat yourself' to optimize CI/CD."
+image_title: /images/blogimages/drylights.jpg
+twitter_text: "To extract the most value from DevOps, it's important not to repeat yourself. Our cheatsheet shows you how to follow the DRY concept for CI/CD."
+featured: no
+---
+More than 20 years ago, the book [The Pragmatic Programmer](https://pragprog.com/titles/tpp20/the-pragmatic-programmer-20th-anniversary-edition/) brought attention to the DRY principle, or “Don’t Repeat Yourself." This principle is defined as every piece of knowledge must have a single, unambiguous, authoritative representation within a system.
+
+The main problem to solve here is minimizing duplication. As a development project is bombarded with new requests or changing requirements, [DevOps](https://about.gitlab.com/topics/devops/) teams must balance between development of net-new features or maintaining existing code. The important part is how to reduce duplicate knowledge across projects.
+
+This tutorial explores the mechanisms throughout GitLab that leverage the DRY principle to cut down on code duplication and standardize on knowledge. To see working examples of reusability in action, take a look at this [repository](https://gitlab.com/guided-explorations/gitlab-ci-yml-tips-tricks-and-hacks/dry-repository-a-cheatsheet).
+
+## Minimizing duplication in CI/CD
+
+### include
+[`include`](https://docs.gitlab.com/ee/ci/yaml/index.html#include) can be used to transform a single .gitlab-ci.yml file into multiple files to improve readability and minimize duplication. For example, testing, security, or deployment workflows can be broken out into separate templates. This also allows [ownership](https://docs.gitlab.com/ee/user/project/codeowners/) of the files.
+
+
+```yaml
+include:
+  - template: CI/Build.gitlab-ci.yml
+  - template: CI/Test.gitlab-ci.yml
+  - template: CI/Security.gitlab-ci.yml
+  - template: CD/Deploy.gitlab-ci.yml
+
+```
+
+### YAML anchors
+[YAML anchors](https://docs.gitlab.com/ee/ci/yaml/yaml_optimization.html#anchors) can be used to reduce repeat syntax and extend blocks of CI workflow, including jobs, variables, and scripts.
+
+```yaml
+.test_template: &test_suite
+  image: ruby:2.6
+
+unit_test:
+  <<: *test_suite
+  script:
+    - echo "Running a test here"
+
+end_to_end_test:
+  <<: *test_suite
+  script:
+    - echo "Running a test here"
+
+smoke_test:
+  <<: *test_suite
+  script:
+    - echo "Running a test here"
+```
+
+### extends
+[`extends`](https://docs.gitlab.com/ee/ci/yaml/index.html#extends) is similar to anchors with additional flexibility and readability. The major difference is it can be used with `includes`.
+
+```yaml
+
+.prepare_deploy:
+  stage: deploy
+  script:
+    - echo "I am preparing the deploy"
+  only:
+    - main
+
+deploy_to_dev:
+  extends: .prepare_deploy
+  script:
+    - echo "Deploy to dev environment"
+  environment: dev
+
+deploy_to_production:
+  extends: .prepare_deploy
+  script:
+    - echo "Deploy to production environment"
+  when: manual
+  environment: production
+```
+
+### !reference
+[`!reference`](https://docs.gitlab.com/ee/ci/yaml/yaml_optimization.html#reference-tags) enables the selection of keyword configuration from other job sections and reuse in the current session.
+
+```yaml
+.vars:
+  variables:
+    DEV_URL: "http://dev-url.com"
+    STAGING_URL: "http://staging-url.com"
+
+.setup_env:
+  script:
+    - echo "Creating Environment"
+
+.teardown_env:
+  after_script:
+    - echo "Deleting Environment"
+
+integration_test:
+  variables: !reference [.vars, variables, DEV_URL]
+  script:
+    - !reference [.setup_env, script]
+    - echo "Run Test"
+  after_script:
+    - !reference [.teardown_env, after_script]
+
+performance_test:
+  variables: !reference [.vars, variables]
+  script:
+    - !reference [.setup_env, script]
+    - echo "Run Test"
+  after_script:
+    - !reference [.teardown_env, after_script]
+```
+
+### Downstream pipelines
+[Downstream pipelines](https://docs.gitlab.com/ee/ci/pipelines/downstream_pipelines.html) enable the breakout of microservices and their pipelines. A .gitlab-ci.yml file can be used for each service, and when a file or directory is changed, only that pipeline needs to be triggered improving the awareness and readability of what’s deploying.
+
+```yaml
+ui:
+  trigger:
+    include: ui/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - changes: [ui/*]
+
+backend:
+  trigger:
+    include: backend/.gitlab-ci.yml
+    strategy: depend
+  rules:
+    - changes: [backend/*]
+```
+
+![Dynamic child pipeline](/images/blogimages/2022-02-01-parent-child-vs-multi-project-pipelines/parent-child.png){: .shadow}
+
+### CI/CD variables
+[CI/CD variables](https://docs.gitlab.com/ee/ci/variables/) can be scoped to a specific level, including the project, group, instance level, or .gitlab-ci.yml level. The values can be stored and reused across a group for project inheritance or overwritten at the project level.
+
+```yaml
+variables:
+  PROJECT_LEVEL_VARIABLES: "I am first in line in precedence"
+  GROUP_LEVEL_VARIABLES: "I am second in line"
+  INSTANCE_LEVEL_VARIABLES: "I am in third place"
+  GITLAB_CI_YML_LEVEL_VARIABLES: "I am last in line of precedence"
+
+```
+
+## Creating consistent code reviews across multiple teams
+
+### Description templates
+[Description templates](https://docs.gitlab.com/ee/user/project/description_templates.html) enable teams to define a consistent workflow for issues or merge requests. For example, the MR template can define a checklist for rolling out to a feature to ensure it’s documented, quality tested, and reviewed by appropriate team members. Here are [MR templates](https://gitlab.com/gitlab-org/gitlab/-/tree/master/.gitlab/merge_request_templates) that GitLab team members use daily.
+
+```md
+<!-- These templates can be set at the instance or group level to share amongst the organization: https://docs.gitlab.com/ee/user/project/description_templates.html#set-instance-level-description-templates -->
+
+## What does this MR do?
+
+<!-- Briefly describe what this MR is about. -->
+
+## Related issues
+
+<!-- Link related issues below. -->
+
+## Create a checklist for the author or reviewer
+- [ ] Optional. Consider taking this writing course before publishing a change.
+- [ ] Follow the documentation process stated here.
+- [ ] Tag this user group if this applies.
+
+
+<!-- Quick Actions - See https://docs.gitlab.com/ee/user/project/quick_actions.html#issues-merge-requests-and-epics for a list of all the quick actions available. -->
+
+<!-- Add a label to assign a specific workflow using scoped labels -->
+/label ~documentation ~"type::maintenance" ~"docs::improvement" ~"maintenance::refactor"
+
+<!-- Apply draft format automatically -->
+/draft
+
+<!-- Assign myself or a usergroup -->
+/assign me
+```
+
+### Project templates
+[Project templates](https://docs.gitlab.com/ee/user/group/custom_project_templates.html) can be used to define an initial project structure for when new services are being developed. This gives a consistent starting point for projects that come equipped with the latest file configurations and defaults.
+
+### File templates
+[File templates](https://docs.gitlab.com/ee/administration/settings/instance_template_repository.html) are similar to project templates but are default files to choose from when adding a new file to your repository. The team then can quickly choose from files that have best practices baked in and organization defaults.
+
+## Defining a Pipeline Center of Excellence project for CI/CD workflows
+
+As you 'productionize' your CI/CD workflows, it’s recommended to create a “Pipeline Center of Excellence” project that contains templates, containers, or other abstracted constructs that can be adopted throughout the organization. This project contains file or CI/CD templates that have the best practices or well-formed workflows defined for development teams to quickly adopt (includes) without recreating the wheel. To explore this in practice, visit [Pipeline COE](https://gitlab-org.gitlab.io/professional-services-automation/pipelinecoe/pipeline-templates/#/) documentation written by the GitLab Professional Services team.
+
+Have a reusable component to suggest or that we missed? Add a comment to this blog post or suggest a change to this file!
+
+## Related posts
+- [How to keep up with CI/CD best practices](https://about.gitlab.com/blog/2022/02/03/how-to-keep-up-with-ci-cd-best-practices/)
+- [How to become more productive with GitLab CI](https://about.gitlab.com/blog/2021/06/21/how-to-become-more-productive-with-gitlab-ci/)
+- [A visual guide to GitLab CI/CD caching](https://about.gitlab.com/blog/2022/09/12/a-visual-guide-to-gitlab-ci-caching/)
+
+Cover image by [Federico Beccari](https://unsplash.com/@federize?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://www.unsplash.com).

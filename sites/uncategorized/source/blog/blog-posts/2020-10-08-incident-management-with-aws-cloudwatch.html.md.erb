@@ -1,0 +1,56 @@
+---
+title: "How to use GitLab's Incident Management with AWS CloudWatch"
+author: Sean Arnold
+author_gitlab: seanarnold
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/cloudwatch-gitlab-incident-management-bg.jpg'
+description: "It's a straightforward process to set up GitLab Incident Management to work with AWS CloudWatch alarms. Here's what you need to know to get started."
+tags: DevOps, integrations, production
+cta_button_text: "Get started with GitLab Incident Management" 
+cta_button_link: "https://docs.gitlab.com/ee/operations/incident_management" 
+twitter_text: "Here's how to use @gitlab's Incident Management with AWS CloudWatch"
+featured: no 
+---
+
+AWS CloudWatch is a popular tool for users of Amazon Web Services to monitor and set alarms on their resources, including EC2 instances, RDS databases and many more.
+
+When alarms fire, it is important that your toolchain can quickly and effectively notify you and collate the relevant data. This enables your team to start determining the root cause and take action toward remediation.
+
+GitLab Incident Management now makes it easier than ever to do this. GitLab can take AWS CloudWatch alerts (aka [alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/AlarmThatSendsEmail.html)), or alerts from any other monitoring and alerting tool you have, and seamlessly integrate them into your [DevOps lifecycle](/topics/devops/).
+
+
+
+## Getting your alerts from AWS CloudWatch to GitLab
+
+Note: For this post, we will assume you are familiar with setting up CloudWatch metrics and alarms within AWS. For more information on AWS Cloudwatch consult the [AWS documentation](https://aws.amazon.com/cloudwatch/).
+
+### Enable the endpoint
+
+With our generic alert endpoint, GitLab can ingest alerts via REST from any alerting service you have. An alert can be as simple as providing a title or as complex as you need. We provide some defined attributes that you can use to refine your GitLab Incident Management experience, such as the severity of the alert, the service that is alerting, and `gitlab_environment_name` so that you can get an [insight into your alerts for an associated environment and deployment](https://docs.gitlab.com/ee/ci/environments/#environment-incident-management) for users on our Gold and Ultimate plans.
+
+The first step is to enable your project's alert endpoint. Follow the instructions in the [docs](https://docs.gitlab.com/ee/operations/incident_management/integrations.html#setting-up-generic-alerts) to do this.
+
+Next, we need to ensure the data sent to GitLab is in the expected payload format.
+
+### Transform the payload
+
+One approach to send CloudWatch alarm data to GitLab is to use AWS Lambda to call the GitLab REST endpoint. We can set this up by publishing the CloudWatch alarm to an [SNS](https://aws.amazon.com/sns/) endpoint, which is then consumed by AWS Lambda to mutate and forward the alert payload to GitLab.
+
+![AWS CloudWatch to GitLab Incident Management](/images/blogimages/cloudwatch-incident-management-flow.png)
+
+If you want to get this up and running quickly, I’ve [provided an AWS SAM (Serverless Application Model) application](https://gitlab.com/gitlab-examples/ops/incident-setup/everyone/cloudwatch-sns-to-gitlab-alerts) which can setup the Lambda application with the environment variables ready for you to enter your GitLab endpoint URL in.
+
+We know that managing the integration between two tools can be painful. In the future, we want to make this step as easy as possible: the step of transforming your payload into GitLab Alert format will soon be replaced by [custom endpoints for alerts](https://gitlab.com/groups/gitlab-org/-/epics/4390).
+
+Next, you can [setup your SNS Notification Topic](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/US_SetupSNS.html), and subscribe to the [SNS Topic with your Lambda function](https://docs.aws.amazon.com/sns/latest/dg/sns-lambda-as-subscriber.html).
+
+### Receive your alerts
+
+When your CloudWatch alarm next triggers, Lambda should then fire the alert off to GitLab. You should then see your alert in the [Alert list](https://docs.gitlab.com/ee/operations/incident_management/alerts.html).
+
+![AWS CloudWatch to GitLab Incident Management alert list](/images/blogimages/cloudwatch-gitlab-incident-management-list.png)
+
+You can click on an alert to [see more details](https://docs.gitlab.com/ee/operations/incident_management/alerts.html), assign an alert to a user and change the status of the alert. If the alert is significant enough to raise an incident, you can do that by clicking the “Create Incident.”
+
+Creating an incident will give you the power to assign team members to it and collaborate on it just like you would a regular GitLab issue. The incident will have the payload of the alert included in the [Alert Details tab](https://docs.gitlab.com/ee/operations/incident_management/incidents.html#alert-details).

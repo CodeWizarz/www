@@ -1,0 +1,220 @@
+@import "variables";
+@import "vendor/bootstrap/bootstrap/variables"; // To resolve `$screen-md-min`
+
+/*
+This file works in concert with generate-navigation-helpers.js and is sectionalized by its corresponding methods:
+- generateTableOfContents()
+- generateHeaderLinks()/generateHeaderLinkScrollHelpers()
+*/
+
+/* Styles used with generateTableOfContents() */
+
+.sidebar-layout-wrapper {
+  .tocs-sidebar {
+    display: none;
+
+    a:not(.btn) {
+      text-decoration: underline;
+    }
+  }
+
+  .container {
+    li {
+      margin-top: 0.5em;
+
+      &:last-child {
+        margin-bottom: 0.5em;
+      }
+    }
+  }
+}
+
+.meta-signage-header {
+  font-weight: $headings-font-weight;
+  margin-right: 0.75em;
+}
+
+.codeowners {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  padding: $breadcrumb-padding-vertical $breadcrumb-padding-horizontal;
+  margin-bottom: 1em;
+
+  background-color: $breadcrumb-bg;
+  border-radius: $border-radius-base;
+
+  .codeowners-header {
+    @extend .meta-signage-header;
+    font-size: 0.75em;
+  }
+
+  .codeowners-list {
+    display: flex;
+    flex-wrap: wrap;
+
+    .codeowner {
+      text-decoration: none;
+
+      .codeowner-avatar-img,
+      .codeowner-avatar-group {
+        // Normally we"d want rem units but the _scaffolding.scss resets to font-size to 10px and then .container.md-page sets to 16px. I"d refactor _scaffolding.scss, but don"t know the impact across the site at the moment.
+        width: 2.5em;
+        height: 2.5em;
+
+        // Defensive styling in case img url is broke so it still looks OK
+        max-width: 2.5em;
+        max-height: 2.5em;
+        overflow: hidden;
+
+        margin-right: 0.75em;
+        border-radius: 50%;
+        border: 1px solid $color-gray-extra-light;
+      }
+
+      .codeowner-avatar-group {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+
+        border-radius: 12%;
+
+        span {
+          font-size: 1.25em;
+        }
+      }
+
+      .codeowners-single {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+
+        .codeowners-single-labels {
+          display: flex;
+          flex-direction: row;
+          align-items: center;
+
+          .codeowners-description {
+            margin-right: 0.5em;
+          }
+
+          .codeowners-handle {
+            font-size: 1em;
+          }
+        }
+      }
+    }
+  }
+}
+
+@media (min-width: $screen-md-min) {
+  
+  @mixin sidebar-header {
+    margin-top: 30px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid $color-gray-extra-light;
+  }
+
+  .codeowners {
+    display: block;
+    background-color: transparent;
+    padding: 0;
+
+    .codeowners-header {
+      font-size: 1.5em; // Equivalent to default h4: 24px as the mobile-first style is smaller when not in the sidebar
+      @include sidebar-header;
+    }
+
+    .codeowners-list {
+      .codeowner {
+        .codeowner-avatar-img,
+        .codeowner-avatar-group {
+          margin: 0 0.75em 0.75em 0;
+        }
+
+        .codeowners-single {
+          .codeowners-single-labels {
+            flex-direction: column;
+            align-items: flex-start;
+
+            .codeowners-description {
+              margin-right: 0;
+            }
+
+            .codeowners-handle {
+              font-size: 0.75em;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  .sidebar-layout-wrapper {
+    max-width: 1280px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 20px;
+
+    .tocs-sidebar {
+      position: sticky;
+      font-size: 16px;
+      display: block;
+      float: right;
+      width: 30%;
+      max-width: 30%;
+      max-height: 100vh;
+      top: 120px;
+      padding: 0 20px;
+      overflow-y: scroll;
+
+      > h4 {
+        @include sidebar-header;
+      }
+
+      > ul {
+        padding-left: 20px;
+        padding-bottom: 50px;
+      }
+    }
+
+    .container {
+      float: left;
+      max-width: 70%;
+    }
+
+    table {
+      table-layout: fixed;
+    }
+  }
+}
+
+/* Styles used with generateHeaderLinks()/generateHeaderLinkScrollHelpers() */
+
+.header-link-title {
+  .header-link-anchor {
+    opacity: 0;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    max-height: 20px;
+    vertical-align: middle;
+    background: url("/images/icons/icon_anchor.svg") center center no-repeat;
+    background-size: contain;
+  }
+
+  &::before {
+    display: block;
+    content: " ";
+    margin-top: -75px;
+    height: 75px;
+    visibility: hidden;
+  }
+
+  &:hover {
+    .header-link-anchor {
+      opacity: 1;
+    }
+  }
+}

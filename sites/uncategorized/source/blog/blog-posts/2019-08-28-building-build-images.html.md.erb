@@ -1,0 +1,172 @@
+---
+title: "Getting [meta] with GitLab CI/CD: Building build images"
+author: "Brendan O'Leary"
+author_gitlab: brendan
+author_twitter: olearycrew
+categories: engineering
+image_title: '/images/blogimages/building-blocks.jpg'
+description: "Let's talk about building build images with GitLab CI/CD. The power of Docker as a build platform is unleashed when you get meta."
+tags: CI/CD, kubernetes, tutorial
+guest: false
+featured: yes
+postType: content marketing
+merch_banner: merch_two
+merch_sidebar: merch_two
+---
+
+> An alternative title for this post could have been:
+>
+> I heard you liked Docker, so I put [dind](https://hub.docker.com/_/docker/).
+
+## Getting started
+It should be clear by now that I love building stuff with GitLab CI/CD. From
+[DNS](https://medium.com/gitlab-magazine/ci-cd-all-the-things-pihole-625a0ceaf12)
+to [breakfast](/blog/2018/06/29/introducing-auto-breakfast-from-gitlab/) GitLab CI/CD
+offers a pretty wide range. However, past those "fun" use cases, I also like
+to share some ~~best~~ practices I have acquired during my years of using [GitLab
+CI/CD](/features/continuous-integration/), both for software and non-software projects alike.
+
+I crossed out "best" above because I don't really like the term "best practices." It
+implies that there is only one right answer to a given question – which is the
+opposite of the point of computer science. Sure there are better and worse ways to
+do something – but like many things in life, you have to find what works for
+you. "[The best camera is the one you have with you](https://www.amazon.com/Best-Camera-One-Thats-You/dp/0321684788)"
+comes to mind when building CI/CD for projects. Something that works is better than something that's pretty.
+
+But, enough of my digression, let's get to the practice I wanted to share in this
+post: Building build images as part of the build process. Yes, it is precisely as meta as it sounds.
+
+## Why?
+
+
+
+Often when building a particular project, you may have several unique build dependencies.
+In many languages, package managers solve for the majority if not all of these
+dependencies – at least for build time (think [npm](https://www.npmjs.com), [RubyGems](https://rubygems.org/),
+[Maven](https://maven.apache.org/what-is-maven.html)). However, when we are building and
+deploying (CI/**CD** let's remember) from a machine that is not our own, that may not
+be enough. There may be a few dependencies we might need from elsewhere.
+
+The language libraries themselves are one such dependency – to build Java I'm going to need
+the JDK or JRE. To build Node, I'll need... well Node, etc. In a Docker-based environment,
+those languages and dependencies typically have an official image on Docker
+Hub ([JRE from Oracle](https://hub.docker.com/_/oracle-serverjre-8) or
+[Node from Node.js](https://hub.docker.com/_/node) for instance). Assume, however, that
+I may need a few other things not included in **either** those official Docker images or
+the package manager I'm using. For instance, maybe I need a CLI tool for
+deploy ([AWS](https://aws.amazon.com/cli/), [Heroku](https://devcenter.heroku.com/articles/heroku-cli),
+[Firebase](https://firebase.google.com/docs/cli), etc.). We also might need a testing
+framework or tool like [Selenium](https://www.seleniumhq.org) or
+[headless Chrome](https://developers.google.com/web/updates/2017/04/headless-chrome).
+Or I may need other tools for packaging, testing, or deployment.
+
+Sometimes there is a Docker image on Docker Hub for these combinations – or some of
+them – but not always a maintained version. One easy solution to this could be to
+just run the install of the tools before every job that needs it. This can
+even be "automated" using something like
+the [before_script](https://docs.gitlab.com/ee/ci/yaml/#before_script-and-after_script) syntax.
+However, this adds time to our pipeline and seems inefficient: Is there a better way?
+
+## Enter the GitLab Docker registry
+Since GitLab is a single application for the entire [DevOps](/topics/devops/) lifecycle – it actually
+ships out of the box with a built-in
+[Docker registry](https://docs.gitlab.com/ee/user/packages/container_registry/index.html).
+This can be a useful tool when deploying code in a containerized environment. We can
+build our application into a container and send it off into Kubernetes or some
+other Docker orchestrator.
+
+However, I also see this registry as an opportunity to save time in my
+pipeline (and save round trips to Docker hub and back every time). For builds that require
+some of these extra dependencies, I like to build a "build" Docker image.
+That way, I have an image with all of those baked right in. Then, as part of my
+pipeline, I can build the image at the start (only when changes are made or every time).
+And the rest of the pipeline can consume that image as the base image.
+
+## Putting it in practice
+For example, let's see what it looks like to build a simple Docker image to use with
+deploying to [Google Firebase](https://firebase.google.com/).
+
+Firebase is a "backend as a service" tool that provides a database, authentication,
+and other services across platforms (web, iOS, and Android). It also includes web hosting
+and several other items that can be deployed through [a CLI](https://firebase.google.com/docs/cli).
+This tool makes getting started really easy. You can deploy the whole stack with
+`firebase deploy.` Alternatively, you can deploy a part (like [serverless](/topics/serverless/) functions)
+with a command like `firebase deploy --only functions.`
+
+Making this work in a CI/CD world requires a few extra steps though. We'll need a Node
+Docker image that has the firebase CLI in it, so let's make a simple Dockerfile to do that.
+
+> Putting this Dockerfile in `.meta/Dockerfile`
+
+```dockerfile
+FROM node:10
+
+RUN npm install -g firebase-tools
+```
+
+Next, I'll add a job to the front of my pipeline.
+
+> Added to the front of my `.gitlab-ci.yml`
+
+```yaml
+meta-build-image:
+  image: docker:stable
+  services:
+    - docker:dind
+  stage: prepare
+  script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - cd .meta
+    - docker build -t $CI_REGISTRY/group/project/buildimage:latest .
+    - docker push $CI_REGISTRY/group/project/buildimage:latest
+  only:
+    refs:
+      - main
+    changes:
+      - .meta/Dockerfile
+```
+
+Let's break down that job:
+1. We use the `docker:stable` image and a service of `docker:dind`
+1. The stage is my first stage called `prepare`
+1. In the script, we login to the GitLab registry with the built-in variables and build the
+image. For more details see the [GitLab documentation for building Docker images](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html).
+1. We only run this on `main` and only when the `.meta/Dockerfile` changes. This makes
+sure we are specific about when we change the Docker image. We could also use the
+commit hash or other methods here to make the image more fungible.
+
+Now, in further jobs down the pipeline, I can use the latest build of the Docker image like this:
+
+```yaml
+firestore:
+  image: registry.gitlab.com/group/project/buildimage
+  stage: deploy 🚢🇮🇹
+  script:
+    - firebase deploy --only firestore
+  only:
+    changes:
+      - .firebase-config/firestore.rules
+      - .firebase-config/firestore.indexes.json
+```
+
+In this job, we only run the job if something about
+the [Firestore](https://firebase.google.com/docs/firestore) (the database from Firebase)
+configuration changes. And when it does, we run the `firestore deploy` command in CI. I
+also added a token for deploy as a [GitLab CI/CD variable](https://docs.gitlab.com/ee/ci/variables/)
+based off the Firebase documentation
+for [using firebase with CI](https://firebase.google.com/docs/cli#admin-commands).
+
+## Summary
+In the end, this helps speed up pipelines by ensuring that you have a custom-built build
+image that you control. You don't have to rely on unstable or unmaintained Docker Hub
+images or even have a Docker Hub account yourself to get started.
+
+To learn more about GitLab CI/CD you can [read the GitLab website](/features/continuous-integration/)
+or the [CI/CD docs](https://docs.gitlab.com/ee/ci/introduction/). Also, there's a lot more to
+learn about the [GitLab Docker registry](https://docs.gitlab.com/ee/user/packages/container_registry/index.html).
+
+Cover image by [Hack Capital](https://unsplash.com/@markusspiske?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/build?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText).
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>
+

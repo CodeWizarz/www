@@ -1,0 +1,51 @@
+---
+title: "Visual guide to incident metrics"
+author: Alana Bellucci
+author_gitlab: abellucci
+categories: devops platform
+image_title: '/images/blogimages/clocks.jpg'
+description: Learn what incident metrics are and how they contribute to better performance and response times.
+tags: product, collaboration, features
+featured: yes
+postType: product  
+twitter_text: "Time to detect, time to mitigate, time to x - how can you keep these incident metrics all straight? Find out in our comprehensive, illustrative guide."
+---
+
+Incident metrics are a set of standard, quantifiable measurements used to track the incident response process. Accurately tracking these metrics will help DevSecOps teams understand how they are performing and whether responses to unplanned outages are getting better or worse. Decreasing the time to detect, respond, mitigate, and recover from an incident decreases the impact of an incident on customers as well as the cost of the incident to the business overall. 
+
+How are these metrics captured and recorded? Let's backtrack a bit and define five key timestamps to capture during an incident that will enable teams to measure the relevant incident metrics.
+
+1. First product impact (`Start time`): When a service starts degrading or metrics begin deviating from the norm.
+2. Time to detection (`Impact detected`): When the operator becomes aware of the problem.
+3. Time to respond (`Response initiated`): When the operator starts to address the problem. 
+4. Time to mitigate (`Impact mitigated`): When there is no longer severe product impact. The system may still be degraded in some way.
+5. Time to recovery (`End time`): When the system has fully recovered and is operating normally. Note: Sometimes recovery and mitigation are the same, but sometimes they are different. Time to recovery is the same as the DORA metric [time to restore service](https://docs.gitlab.com/ee/user/analytics/dora_metrics.html#time-to-restore-service): time an incident was open in a production environment over the given time period.
+
+It is important to create a single source of truth for what actually happened during a given incident, and GitLab enables users to do that easily by creating incident timelines. Throughout an incident, there are many conversations, meetings, and investigations to determine what's going on and how to recover. However, only some key pieces of what happened during the incident need to be identified to build an incident timeline, and these timeline items are the building blocks of the important incident metrics.  
+
+Let's walk through an example of how that could work:
+
+- When an alert is triggered, Sally, the engineer on call, gets paged.
+- Sally is in the middle of breakfast and doesn't hear the first page.
+- When she gets paged again, she picks up her phone (`impact detected`) and starts to investigate.
+- After taking a closer look, it looks like something isn't working as expected and she declares an incident.
+- After reviewing the metrics that triggered the alert, she notices this has been happening for 8 minutes.
+- Sally determines that the true `start time` of the incident was 8 minutes before the first alert.
+
+So far, two important timeline events have happened. By applying the `start time` and `impact detected` tags to your incident timeline, you can measure the time to detection, which is the difference between these two timestamps.
+
+![time_to_detection](/images/blogimages/incident-mgmt/time_to_detection.png)
+
+After Sally has had a chance to start investigating the alert, she reaches out to team members that can help, sets up a video conference call, and starts to determine the root cause. The `response is initiated`. 
+
+The response team is seeing multiple reports from customers and internal users that traffic is absent. After taking a closer look at the alert and recent changes, the team is able to determine that this incident originates from a recent deployment. Sally coordinates with the Release Manager to roll back the deployment. Once the rollback is complete, the incident has been mitigated. So far we've captured two key metrics, time to detect and time to mitigate.
+
+![time_to_mitigation](/images/blogimages/incident-mgmt/time_to_mitigation.png)
+
+Once the changes from the bad deployment have been reverted, Sally continues to monitor for any additional alerts, irregular logs, or reports that traffic is absent. Things continue to look like they are working as expected, marking the `end time` of the incident and declaring the incident _resolved_. (In this example, the time to mitigate is the same as the time to recover since the rolled back deployment restored services.) Sally starts working on creating/determining corrective actions and investigating the total impact that users experienced during the incident. Once these closing tasks are complete, the incident is closed.
+
+![time_to_recovery](/images/blogimages/incident-mgmt/time_to_recovery.png)
+
+At GitLab we've built [incident timelines](https://docs.gitlab.com/ee/operations/incident_management/incident_timeline_events.html#view-the-timeline) on the [incident](https://docs.gitlab.com/ee/operations/incident_management/incidents.html) issue type as a first step towards tracking important incident metrics.  We are currently building an MVC for [incident tags](https://gitlab.com/groups/gitlab-org/-/epics/8741) so incident response teams can capture relevant incident timestamps during an incident and add them to the incident timeline.  To learn more about how incident timelines can help your team during an incident, check out [How to leverage GitLab incident timelines](https://about.gitlab.com/blog/2022/10/18/gitlab-incident-timelines/).
+
+Special thanks to GitLab's talented Product Designer [Amelia Bauerly](https://gitlab.com/ameliabauerly) who illustrated the examples in this blog post.

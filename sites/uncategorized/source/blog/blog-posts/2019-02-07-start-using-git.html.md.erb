@@ -1,0 +1,82 @@
+---
+title: "How to tidy up your merge requests with Git"
+author: Ronald van Zon
+author_gitlab: Eagllus
+author_twitter: Eagllus
+categories: engineering
+image_title: '/images/blogimages/git-tricks/git-tricks-cover-image.png'
+description: "Here's how to use a Git feature that saves a lot of time and cleans up your MRs."
+tags: user stories, workflow, git
+ee_cta: false
+---
+
+I've worked on a lot of open source projects and one thing they all have in common is
+when you create a merge request (or pull request) they will often ask, "Can you clean up your request?"
+because commits like *fix typo* should not be included in a Git history.
+
+Now there are a few ways of cleaning up commits and I'll show you what I have found to be the easiest way.
+
+Below is an example scenario where I use a feature of Git that has saved me a lot of time.
+I have a tiny project seen in the image below.
+
+![Git Project](/images/blogimages/start-using-git/git_demo_project.png){: .shadow.medium.center}
+
+Now I like to run my `main.py` in a test environment to see if it works as expected.
+I like to do that by configuring a `.gitlab-ci.yml` to run `main.py`.
+Although this is extremely easy, for this example I made sure I increased the number of commits
+to illustrate my example a bit more clearly. So after some time my commit history looks like this:
+
+![Git Project](/images/blogimages/start-using-git/git_commits_bad.png){: .shadow.medium.center}
+
+Here you can see my first three commits add `README.md`, `main.py` and `.gitlab-ci.yml`.
+A few commits update my `gitlab-ci` file, trying some stuff out, and fixing typos.
+There's also a commit that cleans up my `gitlab-ci` and two more to fix and clean up `main.py`.
+
+Now some of you might see this and think, "Looks good," while others might want to scream at me
+for making a mess out of my commits.
+
+How do we fix it?
+
+## How to consolidate your commits
+
+First, let's revert the last two commits using [reset](https://docs.gitlab.com/ee/gitlab-basics/start-using-git.html#unstage-all-changes-that-have-been-added-to-the-staging-area).
+We don't want to lose our changes so we will use `git reset --soft HEAD~2`.
+`--soft` will keep our changes of the files and `HEAD~2` tells Git the two commits from `HEAD` position should be reverted.
+
+We create a new commit, `git commit --fixup 6c29979`. This will create a commit called `fixup! Add main Python file`.
+When we run `git rebase -i --autosquash 24d214a` we can see below that our `fixup` commit has been moved below
+the commit we referenced with the tag *6c29979*. I could save this and the fixup will be merged into the commit above.
+
+![Git Project](/images/blogimages/start-using-git/git_rebase_1.png){: .shadow.medium.center}
+
+But if we look at the commits below the *fixup*, we see that all the commits are related to the *.gitlab-ci.yml*
+and by making a small change here, we can clean up my commits in a single go. We will change the *pick* to *fixup* for all
+commits but `Add default gitlab-ci` (shown in the image below) and we will save this.
+
+![Git Project](/images/blogimages/start-using-git/git_rebase_2.png){: .shadow.medium.center}
+
+Checking our Git log, we see that our long list of commits has been reduced to just three. There is a big change that
+you should be aware of: because I have just rewritten my Git history I will have to use `git push --force` to update
+any *remote repository*.
+
+![Git Project](/images/blogimages/start-using-git/git_commits_good.png){: .shadow.medium.center}
+
+This looks a lot better now; only the relevant commits are left. But could we have prevented this while working on this
+feature? The answer is yes.
+
+We could have used `git commit --amend` to add almost every commit behind *19d8353 Add default gitlab-ci*.
+This wouldn't require any new commit for any changes that we were making to our `.gitlab-ci.yml` file. We would have ended
+up with the following and we already know how to handle the *fixup*.
+
+![Git Project](/images/blogimages/start-using-git/git_commits_alternative.png){: .shadow.medium.center}
+
+Something to keep in mind when using features that rewrite the history of your Git repository: If you already
+pushed your previous commits to a *remote repository* you will have to use `git push --force` to overwrite the
+history of the *remote repository*. Bad use of this could cause serious problems, so be careful!
+If you run into trouble, a useful guide that could help you recover from this is [git push --force and how to deal with it](https://evilmartians.com/chronicles/git-push---force-and-how-to-deal-with-it).
+
+## More Git tips and tricks
+
+- [How (and why!) to keep your Git commit history clean](/blog/2018/06/07/keeping-git-commit-history-clean/)
+- [Git happens! 6 Common Git mistakes and how to fix them](/blog/2018/08/08/git-happens/)
+- [Git tips and tricks](/blog/2016/12/08/git-tips-and-tricks/)

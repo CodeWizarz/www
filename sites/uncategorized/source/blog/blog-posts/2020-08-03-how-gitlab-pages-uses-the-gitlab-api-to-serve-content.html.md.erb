@@ -1,0 +1,127 @@
+---
+title: "How GitLab Pages uses the GitLab API to serve content"
+author: "Jaime Martínez"
+author_gitlab: jaime
+author_twitter: jimbart098
+categories: engineering
+image_title: '/images/blogimages/retrosupply-jLwVAUtLOAQ-unsplash.jpg'
+description: "GitLab Pages is changing the way it reads a project's configuration to speed up booting times and slowly remove its dependency to NFS."
+tags: inside GitLab, kubernetes
+guest: false
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: 'How @GitLab Pages uses the GitLab API to serve content'
+postType: product
+merch_banner: merch_three
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2020-11-13.
+{: .alert .alert-info .note}
+
+[GitLab Pages](/stages-devops-lifecycle/pages/) allows you to create and host GitLab project websites from a user account or group for free on [GitLab.com](https://www.gitlab.com/) or on your self-managed GitLab instance.
+
+In this post, I will explain how the [GitLab Pages daemon](https://gitlab.com/gitlab-org/gitlab-pages) obtains a domain's configuration using the
+GitLab API, specifically on [GitLab.com](https://www.gitlab.com/).
+
+## How does GitLab Pages know where to find your website files?
+
+GitLab Pages will use object storage to store the contents of your web site. You can follow the development of this new feature [here](https://gitlab.com/groups/gitlab-org/-/epics/3901).
+
+Currently, GitLab Pages uses an NFS shared mount drive to store the contents of your website.
+You can define the value of this path by defining the [`pages_path`](https://docs.gitlab.com/ee/administration/pages/#change-storage-path) in your `/etc/gitlab/gitlab.rb` file.
+
+When you deploy a website using the `pages:` keyword in your `.gitlab-ci.yml` file, a `public` path artifact must be defined, containing the files available for your website. This `public` artifact eventually makes its way into the NFS shared mount.
+
+When you deploy a website to GitLab Pages a domain will be created based on the [custom Pages domain you have configured](https://docs.gitlab.com/ee/administration/pages/#configuration). For [GitLab.com](https://www.gitlab.com/), the pages domain is `*.gitlab.io`, if you create a project named `myproject.gitlab.io` and enable HTTPS, a wildcard SSL certificate will be used.
+You can also [setup a custom domain](https://docs.gitlab.com/ee/user/project/pages/custom_domains_ssl_tls_certification/) for your project, for example `myawesomedomain.com`.
+
+For every project (aka domain) that is served by the Pages daemon, there must be a directory in the NFS shared mount that matches your domain name and holds its contents. For example, if we had a project named `myproject.gitlab.io`, the Pages daemon would look for your `.html` files under `/path/to/shared/pages/myproject/myproject.gitlab.io/public` directory.
+This is how GitLab Pages serves the content published by the `pages:` keyword in your CI configuration.
+
+Before [GitLab 12.10](/releases/2020/04/22/gitlab-12-10-released/) was released, the Pages daemon would rely on a file named `config.json` located in your project's directory in the NFS shared mount, that is `/path/to/shared/pages/myproject/myproject.gitlab.io/config.json`.
+This file contains metadata related to your project and [custom domain names](https://docs.gitlab.com/ee/user/project/pages) you may have setup.
+
+```json
+{
+  "domains":[
+    {
+      "Domain":"myproject.gitlab.io"
+    },
+    {
+      "Domain": "mycustomdomain.com",
+      "Certificate": "--certificate contents--",
+      "Key": "--key contents--"
+    }
+  ],
+  "id":123,
+  "access_control":true,
+  "https_only":true
+}
+```
+GitLab Pages has been a very popular addition to GitLab, and the number of hosted websites on GitLab.com has increased over time. We are currently hosting over 251,000 websites!
+On start-up, the Pages daemon would [traverse all directories](https://gitlab.com/gitlab-org/gitlab-pages/-/blob/v1.21.0/app.go#L448) in the NFS shared mount and load the configuration of all the deployed Pages projects into memory.
+Before 09-19-2019, the Pages daemon would take [approximately 25 minutes to be ready to serve requests](https://gitlab.com/gitlab-org/gitlab-pages/-/issues/252) per instance on GitLab.com.
+After upgrading GitLab Pages to version [`v1.9.0`](https://gitlab.com/gitlab-org/gitlab-pages/-/merge_requests/185), there were some improvements in some dependencies that reduced booting time to approximately five minutes. This was great but not ideal.
+
+## GitLab API-based configuration
+
+API-based configuration was [introduced](https://gitlab.com/gitlab-org/gitlab-pages/-/issues/282) in GitLab 12.10.
+With API-based configuration, the daemon will start serving content in just a few seconds after booting.
+For example, for a particular Pages node on GitLab.com, it usually is ready to serve content within one minute after starting.
+
+On [GitLab.com](https://www.gitlab.com/), the Pages daemon now sources the domain configuration via an internal API endpoint
+`/api/v4/internal/pages?domain=myproject.gitlab.io`.
+This is done on demand per domain and the configuration is cached in memory for a certain period of time to speed up serving content from that Pages node.
+
+The response from the API is very similar to the contents of the `config.json` file:
+
+```json
+{
+    "certificate": "--cert-contents--",
+    "key": "--key-contents--",
+    "lookup_paths": [
+        {
+            "access_control": true,
+            "https_only": true,
+            "prefix": "/",
+            "project_id": 123,
+            "source": {
+                "path": "myproject/myproject.gitlab.io/public/",
+                "type": "file"
+            }
+        }
+    ]
+}
+```
+
+You can see that the source type is `file`. This means that the Pages daemon will still serve the contents from the NFS shared mount. We are actively working on removing the NFS dependency from GitLab Pages by [updating the GitLab Pages architecture](https://gitlab.com/groups/gitlab-org/-/epics/1316).
+
+We are planning to [transition GitLab pages to object storage instead of NFS](https://gitlab.com/groups/gitlab-org/-/epics/3901). This will essentially [enable GitLab Pages to run on Kubernetes](https://gitlab.com/gitlab-org/gitlab/-/issues/39586) in the future.
+
+**Update**:
+We have now [rolled out zip source type on GitLab.com](https://gitlab.com/gitlab-com/gl-infra/production/-/issues/2808). This is behavior is behind feature flag and it's not the final implementation.
+As of 10-22-2020 we serve about 75% of Pages projects from zip and object storage and we're getting closer to removing the NFS dependency!
+
+## Self-managed GitLab instances
+
+The changes to the GitLab Pages architecture were piloted on GitLab.com, which is possibly the largest GitLab Pages implementation.
+Once all the changes supporting the move to an API-based configuration are completed, they will be rolled out to self-managed customers.
+You can find more details and the issues we faced while rolling out API-based configuration in this [issue](https://gitlab.com/gitlab-org/gitlab-pages/-/issues/282).
+
+If you can't wait to speed up your Pages nodes startup, we have a potential guide in this [issue description](https://gitlab.com/gitlab-org/gitlab/-/issues/28298#potential-workaround) which explains how we enabled the API on GitLab.com. However, this method will be removed in the near future.
+
+**Update**:
+You can now enable API-based configuration by following [this guide](https://docs.gitlab.com/ee/administration/pages/#gitlab-api-based-configuration).
+
+## Domain source configuration and API status
+
+In the meantime, we are working toward adding [a new configuration flag for GitLab Pages](https://gitlab.com/gitlab-org/gitlab/-/issues/217912) which will allow you to choose the domain configuration source by specifying `domain_config_source` in your `/etc/gitlab/gitlab.rb` file.
+By default, GitLab Pages will use the `disk` source configuration the same way is used today.
+
+In the background, the Pages daemon will start [checking the API status](https://gitlab.com/gitlab-org/gitlab-pages/-/merge_requests/304) by calling the `/api/v4/internal/pages/status` endpoint. This will help you check if the Pages daemon is ready to talk to the GitLab API, especially when you are [running Pages on a separate server](https://docs.gitlab.com/ee/administration/pages/#running-gitlab-pages-on-a-separate-server).
+
+Please check the [GitLab Pages adminstration guide](https://docs.gitlab.com/ee/administration/pages/#troubleshooting) for further troubleshooting.
+
+<!-- image: image-url -->
+Cover image by [@RetroSupply](https://unsplash.com/@retrosupply) on [Unsplash](https://unsplash.com/photos/jLwVAUtLOAQ)
+{: .note}

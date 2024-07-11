@@ -1,0 +1,167 @@
+!!! 5
+%html{lang: "en"}
+  %head
+    = partial "includes/layout/head"
+    = stylesheet_link_tag "handbook"
+    = stylesheet_link_tag "navigation-helpers"
+    %link{:rel => :stylesheet, :type => :"text/css", :href => "/stylesheets/release-posts.css"}
+  %body{:data => {:spy => "scroll", :target => ".qnav"}}
+    = partial "includes/google/gtm"
+    = partial "includes/layout/header"
+
+    / blog template
+    .blog.article.release-post-refresh
+      - if is_blog_article?
+        - image_title = current_article.data.image_title ? current_article.data.image_title : '/images/default-blog-image.png'
+        - if current_article.data&.rebrand_cover_img
+          .cover{ style: "background-image: url(#{image_title});" }
+        - else
+          .cover{ style: "background-image: url(/images/release-layout-gradient.png);" }
+            - header_layout_dark = current_article.data.header_layout_dark
+            %div{ class: "overlay-dark"}
+              %div{ class: "wrapper header"}
+                - if current_article.data.release_number
+                  %div{ class: "release-number release-number-dark"}
+                    - if current_article.data.release_number_image
+                      = image_tag "#{current_article.data.release_number_image}", class:"release-number-image", alt:"#{current_article.data.release_number}"
+                    - else
+                      = current_article.data.release_number
+      / body template
+      .wrapper.body
+        .content
+          %div.release-header
+            %div.release-post-section
+              %div.release-meta-info
+                %span.date
+                  = current_article.date.to_time.strftime '%b %e, %Y'
+                %span -
+                %span{ class: "author #{header_layout_dark ? 'dark-header' : ''}"}
+                  - guest = current_article.data.guest
+                  - anchor = current_article.data.author_gitlab
+                  - if guest
+                    = current_article.data.author
+                  - else
+                    - if anchor
+                      = link_to current_article.data.author, "/company/team/##{anchor}"
+                    - else
+                      = current_article.data.author
+                  - if current_article.data.author_gitlab
+                    = link_to "https://gitlab.com/#{current_article.data.author_gitlab}" do
+                      %span &nbsp;
+                      %span.sr-only
+                        = current_article.data.author
+                      %span{ class: "author-gitlab #{header_layout_dark ? 'dark-header' : ''}"}
+                        %i.fab.fa-gitlab
+              %h1
+                GitLab #{current_article.data.release_number} Release
+              %h2.slp-text-heading2-bold
+                = current_article.title
+              - if current_article.data.description
+                %p.description
+                  = current_article.data.description
+              - if current_article.data.cta_button_link && current_article.data.cta_button_text
+                = link_to(current_article.data.cta_button_text, "#{current_article.data.cta_button_link}", class: "btn btn-lg btn-red")
+          - filename = File.basename(current_page.path, File.extname(current_page.path)).gsub("-", "_")
+          / release post content
+          %section#intro-section.release-post-section
+            #intro
+              = yield
+
+            = partial "includes/blog/twitter_helper"
+          = partial("includes/release", :locals => { :datafile => data.release_posts[filename], :current_article => current_article })
+
+          /last section
+          %section#about-gitlab.gray-section
+            .release-row.align-top
+              .column
+                %h3.refresh-h3.refresh-h3--secondary{:id => "changelog"}
+                  %a.header-link{href: "#changelog"}
+                    %i.fas.fa-link
+                    %span.sr-only
+                      Changelog
+                  Changelog
+                %p
+                  Please check out the changelog to see all the named changes:
+                  %ul
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/gitlab-foss/blob/master/CHANGELOG.md", target: "_blank", title: "GitLab"} GitLab
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/gitlab-runner/blob/main/CHANGELOG.md", target: "_blank", title: "GitLab Runner"} GitLab Runner
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/blob/main/CHANGELOG.md", target: "_blank", title: "GitLab Workflow for VS Code"} GitLab Workflow for VS Code
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/cli/-/releases", target: "_blank", title: "GitLab CLI"} GitLab CLI
+                %h3.refresh-h3.refresh-h3--secondary{:id => "installing"}
+                  %a.header-link{href: "#installing"}
+                    %i.fas.fa-link
+                    %span.sr-only
+                      Installing
+                  Installing
+                %p
+                  If you are setting up a new GitLab installation please see the
+                  %a{:href => "/install/"} download GitLab page.
+                %h3.refresh-h3.refresh-h3--secondary{:id => "updating"}
+                  %a.header-link{href: "#updating"}
+                    %i.fas.fa-link
+                    %span.sr-only
+                      Updating
+                  Updating
+                %p
+                  Check out our
+                  %a{:href => "/update/"} update page.
+                %h3.refresh-h3.refresh-h3--secondary{:id => "questions"}
+                  %a.header-link{href: "#questions"}
+                    %i.fas.fa-link
+                    %span.sr-only
+                      Questions?
+                  Questions?
+                %p
+                  We'd love to hear your thoughts! Visit the GitLab Forum
+                  %a{:href => "https://forum.gitlab.com/", target: "_blank", title: "GitLab Forum"} GitLab Forum
+                  and let us know if you have questions about the release.
+              .column.refresh-plans
+                %h3.refresh-h3.refresh-h3--secondary{:id => "gitlab-products"}
+                  %a.header-link{href: "#gitlab-products"}
+                    %i.fas.fa-link
+                    %span.sr-only
+                      GitLab Subscription Plans
+                  GitLab Subscription Plans
+                %ul
+                  %li
+                    %a{:href => "https://about.gitlab.com/pricing/", target: "_blank", title: "GitLab Pricing", "data-ga-name" => "Try GitLab for free", :"data-ga-location" => "release post footer"} Free
+                    %p Free-forever features for individual users
+                  %li
+                    %a{:href => "https://about.gitlab.com/pricing/premium/", target: "_blank", title: "GitLab Premium", "data-ga-name" => "GitLab Premium", :"data-ga-location" => "release post footer"} Premium
+                    %p Enhance team productivity and coordination
+                  %li
+                    %a{:href => "https://about.gitlab.com/pricing/ultimate/", target: "_blank", title: "GitLab Ultimate", "data-ga-name" => "GitLab Ultimate", :"data-ga-location" => "release post footer"} Ultimate
+                    %p Organization wide security, compliance, and planning
+                %p
+                  Try all GitLab features -
+                  %a{:href => "https://about.gitlab.com/free-trial/", title: "GitLab Free Trial"} free for 30 days
+
+          / cover image
+          - unless current_article.data&.rebrand_cover_img
+            %section#cover-img.release-post-section
+              - cover = current_article.data.cover_img || data.release_posts[filename].cover_img
+              - unless cover.image_url.include? "about.gitlab.com"
+                %p.note.text-center
+                  %a{href: "#{cover.image_url}", target: "_blank", rel: "noindex, nofollow"} Cover image
+                  licensed under
+                  = link_to(cover.licence, "#{cover.licence_url}")
+
+        / default template
+        .social
+          = partial "includes/blog/share"
+        = partial "includes/blog/pager"
+      .wrapper.signup
+        = partial "includes/newsletter-signup.html"
+      - if ci_environment?
+        .wrapper.comments
+          = partial("includes/blog/comments", :locals => { :article => current_page.data})
+      .refresh-gradient
+        = partial "includes/blog/try"
+      = partial "includes/layout/footer"
+
+    / tooltip
+    %script{:async => "", :src => "/javascripts/bootstrap-tooltip.js", :type => "text/javascript"}

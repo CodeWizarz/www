@@ -1,0 +1,47 @@
+---
+title: How we’ll simplify Vault access for GitLab CI/CD users
+author: Valerie Silverthorne	
+author_gitlab: vsilverthorne
+author_twitter: ValSilverthorne
+categories: news
+image_title: "/images/blogimages/vaultintegration.jpg"
+description: "CEO Sid Sijbrandij and senior product manager Thao Yeager discuss the easiest way to bring Vault access to GitLab customers. Hint: it involves a minimum viable change."
+tags: CI/CD, security, integrations
+twitter_text: "How @gitlab plans to integrate @HashiCorp’s Vault into CI/CD" 
+featured: yes #
+---
+
+In the increasingly complex and secret-filled world of software development, companies must decide how to simplify access to the secure data necessary to [run CI/CD](/topics/ci-cd/) jobs. [HashiCorp’s Vault](https://www.vaultproject.io/docs/what-is-vault/) is a solution many organizations have chosen to manage their secret storage, but what’s the best way to request Vault tokens without slowing down software development?
+
+GitLab CEO [Sid Sijbrandij](/company/team/#sytses) recently sat down to speak with [Thao Yeager](/company/team/#thaoyeager), senior product manager, Verify: Templates and [Jackie Meshell](/company/team/#jmeshell), senior product manager,  to discuss how our customers using Vault could best get access to their stored variables within GitLab. On the table were two options that would provide a [“minimum viable change” or MVC](/handbook/values/#minimal-viable-change-mvc) – a key part of our [core value of iteration](/blog/2020/02/04/power-of-iteration/) and a strategy we believe enables us to move more quickly.
+
+The two options on the table were to either use [GitLab Runner](https://docs.gitlab.com/runner/) to fetch tokens that are stored in Vault or to do a [Rails integration](/blog/2018/10/29/why-we-use-rails-to-build-gitlab/) with Vault. 
+
+## Rotate if you can't hide
+
+In earlier days, Sid recalls “secrets management” used to be about making sure people simply didn’t find them out. That’s not practical any longer. “It’s super hard never to push a secret in your repository and have it end up somewhere,” he says. “It’s almost impossible. It ends up in the logs. They radiate everywhere.”
+
+Today’s secret management involves rotating and updating secrets as often as necessary. It can be tricky to put all the pieces together.
+
+It starts with Vault, which Sid sees as just another data store, like a database but one just focused on secrets. “We should use Vault for secrets because it’s starting to become the standard for that,” he says. But we can also no longer assume that secrets will always remain safe, and thus it’s key to be able to rotate them. “At some point you’re going to have a breach and they’re going to find out all your secrets,” he says. Rotation is a way “secrets can get back to a state where they’re secrets again,” Sid says, adding that Vault is very good for rotation and access control.
+
+> Secrets management used to be about making sure people simply didn’t find them out. That’s not practical any longer.
+
+It’s clear to Sid that GitLab’s super sensitive data should be separated into Vault. “We can better secure (Vault). For example, we can [rate limit](https://docs.gitlab.com/ee/security/rate_limits.html). If we’re going to rate limit our Rails app calls to the database that would involve dealing with an enormous amount of traffic. If we just have the secrets in Vault, it’s a much more limited set of traffic.” One other advantage: Vault has way less surface area than our Rails app or our database, Sid explains. “(Vault) is complex to run but the surface area is smaller.”
+
+## A simpler solution
+
+With Vault on the backend holding the secrets, Sid thinks a simple runner – instructed by Rails – is the right MVC to move this project forward. It was not necessary to do the more complicated Rails integration. “All of the logic is in the Rails app and then it sends it off to the runner with ‘Ok, run the script.’” This solution keeps the complexity in the Rails app, which works because “Ruby is great for all that complexity,” Sid says. The runner can be something simple that lives on multiple platforms. “The last thing we want is the runner to have more dependencies and more complexity.”
+
+Ultimately Sid expects customers will want to use their own Vault installations, but for now that reality is complicated. Integrating GitLab with Vault is the more straightforward solution for the time being. And it’s certainly the safest: Vault won’t give out the same credential twice and the credentials have a very short life span, two things that will make a breach less dangerous, Sid says. “You will never have another secret that can’t be rotated,” Sid says. “Every secret is able to be rotated so you can always push that button. That's the future we're working towards and we should make that future easier for our users to adopt.”
+
+Watch the entire video:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/9kD3geEmSJ8" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+Cover image by [Chris Barbalis](https://unsplash.com/@cbarbalis) on [Unsplash](https://www.unsplash.com)
+{: .note}

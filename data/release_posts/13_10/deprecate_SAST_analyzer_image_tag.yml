@@ -1,0 +1,11 @@
+---
+deprecations:
+- feature_name: "Deprecating global `SAST_ANALYZER_IMAGE_TAG` in SAST CI template"
+  reporter: tmccaslin
+  due: June 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/301216'
+  description: |
+    With the maturity of GitLab Secure scanning tools, we've needed to add more granularity into our release process. Currently GitLab shares a major version number for [all our analyzers and tools](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks). This requires all tools to share a major version and prevent the use of [semantic version numbering](https://semver.org/). Beginning in 14.0 GitLab SAST will deprecate the `SAST_ANALYZER_IMAGE_TAG` global variable in our managed SAST.gitlab-ci.yml CI template in favor of analyzer job variable setting the 'major.minor' tag in the SAST vendored template. Each analyzer job will have a scoped `SAST_ANALYZER_IMAGE_TAG` variable which will be actively managed by GitLab and set to the 'major.minor' tag for the respective analyzer. To pin to a specific version you simply change the variable value to the specific version tag. 
+    If you override or maintain custom versions of `SAST.gitlab-ci.yml` you will want to update your CI templates to stop referencing the global `SAST_ANALYZER_IMAGE_TAG` and move it to a scoped analyzer job tag. We strongly encourage [inheriting and overriding our managed CI templates](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) to future proof your CI templates. This change will allow you to instead override with a pinned `major.minor` version to more granular control future analyzer updates. This change will happen with GitLab 14.0 releasing June 22, 2021. 
+    This deprecation and planned removal changes our [previously annouced plan](https://about.gitlab.com/releases/2021/02/22/gitlab-13-9-released/#pin-static-analysis-analyzers-and-tools-to-minor-versions) to Pin the Static Analysis tools.
+

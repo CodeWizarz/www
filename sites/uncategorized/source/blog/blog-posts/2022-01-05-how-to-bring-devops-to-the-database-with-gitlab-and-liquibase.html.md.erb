@@ -1,0 +1,410 @@
+---
+title: How to bring DevOps to the database with GitLab and Liquibase
+author: Tsvi Zandany
+categories: engineering
+tags: integrations, CI, CD
+description: Learn how to build a continuous delivery pipeline for database code
+  changes with this tutorial.
+image_title: /images/blogimages/metalgears_databasecasestudy.jpg
+---
+
+In the [Accelerate State of DevOps 2021 Report](https://cloud.google.com/devops/state-of-devops/), the DevOps Research and Assessment (DORA) team reveals “elite DevOps performers are 3.4 times more likely to exercise database change management compared to their low-performing counterparts.” Tracking changes with version control is not just for application code, though. It’s crucial for managing changes for one of your most important assets: your database.   
+
+The GitLab DevOps platform enables database management teams to leverage CI/CD to track, manage, and deploy database changes, along with application development and automation and infrastructure as code. Database change management tools have become more advanced in recent years, supporting easier collaboration and communication, which are the keys to successful [DevOps](https://about.gitlab.com/topics/devops/). In this blog post, I’ll take you through a tutorial using [Liquibase](https://www.liquibase.com), a tool that integrates seamlessly into the GitLab DevOps platform so your teams can deliver database code changes as fast as application code changes (without compromising on quality and security). 
+
+## What is Liquibase?
+
+Liquibase was founded as an open source project over 15 years ago to address getting database changes into version control. With more than 75 million downloads, the company behind Liquibase expanded to paid editions and support to help teams release software faster and safer by bringing the database change process into their existing CI/CD automation.  
+
+Integrating Liquibase with GitLab CI/CD enables database teams to leverage DevOps automation and best practices for database management. Liquibase helps teams build automated database scripts and gain insights into when, where, and how database changes are deployed. In this tutorial, we’ll demonstrate how to check database scripts for security and compliance issues, speed up database code reviews, perform easy rollbacks, and provide database snapshots to check for malware.
+
+## Adding Liquibase to GitLab’s DevOps Platform
+
+Teams can add Liquibase to GitLab to enable true CI/CD for the database. It’s easy to integrate Liquibase into your GitLab CI/CD pipeline. Before jumping into the tutorial, let’s take a look at the [example Liquibase GitLab project repository](https://gitlab.com/gitlab-com/alliances/liquibase/sandbox-projects/sql_server) you’ll be using.
+
+### Understanding the example Liquibase GitLab project repository
+
+![A CI/CD pipeline diagram](/images/blogimages/1_CICD_Pipeline_Diagram.png){: .shadow.small.center}
+
+For this example, the GitLab CI/CD pipeline environments include DEV, QA, and PROD. This pipeline goes through several stages: build, test, deploy, and compare. A post stage comes into play later to capture a snapshot of your database in Production.
+
+Stages:
+  - build
+  - test
+  - deploy
+  - compare
+
+### Liquibase commands in the pipeline
+
+For each of the predefined jobs in the GitLab repository, you’ll be using several Liquibase commands to help manage database changes quickly and safely:
+
+- liquibase_job:
+
+  before_script:
+    - functions
+    - isUpToDate
+    - liquibase checks run
+    - liquibase updateSQL
+    - liquibase update
+    - liquibase rollbackOneUpdate --force
+    - liquibase tag $CI_PIPELINE_ID
+    - liquibase --logFile=${CI_JOB_NAME}_${CI_PIPELINE_ID}.log --logLevel=info update
+    - liquibase history
+ 
+  script:
+    - echo "Comparing databases DEV --> QA"
+    - liquibase diff
+    - liquibase --outputFile=diff_between_DEV_QA.json diff --format=json
+ 
+  script:
+    - echo "Snapshotting database PROD"
+    - liquibase --outputFile=snapshot_PROD.json snapshot --snapshotFormat=json
+ 
+Learn more about each of these commands in the [README file in the GitLab repository](https://gitlab.com/gitlab-com/alliances/liquibase/sandbox-projects/sql_server/-/blob/main/README.md). 
+
+## Tutorial
+
+The following tutorial demonstrates how to run Liquibase in a GitLab CI/CD pipeline. Follow along by watching this companion video:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/ZBFhDayoRYo" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+### Prerequisites
+
+To start, I’m using a Linux machine with the following:
+
+- [A GitLab account](https://www.gitlab.com)
+- Self-managed Runner on a Linux machine
+- Git
+- Java 11
+- Access to a SQL Server database with multiple environments
+
+### Download, install, and configure Liquibase
+
+[Download Liquibase v4.6.1+](https://www.liquibase.org/download)
+
+[Install Liquibase](https://docs.liquibase.com/concepts/installation/installation-linux-unix-mac.html)
+
+[Get a free Liquibase Pro license key](https://www.liquibase.com/trial). No credit card is required, so you can play with all the advanced features and get support for 30 days. You’ll use this key later when you configure environment variables within GitLab.
+
+Ensure Liquibase is installed properly by running the liquibase --version command. If everything is good you’ll see the following:
+
+Starting Liquibase at 18:10:06 (version 4.6.1 #98 built at 2021-11-04 20:16+0000)
+Running Java under /usr/lib/jvm/java-11-openjdk-11.0.13.0.8-1.el7_9.x86_64 (Version 11.0.13)
+
+Liquibase Version: 4.6.1
+Liquibase Community 4.6.1 by Liquibase
+
+### Prepare your GitLab project
+
+Fork this [example GitLab project repository](https://gitlab.com/gitlab-com/alliances/liquibase/sandbox-projects/sql_server). ([See more information about forking a repository](https://docs.gitlab.com/ee/user/project/repository/forking_workflow.html).)
+
+[Create a self-managed GitLab Runner](https://docs.gitlab.com/runner/) on your Linux instance with your newly forked GitLab project.
+
+Clone your newly forked project repository:
+git clone https://gitlab.com/<username>/sql_server.git
+
+Go to the “sql_server” project folder.
+cd sql_server
+
+Run the following command to change your git branch to staging:
+git checkout staging
+
+Configure the GitLab CI/CD pipeline environment variables.
+
+Your configuration will include [CI/CD variables](https://docs.gitlab.com/ee/ci/variables/#add-a-cicd-variable-to-a-project), [Liquibase properties](https://www.liquibase.com/blog/secure-database-developer-flow-using-gitlab-pipelines), database credentials, and the Liquibase Pro trial license key so you can use all the advanced Liquibase commands.
+
+From the main sql_server project, go to Settings → CI/CD
+
+Under Variables, click Expand and add the following variables:
+
+![A CI/CD pipeline diagram](/images/blogimages/liquibasevariables.png){: .shadow.small.center}
+
+![A CI/CD pipeline diagram](/images/blogimages/liquibasevariables2.png){: .shadow.small.center}
+
+### Configure the self-managed GitLab runner
+
+From the main sql_server project, go to Settings → CI/CD
+
+Expand the runners section, click the pencil edit icon, and add the following runner tags (comma separated):
+
+dev_db,prod_db,test_db
+
+Note: Tags are created to help choose which runner will do the job. In this example, we are associating all tags to one runner. Learn more about [configuring runners](https://docs.gitlab.com/ee/ci/runners/configure_runners.html). 
+
+### Make changes to the database
+
+Edit the changelog.sql file and add the following changeset after 
+
+```
+liquibase formatted sql:
+-- changeset SteveZ:createTable_salesTableZ
+CREATE TABLE salesTableZ (
+   ID int NOT NULL,
+   NAME varchar(20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+   REGION varchar(20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+   MARKET varchar(20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+)
+--rollback DROP TABLE salesTableZ
+Add, commit, and push all new database changes.
+git add changelog.sql
+git commit -m “added changelog id and a create table salesTableZ changeset”
+git push -u origin staging
+```
+
+### Merge the changes and run the pipeline
+
+Let’s merge the changes from branch staging → main to trigger the pipeline to run all jobs.
+
+Click Merge requests → New merge request
+
+Select staging as Source branch and main as Target branch
+
+Click Compare branches and continue
+
+On the next screen, click Create merge request
+
+Click Merge to finish merging the changes
+
+![A look at the merge request](/images/blogimages/2_Merge_Request1.png){: .shadow.small.center}
+
+![Another look at the merge requestt](/images/blogimages/3_Merge_Request2.png){: .shadow.small.center}
+
+Once these steps are completed, the code is merged into main and the pipeline is triggered to run.
+
+![The pipeline is triggered](/images/blogimages/4_Merge_Request3.png){: .shadow.small.center}
+
+To see the pipeline running, click Pipelines.
+
+To view the pipeline progress, click the pipeline ID link. You can view each job’s log output by clicking on each job name.
+
+![The pipeline in progress](/images/blogimages/5_Pipeline_Progress.png){: .shadow.small.center}
+
+Clicking into the build-job example:
+
+The liquibase checks run command validates the SQL for any violations.
+
+```
+57Starting Liquibase at 22:19:14 (version 4.6.1 #98 built at 2021-11-04 20:16+0000)
+58Liquibase Version: 4.6.1
+59Liquibase Pro 4.6.1 by Liquibase licensed to customersuccess until Mon Jun 27 04:59:59 UTC 2022
+60Executing Quality Checks against changelog.sql
+61Executing all checks because a valid Liquibase Pro license was found!
+62Changesets Validated:
+63  ID: createTable_salesTableZ; Author: SteveZ; File path: changelog.sql
+64Checks run against each changeset:
+65  Warn on Detection of 'GRANT' Statements
+66  Warn on Detection of 'REVOKE' Statements
+67  Warn when 'DROP TABLE' detected
+68  Warn when 'DROP COLUMN' detected
+69  Check for specific patterns in sql (Short Name: SqlCreateRoleCheck)
+70  Warn when 'TRUNCATE TABLE' detected
+71  Warn on Detection of grant that contains 'WITH ADMIN OPTION'
+72Liquibase command 'checks run' was executed successfully.
+```
+
+The liquibase update command deploys the changes. If you choose, you can view a full report of your changes in [Liquibase Hub](https://docs.liquibase.com/tools-integrations/liquibase-hub/setup.html). The update command also saves the deployment log output file as an artifact.
+
+```
+227Starting Liquibase at 22:19:34 (version 4.6.1 #98 built at 2021-11-04 20:16+0000)
+228Liquibase Version: 4.6.1
+229Liquibase Pro 4.6.1 by Liquibase licensed to customersuccess until Mon Jun 27 04:59:59 UTC 2022
+230----------------------------------------------------------------------
+231View a report of this operation at https://hub.liquibase.com/r/I7ens13ooM
+232* IMPORTANT: New users of Hub first need to Sign In to your account
+233with the one-time password sent to your email, which also serves as
+234your username.
+235----------------------------------------------------------------------
+236Logs saved to /home/gitlab-runner/builds/3-UvD4aX/0/szandany/sql_server/build-job_405710044.log
+237Liquibase command 'update' was executed successfully.
+```
+
+Here’s what your Liquibase Hub report will look like:
+
+![The hub report, part one](/images/blogimages/6_LiquibaseHub_Report.png){: .shadow.small.center}
+
+![The hub report, part twot](/images/blogimages/7_LiquibaseHub_Report.png){: .shadow.small.center}
+
+The Liquibase history command will show what changes are currently in the database.
+
+```
+255Starting Liquibase at 22:19:40 (version 4.6.1 #98 built at 2021-11-04 20:16+0000)
+256Liquibase Version: 4.6.1
+257Liquibase Pro 4.6.1 by Liquibase licensed to customersuccess until Mon Jun 27 04:59:59 UTC 2022
+258Liquibase History for jdbc:sqlserver://localhost:1433;sendTemporalDataTypesAsStringForBulkCopy=true;delayLoadingLobs=true;useFmtOnly=false;useBulkCopyForBatchInsert=false;cancelQueryTimeout=-1;sslProtocol=TLS;jaasConfigurationName=SQLJDBCDriver;statementPoolingCacheSize=0;serverPreparedStatementDiscardThreshold=10;enablePrepareOnFirstPreparedStatementCall=false;fips=false;socketTimeout=0;authentication=NotSpecified;authenticationScheme=nativeAuthentication;xopenStates=false;sendTimeAsDatetime=true;trustStoreType=JKS;trustServerCertificate=false;TransparentNetworkIPResolution=true;serverNameAsACE=false;sendStringParametersAsUnicode=true;selectMethod=direct;responseBuffering=adaptive;queryTimeout=-1;packetSize=8000;multiSubnetFailover=false;loginTimeout=15;lockTimeout=-1;lastUpdateCount=true;encrypt=false;disableStatementPooling=true;databaseName=DEV;columnEncryptionSetting=Disabled;applicationName=Microsoft JDBC Driver for SQL Server;applicationIntent=readwrite;
+259- Database updated at 11/9/21, 10:19 PM. Applied 1 changeset(s), DeploymentId: 6496372605
+260  liquibase-internal::1636496372758::liquibase
+261- Database updated at 11/9/21, 10:19 PM. Applied 1 changeset(s), DeploymentId: 6496375151
+262  changelog.sql::createTable_salesTableZ::SteveZ
+263Liquibase command 'history' was executed successfully.
+```
+
+### Clicking into the DEV->QA job example from your pipeline
+
+We run the liquibase diff command to compare the DEV and QA databases. This helps detect any drift between the databases.
+
+Notice in the log output that there are some unexpected changes: 
+
+table named bad_table
+
+procedure named bad_proc
+
+![The diff report](/images/blogimages/8_LiquibaseDiff_Report.png){: .shadow.small.center}
+ 
+By using the [Liquibase Pro trial license key](https://www.liquibase.com/trial), you’re able to detect any stored logic objects included in the diff report. Liquibase Pro also allows you to generate a parsable JSON output file and save it as an artifact for later use.
+
+```
+137Starting Liquibase at 22:21:10 (version 4.6.1 #98 built at 2021-11-04 20:16+0000)
+138Liquibase Version: 4.6.1
+139Liquibase Pro 4.6.1 by Liquibase licensed to customersuccess until Mon Jun 27 04:59:59 UTC 2022
+140Output saved to /home/gitlab-runner/builds/3-UvD4aX/0/szandany/sql_server/diff_between_DEV_QA.json
+141Liquibase command 'diff' was executed successfully.
+```
+
+JSON artifact output file example:
+
+```
+{
+    "diff": {
+        "diffFormat": 1,
+        "created": "Wed Dec 08 20:16:53 UTC 2021",
+        "databases": {
+            "reference": {
+                "majorVersion": "14",
+                "minorVersion": "00",
+                "name": "Microsoft SQL Server",
+                "url": "jdbc:sqlserver://localhost:1433;databaseName=DEV; ..."
+            },
+            "target": {
+                "majorVersion": "14",
+                "minorVersion": "00",
+                "name": "Microsoft SQL Server",
+                "url": "jdbc:sqlserver://localhost:1433;databaseName=QA; ..."
+            }
+        },
+        "unexpectedObjects": [
+            {
+                "unexpectedObject": {
+                    "name": "bad_proc",
+                    "type": "storedProcedure",
+                    "schemaName": "dbo",
+                    "catalogName": "QA"
+                }
+            },
+            {
+                "unexpectedObject": {
+                    "name": "bad_table",
+                    "type": "table",
+                    "schemaName": "dbo",
+                    "catalogName": "QA"
+                }
+            },
+            {
+                "unexpectedObject": {
+                    "name": "MARKET",
+                    "type": "column",
+                    "relationName": "bad_table",
+                    "schemaName": "dbo",
+                    "catalogName": "QA"
+                }
+            },
+            {
+                "unexpectedObject": {
+                    "name": "ID",
+                    "type": "column",
+                    "relationName": "bad_table",
+                    "schemaName": "dbo",
+                    "catalogName": "QA"
+                }
+            },
+            {
+                "unexpectedObject": {
+                    "name": "NAME",
+                    "type": "column",
+                    "relationName": "bad_table",
+                    "schemaName": "dbo",
+                    "catalogName": "QA"
+                }
+            },
+            {
+                "unexpectedObject": {
+                    "name": "REGION",
+                    "type": "column",
+                    "relationName": "bad_table",
+                    "schemaName": "dbo",
+                    "catalogName": "QA"
+                }
+            }
+        ],
+        "changedObjects": [
+            {
+                "changedObject": {
+                    "name": "QA",
+                    "type": "catalog",
+                    "differences": [
+                        {
+                            "difference": {
+                                "comparedValue": "QA",
+                                "field": "name",
+                                "message": "name changed from 'DEV' to 'QA'",
+                                "referenceValue": "DEV"
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+}
+
+```
+
+Note that the [Liquibase diffChangelog](https://docs.liquibase.com/commands/diffchangelog.html) can help any baseline environments that have drifted. 
+
+Clicking into the snapshot PROD job example, the snapshot file contains all the current schema changes represented in a JSON file. You can obtain the PROD database snapshot file to compare two states of the same database to protect against malware with drift detection.
+
+```
+58Starting Liquibase at 22:21:32 (version 4.6.1 #98 built at 2021-11-04 20:16+0000)
+59Liquibase Version: 4.6.1
+60Liquibase Pro 4.6.1 by Liquibase licensed to customersuccess until Mon Jun 27 04:59:59 UTC 2022
+61Output saved to /home/gitlab-runner/builds/3-UvD4aX/0/szandany/sql_server/snapshot_PROD.json
+62Liquibase command 'snapshot' was executed successfully. 
+64Uploading artifacts for successful job00:01
+70Cleaning up project directory and file based variables00:00
+72Job succeeded
+```
+ 
+### Congratulations! The pipeline ran successfully.
+
+If all the jobs are successful, you’ll see a green checkmark right next to each one.
+
+Here’s what your database changes will look like with a database SQL query tool.
+
+![The database](/images/blogimages/9_Database_Changes_SQL_Query_Tool.png){: .shadow.small.center}
+
+## Summing it up
+
+You’ve now successfully run Liquibase in a GitLab pipeline to enable true CI/CD for the database. You can easily keep adding more changes to the database by adding more Liquibase changesets to the changelog, commit them to GitLab version control, and repeat the merge request process described in this tutorial to add the changes. 
+
+Still have questions or want support integrating Liquibase with your Gitlab CI/CD Pipeline? Our team of database DevOps experts is happy to help! 
+
+[Contact Liquibase](https://www.liquibase.com/contact)
+
+[Contact GitLab](/sales/)
+
+Contact a [certified GitLab channel partner](https://www.google.com/url?q=https://partners.gitlab.com/English/directory/&sa=D&source=docs&ust=1641393355697069&usg=AOvVaw0R5mPukwMBR2dKsn3eQzqp)
+
+Contact a [Liquibase channel partner](https://www.liquibase.com/partners)
+
+Other useful links: 
+
+[Gitlab CI/CD setup Liquibase documentation](https://docs.liquibase.com/concepts/installation/setup-gitlab-cicd.html)
+
+[GitLab - Liquibase repository](https://gitlab.com/gitlab-com/alliances/liquibase/sandbox-projects/liquibasegitlabcicd/-/blob/master/README.md) 
+
+Get a [speedy, secure database developer flow](https://www.liquibase.com/blog/secure-database-developer-flow-using-gitlab-pipelines) using GitLab pipelines & Liquibase
+
+_Author Tsvi Zandany is a Senior Solutions Architect at Liquibase_

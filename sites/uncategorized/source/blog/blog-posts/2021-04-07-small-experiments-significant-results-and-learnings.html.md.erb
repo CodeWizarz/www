@@ -1,0 +1,77 @@
+---
+title: "Small experiments, significant results and learnings"
+author: Matej Latin
+author_gitlab: matejlatin
+author_twitter: matejlatin
+categories: unfiltered
+image_title: '/images/blogimages/small-experiments/cover.jpg'
+description: "How our Growth team validates design solutions with the smallest experiments possible"
+tags: growth, inside GitLab, UX
+---
+
+{::options parse_block_html="true" /}
+
+
+
+A while ago, I worked closely with the Growth:Expansion team on improving the experience of inviting users to GitLab. I first went through the existing experience of a user that’s inviting their team to GitLab and found a few opportunities for improvements. The work could have ended there, but I felt uneasy about it in the days after completing it. I felt that there was more to it, so I dug in again. This time, I wanted to explore what the experience was across many users involved in the process, instead of just the inviting user.
+
+## Multi-user journey map
+
+So instead of mapping out a single-user journey map, I mapped out the journey as it was then for all the users involved. I came up with the following:
+
+![Multi-user journey map](/images/blogimages/small-experiments/multi-user-journey.png)
+
+Take a look at the [multi-user journey map on Mural](https://app.mural.co/t/gitlab2474/m/gitlab2474/1588920686905/a2982098783c967cee6f7e656fffe574dec0777b).
+
+I wanted to see what it was like for non-admin users to invite their team to GitLab or assign some work to them (not all managers and leads are admin users). So a non-admin user wants to assign an issue to a team member that isn’t on GitLab yet. There are three users involved: the non-admin user trying to assign some work, the admin user who is the only one who can invite new users and the user that is being invited.
+The main conclusion of this multi-user journey map? There are many interruptions and a lot of waiting time between the steps. Such a simple task as assigning an issue to a team member can span across days because of these interruptions.
+
+The other conclusion of this work was that it was hard to find out how to invite users to GitLab, especially for new teams trying to adopt GitLab.
+
+So we came up with a problem to solve:
+
+> Can we make it easier for new teams to invite their team members?
+
+and a question to answer:
+
+> Would non-admin users request invitations to their team members if they could?
+
+## Making it easier for new teams to invite their team members
+We started with the smaller problem as it was a great candidate to do a MVC (minimal viable change) experiment and learn a lot from it. The concept of the solution was simple: increase the discoverability of the *invite members* feature. After some thought, I realized that the best place for this was the Assignee dropdown that we use on issues and merge requests. It’s at the top of the right sidebar, which means it’s quite prominent, but more importantly, it is a commonly used feature related to team management.
+
+So we decided that the most minimal experiment we could do was to add the “Invite members” link to the bottom of that dropdown and link directly to the *Settings* → *Members* page of the project. That’s the page where admin users can invite new users.
+
+![Assignee dropdown](/images/blogimages/small-experiments/assignee-dropdown.png){: .small.center}
+
+[Here’s the prototype](https://www.sketch.com/s/e96544d1-f2c7-45d5-a968-23e63064432d/a/bD9885/play) of the experience we tested. After crunching the numbers of the experiment we saw the following results:
+
+- Only a 0.16% click-through rate on the “Invite members” link in the dropdown
+- But a 2% increase in namespaces with two or more users
+This was significant because we only showed the new “Invite members” link to admin users. So the low click-through rate makes sense as the majority of users viewing the assignee are not admins and therefore did not see our test "invite members" option. However, even with a low click-through rate, the change in the metric that mattered most saw a 2% increase. Which is a considerable increase on its own! But we’re just getting started.
+
+## Do non-admin users want to invite their team members?
+
+Now we come to the question that we uncovered during the mapping of the multi-user journey. There’s a lot of waiting time and disruptions in the process of inviting a new user to GitLab. Especially when a non-admin user wants to do it. So we decided to run a similar experiment where we show the “Invite members” link in the assignee dropdown to non-admin users too.
+Following our MVC approach to conducting experiments, we wanted to run a minimal experiment that would help us answer this question. Instead of taking the time to build a complete experience for non-admin users requesting invitations from admin users, we decided to show a modal explaining that this feature isn’t available yet. We also added a link that would take the non-admin user to the *Settings* → *Members* page, where they can see who the admin is and contact them outside of GitLab (for now).
+
+![Modal not ready](/images/blogimages/small-experiments/modal-not-ready.png)
+It’s not the ideal experience, but the potential for learning justified it. Plus, we only show an experiment like this to a fraction of our users. The experiment has only been running for a few weeks, so it’s too early for conclusions. But we’re seeing encouraging results already, some suggest even up to a 20% increase in namespaces with two or more users so yes, it seems that non-admin users do want to invite their team members.
+
+## Other improvements and follow-up experiments
+One major improvement that our engineers have been working on is the “Invite members” modal. Instead of taking the user out of their workflow and into the *Settings* → *Members* page, they’ll be able to invite team members within their current workflow.
+
+![Modal invite form](/images/blogimages/small-experiments/modal-invite.jpg)
+
+[This is a prototype](https://www.sketch.com/s/e96544d1-f2c7-45d5-a968-23e63064432d/a/wmOa8m/play) of what the experience would be like with the invite modal.
+
+## Conclusion
+
+These experiments are the first among many that we want to conduct. We’re also thinking about allowing non-admin users to request a free trial, activation of a feature, switching to a higher plan from their admin all while potentially giving the admin the ability to turn this functionality off and on as needed. The experiments we conducted so far are indicating that there’s a demand for non-admin users to be able to request things limited to admins. And most importantly, they were minimal experiments that led to significant results and great learnings.
+
+For more details about these experiments check
+* [the original experiment design issue](https://gitlab.com/gitlab-org/gitlab/-/issues/217921)
+* [the follow-up experiment design issue](https://gitlab.com/gitlab-org/gitlab/-/issues/235979)
+* [the video recording of experiment and results discussion between me and Sam Awezec](https://www.youtube.com/watch?v=J5h_SNH3Nt8&ab_channel=GitLabUnfiltered) (the Product Manager of Growth:Expansion)
+
+Photo by [Evgeni Tcherkasski](https://unsplash.com/@evgenit?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/small?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

@@ -1,0 +1,16 @@
+features:
+  secondary:
+    - name: "Gitaly Cluster automatic repository repair"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/administration/gitaly/praefect.html#data-recovery'
+      reporter: derekferguson
+      stage: create
+      categories:
+        - 'Gitaly'
+      issue_url: 'https://gitlab.com/gitlab-org/gitaly/-/issues/2717'
+      description: |
+        When a primary Gitaly Cluster node went offline, repositories on the node were marked as read only to prevent data loss when there were changes that hadn't been replicated. If the node came back online, GitLab did not automatically recover and administrators had to manually trigger reconciliation, otherwise, you had to accept data loss. Other situations could also result in outdated or read only repositories, such as a replication job failing to be processed on a secondary node. In this case, the repository would stay out of date until another write came in and triggered a replication job.
+
+        To address these situations, [Praefect](https://docs.gitlab.com/ee/administration/gitaly/praefect.html) now schedules a replication job when it detects an outdated repository on one node, but the latest version of the repository on a different node. This replication job brings the outdated repository up to date automatically, mitigating concerns about manual data recovery. Automatic repair also ensures that secondary nodes are brought back up to date quickly if a replication job has failed, rather than needing to wait for the next write to occur. Since many Gitaly clusters store a large number of repositories, this significantly reduces the time that administrators and site reliability engineers need to spend recovering data after a failover.
+
+         In addition, automatic repair initiates replication of repositories to any new Gitaly node that is added to the cluster, removing the need for manual intervention when adding new nodes.

@@ -1,0 +1,63 @@
+---
+title: "From idea to production on thousands of clouds"
+author: Ev Kontsevoy # if name includes special characters use double quotes "First Last"
+author_gitlab: ekontsevoy
+author_twitter: kontsevoy
+categories: company
+image_title: '/images/blogimages/blue-lights.jpeg'
+description: "Deliver cloud native applications in more places consistently at scale with GitLab and Gravity."
+tags: cloud native, DevOps, integrations, kubernetes, CI/CD, startups
+guest: true # required when the author is not a GitLab Team Member
+---
+
+Today, deploying an application with GitLab is easier than ever: just create a Kubernetes cluster on your cloud of choice, connect it to GitLab with the Kubernetes integration, and Auto DevOps creates a full deployment pipeline for you.
+
+But what if you need your app to run in two clusters in two separate regions? Ten clusters across multiple cloud providers? A hundred clusters and also on a fleet of self-driving trucks?
+
+At [Gravitational](https://gravitational.com), we believe the future should not belong to a single cloud provider and developers should be able to run their applications anywhere with the same simplicity as having a single Kubernetes cluster.
+
+I am a huge fan of GitLab. I’ve had the great pleasure of getting to know much of the founding team [over the years](https://about.gitlab.com/blog/2016/12/12/gitlab-joins-forces-with-gravitational/) and was happy to provide my [own contribution](https://gitlab.com/gitlab-org/gitlab-foss/issues/22864) to the community a while back. Today, I’m happy to share some thoughts on how to build with GitLab and deploy applications into dozens or even hundreds of cloud environments. 
+
+## The rise of multicloud
+
+How do you run applications in different data centers? Do you need to rewrite them from scratch? AWS may still be the dominant cloud provider, but cloud competitors are eating into their lead. It’s not just the big public cloud companies either. [Private cloud data centers](https://www.forbes.com/sites/jasonbloomberg/2019/02/02/have-private-clouds-finally-found-their-place-in-the-enterprise/#2f859685604f) are growing just as rapidly.
+
+Many companies that need to meet tough security and compliance requirements will require applications to run in their bare metal data centers. Running an application on an on-premises or even air-gapped data center adds additional complexity due to the hundreds or even thousands of dependencies in modern applications.
+
+Gravitational has built Gravity, an open source [Kubernetes packaging solution ](https://gravitational.com/gravity/)that allows developers to build “cluster images” (similar to VM images) that can contain an entire Kubernetes cluster pre-loaded with multiple applications. You would use GitLab to go from idea to production, and Gravity to expand your production to anywhere in the world. 
+
+Statements like, “I have snapshotted our entire production environment and emailed it to you, so you can run it in your private data center,” will not seem completely crazy.
+
+Gravity uses standard, upstream CNCF-supported tooling for creating "images" of Kubernetes clusters containing the applications and their dependencies. The resulting files are called cluster images which are just .tar files.
+
+A cluster image can be used to recreate full replicas of the original environments for any deployment environment where compliance and consistency matter, i.e. in locked-down AWS/GCP/Azure environments or even in air-gapped server rooms. Each image includes all dependencies to spin up a full cluster, as well as the Gravity daemon that handles the most common operational tasks associated with Kubernetes applications, and it monitors and alerts human operators of problems.
+
+## Deploy with GitLab, scale with Gravity
+
+![Gravity dashboard](/images/blogimages/gravity-dashboard.png){: .shadow.medium.center}
+
+Developers can leverage a GitLab repository as a single source of truth for rolling out a Kubernetes app and leverage [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) for continuous delivery.
+
+Any project of meaningful scale begins by defining an [epic](https://docs.gitlab.com/ee/user/group/epics/) with goals, milestones, and tasks. An [issue](https://docs.gitlab.com/ee/user/project/issues/#issues) is the main object for collaborating on ideas and planning work. GitLab’s [package and container registry](https://about.gitlab.com/stages-devops-lifecycle/package/) helps you manage and package dependencies. 
+
+[The GitLab Kubernetes integration](https://docs.gitlab.com/ee/user/project/clusters/) allows customers to create Kubernetes clusters, utilize review apps, run pipelines, use web terminals, deploy apps, view pod logs, detect and monitor Kubernetes, and much more. For deploying a Kubernetes cluster in a single destination, GitLab provides everything you need from start to finish. 
+
+However, if your customers need to run your application in their private data centers, they can use Gravity, which essentially copy/pastes the entire Kubernetes cluster environment you’ve built in GitLab. 
+
+[Download](https://gravitational.com/gravity/download/) and set up the Gravity open source edition following our [quickstart guide](https://gravitational.com/gravity/docs/quickstart/). From Gravity, you can build a cluster image of your Kubernetes application. Gravity’s [documentation](https://gravitational.com/gravity/docs/overview/) will walk you through the steps required to build an image manifest that describes the image build, the installation process, and the system requirements for the cluster. 
+
+You can build empty Kubernetes cluster images to quickly create a large number of identical, production-ready Kubernetes clusters within an organization, or you can build a cluster image that also includes Kubernetes applications to distribute your application to third parties. 
+
+## Next steps
+
+If you want to learn more about working with Kubernetes, start with [Kubernetes 101](https://www.youtube.com/watch?v=rq4GZ_GybN8). You’ll learn how GitLab and Kubernetes interact at various touchpoints. And, if you’re looking for a way to port your applications to new environments, check out [Gravity](https://gravitational.com/gravity). 
+
+## About the guest author
+
+Ev is a co-founder and the CEO of Gravitational. Before Gravitational, he launched the on-demand OpenCompute servers at Rackspace. Prior to Rackspace, he co-founded Mailgun, the first email service built for developers. Ev has been a fighter against unnecessary complexity in software for 20 years. He abhors cars but loves trains and open source software that doesn't require an army of consultants to operate.
+
+## About Gravitational
+
+[Gravitational](https://gravitational.com) helps companies deliver cloud applications across cloud providers, on-premises environments, and even air-gapped server rooms. Products include Teleport for multi-cloud privileged access management that doesn't get in the way of developer productivity, and Gravity, a Kubernetes packaging solution that takes the drama out of on-prem deployments. Gravitational was founded in 2015 and recently [announced their Series A](https://gravitational.com/blog/gravitational-series-a-funding/). 
+
+Cover image by [Sharon McCutcheon](https://unsplash.com/@sharonmccutcheon) on [Unsplash](https://unsplash.com/photos/TMwHpCrU8D4){: .note}

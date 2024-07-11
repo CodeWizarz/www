@@ -1,0 +1,24 @@
+features:
+  secondary:
+    - name: "Geo redirects HTTP(S) requests for unsynchronized repositories to the primary node"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/replication/configuration.html#git-operations-on-unreplicated-respositories'
+      reporter: fzimmer
+      stage: systems
+      categories:
+        - "Geo-replication"
+      epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/2562'
+      description: |
+        Geo supports [selective
+        synchronization](https://docs.gitlab.com/ee/administration/geo/replication/configuration.html#selective-synchronization)
+        of projects, which allows systems administrators to choose a subset of
+        data that is replicated to a secondary Geo node. Until now, users trying
+        to access repositories on a secondary node that were not synchronized
+        would receive an error that the project was not available. This could be
+        because of selective synchronization or because of replication lag. This was
+        confusing for users and disturbed their Git workflow.
+
+        In GitLab 12.10, any Git requests made via HTTP(S) to an unsynchronized secondary Geo node will be forwarded to the primary node so that users can still access the
+        repository. This means that users won't need to know what is or isn't
+        replicated - Geo will try to fulfill the request. Support for proxying SSH Git operations will be available in GitLab 13.0.

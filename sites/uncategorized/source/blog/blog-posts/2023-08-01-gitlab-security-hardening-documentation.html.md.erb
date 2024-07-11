@@ -1,0 +1,58 @@
+---
+title: The backstory on GitLab's security hardening documentation
+author: Mark Loveless
+author_gitlab: mloveless
+categories: security
+image_title: '/images/blogimages/built-in-security.jpeg'
+featured: yes
+tags: security, documentation, DevSecOps
+description: GitLab has detailed documentation about how to harden your instance, now as a part of GitLab itself. Here's how it came to be.
+twitter_text: GitLab has detailed documentation about how to harden your instance, now as a part of GitLab itself. Here's how it came to be.
+---
+Recently, my fellow Security team member [Ayoub Fandi](https://gitlab.com/ayofan) released an excellent blog post entitled “[How to harden your self-managed GitLab instance](https://about.gitlab.com/blog/2023/05/23/how-to-harden-your-self-managed-gitlab-instance/),” which featured seven steps for helping to lock down your environment. Ayoub’s blog post was based, in part, on early drafts of research into hardening I had been working on. I had no idea how long it would take me to reach a point where I could finally say this, but those original drafts are now a [part of GitLab documentation](https://docs.gitlab.com/ee/security/hardening.html).
+
+## Hardening your GitLab instance
+The goal of the hardening documentation is for DevSecOps teams to be able to apply security controls and make sure your data and your GitLab instance are protected.
+
+Here's what I will cover:
+- the origins of the hardening documentation
+- field research, including a few attack scenarios
+- bringing an instance online
+- insight into when to use hardening, specifically how to do a bit of threat modeling and get the basics sorted before diving deep into full hardening 
+
+## Origins of the hardening documentation
+The idea for creating extensive hardening documentation started with a blog post I wrote three years ago called “[GitLab instance: Security best practices](https://about.gitlab.com/blog/2020/05/20/gitlab-instance-security-best-practices/)." This became a rather popular reference for GitLab customers asking about securing their self-managed instance (and even a SaaS deployment).
+
+As I participated in other security efforts around Gitlab, such as [FedRAMP certification](https://about.gitlab.com/handbook/security/security-assurance/dedicated-compliance/fedramp-compliance.html), [compliance requirements](https://about.gitlab.com/handbook/security/security-assurance/security-compliance/certifications.html), and general [security concerns](https://about.gitlab.com/handbook/security/), I realized we needed more support materials focused on the "Sec" in DevSecOps.
+
+The hardening project was born from this -  based largely off of an instance I had loaded up in 2020 and was using at home. During all of this time, from 2020 until now, I took notes, performed tests, had hacker friends and work colleagues poke and prod at this home system, and, then took even more notes. No doubt, the information I learned would be a huge benefit to GitLab users so I opted to create recommendations that could be updated frequently and accessible directly from a GitLab instance via the Help menu. 
+
+## Field research
+I've been a security professional for well over a couple of decades and have had my own domain online since 1997, using five static IP addresses in my house. This deployment includes web services, a Mastodon instance, and a mail server. These systems have been used by a few close hacker friends during this time as a testbed, a place to converse and exchange ideas, and a great educational environment. A few years ago, I thought it would be fun for this group to have its own private GitLab instance called [Blackhole](https://blackhole.nmrc.org/). We could work on coding projects together, collaborate, and, since I worked at GitLab, I could use it for testing of a standalone instance for certain work-inspired issues.
+
+Having live servers up with dedicated and static IP addresses means that, yes, these servers are under pretty much constant attack. Because of this clustering of security friends on these systems, we’ve even been targeted by more sophisticated attackers, up to and including nation states. A perfect test environment for real-world attack scenarios.
+
+### Attack scenarios
+Like many in the security field, over the years I’ve seen a number of attacks firsthand, so I made a list of things I needed for hardening against attacks. After doing some [threat modeling](https://about.gitlab.com/handbook/security/threat_modeling/), I noted the following three areas of concern:
+1. **Opportunistic intruders (okay, who am I kidding, [script kiddies](https://www.techtarget.com/searchsecurity/definition/script-kiddy-or-script-kiddie)).** These types of attacks are typically composed of easy-to-use scripts against known vulnerable applications. This has happened to me. Within five minutes of installation of an odd web-based application, while still reading the documentation and wondering if the apparently vulnerable software was actually working, it was compromised. So I had to assume immediate attacks would happen if I loaded this up on a live system exposed to the open internet.
+2. **Layered or chained attacks.** This is when an attacker takes advantage of a particular sub-component that is exposed to the internet, and while the sub-component might not allow for full system access, it could allow for access to another sub-component with access to data. I was determined to disable or secure as much as possible, leaving as few exposed ports or running services as possible.
+3. **Advanced persistent threat ([APT](https://en.wikipedia.org/wiki/Advanced_persistent_threat)) attackers.** They have repeatedly gone after my former employers, and as they learned who their employees were, home systems would become targets, and [mine were no exception](https://www.markloveless.net/blog/2021/6/8/advancing-persistently-against-apt). To this day, I receive an APT attack attempt every few months. Knowing that one tactic of APT attackers is supply chain attacks, having a DevSecOps platform shared by hackers could be seen as a delicious target, so security had to be top of mind.
+
+## Bringing an instance online
+As I installed Blackhole, I first configured the firewall at the operating system level to close off all of the ports from public access, only allowing access from my internal network. As a rule, my perimeter router allows all traffic in for those five static IP addresses, with each system following strict firewall rules using the operating system’s firewall capabilities. Most of these five systems cannot even talk to each other, or only have the bare minimum connectivity configured to enable functionality. As I was monitoring traffic to my public systems via my perimeter router, in less than 10 minutes, I started seeing port scans against Blackhole’s IP address, well before it had even finished installation of the Linux operating system. I was glad the firewall was up and running from the start.
+
+As GitLab was installed and Blackhole came up in its state as a GitLab instance, I started going through the various settings and making sure that things were locked down as tight as possible. Anything I wasn’t using was disabled. This applied to the underlying operating system as well as the GitLab software itself. When I felt good enough about it, I adjusted the firewall settings to open things up ever so slightly, and the system has been under near constant attack since.
+
+## When to use the hardening documentation
+GitLab is a comprehensive DevSecOps platform that can handle all kinds of security scenarios. GitLab the company uses the product to not only develop the platform, but we also run the company off of it. The feature-rich platform can be configured in many different ways. Keeping that in mind, note that one setup might be set up to be more secure than another simply because of the environment it needs to be included in. There are drastically different configuration choices for an environment that is publicly accessible vs. one that is only accessible from employee workstations, or  a large enterprise with employees located on multiple continents vs. a small business' single server deployment.
+
+Hardening, therefore, is dependent on your unique environment, and requires you to understand the threats you need to mitigate against, and account for any regulatory and compliance requirements to which you must adhere. However, there are a few common steps that can lead you through the process.
+
+### Start with the basics
+The first recommendation is to start with a few basics. Make sure you have some ground rules established in your organization such as password standards, software upgrade schedules, and compliance requirements. This will make it easier as you move through the process. Understand the threats your organization has faced in the past, and the potential threats you could face in the future. I wrote a blog post on [threat modeling](https://about.gitlab.com/handbook/security/threat_modeling/) and [we use it internally](https://about.gitlab.com/handbook/security/threat_modeling/howto.html) as well.
+
+### Full hardening
+I’d recommend reading [Ayoub’s blog post](https://about.gitlab.com/blog/2023/05/23/how-to-harden-your-self-managed-gitlab-instance ) and follow the seven steps he puts forward. In many cases, after you’ve finished Ayoub’s blog post you will have enough to meet your security needs right there. If you need more, delve into the [hardening recommendations documentation](https://docs.gitlab.com/ee/security/hardening.html). Adapt it as needed to meet your organization’s security demands, and explore the possibilities to increase the security of your environment. Note that these recommendations are not limited to just GitLab settings, but also includes a few recommendations for the underlying operating system itself.
+
+### Share your feedback
+If you have ideas for more security tips and tricks or questions regarding the hardening documentation, please open an issue on GitLab. We’d love to hear from you and welcome feedback and contributions! And if you want to learn more about how we do security at GitLab, review the [security section](https://about.gitlab.com/handbook/security/) of the handbook.

@@ -1,0 +1,39 @@
+tertiary:
+  - name: "Service bulletins"
+    documentation_link: 'https://docs.gitlab.com/ee/administration/packages/container_registry.html#container-registry-garbage-collection'
+    description: |
+      <h4 id="non-compliant-container-images-break-garbage-collection"><a class="header-link" href="#non-compliant-container-images-break-garbage-collection"><i class="fas fa-link"></i></a><p>Non-compliant container images break garbage collection</p></h4>
+
+      According to the [Docker Image Spec](https://docs.docker.com/registry/spec/manifest-v2-2/#manifest-list-field-descriptions) and the [OCI Image Spec](https://github.com/opencontainers/image-spec/blob/main/image-index.md), a manifest list should reference only manifests. [We learned](https://gitlab.com/gitlab-org/container-registry/-/issues/404) that it's possible to push manifest lists that reference layers. The root cause lies with [Docker's Buildkit](https://docs.docker.com/buildx/working-with-buildx/) (directly or through Buildx) implementation of remote cache images. It has been reported [upstream](https://github.com/moby/buildkit/issues/2251), but it isn't clear if this issue will be addressed. We have short-term and long-term goals for dealing with this.
+
+      Short term, our goal is to unblock Self-Managed customers from running offline garbage collection. For now, we updated the container registry to account for this behavior.
+
+      Long term, we must ensure that the GitLab Container Registry enforces the OCI Image Spec. Allowing manifest lists with blobs to be pushed affects data integrity and consistency. However, adding validation would introduce breaking changes for GitLab.com and Self-Managed customers. We're gathering data on the scope of the issue and will follow up with a plan in the coming months.
+
+      In the meantime, if you have any questions, please comment in the [issue](https://gitlab.com/gitlab-org/container-registry/-/issues/407).
+
+      <div class="row reference-buttons ref-buttons-second-features">
+      <div class="col-md-12 col-sm-12">
+      <a class="btn btn-default btn-xs product-icon-xm" href="https://docs.gitlab.com/ee/administration/packages/container_registry.html#container-registry-garbage-collection" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M5 1h4.244a2 2 0 0 1 1.434.606l2.756 2.834A2 2 0 0 1 14 5.835V12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V4a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V5.835L9.244 3H5zm1.5 7h3a.5.5 0 1 1 0 1h-3a.5.5 0 1 1 0-1zm0-2h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zM8 2l3 1.995L13 7H9a1 1 0 0 1-1-1V2z"></path></svg>
+      Documentation
+      </a>
+      <a class="btn btn-default btn-xs product-icon-xm" href="https://gitlab.com/gitlab-org/container-registry/-/issues/404" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M10.892 3.072l1.048.185a3 3 0 0 1 2.433 3.476l-.868 4.924a3 3 0 0 1-3.12 2.474A3.98 3.98 0 0 0 11 12.03a.999.999 0 0 0 .535-.72l.869-4.924a1 1 0 0 0-.811-1.158L11 5.122V4c0-.32-.037-.63-.108-.928zM4 1h3a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H4a3 3 0 0 1-3-3V4a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H4z"></path></svg>
+      Issue
+      </a>
+      </div>
+      </div>
+
+      <h4 id="maximum-file-size-for-job-logs-defaulting-to-100mb"><a class="header-link" href="#maximum-file-size-for-job-logs-defaulting-to-100mb"><i class="fas fa-link"></i></a><p>Maximum file size for job logs, defaulting to 100MB</p></h4>
+
+      GitLab values efficiency for all users in our wider community of contributors, so we're always working hard to make sure the application performs at a high level with a lovable UX. In 14.2, we plan on introducing a [job log file size limit](https://docs.gitlab.com/ee/administration/instance_limits.html#maximum-file-size-for-job-logs), set to 100 megabytes by default. Administrators of self-managed GitLab instances can customize this to any value. All jobs that exceed this limit are dropped and marked as failed, helping prevent performance impacts or over-use of resources. This ensures that everyone using GitLab has the best possible experience.
+
+      <div class="row reference-buttons ref-buttons-second-features">
+      <div class="col-md-12 col-sm-12">
+      <a class="btn btn-default btn-xs product-icon-xm" href="https://docs.gitlab.com/ee/administration/instance_limits.html#maximum-file-size-for-job-logs" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M5 1h4.244a2 2 0 0 1 1.434.606l2.756 2.834A2 2 0 0 1 14 5.835V12a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3V4a3 3 0 0 1 3-3zm0 2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V5.835L9.244 3H5zm1.5 7h3a.5.5 0 1 1 0 1h-3a.5.5 0 1 1 0-1zm0-2h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1 0-1zM8 2l3 1.995L13 7H9a1 1 0 0 1-1-1V2z"></path></svg>
+      Documentation
+      </a>
+      </div>
+      </div>

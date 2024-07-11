@@ -1,0 +1,107 @@
+@import "variables";
+
+/*******************************************/
+/* Tooltip container popper parent element */
+/*******************************************/
+
+/* Tooltip container styling */
+
+#highlight-tooltip {
+  background: $color-dark;
+  padding: 4px 12px;
+  border-radius: 4px;
+  display: none;
+
+  a {
+    i {
+      margin-left: 8px;
+      padding-right: 0;
+    }
+
+    &:first-child {
+      i {
+        border-right: 1px solid $color-gray-darken;
+        padding-right: 12px;
+        margin-left: 0;
+      }
+    }
+  }
+}
+
+/* Tooltip visibility control and animation */
+
+#highlight-tooltip[data-show] {
+  display: block;
+  animation: fade-in .5s;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+.js-disable-animation {
+  // Used to prevent flaky integration tests.  Yes, this is a test-only rule, and
+  // could be programatically applied during the test, but its better to have
+  // it here next to the other animation rules, so it's easier to notice and
+  // keep in sync if changes are made to the other rules.
+
+  // sass-lint:disable no-important
+  animation-duration: 0s !important;
+}
+
+/* Tooltip arrow */
+
+#highlight-tooltip-arrow,
+#highlight-tooltip-arrow::before {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  z-index: -1;
+}
+
+#highlight-tooltip-arrow::before {
+  content: "";
+  transform: rotate(45deg);
+  background: $color-dark;
+}
+
+#highlight-tooltip[data-popper-placement^="top"] > #highlight-tooltip-arrow {
+  bottom: -4px;
+}
+
+#highlight-tooltip[data-popper-placement^="bottom"] > #highlight-tooltip-arrow {
+  top: -4px;
+}
+
+#highlight-tooltip[data-popper-placement^="left"] > #highlight-tooltip-arrow {
+  right: -4px;
+}
+
+#highlight-tooltip[data-popper-placement^="right"] > #highlight-tooltip-arrow {
+  left: -4px;
+}
+
+/**********************************************/
+/* Tooltip button child element(s) */
+/**********************************************/
+
+/* Common styling for all buttons */
+
+.highlight-tooltip-link {
+  color: $color-white;
+
+  &:visited {
+    color: $color-white;
+  }
+
+  &:hover {
+    color: $color-gray-extra-light;
+    text-decoration: none;
+  }
+}

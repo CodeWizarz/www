@@ -1,0 +1,38 @@
+%section
+  %table.table-responsive{ style: "margin-bottom: 25px; white-space: nowrap; display: block;" }
+    %thead
+      %tr
+        %th
+          Section
+        %th
+          Stage
+        %th
+          Group
+        %th
+          Assigned technical writer
+    - data.stages.stages.select { |stage_key, stage| stage.tw }.sort_by { |stage_key, stage| stage.section }.each do |key, stage|
+      %tbody{ style: "border-top: 3px solid rgba(240,115,40, .4);" }
+        - stage.groups.select.each do |key, group|
+          %tr
+            %td
+              %a{ href: "/handbook/product/categories/##{stage.section}-section" }
+                = stage.section.capitalize
+            %td
+              %a{ href: "/handbook/product/categories/##{stage.display_name.downcase}-stage" }
+                = stage.display_name
+            %td
+              %a{ href: "/handbook/product/categories/##{group.name.downcase.gsub(' ', '-').gsub(':', '')}-group" }
+                = group.name
+            -# Assigned technical writer
+            - if group.tech_writer
+              - tech_writers = { "Axil" => "axil", "Evan Read" => "eread", "Russell Dickenson" => "rdickenson", "Marcel Amirault" => "marcel.amirault", "Kati Paizee" => "kpaizee", "Amy Qualls" => "aqualls", "Suzanne Selhorn" => "sselhorn", "Fiona Neill" => "fneill", "Marcin Sędłak-Jakubowski" => "msedlakjakubowski", "Marcin Sedlak-Jakubowski" => "msedlakjakubowski", "Phillip Wells" => "phillipwells", "Ashraf Khamis" => "ashrafkhamis", "Lorena Ciutacu" => "lciutacu", "Jon Glassman" => "jglassman1", "Catherine Pope" => "drcatherinepope", "#docs Slack channel" => "archives/C16HYA2P5" }
+              %td
+                - group.tech_writer.each do |responsible|
+                  - if tech_writers[responsible]
+                    %p
+                      %a{ href: "https://gitlab.com/" + tech_writers[responsible] }
+                        = responsible
+
+            - else
+              %td
+                = "---"

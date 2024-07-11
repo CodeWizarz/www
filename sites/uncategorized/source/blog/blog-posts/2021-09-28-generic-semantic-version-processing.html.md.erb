@@ -1,0 +1,520 @@
+---
+title: "SemVer versioning: how we handled it with linear interval arithmetic"
+author: "Julian Thome"
+author_gitlab: "jthome"
+author_twitter: "gitlab"
+categories: security
+description: "SemVer versioning made it difficult to automate processing. We turned to linear interval arithmetic to come up with a unified, language-agnostic semantic versioning approach."
+tags: security, DevOps, open source
+featured: no
+twitter_text: "How we tackled the SemVer versioning problem with linear interval arithmetic" 
+postType: content definition 
+---
+
+The [semantic versioning (SemVer) specification](https://semver.org/) can be
+considered the de-facto standard for tracking software states during its
+evolution. Unfortunately, in reality many languages/ecosystems practice "SemVer versioning" and have not adopted
+the standard as-is; instead we can find many different semantic versioning
+flavors that are not necessarily compatible with the original SemVer spec. SemVer Versioning has
+led to the creation of a variety of different semantic versioning schemes.
+
+GitLab provides a [Dependency Scanning (DS)](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/)
+feature that automatically detects vulnerabilities in the dependencies of a
+software project for a variety of different languages. DS relies on the
+[GitLab Advisory Database](https://gitlab.com/gitlab-org/security-products/gemnasium-db)
+that is updated on a daily basis providing information about
+vulnerable packages that is expressed in the package-specific (native)
+semantic version dialect. GitLab also recently launched an [Open Source Edition](https://gitlab.com/gitlab-org/advisories-community) of the GitLab Advisory Database.
+
+At GitLab we use a semi-automated process for advisory generation: we extract
+advisory data that includes package names and vulnerable versions from
+data-sources such as [NVD](https://nvd.nist.gov/) and generate advisories that
+adhere to the GitLab advisory format before they are curated and stored in our
+[GitLab Advisory Database](https://gitlab.com/gitlab-org/security-products/gemnasium-db).
+
+The plethora of SemVer versioning in the wild posed a major
+challenge for the level of automation we could apply in the advisory generation
+process: the different semantic version dialects prevented us from building
+generic mechanisms around version matching, version verification (i.e., the
+process of verifying whether or not versions are available on the relevant package
+registry), fixed version inference etc. Moreover, since advisory generation
+requires us to extract and update advisory data on scale from data-sources with
+hundreds of thousands vulnerability entries, translating and/or verifying
+versions by hand is not a viable, scalable solution.
+
+Having a generic method to digest and process a variety of different SemVer versioning dialects was an important building block for automating large parts of the advisory generation process. This led to the development of
+[semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects), a
+utility that helps processing semantic versions in a generic, language-agnostic manner which
+has been recently open-sourced (MIT) and [published on rubygems.org](https://rubygems.org/gems/semver_dialects).
+
+## Understand the SemVer spec
+
+The SemVer spec is the de-facto standard for tracking states of software projects during their evolution
+by associating unique, comparable version numbers to distinct states, and by
+encoding semantic properties into the semantic version strings so that a version
+change implicitly conveys information about the nature of the change.  
+
+A semantic version consists of a prefix (version core) and a suffix that hold
+pre-release and/or build information. A version core consists of three numeric
+components that are delimited by `.`:
+
+* major: backwards-incompatible changes
+* minor: new backwards-compatible functionality
+* patch: backwards-compatible bug fixes
+
+Considering a software project using SemVer, with two releases `1.0.0` and
+`1.0.1`, by just looking at the change applied to the semantic version strings,
+it is clear that `1.0.1` is a newer (more recent) release of the software, whereas version
+`1.0.0` is an older release. In addition, the version number `1.0.1`
+represents an improved state of the software as compared to version `1.0.0` which contained a bug
+that has been fixed in version `1.0.1`. This fix is signalled by the higher number of the patch version component.
+
+Semantic version processing is particularly useful in the context of [Dependency Scanning (DS)](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/). DS is the process of automatically detecting (and potentially fixing)
+vulnerabilities related to the dependencies of a software project: dependencies
+of a software project are checked against a set of configuration files (so
+called advisories) that contain information about vulnerable dependencies;
+advisories usually include the versions of the vulnerable dependency.
+Vulnerable versions are usually expressed in terms of version intervals: for example [this out-of-bounds read vulnerability for the Python tensorflow package](https://nvd.nist.gov/vuln/detail/CVE-2021-29560) contains information about the vulnerable version by listing the four version intervals below:
+
+1. up to 2.1.4
+1. from 2.2.0 up to 2.2.3
+1. from 2.3.0 up to 2.3.3
+1. from 2.4.0 up to 2.4.2
+
+While SemVer is very concise and clear about the syntax and semantic of
+semantic versions, it does not specify how to express and represent semantic
+version constraints. In addition, SemVer is purposefully simplistic to foster
+its adoption. In practice it seems as if many ecosystems required features that
+go beyond SemVer which led to the development of many SemVer versioning flavours as well
+as a variety of different native constraint matching syntaxes, some of which
+deviate from the official SemVer specification.  Depending on the ecosystem you
+are working with, the same semantic version string may be treated/interpreted
+differently: for example both Maven and pip/PyPI treat versions `1.2.3.SP`
+differently because pip/PyPI lacks the notion of an `SP` post release. Apart
+from that, `1.2.3.SP` cannot be considered a valid semantic version according
+to the SemVer spec.
+
+Today we have a variety of different semantic versioning schemes:
+
+- `gem`: [gem requirement](https://guides.rubygems.org/specification-reference/#add_runtime_dependency)
+- `maven`: [Maven Dependency Version Requirement Specification](https://maven.apache.org/pom.html#Dependency_Version_Requirement_Specification)
+- `npm`: [node-semver](https://github.com/npm/node-semver#ranges)
+- `php`: [PHP Composer version constraints](https://getcomposer.org/doc/articles/versions.md#writing-version-constraints)
+- `pypi`: [PEP440](https://www.python.org/dev/peps/pep-0440/#version-specifiers)
+- `go`: [go semver](https://godoc.org/golang.org/x/tools/internal/semver)
+- `nuget`: [NuGet semver](https://docs.microsoft.com/en-us/nuget/concepts/package-versioning)
+- `conan`: [node-semver flavour](https://github.com/npm/node-semver#ranges)
+
+This SemVer versioning fragmentation limited the degree of automation we could apply to our
+advisory extraction/generation process. This limitation motivated the
+development of a methodology and tool [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) that helps to digest and process semantic versions in a language agnostic way and, hence, helps to reduce the manual advisory curation effort.
+
+Below, you can see an excerpt of the advisory information that is extracted and
+generated by our semi-automated advisory generation process:
+
+```yaml
+# ...
+affected_range: ">=1.9,<=2.7.1||==2.8"
+fixed_versions:
+- "2.7.2"
+- "2.8.1"
+not_impacted: "All versions before 1.9, all versions after 2.7.1 before 2.8, all versions
+  after 2.8"
+solution: "Upgrade to versions 2.7.2, 2.8.1 or above."
+# ...
+```
+
+In the excerpt above:
+
+- `affected_range` denotes the range of affected versions which is the machine-readable, native syntax used by the package manager/registry (in this case pypi).
+- `fixed_versions` denotes the concrete versions when the vulnerability has been fixed.
+- `not_impacted` provides a textual description of the versions that are not affected.
+- `solution` provides information about how to remediate the vulnerability.
+
+To be able to extract and generate advisories like the one illustrated
+above in a language/ecosystem agnostic way, we implemented and open-sourced a
+generic semantic version representation and processing approach called
+semver_dialects.
+
+In the advisory excerpt above, the `affected_range` field contains the version
+constraints in the native constraint syntax (in this case PyPI for Python);
+`fixed_versions` can be inferred by inverting the `affected_version` (i.e.,
+non-affected versions) and by selecting the first available  version that falls
+into the range of non-affected versions from the native package registry; this step
+requires our approach to be able to parse the native semantic version syntax.
+
+In order to deal with SemVer versioning and automatically process and generate the fields according to this
+description, our [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) implementation had to satisfy the following requirements:
+
+1. Provide a unified interface to the language specific dialects.
+1. Match semantic versions in a language agnostic way.
+1. Invert ranges.
+1. Cope with scattered, non-consecutive ranges.
+1. Parse and produce different version syntaxes.
+1. Parse and match versions/constraints in a best-effort manner.
+
+## SemVer versioning representation
+
+First, we need a generic representation of a semantic version to start with. We
+assume that a semantic version is composed of prefix and suffix where the
+prefix contains segments for major, minor and patch version components as defined in the
+SemVer specification. The suffix may hold additional information about pre/post
+releases etc. As illustrated below, the major, minor and patch prefix segments
+can be accessed by means of the corresponding methods.
+
+``` ruby
+s1 = SemanticVersion.new('1.2.3')
+puts "segments: #{s1}"
+# segments: 1:2:3
+puts "major #{s1.major}"
+# major 1
+puts "minor #{s1.minor}"
+# minor 2
+puts "patch #{s1.patch}"
+# patch 3
+```
+
+We cannot generally assume that all provided versions we would like to process
+fully adhere to the SemVer spec which requires a version prefix (core) to
+consist of three segments: major, minor and patch. Hence, per default, we
+remove redundant, trailing zeros from the prefix to ensure that
+`2.0.0`, `2.0` and `2` are considered identical.
+
+[Semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) translates language specific version suffixes into numeric values. This process
+can be described as version normalization.  For example the Maven (pre-)release
+candidate version `2.0.0.RC1` can be translated to a numeric representation
+with prefix: `2` and suffix `-1:1` by mapping `RC` to a numeric value (in this
+example `-1`) and, thus, rendering it numerically comparable.
+
+After this normalization step, semantic version matching for two versions `vA`
+and `vB` can be implemented by simply numerically comparing their segments in a
+pairwise fashion.  For unknown suffices that are not mappable to the numeric
+domain, we use lexical matching as a default fallback strategy.
+
+In summary, comparing two semantic versions is a two-step process:
+
+1. Normalization: Extend both semantic versions to have the same prefix length and suffix
+   lengths by appending zeros.
+1. Comparison: Iterate over segments and compare each of them numerically.
+
+For example, after normalizing the versions `2.0.0.RC1` and `2.0.0` to `2:-1:1`
+and `2:0:0`, respectively, we can iterate over the segments (delimited by
+`:` in the example) which we can compare numerically to successfully identify
+`2:-1:1` as being the smaller (release-candidate) version in comparison to
+`2:0:0`.
+
+## Constraint syntax - everything is a linear interval
+
+Translating semantic versions into a generic representation makes them
+numerically comparable which is already useful but not sufficient to express SemVer versioning constraints in a language-agnostic fashion.
+
+For representing semantic version constraints in a generic way,
+we rely on linear intervals.  For the purpose of this blog, we define an interval as an ordered pair of two
+semantic versions which we are referring to as lower and upper
+bounds (or cuts). For the sake of simplicity, for the remainder of
+this section we will use simple integers as examples for lower and upper bounds, respectively.
+
+Linear intervals capture semantic version ranges symbolically which makes them
+very versatile and space efficient. At the same time, we can rely on
+well-established mathematical models borrowed from linear interval arithmetic
+that enable us to translate/express any type of constraint in terms of
+mathematical set operations on intervals.
+
+In the table below you can find all the different types of intervals we
+considered to model semantic version constraints and a corresponding
+description where `L` stands for left, `R` stands for right with `a` and `b`
+being the lower and upper bounds, respectively.
+
+| Type of interval | Example                    | Description                               |
+| ---------------- | ---------------------------| ----------------------------------------- |
+| LR-closed        |  `[a,b]: x >= a, x <= b`   | all versions starting from a until b      |
+| L-open R-closed  |  `(a,b]: x > a, x <= b`    | all versions after a until b              |
+| L-closed R-open  |  `[a,b): x >= a, x < b`    | all versions starting from a before b     |
+| LR-open          |  `(a,b): x > a, x < b`     | all versions between a and b              |
+| L-unbounded      |  `(-inf,b]: x <= b`        | all versions until b                      |
+| R-unbounded      |  `[a,+inf): x >= a`        | all versions starting from a              |
+
+
+Below you can see example output for the different types of ranges from
+[semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) where we are using the `VersionParser` component to generate
+linear intervals from version constraints where `,` denotes a logical
+conjunction: e.g., `>=1, <=2` denotes the set of integers that are greater than or equal
+to 1 *and* smaller than or equal to two, i.e., all integers/versions numbers starting from 1 until 2.
+
+``` ruby
+puts VersionParser.parse(">=1, <=2")
+# [1,2]
+puts VersionParser.parse(">1, <=2")
+# (1,2]
+puts VersionParser.parse(">=1, <2")
+# [1,2)
+puts VersionParser.parse(">1, <2")
+# (1,2)
+puts VersionParser.parse("<=2")
+# (-inf,2]
+puts VersionParser.parse(">=1")
+# [1,+inf)
+```
+
+For solving SemVer versioning constraints, we use linear interval arithmetic
+which is explained in-depth in the text-book "[Introduction to Interval
+Analysis](https://epubs.siam.org/doi/book/10.1137/1.9780898717716?mobileUi=0&)."
+
+As mentioned earlier, for our purposes, we define an interval as an ordered
+pair of two semantic versions (lower and upper bound) that represents the set
+of all those semantic versions that are enclosed by lower and upper bounds.
+Given that intervals are sets, we can perform standard set operations on
+them.
+
+In the context of advisory generation, there are three operations we require to
+satisfy all the requirements we defined earlier: Intersection, Union and Complement.
+The operations are explained in more detail in the sections below.
+
+For the remainder of this section, we explain interval operations, using two
+example intervals `X` and `Y` with `X=[x_l, x_u]` and `Y=[y_l, y_u]` where
+`x_l`, `x_u` denote the lower and upper bounds for `X`, and `y_l`, `y_u` denote
+the lower and upper bounds for `Y`, respectively. In addition, we are using the
+`min` and `max` functions, where `max(a,b)` returns the largest and `min(a,b)`
+returns the smallest value of the parameters `a` and `b`; the ∅ symbol denotes
+the empty set.
+
+### Intersection
+
+The recipe below illustrates how the intersection (`X` ∩ `Y`) can be computed.
+
+`X` ∩ `Y` = if `X` and `Y` have points in common `[max(x_l,y_l), min(x_u,y_u)]` else ∅
+
+Intuitively, the intersection extracts the overlap (if any) from the two
+intervals `X` and `Y`.
+
+The code snippet below shows how the intersection is computed in [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) for the two examples:
+
+1. `[2,5]` ∩ `[3,10]`
+1. `[2,5]` ∩ `[7,10]`
+
+``` ruby
+# 1. [2,5] ∩ [3,10] = [3, 5]
+puts VersionParser.parse(">=2, <=5").intersect(VersionParser.parse(">=3, <=10"))
+# [3,5]
+
+# 2. [2,5] ∩ [7,10] = ∅
+puts VersionParser.parse(">=2, <=5").intersect(VersionParser.parse(">=7, <=10"))
+# empty
+```
+
+The intersection operation is useful to perform semantic version matching
+for checking whether semantic version falls into a certain version interval
+or range. For instance we may want to check whether version `1.2.3` satisfies
+the constraint `>=1.0.0, <1.2.4`. In the context of [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/), these types of
+constraints are very common. The problem `1.2.3` ∈ `[1.0.0, 1.2.4)` can be
+translated to a set intersection: `[1.2.3, 1.2.3]` ∩ `[1.0.0, 1.2.4)` =
+`[1.2.3, 1.2.3]`  which returns a non-empty set and, hence, tells us that
+version `1.2.3` satisfies the given version constraints.
+
+In the context of our advisory generation process, we use intersection to
+cross-validate versions from vulnerability reports (CVEs) with versions of the
+available package that are available on the package registry that serves it.
+
+For convenience, as mentioned earlier, [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) also supports grouping
+intervals into ranges by means of the `VersionRange` class. A range is a set of intervals
+which we denote with `{I0, I1, ..., IN}` where `I` denotes version intervals
+delimited by `,` which can be interpreted as a union operator (explained in the next section).
+
+A range is a set of intervals. In the example below, we first create a range
+`r1` to which we are adding two intervals: `r1 = {[2.2.1, 5.1.2], (3.1, 10)}`.
+After that, there is a check for an overlap (i.e., an intersection) between
+`r1` and `[0, 2.1)` (no overlap) as well as `[5.5, 5.5]` (overlap). You can see
+the output of [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) in the excerpt below.
+
+``` ruby
+r1 = VersionRange.new
+r1.add(VersionParser.parse(">=2.1.2, <=5.1.2"))
+r1.add(VersionParser.parse(">3.1, <10"))
+
+puts "[0,2.1) in #{r1}? #{r1.overlaps_with?(VersionParser.parse(">=0, <2.1"))}"
+# [0,2.1) in [2.1.2,5.1.2],(3.1,10)? false
+puts "[5.5,5.5] overlap with #{r1}? #{r1.overlaps_with?(VersionParser.parse("=5.5"))}"
+# [5.5,5.5] overlap with [2.1.2,5.1.2],(3.1,10)? true
+```
+
+### Union
+
+The recipe below illustrates how the union (`X` ∪ `Y`) can be computed.
+
+`X` ∪ `Y` = if `X` and `Y` have points in common `{[min(x_l,y_l), max(x_u,y_u)]}` else `{X,Y}`
+
+The code snippet below shows how the union can be computed with
+ [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) for the two examples:
+1. `[2,5]` ∪ `[3,10]` = `{[2,5], [3,10]}` = `{[2, 10]}`
+2. `[2,5]` ∪ `[7,10]` = `{[2,5], [7,10]}`
+
+With the union operator, we can collapse version intervals in case they have an
+overlap/intersection; otherwise, if `X` and `Y` are disjoint, we add their
+intervals directly to the range.
+
+``` ruby
+# 1. [2,5] ∪ [3,10] = [2, 10]
+puts "union: #{VersionParser.parse(">=2, <=5").union(VersionParser.parse(">=3, <=10"))}"
+# union: [2,10]
+
+# Version ranges perform union two for the purpose of automatically collapsing
+# intervals (if possible)
+r1 = VersionRange.new
+r1.add(VersionParser.parse(">=2, <=5"))
+r1.add(VersionParser.parse(">=3, <=10"))
+puts "r1: #{r1}"
+# union: [2,5],[3,10]
+puts "r1 collapsed: #{r1.collapse}" # creates the union between intervals
+# r1 collapsed: [2,10]
+
+# 2. [2,5] ∪ [7,10] = {[2, 10], [7,10]}
+r2 = VersionRange.new
+r2.add(VersionParser.parse(">=2, <=5"))
+r2.add(VersionParser.parse(">=7, <=10"))
+puts "r2: #{r2}"
+# r2: [2,5],[7,10]
+```
+
+In the context of [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/), vulnerability data usually lists a set of intervals for
+dependencies that are susceptible to a given vulnerability like the [tensorflow example](https://nvd.nist.gov/vuln/detail/CVE-2021-29560) in the introduction where the following versions are affected:
+
+1. up to 2.1.4
+1. from 2.2.0 up to 2.2.3
+1. from 2.3.0 up to 2.3.3
+1. from 2.4.0 up to 2.4.2
+
+This list of intervals can be represented as a single range (`VersionRange`) by
+combining all of the mentioned version intervals through the union operator.
+
+In the Ruby code example above, you can also see the `collapse` method which is
+invoked on a `VersionRange` object. This method automatically collapses
+overlapping intervals that are included in the same `VersionRange` to eliminate
+redundant intervals. Collapsing the range `{[2, 5], [3, 10]}` yields a new range
+`{[2,10]}` with only one interval while preserving semantic equivalence.
+
+### Complement
+
+The recipe below, illustrates how the relative complement (`X` - `Y`) can be computed.
+
+`X` - `Y`: `Z` := `X` ∩ `Y`;
+        if (`z_l` > `x_l` && `z_u` < `x_u`)
+          `{[x_l, z_l),(z_u, x_u]}`
+        else if (`x_l` < `z_l`)
+          `{[x_l, z_l)}`
+        else if (`x_u` > `z_u`)
+          `{(z_u, x_u]}`
+
+Intuitively, this recipe computes the intersection (`Z`) between `X` and `Y` and
+removes all elements from `X` that are included in the intersection. The
+examples below illustrate the recipe:
+
+1. `[3, 5]` - `[1, 3]`: with `Z` = `[3, 3]` we get `{(3, 5]}` which is
+   equivalent to `{[4, 5]}`
+1. `[3, 10]` - `[10, 11]`: with `Z` = `[10, 10]` we get `{[3, 10)}` which is equivalent to `{[3, 9]}`
+1. `[1, 5]` - `[2, 2]`: with `Z` = `[2, 2]` we get `[1, 2), (2, 5]` which is equivalent to `{[1, 1], [3, 5]}`
+
+With the recipe above, we can also compute the absolute complement `X` - `Y` by
+assuming `X` is the universe that captures the entirety of all possible values:
+`(-inf,+inf)`. The universal complement can be defined as `~X` = `(-inf,+inf)` - `X`.
+
+With [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects), the absolute complement can be computed by means of the
+`invert` method as illustrated in the example below.
+
+``` ruby
+# example 1: ~[1,3] = {(-inf,0],[4, +inf)} = {(-inf,1),(3,+inf)}
+r1 = VersionRange.new
+r1.add(VersionParser.parse(">=1, <=3"))
+puts r1.invert
+# (-inf,1),(3,+inf)
+
+# example 2: ~{[2.1.2, 5.1.2], (3.1, 10)} = ~{[2.1.2, 10)} = {(-inf,2.1.2),[10,+inf)}
+{(-inf,0],[4, +inf)} = {(-inf,1),(3,+inf)}
+r2 = VersionRange.new
+r2.add(VersionParser.parse(">=2.1.2, <=5.1.2"))
+r2.add(VersionParser.parse(">3.1, <10"))
+puts r2.collapse.invert
+# (-inf,2.1.2),[10,+inf)
+```
+
+In the context of [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/), this functionality is used to automatically infer
+non-affected versions from the affected versions information: if `[1, 3]`
+represents all the affected versions of a vulnerable package, its complement
+`{(-inf,1),(3,+inf)}`, per definition, captures only the unaffected version. In
+our advisory generation process we cross-validate the version information of
+packages from the package registries with this information about unaffected versions to check whether or not unaffected packages are available; if this is the case, we add the corresponding remediation information to the generated advisories.
+
+## Version Translation
+
+Linear interval arithmetic provides us with all the means necessary to
+represent and solve SemVer versioning constraints in a language-agnostic way.
+However, in order to leverage the generic representation, we have to be able to
+automatically translate the native semantic version dialects into the generic
+representation and vice versa. The details of this translation functionality
+are provided below.
+
+[Semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) offers a `VersionTranslator` class. The `VersionTranslator` takes a native semantic version constraint, and translates
+it into an intermediate string representation that can then be translated into a range (`VersionRange`) by using the `VersionParser`. Currently semver_dialects supports all the syntax listed below by invoking
+`translate_<package_type>` where `<package_type>` is one of:
+
+- `gem`: [gem requirement](https://guides.rubygems.org/specification-reference/#add_runtime_dependency)
+- `maven`: [Maven Dependency Version Requirement Specification](https://maven.apache.org/pom.html#Dependency_Version_Requirement_Specification)
+- `npm`: [node-semver](https://github.com/npm/node-semver#ranges)
+- `packagist`: [PHP Composer version constraints](https://getcomposer.org/doc/articles/versions.md#writing-version-constraints)
+- `pypi`: [PEP440](https://www.python.org/dev/peps/pep-0440/#version-specifiers)
+- `go`: [go semver](https://godoc.org/golang.org/x/tools/internal/semver)
+- `nuget`: [NuGet semver](https://docs.microsoft.com/en-us/nuget/concepts/package-versioning)
+- `conan`: [node-semver flavour](https://github.com/npm/node-semver#ranges)
+
+The example below illustrates how the [semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects)' `VersionTranslator` can
+be used to translate native version syntax to an intermediate representation.
+The `VersionTranslator` parses the native version syntax and translates it into
+a common format. In the example below, you can further see that both
+native, semantically equivalent but syntactically different version strings for
+packagist and maven are translated into a common format: a string array
+where a single array entry represents a conjunct of the semantic version
+constraints. This translation step removes all language-specific features
+from the native semantic version constraints.
+
+``` ruby
+# native packagist version constraint syntax
+vs_packagist = "<2.5.9||>=2.6.0,<2.6.11"
+# native maven version constraint syntax
+vs_maven = "(,2.5.9),[2.6.0,2.6.11)"
+
+# translate
+puts VersionTranslator.translate_packagist(vs_packagist).to_s
+# ["<2.5.9", ">=2.6.0 <2.6.11"]
+puts VersionTranslator.translate_maven(vs_maven).to_s
+# ["<2.5.9", ">=2.6.0 <2.6.11"]
+```
+
+This common format can then be translated to a version interval by means of
+`VersionParser` and `VersionRange`. The example below illustrates how the
+version interval `constraint` is generated by iterating over the array elements
+of our intermediate representation, translating them to intervals and adding
+these intervals to the `VersionRange` object `constraint`. At the end of the
+excerpt below, we check whether version `1.0.0` satisfies the version
+constraint `<2.5.9||>=2.6.0,<2.6.11` which correctly yields `true`.
+
+``` ruby
+# translate native maven version constraint to range of interval
+constraint = VersionRange.new
+VersionTranslator.translate_maven(vs_maven).each do |version_string|
+  constraint << VersionParser.parse(version_string)
+end
+
+puts constraint.overlaps_with?(VersionParser.parse('=' + '1.0.0'))
+# true
+```
+
+## Wrapping it up
+
+We discussed the fragmentation of SemVer versioning which poses a challenge
+when building automation around semantic version processing for
+multi-language/ecosystem applications. In this blog post, we used our internal
+semi-automated process for advisory generation as an example.
+
+We illustrated how we tackled the above-mentioned challenge by building a
+generic/language-agnostic semantic version approach based on linear interval
+arithmetic. All mechanisms discussed in this blog post are implemented in the open-sourced (MIT)
+[semver_dialects](https://gitlab.com/gitlab-org/vulnerability-research/foss/semver_dialects) implementation and published on [rubygems.org](https://rubygems.org/gems/semver_dialects).

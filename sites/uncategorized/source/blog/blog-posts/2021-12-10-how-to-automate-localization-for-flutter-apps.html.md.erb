@@ -1,0 +1,65 @@
+---
+title: How to automate localization for Flutter apps
+author: GitLab
+author_twitter: gitlab
+categories: engineering
+tags: DevOps, production, tutorial
+image_title: '/images/blogimages/flutterbanner.png'
+description: Follow this tutorial to learn how to simplify the localization
+  process on GitLab with Localizely.
+twitter_text: "Want a way to simplify the #DevOps #localization process on @gitlab? Our
+  #Flutter tutorial takes you step-by-step through the automation of
+  localization using #Localizely."
+---
+
+Localization is an indispensable part of today's software. Almost all successful companies strive to adapt their products to different languages, regions, and cultures. Customer satisfaction is crucial for business. However, that often comes at a cost in terms of the higher complexity in software development and maintenance. In addition to regular activities, you must also take care of translation, its synchronization with development processes, and the like.
+
+The question is: Can we somehow simplify the localization process and make it more agile? The answer is “yes." Below, you can see how GitLab and the [Localizely](https://localizely.com/) platform can help. For that purpose, we will use a simple Flutter project. However, the same approach can be applied to other programming languages and frameworks.
+
+## A few words about the Flutter project
+
+Flutter is an open-source framework developed by Google for building multi-platform apps from a single codebase. It has become quite popular lately, as it solves some things much better than some other solutions (hot-reload, performance, etc.). Since the point of this post is the automation of localization, we will not deal with Flutter too much. But we will certainly highlight some important things regarding localization in Flutter projects.
+
+Whatever approach you used to create and localize your Flutter project, its structure would probably be similar to the one below. 
+
+![Flutter project structure](/images/blogimages/fluttergraphic.png){: .shadow.small.left}
+
+Above, you can see the l10n folder with the two [ARB](https://localizely.com/flutter-arb/) files. Each ARB file contains translations for one language in the Flutter project (i.e. intl_de.arb for German and intl_en.arb for English). Whenever we want to add, modify, or remove a translation, we need to update those files. In other words, those files are the basis of localization in Flutter projects. They separate programming from translation but require synchronization with your code so that each message has a corresponding translation.
+
+## The usual way of localization
+
+There is no exact rule or process that describes the usual way of localization. However, we could roughly describe it as the routine of a few steps:
+
+1. The developer updates code and the main ARB file.
+2. The developer sends ARB files to the project manager.
+3. The project manager sends ARB files to translators (e.g. email, upload to localization platform, etc.).
+4. The translators work on translations.
+5. The project manager forwards translated ARB files to the developer.
+6. The developer updates the Flutter project with new translations.
+
+In this simplified case of localization, we can already notice some tasks that drain a lot of time and can be a bottleneck. Those are steps 2, 3, and 5. Moreover, these six steps can be frequent (e.g. update of the UI, new feature, etc.), which is not exactly the optimal solution. And that is even truer for medium and large teams. Just imagine how much time is wasted on file sharing when you have to coordinate in a team of 10+ people. Not to mention the problem with outdated ARB files.
+
+## Automated localization
+
+Since you've seen some flaws in the usual way of localization, let's see how we can optimize that.
+
+1. The developer updates code, the main ARB file, and pushes changes to GitLab.
+2. GitLab informs Localizely via webhook regarding new changes. 
+3. Localizely fetches ARB files from GitLab and lets translators work on translations.
+4. The project manager pushes updated ARB files to GitLab via [MR](https://docs.gitlab.com/ee/user/project/merge_requests/).
+5. The developer updates the Flutter project with new translations (merge MR).
+
+This way of working enables everyone to do their job more efficiently. Developers can be focused on the development of the product, translators on translations, managers on management, and similar. It should also be noted that with this type of workflow, you can easily accelerate the development and delivery of new features, which is in everyone's interest.
+
+To make this workflow possible, you need to adjust a few things. In the following, you can see the necessary settings.
+
+1. Add a [localizely.yml](https://localizely.com/configuration-file/) config file to the root of your Flutter project. 
+2. Set up [GitLab integration](https://localizely.com/gitlab-integration/) on the Localizely platform. 
+3. Add a webhook to the GitLab repository.
+
+And that’s all. You have automated localization on your Flutter project. Whenever the developer pushes the changes to GitLab, the translators will see new string keys on the Localizely. Once the translation is done, a single click on the button creates a new MR with the latest translations on GitLab. There is no need for a mediator, waiting, or sending ARB files for every little thing. Now you can have more time for other things as this tedious work is automated.
+
+## Final thoughts
+
+In this post, you have seen the most common steps of localization in Flutter projects and how to automate some of them. Knowing how important efficiency is today, we should strive to automate repetitive tasks as much as possible. As someone once said, “Lost time is never found again”.
+

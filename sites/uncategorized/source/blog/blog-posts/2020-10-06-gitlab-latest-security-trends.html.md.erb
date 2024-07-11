@@ -1,0 +1,188 @@
+---
+title: "GitLab's security trends report – our latest look at what's most vulnerable"
+author: Wayne Haber
+author_gitlab: whaber
+author_twitter: waynehaber
+categories: security
+image_title: '/images/blogimages/data.jpg'
+description: "From triage to containers and secrets storage, we took a look at the most vulnerable areas across thousands of hosted projects on GitLab.com. Here's what you need to know."
+tags: security, security research
+twitter_text: "For the second time this year @gitlab has analyzed security vulnerability trends across thousands of projects on GitLab.com. Here's what you should be paying attention to."
+featured: yes
+postType: product
+merch_banner: merch_two
+merch_sidebar: merch_two
+---
+
+In this second GitLab security trends report, we analyzed security vulnerability trends across thousands of projects hosted on GitLab.com.  Doing the analysis allowed us to identify trends and patterns that security practitioners can use to benchmark against their organizations.
+
+## Recommendations for security practitioners
+
+### Recommendations
+
+| Category | Recommendation |
+| --- | --- |
+| Security issue triage | Regularly review and prioritize security issues that were identified (such as in the [Gitlab Security Dashboard](https://docs.gitlab.com/ee/user/application_security/security_dashboard/)) |
+| Apply security fixes for containers | Automatically scan, rebuild, test and deploy containers using [CI/CD pipelines](/topics/ci-cd/) so that they always have the latest patches. |
+| Apply security fixes for project dependencies | Scan project dependencies during builds and periodically for the use of libraries with known vulnerabilities, and update the dependencies accordingly. |
+| Static analysis | Implement static security scanning while tuning for false positives so that developers can focus on what is truly important. Pay attention in particular to scanning automated tests with a different configuration than production code in order to reduce wasted time on false-positives. |
+| Secret storage | Ensure that developers store secrets such as private keys, passwords, and API keys in a secret vault rather than in the codebase itself. This is a typical security anti-pattern. During builds, use scanners that can detect secrets that were accidentally stored in the codebase. |
+| Dynamic analysis | Implement dynamic analysis, and periodically confirm it can both authenticate the applications being scanned and fully spider them. This is a common challenge and when misconfigured causes the scanners to test only a small portion of the application.  |
+| Web application security | Evaulate applications for common attack vectors such as reverse tabnabbing and `x-frame-options` that are not implemented. | 
+| Fuzz testing | Track the latest techniques used by bad actors to find vulnerabilities and use those same tactics to find issues, preferably before they discover them. |
+
+## Trends by CWE 
+
+For this section of the analysis, all detected vulnerabilities across all scanners were mapped against their primary [CWE: Common Weakness Enumeration](https://cwe.mitre.org/about/index.html). The pertinent [CVEs (Common Vulnerabilities and Exposures)](https://cve.mitre.org/) are included with each vulnerable library or component.
+
+<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/3797747" data-url="https://flo.uri.sh/visualisation/3797747/embed" aria-label=""><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+The top three CWEs in August were:
+
+###  CWE-20: [Improper input validation](https://cwe.mitre.org/data/definitions/20.html)
+
+Improper input validation allows for potential injection attacks (SQL, code, etc). The top findings were from the [container scanner](https://docs.gitlab.com/ee/user/application_security/container_scanning/) which found issues with out of date software, most notably for:
+* [glibc](https://www.cvedetails.com/vulnerability-list/vendor_id-72/product_id-767/GNU-Glibc.html) - CVE-2016-10228 and CVE-2018-19591
+* [apt](https://www.debian.org/doc/manuals/debian-reference/ch02.en.html) - [CVE-2020-3810](https://nvd.nist.gov/vuln/detail/CVE-2020-3810)
+
+The dependency scanner also found issues for libraries in use including:
+* [ajv](https://ajv.js.org/)
+* [sockjs](https://github.com/sockjs/sockjs-client)
+* [minimist](https://www.npmjs.com/package/minimist)
+* [yargs-parser](https://www.npmjs.com/package/yargs-parser)
+
+### CWE-787: [Out of bounds write of intended buffer](https://cwe.mitre.org/data/definitions/787.html)
+
+This allows for potential remote code execution. The top findings were from the container scanner which found the below software to be out of date and vulnerable:
+* [glibc](https://www.cvedetails.com/vulnerability-list/vendor_id-72/product_id-767/GNU-Glibc.html) - CVE-2020-1751, CVE-2018-11237
+* [openexr](https://github.com/AcademySoftwareFoundation/openexr) - [CVE-2020-15306](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2020-15306)
+* [ghostscript](https://ghostscript.com/) - CVE-2020-16287, CVE-2020-16292, CVE-2020-16291, and 8 others
+
+The dependency scanner also found issues for dependant libraries in use, with the top one being [execa](https://www.npmjs.com/package/execa).
+
+### CWE-400: [Uncontrolled resource consumption](https://cwe.mitre.org/data/definitions/400.html)
+
+Uncontrolled resource consumption allows for potential denial of service attacks against specific software. The top findings were from the dependency scanner for the [Mixin-deep](https://www.npmjs.com/package/mixin-deep) library.
+
+The container scanner also found issues with:
+* [mysql-5.7](https://cve.mitre.org/cgi-bin/cvekey.cgi?keyword=mysql) - CVE-2020-14547, CVE-2020-14540, CVE-2020-14576, and 4 others
+* [nghttp2](https://kb.cert.org/vuls/id/605641/) - CVE-2019-9513 and CVE-2019-9511
+
+## Dependency scanner trends
+
+![Dependency by month](/images/blogimages/2020-10-06-GitLab-Latest-Security-Trends/dependency_by_month.png "Dependency scanner trends")
+
+The percentage of projects finding issues with dependent libraries in use has significantly increased over the last year, from 26% to 69%.  This reinforces that updating dependent libraries should be prioritized based on the risks those libraries pose.  GitLab [dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) can be used to scan project dependencies for vulnerabilities.
+
+### By Library
+
+<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/3819520" data-url="https://flo.uri.sh/visualisation/3819520/embed" aria-label=""><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+As new vulnerabilities are discovered in libraries, and projects using them have their dependencies scanned, the libraries rise in prevalence.  As the dependencies are updated later, they drop in prevalence. However, not all teams reliably prioritize and resolve issues, so many vulnerable dependent libraries continue to be in use for a long period of time.
+
+The top libraries in use with vulnerabilities in August were:
+
+| Library | Top vulnerability | 
+| ---- | --- |
+| [Lodash](https://www.npmjs.com/package/lodash) | Object prototype pollution |
+| [Execa](https://www.npmjs.com/package/execa) | OS command injection |
+| [Mixin-deep](https://www.npmjs.com/package/mixin-deep) | Prototype pollution |
+| [Kind-of](https://www.npmjs.com/package/kind-of) | Type checking |
+| [Sockjs](https://www.npmjs.com/package/sockjs) | Cross-site scripting | 
+| [Ajv](https://www.npmjs.com/package/ajv) | Improper input validation |
+| [Minimist](https://www.npmjs.com/package/minimist) | Improper input validation |
+| [Yargs-parser](https://www.npmjs.com/package/yargs-parser) | Improper input validation |
+| [JQuery](https://www.npmjs.com/package/jquery) | 3rd party CORS request may execute |
+| [Dot-prop](https://www.npmjs.com/package/dot-prop) | Direct request forced browsing |
+
+## Container scanner trends
+
+![Container by month](/images/blogimages/2020-10-06-GitLab-Latest-Security-Trends/container_by_month.png "Container scanner trends")
+
+The percentage of projects finding issues with containers has decreased over the last year, from 52% to 41%. While we have seen a small decrease, it is still relatively high. Keeping container registries up-to-date and rebuilding/redeploying the containers that use them continues to be essential to reduce security risk. GitLab [container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning) can be used to scan Docker images for known vulnerabilities.
+
+### By Component
+
+<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/3828843" data-url="https://flo.uri.sh/visualisation/3828843/embed" aria-label=""><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+Similarly to the trends in dependent libraries, as new vulnerabilities are discovered in containers, and the containers are scanned, the vulnerabilities rise in prevalence. As the containers are updated, the vulnerabilities drop; however many are not updated, leaving the vulnerabilities in place and potentially exploitable in the long-term.
+
+### By Discovery Year
+
+![Container by year](/images/blogimages/2020-10-06-GitLab-Latest-Security-Trends/container_by_year.png "Container by year")
+
+While many projects update containers, a significant number of projects use containers with vulnerabilities that were discovered many years prior. Being diligent in identifying and updating all containers in use is essential to maintain the appropriate level of security vigilance.
+
+## Static analysis trends
+
+![SAST by month](/images/blogimages/2020-10-06-GitLab-Latest-Security-Trends/sast_by_month.png "SAST scanner trends")
+
+The percentage of projects finding vulnerabilities via static scanning over the last year has remained mostly unchanged (from 49% to 52%). This shows that static scanning continues to be quite effective in identifying security vulnerabilities. GitLab can be used for [static application security testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/) and [secret detection](https://docs.gitlab.com/ee/user/application_security/sast/#secret-detection).
+
+Many SAST checks can have a false positive rate, especially when scanning code for automated tests (which, for example, may contain non-production secrets). It is crucial to tune the SAST scanners to reduce false positives, allowing the developers to focus on other issues that have a higher likelihood of being a real problem.
+
+### Non-secret related vulnerabilities
+
+<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/3829510" data-url="https://flo.uri.sh/visualisation/3829510/embed" aria-label=""><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+The top vulnerabilities in this category were:
+* Password in URL - Passwords are sent in the URL, allowing the password to be more easily stored in the local browser cache and in any proxy servers between the web browser and web server. Passwords should be sent via secure methods such as the `POST` method (vs. using `GET`, which puts the password in the URL.)
+* Insecure usage of temporary file or directory - a temporary file does not have proper permissions, allowing data to be exposed and possibly allowing for remote code execution. 
+* Predictable pseudorandom number generator (PRNG) - if a predictable seed is used for encryption, it makes it much easier for the encryption to be defeated. A [cryptographically secure PRNG](https://en.wikipedia.org/wiki/Cryptographically_secure_pseudorandom_number_generator) should be used instead.
+* Cipher with no integrity - code does not validate that when decrypting data, the data has not been altered. A solution for this is to add an encrypted hash to the message.
+* No file extension found in an include - allows for potential remote code execution.
+
+### Secret handling vulnerabilities
+
+<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/3829570" data-url="https://flo.uri.sh/visualisation/3829570/embed" aria-label=""><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+The top types of secrets/keys identified were:
+* [PKCS](https://en.wikipedia.org/wiki/Cipher) - Public Key Cryptography Standard
+* [RSA](https://en.wikipedia.org/wiki/RSA_(cryptosystem)) Key
+* AWS API
+
+For security reasons, secrets (such as keys, passwords, etc) should never be stored in the codebase. However, it is very convenient for developers to do this making it a common security anti-pattern. Secrets should be stored in a storage mechanism designed for security, such as [vault](https://docs.gitlab.com/ee/ci/examples/authenticating-with-hashicorp-vault/).
+
+## DAST 
+
+![DAST by month](/images/blogimages/2020-10-06-GitLab-Latest-Security-Trends/dast_by_month.png "DAST scanner trends")
+
+The percentage of projects finding vulnerabilities via dynamic scanning over the last year went from 7% to a high of 20% and then back down to 9%. After initial scanning and issue resolution, dynamic scanning tends to primarily only find low priority vulnerabilities unless the scanners are configured to authenticate the web applications and successfully spider the entire application. Security practitioners must periodically confirm the results as the configuration tends to stop working over time.
+
+GitLab can be configured to do [dynamic application security testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/).
+
+### By vulnerability
+
+<div class="flourish-embed flourish-bar-chart-race" data-src="visualisation/3829616" data-url="https://flo.uri.sh/visualisation/3829616/embed" aria-label=""><script src="https://public.flourish.studio/resources/embed.js"></script></div>
+
+The top vulnerabilities in this category were:
+* [X-frame-options](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options) header not set - allows a web application to be embedded inside another (malicious) web application.
+* [Reverse tabnabbing](https://owasp.org/www-community/attacks/Reverse_Tabnabbing) - allows a page linked from the target page to be able to rewrite the page (such as to replace it with a phishing site)
+* Vulnerable JavaScript Library - see the dependent library section above.
+* [Cross-domain misconfiguration](https://www.zaproxy.org/docs/alerts/10098/) - web browser data loading may be possible, due to a Cross Origin Resource Sharing (CORS) misconfiguration on the webserver
+* PII (personally identifiable information) disclosure - security scanners have difficulty accurately determining if data is truly PII. The PII rules should be tuned per organization.
+* [CSP (content site protection) wildcard directive](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP) - There is a lack of proper content site protection, potentially allowing for cross-site scripting and other similar attacks.
+* Application error disclosure - when attacker-accessible applications expose error messages, they give the attacker significant clues on how to attack the application. Allow these errors to be shown only in non-production environments.
+
+## Fuzzing
+
+Fuzzing is a new feature [recently released by GitLab](/releases/2020/08/22/gitlab-13-3-released/). Fuzz testing can be configured in the [GitLab UI](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/).
+
+The top vulnerabilities detected in this new feature include:
+* Heap-buffer-overflow on read
+* Index-out-of-bounds
+
+## Data sources
+
+The trends report's underlying data is sourced from projects hosted on GitLab.com and does not include data from our self-managed customers. It is comprised of medium or higher severity vulnerabilities appearing in five or more projects that occurred between September 2019 and October 2020. All project-specific data was anonymized.
+
+Read more about security:
+
+* Container security [best practices](/blog/2020/07/28/container-security-in-gitlab/)
+* A look at [Arctic Engine fuzz testing](/blog/2020/08/19/arctic-engine-fuzz-testing-blog/)
+* How to [secure your cloud native apps](/blog/2020/08/18/how-gitlab-can-help-you-secure-your-cloud-native-applications/)
+
+Thanks to [David DeSanto](https://gitlab.com/david), [Todd Stadelhofer](https://gitlab.com/tstadelhofer), [Nicole Schwartz](https://gitlab.com/NicoleSchwartz), [Nico Meisenzahl](https://twitter.com/nmeisenzahl), and [Sean Wright](https://twitter.com/SeanWrightSec) for the feedback on the blog content. 
+
+[Pietro Jeng](https://unsplash.com/@pietrozj) on [Unsplash](https://unsplash.com)
+{: .note}

@@ -1,0 +1,316 @@
+---
+title: "Open-sourcing the Gitter mobile apps"
+author: Eric Eastwood
+author_gitlab: MadLittleMods
+author_twitter: MadLittleMods
+categories: engineering
+image_title: "/images/blogimages/open-sourcing-the-gitter-mobile-apps/cover-image.jpg"
+description: "Learn how we open sourced the Android and iOS Gitter apps."
+tags: open source, collaboration, contributors, CI/CD
+guest: true
+ee_cta: false
+install_cta: false
+twitter_text: "Dive deep into how we made Gitter mobile apps open source"
+featured: yes
+postType: content marketing
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+Before we acquired Gitter most every part of Gitter was private/closed-source. The main [webapp](https://gitlab.com/gitlab-org/gitter/webapp) was open-sourced in June 2017 and got both mobile [Android](https://gitlab.com/gitlab-org/gitter/gitter-android-app)/[iOS](https://gitlab.com/gitlab-org/gitter/gitter-ios-app) apps open sourced in September 2018. If you would like to come help out, feel free to send us a merge request! This blog post will go over some the technical details of making the projects available for anyone to contribute.
+
+Here is the basic overview:
+
+1.  Find secrets in the current state of the project (don't worry about the commit history) and move to some config that isn't tracked in the repo.
+1.  Find/remove secrets throughout the whole repo commit history.
+1.  Make the project public 🎉
+1.  Caveats:
+    - Because we are rewriting the git history, I don't know of a way to keep merge requests/pull requests because the MRs reference the old commit hashes.
+
+Quick navigation:
+
+- [Jump to open sourcing Android](#android)
+- [Jump to open sourcing iOS](#ios)
+
+## Android
+
+If you want to check out the full project and final result, you can check out the [project on GitLab](https://gitlab.com/gitlab-org/gitter/gitter-android-app) ([open-sourced 2018-8-8](https://twitter.com/gitchat/status/1027293167471812611)).
+
+To start out, we used the [GitHub to GitLab project import](https://docs.gitlab.com/ee/user/project/import/github.html) to move the private GitHub project over to GitLab. We named it `gitter-android-app2` so that later on we could create the actual clean public project without any of the orphaned git references that may potentially leak.
+
+### Finding secrets
+
+[`truffleHog`](https://github.com/dxa4481/truffleHog) will search for high entropy strings (like tokens/passwords) through the entire git repo history. It's also useful to find all the potential areas where secrets may still exist in the current state of the project. Some sticky points we encountered while using include:
+
+- "I wish we could just search the current state of the project instead of all git history (the `--max_depth=2` argument will just make it search the diff of the latest commit)" [dxa4481/truffleHog#92](https://github.com/dxa4481/truffleHog/issues/92).
+- "The output will show the entire diff for the triggered commit which is a bit burdensome to see exactly what is wrong. The JSON output `--json` is sometimes easier to understand" [https://github.com/dxa4481/truffleHog/issues/58](https://github.com/dxa4481/truffleHog/issues/58) or [dxa4481/truffleHog#102](https://github.com/dxa4481/truffleHog/issues/102).
+
+### Moving secrets to untracked config
+
+Once we figure out where all of the secrets are we need a config/variable solution that isn't tracked by git but still lets them be available when building. We also wanted the solution to work in GitLab CI for some sanity builds/testing. There are lots of good articles on this topic:
+
+- [Remove private signing information from your project](https://developer.android.com/studio/build/gradle-tips#remove-private-signing-information-from-your-project)
+- [Keeping Your Android Project’s Secrets Secret](https://medium.com/@geocohn/keeping-your-android-projects-secrets-secret-393b8855765d)
+- [Hiding Secrets in Android Apps](https://rammic.github.io/2015/07/28/hiding-secrets-in-android-apps/)
+- [Keeping secrets in an Android Application](https://joshmcarthur.com/2014/02/16/keeping-secrets-in-an-android-application.html)
+- [Android: Loading API Keys and other secrets from properties file using gradle](https://gist.github.com/curioustechizen/9f7d745f9f5f51355bd6)
+- [How can I keep API keys out of source control?](https://arstechnica.com/information-technology/2013/12/how-can-i-keep-api-keys-out-of-source-control/)
+
+Our solution is completely based on the information in these articles. We chose to go the route of defining things in a `secrets.properties` file which can easily be read in the Gradle build script which handles the build even when using Android Studio. If the `secrets.properties` file doesn't exist (like in CI), it will try to read the secrets from [environment variables which can easily be supplied in the project settings](https://docs.gitlab.com/ee/ci/variables/).
+
+`secerts.properties`
+
+```properties
+# Visit https://developer.gitter.im/apps (sign in) and create a new app
+# Name: my-gitter-android-app (can be anything)
+# Redirect URL: https://gitter.im/login/oauth/callback
+oauth_client_id="..."
+oauth_client_secret="..."
+oauth_redirect_uri="https://gitter.im/login/oauth/callback"
+```
+
+`build.gradle`
+
+```gradle
+apply plugin: 'com.android.application'
+
+// Try reading secrets from file
+def secretsPropertiesFile = rootProject.file("secrets.properties")
+def secretProperties = new Properties()
+if (secretsPropertiesFile.exists()) {
+    secretProperties.load(new FileInputStream(secretsPropertiesFile))
+}
+// Otherwise read from environment variables, this happens in CI
+else {
+    secretProperties.setProperty("oauth_client_id", "\"${System.getenv('oauth_client_id')}\"")
+    secretProperties.setProperty("oauth_client_secret", "\"${System.getenv('oauth_client_secret')}\"")
+    secretProperties.setProperty("oauth_redirect_uri", "\"${System.getenv('oauth_redirect_uri')}\"")
+}
+
+android {
+    ...
+
+    defaultConfig {
+        ...
+
+        buildConfigField("String", "oauth_client_id", "${secretProperties['oauth_client_id']}")
+        buildConfigField("String", "oauth_client_secret", "${secretProperties['oauth_client_secret']}")
+        buildConfigField("String", "oauth_redirect_uri", "${secretProperties['oauth_redirect_uri']}")
+    }
+    ...
+}
+```
+
+Use the config variables in the Java app:
+
+```java
+import im.gitter.gitter.BuildConfig;
+
+BuildConfig.oauth_client_id;
+BuildConfig.oauth_client_secret;
+BuildConfig.oauth_redirect_uri;
+```
+
+#### Removing compiled assets
+
+We use a `WebView` to display the HTML markdown messages in the chat room. This view uses assets built from the main [`webapp` project](https://gitlab.com/gitlab-org/gitter/webapp). Because these assets had some inlined production [`webapp`](https://gitlab.com/gitlab-org/gitter/webapp) secrets that whole directory needed to be removed.
+
+Initially, we opted to have the developer build these assets with their own secrets and symlink the build output directory. The [community made this even simpler](https://gitlab.com/gitlab-org/gitter/gitter-android-app/merge_requests/113), so now there is just a Gradle task to run which fetches the latest build we have available from the `webapp` GitLab CI.
+
+### Removing secrets from the repo history
+
+From your `truffleHog` results earlier, you should know where secrets were stored throughout the history. We can use [BFG Repo-Cleaner](https://rtyley.github.io/bfg-repo-cleaner/) to remove and rewrite the repo history quickly.
+
+When using BFG, I wanted just to rewrite all of the sensitive values in `app/src/main/res/values/settings.xml` instead of completely removing them, but rewriting isn't an option with BFG so I went ahead with deleting it and recreated it in a commit afterwards. 🤷
+
+For the Android app, here are the BFG commands I used,
+
+- Remove `app/src/main/assets/www/`
+  - `java -jar "bfg.jar" --delete-folders www`
+- Remove `app/src/main/res/values/settings.xml`
+  - `java -jar "bfg.jar" --delete-files settings.xml`
+- Remove sensitive strings where we can't just remove the whole file (collected from `truffleHog` results)
+  - `java -jar "bfg.jar" --replace-text "gitter-android-bad-words.txt"`
+
+After you think you removed all the secrets, it's best to run `truffleHog` again just to make sure no secrets are leftover. 😉
+
+### Make it public
+
+Now it's time to update your `readme` with some setup instruction so the community knows how to contribute.
+
+This is the scary part 😅. Go to **Project settings** > **General** > **Permissions** > set **Project visibility** as **Public**. You can [read more about project access here](https://docs.gitlab.com/ee/public_access/public_access.html).
+
+Curious about how to setup builds in GitLab CI? [Learn more from this blog post](/blog/2018/10/24/setting-up-gitlab-ci-for-android-projects/), which was what we used to set it up for our projects.
+
+You can even learn how we [automated the release process so we can publish straight to the Google Play Store from GitLab CI via fastlane 🚀](/blog/2019/01/28/android-publishing-with-gitlab-and-fastlane/).
+
+## iOS
+
+If you want to see the full project and final result, you can check out the [project on GitLab](https://gitlab.com/gitlab-org/gitter/gitter-ios-app) ([open-sourced 2018-9-18](https://twitter.com/gitchat/status/1041795909103898625)).
+
+The same concepts apply from the Android section. We create a separate private project, `gitter-ios-app2`, where we can work and later on, we can create the actual clean public project(`gitter-ios-app`) without any of the orphaned git references that could leak.
+
+### Finding secrets
+
+`truffleHog` didn't work well in the iOS project because there was a bunch of generated XCode files that had file hashes (high entropy strings which truffleHog looks for) – which meant every commit was listed. 🤦‍ Instead of trying to find something to filter the results down or get another tool, I decided just search manually. Here is the list of things we looked for:
+
+- `token`
+- `secret`
+- `key`
+- `cert`
+- `api`
+- `pw`
+- `password`
+
+I used this directory filter when `Ctrl + f` those strings above to avoid finding things outside of the repo itself (copy-paste for Atom editor): `!Common/,!Libraries,!Gitter/www,!Pods/,!xctool`
+
+### Moving secrets to untracked config
+
+The iOS app uses a few git sub-modules which we also had to check for secrets before making them public. It turned out only one of the sub-modules – [`troupeobjccommon`](https://gitlab.com/gitlab-org/gitter/troupeobjccommon) – had secrets of it's own so I ran through the same secret removal process.
+
+We had the same OAuth secrets in the main part of the iOS app, but since `troupeobjccommon` was also trying to handle OAuth secret settings, we opted for putting the new logic in `troupeobjccommon` to avoid having to refactor whatever other downstream code that uses the same submodule (like the macOS desktop app).
+
+Here are some articles around handling secrets in an iOS project,
+
+- [Secret variables in Xcode AND your CI for fun and profit 💌](https://medium.com/flawless-app-stories/secret-variables-in-xcode-and-your-ci-for-fun-and-profit-d387a50475d7)
+- [Secrets Management in iOS Applications](https://medium.com/@jules2689/secrets-management-in-ios-applications-52795c254ec1)
+
+Since iOS apps can only be built on macOS and we don't have any macOS GitLab CI runners, our solution doesn't have to be CI compatible. You can track [this issue for shared macOS GitLab CI runners](https://gitlab.com/gitlab-com/gl-infra/infrastructure/issues/5720).
+
+`Gitter/GitterSecrets-Dev.plist`
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+  Visit https://developer.gitter.im/apps (sign in) and create a new app
+  Name: my-gitter-ios-app (can be anything)
+  Redirect URL: https://gitter.im/login/oauth/callback
+  -->
+  <key>OAuthClientId</key>
+  <string></string>
+  <key>OAuthClientSecret</key>
+  <string></string>
+  <key>OAuthCallback</key>
+  <string>https://gitter.im/login/oauth/callback</string>
+</dict>
+</plist>
+```
+
+[`troupeobjccommon`](https://gitlab.com/gitlab-org/gitter/troupeobjccommon) is in Objective-C
+
+`TRAppSettings.h`
+
+```h
+#import <Foundation/Foundation.h>
+
+@interface TRAppSettings : NSObject
+
++ (TRAppSettings *) sharedInstance;
+
+- (NSString *) clientID;
+
+- (NSString *) clientSecret;
+
+- (NSString *) oauthScope;
+
+@end
+```
+
+`TRAppSettings.m`
+
+```objc
+@interface TRAppSettings ()
+
+@property (strong, nonatomic) NSUserDefaults *secrets;
+
+@end
+
+
+static TRAppSettings *sharedAppSettingsSingleton;
+
+@implementation TRAppSettings {
+    int firstRunPostUpdate;
+}
+
++ (void)initialize
+{
+    static BOOL initialized = NO;
+    if(!initialized)
+    {
+        initialized = YES;
+        sharedAppSettingsSingleton = [[TRAppSettings alloc] init];
+    }
+
+    NSLog(@"Pulling secrets from SECRETS_PLIST = %@.plist", SECRETS_PLIST);
+}
+
++ (TRAppSettings *) sharedInstance
+{
+    return sharedAppSettingsSingleton;
+}
+
+
+- (id)init {
+    NSString *troupeSecretsPath = [[NSBundle mainBundle] pathForResource:"GitterSecrets-Dev" ofType:@"plist"];
+    if(troupeSecretsPath == nil) {
+        NSString *failureReason = [NSString stringWithFormat:@"Gitter secrets file not found in bundle: %@.plist. You probably need to add it to the `Gitter/Supporting Files` in Xcode navigator", SECRETS_PLIST];
+        NSException* exception = [NSException
+            exceptionWithName:@"FileNotFoundException"
+            reason:failureReason
+            userInfo:nil];
+
+        NSLog(@"%@", failureReason);
+
+        [exception raise];
+    }
+    NSDictionary *troupeSecrets = [NSDictionary dictionaryWithContentsOfFile:troupeSecretsPath];
+
+    self.secrets = [NSUserDefaults standardUserDefaults];
+    [self.secrets registerDefaults:troupeSecrets];
+}
+
+
+- (NSString *) clientID {
+    return [self.secrets stringForKey:@"OAuthClientId"];
+}
+
+- (NSString *) clientSecret {
+    return [self.secrets stringForKey:@"OAuthClientSecret"];
+}
+
+- (NSString *)oauthScope {
+    return [self.secrets stringForKey:@"OAuthCallback"];
+}
+```
+
+Usage in the Swift app:
+
+```swift
+private let appSettings = TRAppSettings.sharedInstance()
+
+appSettings!.clientID()
+appSettings!.clientSecret()
+appSettings!.oauthScope()
+```
+
+### Adding in GitLab CI
+
+If you're interested in setting up automated builds and publish releases to the Apple App Store from GitLab CI, you can learn how [blog post about using fastlane](/blog/2019/03/06/ios-publishing-with-gitlab-and-fastlane/).
+
+### Removing secrets from the repo history
+
+We didn't have a complete picture of what to remove because `truffleHog` didn't work well, so we didn't use BFG Repo-Cleaner. To remove secrets from the git repo history, we just squashed all of the history into a single commit.
+
+## Life after open sourcing apps
+
+We have some [thoughts of deprecating the Android/iOS apps](https://gitlab.com/gitlab-org/gitter/webapp/issues/2281) but the community has been great to keep the apps alive so far. We released a couple versions of each app including [dark theme](https://gitlab.com/gitlab-org/gitter/gitter-android-app/merge_requests/2) and [GitLab sign-in](https://gitlab.com/gitlab-org/gitter/gitter-android-app/merge_requests/112) for Android and a bunch of technical debt and fixes for iOS, including removing the deprecated [`SlackTextViewController`](https://gitlab.com/gitlab-org/gitter/gitter-ios-app/merge_requests/8) (and we are intensely working on incorporating the new [`SlackWysiwygInputController`](https://goo.gl/7NDM3x) 😜).
+
+The [Android](https://gitlab.com/gitlab-org/gitter/gitter-android-app)/[iOS](https://gitlab.com/gitlab-org/gitter/gitter-ios-app) apps could benefit from a lot of polish and fixes, so if you see anything particularly annoying, we would love to review and merge your updates!
+
+Cover image by [Nate Johnston](https://unsplash.com/@natejohnston) on [Unsplash](https://unsplash.com/photos/DkCydKeaLV8).
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

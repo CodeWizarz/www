@@ -1,0 +1,78 @@
+---
+title: "Meet Package Hunter: A tool for detecting malicious code in your dependencies"
+author: "Dennis Appelt"
+author_gitlab: dappelt
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/package-hunter.png'
+description: "We developed, tested and open sourced a new tool to analyze program dependencies and protect the supply chain."
+tags: security, security research
+twitter_text: "Package Hunter analyzes a program's dependencies for malicious code and other unexpected behavior. The GitLab Security team created and tested the tool and are ready for you to use it and provide feedback!"
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/05/27/deep-dive-investigation-of-gitlab-packages/"
+  - "/blog/2020/08/31/how-to-configure-dast-full-scans-for-complex-web-applications/"
+  - "/blog/2021/04/28/devops-platform-supply-chain-attacks/"
+---
+
+Modern programming ecosystems make code reuse exceptionally easy. No matter the
+programming task at hand, chances are there is a package in a public registry
+such as rubygems.org or npmjs.com that implements that task.
+
+While the reuse of publicly available packages reduces the time necessary to write an app, this reuse
+brings its own set of challenges. Apps quickly depend on hundreds of packages,
+and programmers often simply just trust that these packages don't contain malicious code.
+In an ideal world, all depended-upon code is thoroughly vetted before being included in a program – however, this is often unfeasible in practice due to the sheer amount of dependency code that needs to be reviewed and the lack of existing tools to help with vetting dependency code.
+
+## Malicious code in the wild
+
+Past incidents like [malicious
+code](https://gist.github.com/jpmcb/4e45eb04534f9a6f5ab9d99912a697d9) in the
+popular package `event-stream` demonstrate that threat actors actively use public
+package registries as a distribution channel for malicious code. This incident
+wasn't a single event either. A recent
+[review of open source software supply chain attacks](https://link.springer.com/chapter/10.1007/978-3-030-52683-2_2) found
+many similar malicious packages in the wild.
+
+The techniques to deliver malicious dependencies have also become more sophisticated.
+Earlier this year a security researcher discovered an implementation quirk in
+many popular package managers, dubbed [Dependency
+Confusion](https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610),
+that can be used to trick package managers to install dependencies from an
+attacker-controlled location instead from a trusted, private package registry.
+Upon installation of the manipulated dependency, the researcher could execute arbitrary code,
+which could have led to compromise of production systems or CI environments.
+Existing dependency scanners typically don't detect if a dependency executes
+malicious code, as these tools are limited to identifying
+dependencies with *known* vulnerabilities.
+
+Although GitLab was not directly affected by Dependency Confusion, we took [added measures to ensure packages and registries operate the way we expect them to and are continually monitored and secured](/blog/2021/05/27/deep-dive-investigation-of-gitlab-packages/),
+and set out to build tooling to detect and prevent similar incidents in the future.
+
+## Package Hunter: Detect malicious code in program dependencies
+
+In response to these challenges and a need for tooling to validate supply chain security, **we've developed Package Hunter and are releasing it for use by the community.**
+Package Hunter is a tool to analyze a program's dependencies for malicious code and other unexpected behavior by installing the dependencies in a sandbox environment and
+monitoring system calls executed during the installation. Any suspicious system calls are reported to
+the user for further examination. Package Hunter uses [Falco](https://falco.org/) under the hood for system call monitoring.
+It currently supports testing NodeJS modules and Ruby Gems. Refer to the
+[docs](https://gitlab.com/gitlab-org/security-products/package-hunter/-/blob/master/README.md)
+for more technical details.
+
+### How to get started with Package Hunter
+
+Package Hunter integrates seamlessly with GitLab. To get started, use the GitLab
+[CI template](https://gitlab.com/gitlab-org/security-products/package-hunter-cli/-/blob/main/README.md#gitlab-ci) to add a Package Hunter job to
+your project and follow the [instructions](https://gitlab.com/gitlab-org/security-products/package-hunter/-/blob/master/README.md#installation) for setting up a
+Package Hunter server.
+
+### We've tested Package Hunter, now it's your turn. Let us know what you think!
+
+We have been using Package Hunter internally to test GitLab's dependencies since November 2020. 
+By making it publicly available, we hope to enable other projects to
+detect malicious code in their dependencies before it causes any harm and also to increase
+the general confidence in open source supply chains. Package Hunter is free and open source.
+At GitLab, we believe [everyone can contribute](/company/mission/#everyone-can-contribute).
+If you have found a bug, have a feature suggestion, or want to contribute code, we want to hear from you!
+Check out the [issue tracker](https://gitlab.com/gitlab-org/security-products/package-hunter/-/issues) for planned features or to submit bug reports and follow [these resources to learn more](https://gitlab.com/gitlab-org/security-products/package-hunter#learn-more).

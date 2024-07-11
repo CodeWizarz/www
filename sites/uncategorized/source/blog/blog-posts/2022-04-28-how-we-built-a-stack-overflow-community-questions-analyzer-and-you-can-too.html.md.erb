@@ -1,0 +1,109 @@
+---
+title: How we built a Stack Overflow Community questions analyzer (and you can too)
+author: William Arias
+author_gitlab: warias
+author_twitter: gitlab
+categories: engineering
+tags: DevOps, community, contributors
+description: We wanted to better understand what Stack Overflow GitLab Community
+  members wanted to know, so we automated a way to keep track of it all. Here's
+  a step-by-step look at how we did it.
+image_title: /images/blogimages/gitlabonstackoverflow.png
+twitter_text: "Stack Overflow communities are busy places and we didn't want to
+  miss anything. Here's how @gitlab built an automated questions analyzer (and
+  you can too). "
+---
+
+Being part of the GitLab collective is an opportunity to learn first hand about the challenges the community using the DevOps Platform is facing. As a [Collective Member](https://stackoverflow.com/collectives/gitlab) logging between 2-3 times a week in StackOverflow  reading the questions and discussion posted about GitLab and manually sorting them by 'Recent Activity', 'Trending' and using Dates, I asked myself:  how can we leverage this  wealth of data and discover feedback, while finding  the most frequent topics where the community has questions? 
+
+This would be an opportunity to get a quick overview of topics where the community regularly needs help; this would also make it easier for us to create relevant content for them.  Manually sorting and extracting the text of each question wouldn’t be sustainable, so creating an automated way would be the most efficient way to proceed.
+
+## Experimenting with data-oriented content creation
+
+Finding out what the community is working on, and what they need help with while using GitLab, can help us to create better educational content that could expand their understanding of GitLab. To achieve this goal, the solution I created  after a few iterations is depicted below:
+
+![Alt text for your image](/images/blogimages/fontes.png)
+
+Where the Bill Of Materials consists mainly of:
+
+- GitLab DevOps Platform
+- Stackoverflow API
+- Kubernetes Cluster
+- Open Source Python libraries:
+- scikit-learn (TF-IDF)
+- Streamlit (front-end)
+- Spacy                 
+
+I leveraged the GitLab DevOps Platform to organize the projects using groups:
+
+![Alt text for your image](/images/blogimages/organize.png)
+
+The Loader project pulls questions about GitLab from the StackOverflow API, pre-processes the text and makes it usable for a second project: a Visualizer to create customized dashboards. 
+
+The automated process executed using the DevOps Platform is outlined below: 
+
+![Alt text for your image](/images/blogimages/automatedprocess.png)
+
+- Pull data from [StackOverflow API](https://api.stackexchange.com/docs)
+- Preprocess the response extracting relevant fields from returned JSON
+- Build a corpus and calculate TF-IDF
+- Scan for security vulnerabilities
+- Review Application and display its resulting dashboards using [Streamlit](https://streamlit.io/)
+- Deploy the built application to a Kubernetes cluster
+
+Loader and Visualizer projects have their own codebase and pipelines, which is helpful if different teams need to work separately on them. However, one project can require the other, which raises the need for  cross-project  automation. 
+
+![Alt text for your image](/images/blogimages/pipeline.png)
+
+This scenario means a [multi-project pipeline](https://docs.gitlab.com/ee/ci/pipelines/multi_project_pipelines.html) is useful to automate the whole process. The multi-project pipeline enables use cases such as:
+
+- As an NLP Developer I want to work on the NLP Pipeline in the Loader Project and automatically trigger the creation of a new visualization 
+- As a Streamlit Developer I want to work independently in the buttons and data visualization without touching any NLP Pipeline backend  
+
+The outlined process above is automatically run defining the steps in a [multi-project pipeline](https://docs.gitlab.com/ee/ci/pipelines/multi_project_pipelines.html) sharing artifact:
+
+![Alt text for your image](/images/blogimages/demo1-gif.gif)
+
+## Finding the most frequently occurring words
+
+The Feature Engineering step will help me to analyze the text in the whole dataset of GitLab questions. Using a simple yet powerful technique – TF-IDF – we aim to find the most relevant terms utilized by the community. By using this technique in the pipeline execution,  I represent words in numerical values and later rank them in order of importance.  This approach serves as a baseline for further improvements. More detail about this algorithm can be found [here](https://en.wikipedia.org/wiki/Tf%E2%80%93idf).
+
+## Did we achieve any success?
+
+One run of the multi-pipeline in our solution results in dashboards such as this one:
+
+![Alt text for your image](/images/blogimages/demo2-gif.gif)
+
+As an end-user of these dashboards I can immediately conclude that the main source of questions are around GitLab CI, pipelines and usage of Docker images. Not bad for a first run!  Having the data processed enables us to ask more questions and use data to answer it, such as, what are the questions from the highest [StackOverflow reputation](https://stackoverflow.com/help/whats-reputation) users ? 
+
+![Alt text for your image](/images/blogimages/questions.png)
+
+Could these questions be inspiration for tutorials for the most advanced users, or the implementation of a new feature? 
+
+Because everyone can contribute, let's take a look at the users who just started gaining their StackOverflow reputation:
+
+![Alt text for your image](/images/blogimages/contributors.png)
+
+The question about access and reading/writing permissions in Portuguese is interesting. It makes me wonder about content localization and GitLab meetups in Portuguese-speaking countries. Not surprisingly, there were also 	questions about GitLab CI too as the text processing and ranking found most relevant in the corpus. 
+
+Did we achieve any success? Yes, using a baseline technique such as TF-IDF sped up by  DevOps practices allowed us  to find out relevant terms and help us to understand where the majority of the community needs help in their DevOps journey. I have automated many steps that will allow me to focus on data exploration and possible implementation of more complex NLP Techniques rather than infrastructure allocation or manual input of commands and tests.
+
+![Alt text for your image](/images/blogimages/demo-reduced.gif)
+
+As a Technical Marketing Manager, I want to create content that is relevant to enable or inspire the  community to succeed. 
+
+A personal take away: Educating about the latest GitLab DevOps platform capabilities and the problems they solve  is important and so is keeping an eye on the content that might not be related to a new feature but is needed right now.
+
+Are we done? No, quoting Da Vinci's altered quote about [Art](https://www.artshub.com.au/news/features/art-is-never-finished-only-abandoned-262096-2370305/#:~:text=Lottie%20Consalvo%20in%20her%20studio,writers%2C%20and%20creatives%20would%20recognise) but with software: "Software is never finished, only abandoned."
+
+There is room for improvement and adding capabilities to this project. We continue iterating, listening to the community, and we encourage you to clone these projects, try it yourself, and adjust it with the topics that make sense to you. Create a merge request to improve the codebase and suggest new dashboards ideas!
+
+Explore the [group of projects](https://gitlab.com/tech-marketing/ad-fontes) and take a look at the [dashboard](https://bit.ly/3jeTFQp).
+
+
+
+
+
+
+
+

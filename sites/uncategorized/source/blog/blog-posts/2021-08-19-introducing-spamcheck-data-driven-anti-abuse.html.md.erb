@@ -1,0 +1,72 @@
+---
+title: "Introducing Spamcheck: A data-driven, anti-abuse engine"
+author: Ethan Urie, Juliet Wanjohi, Jayson Salazar, Alex Groleau and Alexander Dietrich
+author_gitlab: jdsalaro
+author_twitter: jdsalaro
+categories: security
+image_title: '/images/blogimages/lionello-delpiccolo-unsplash.jpeg'
+guest: true
+description: "How we built, tested and deployed a new tool on GitLab that fights spam and abuse."
+tags: security
+twitter_text: "New data driven anti-abuse tool that's been built, tested and deployed to production on @GitLab. Meet Spamcheck."
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2020/10/29/how-we-work-to-detect-and-mitigate-spam/"
+  - "/blog/2020/12/16/how-we-made-gitlab-more-secure-in-twenty-twenty/"
+  - "/blog/2021/07/23/announcing-package-hunter/"
+---
+
+Spam and abuse are a very real concern for us at GitLab – and likely every company providing services at scale. That's why our [Trust and Safety team](/handbook/security/security-operations/trustandsafety) works hard every day to detect, mitigate, and lessen the effects of spam. Back in October 2020, the GitLab Security team [detailed some of the ways they combat spam and abuse](/blog/2020/10/29/how-we-work-to-detect-and-mitigate-spam/) and referenced new approaches we were developing and testing to help us better detect and prevent spam.
+
+**We're excited to introduce Spamcheck, our new anti-spam engine. Spamcheck has been enabled for all projects on GitLab.com, which runs 14.1, and will be targeting inclusion of Spamcheck in the [14.6 release for our GitLab self-managed customers](https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/6259).**
+
+This tool was designed, tested and integrated by our GitLab [Security Automation](/handbook/security/security-engineering/automation/) team (with amazing partnership from our Trust and Safety team and our [Create](/handbook/engineering/development/dev/#create) and [Plan](/handbook/product/categories/#plan-stage) Engineering Development teams here at GitLab) with the purpose of improving GitLab's resilience to spam and abuse – in respect to both user experience and infrastructure robustness. We're continuing to develop and mature Spamcheck, but this two-part blog series will detail the development of this tool thus far (part one) and the [tech stack behind it (part two)](https://about.gitlab.com/blog/2021/11/18/deep-dive-tech-stack-behind-spamcheck/).
+
+## Testing, prototyping, and more testing
+
+At its core, spam prevention is a data-driven and a product-driven process. It is data-driven because information about each artifact, such as issues and users, must be captured, processed, and acted upon to actually prevent spam and abuse. On the other hand, GitLab itself must be iteratively improved on in order to support the consumption of data necessary for abuse prevention, the enactment of moderation tasks, and much more.
+
+With this process in mind, one of our first steps was to create a spam testbed. The spam testbed was where we instrumented existing product and infrastructure components to passively extract spam from the most affected namespaces into separate GitLab instances – this was our laboratory. This approach allowed us to try different spam-handling methods and analyse the effect on the product's behavior, measuring and identifying the components and improvements we would need further down the road. Our testbed allowed us to understand what parts of the codebase we could reuse, what Spamcheck's future architecture should look like, and what development process would allow us to move fast without too much breakage.
+
+After we had a testbed that architecturally resembled what we believed Spamcheck should look like, we started working on a prototype that leveraged a technology stack that would provide the stability, flexibility, and performance we needed – but this was no simple feat. There were many moving parts that hindered a frictionless development experience. Our toolchain was convoluted, due in part to [gRPC](https://en.wikipedia.org/wiki/GRPC), [ProtoBuf](https://en.wikipedia.org/wiki/Protocol_Buffers) definitions, and [GoLang's](https://en.wikipedia.org/wiki/Go_(programming_language)) somewhat immature tooling – but also because of the complexity of our [GitLab development kit](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/README.md). This toolchain complexity required a robust build and set-up process that would work locally for our developers but that could also be reused in our CI/CD pipelines. Our next blog post will dive deeper into our tech stack, so stay tuned!
+
+## Building the tool
+
+We developed Spamcheck in a loosely coupled manner from the get-go, only relying on data coming from production to learn, prototype, and build out the service. However, as we gained confidence in our approach, we started getting closer to production again, integrating Spamcheck as one would any other service. This process required defining and introducting features carefully, e.g., gRPC-client code, UI components for handling Spamcheck's service URL and API keys, and also the definition of milestones and safeguards we wanted in place before completely integrating with production.
+
+Once we had those features in place, we deployed Spamcheck to GitLab's staging environment. In staging, we carefully measured how GitLab and all monitored namespaces interacted with Spamcheck, and improved on its progressive roll-out capabilities, such as project and email-address filtering to improve quality assurance and control how many projects and users would be analyzed by the service.
+
+## Deploying to production, iteratively
+
+After successfully delivering Spamcheck to staging and processing more data, we started planning Spamcheck's deployment to production. Since Spamcheck was a new service, we wanted to control the volume of incoming requests for predictions to ensure that our service remained performant and didn't slow down issue creation on GitLab.com.
+
+We started with a small scope of projects that we checked for spam while assessing the accuracy of our predictions and building out a project allowlist/denylist feature. The integration with GitLab involved refactoring our existing spam handling code to take Spamcheck's responses into account. In this case, we used Akismet alongside Spamcheck and applied all the spam verdicts to decide what GitLab should block and what it should allow.
+
+We started operating in monitoring mode, looking to avoid disruptions and other surprises as we moved to production. This meant verdicts rendered by Spamcheck would still be logged for the purposes of data collection, but ultimately no action would be taken based on this output. This helped us fine-tune our development and delivery as well as our detection and measurement processes. Once we were comfortable with the performance and accuracy, we increased scope and progressively expanded our list of monitored projects to all public projects on GitLab.com.
+
+## Using data to inform and improve
+
+We aimed for Spamcheck's creation to be a heavily data-informed process and we'd encourage anyone implementing similar features to do the same.
+
+What this means is mostly logs, logs, and more logs.
+
+During design, prototyping, and now in production, we logged anything we could so we can measure, learn, and iterate. In the beginning, we measured things like:
+
+- The number of issues created
+- Quantity of expected modification events
+- How many spammy issues we were seeing, including their cadence and characterizing their content
+- Assessed the most affected namespaces, and more.
+
+As we progressed, we also measured the effectiveness of Spamcheck vs. [Akismet](https://akismet.com/) – which is another spam protection service – including their response times, peaks of spam activity, etc. This allowed us to move forward with confidence and helped us build tools like dashboards to enable information sharing with other teams, and helped us double-check assumptions and continually iterate on Spamcheck.
+
+Early analysis of our metrics indicate we're outperforming Akismet when GitLab.com is being attacked during spam waves. However our false positive rate is slightly higher than Akismet during normal day-to-day operations, which triggers a reCAPTCHA in our frontend. We're now working on reducing our false positive rate by improving our ML models, automating training processes, and setting static rules. We'll provide a more detailed analysis of our performance versus Akismet in the second blog post.
+
+## Cross-organizational collaboration
+
+Building, testing, iterating on, and implementing Spamcheck was truly a collaborative effort between our Security Automation team and multiple teams across GitLab. We'd like to thank [Roger Ostrander](/company/team/#rostrander) from our Trust and Safety team, [Chad Wooley](/company/team/#cwoolley-gitlab) from our Create: Editor team, and [Charlie Ablett](/company/team/#cablett) from our Plan: Product Planning team and [Stan Hu](/company/team/#stanhu), Engineering Fellow, for their many contributions to the successful launch of Spamcheck.
+
+In our next blog, we'll dive deep into the technology stack that supports Spamcheck, how we selected some of the supporting infrastructure and frameworks, provide some deeper analysis into the tool's performance and what lies ahead in development.
+
+Cover image by [Lionello DelPiccolo](https://unsplash.com/@liodp?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/collections/978365/automation?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

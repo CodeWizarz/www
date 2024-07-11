@@ -1,0 +1,18 @@
+features:
+  secondary:
+    - name: "Single-node instances will now upgrade to PostgreSQL 12 by default"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus/settings/database.html#gitlab-133-and-later'
+      reporter: joshlambert
+      stage: systems
+      categories:
+        - 'Omnibus Package'
+        - 'Cloud Native Installation'
+      issue_url: 'https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/5509'
+      description: |
+        In GitLab 14.0, we plan to require [PostgreSQL 12](#postgresql-11-support). PostgreSQL 12 offers [significant indexing and partitioning benefits](https://www.postgresql.org/about/news/postgresql-12-released-1976/), along with broader performance improvements.
+
+        To prepare, single-node instances using the Omnibus-packaged version of Postgres will now automatically upgrade to version 12 by default. If you prefer, you can [opt-out of automatic upgrades](https://docs.gitlab.com/omnibus/settings/database.html#opt-out-of-automatic-postgresql-upgrades).
+
+        Multi-node instances, and any Geo secondaries, will need to switch from [repmgr to Patroni](https://docs.gitlab.com/ee/administration/postgresql/replication_and_failover.html#switching-from-repmgr-to-patroni), prior to [upgrading with Patroni](https://docs.gitlab.com/ee/administration/postgresql/replication_and_failover.html#upgrading-postgresql-major-version-in-a-patroni-cluster). Geo secondaries can then be [updated](https://docs.gitlab.com/omnibus/settings/database.html#upgrading-a-geo-instance) and re-synchronized.

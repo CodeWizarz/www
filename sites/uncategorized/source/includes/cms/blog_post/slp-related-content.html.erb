@@ -1,0 +1,101 @@
+<div class="related-content">
+  <h2 class="slp-text-grayscale-333 slp-text-lg slp-leading-10 slp-min-w-full slp-text-center slp-font-normal slp-mb-32">
+    More to explore
+  </h2>
+  <div class="slp-flex slp-justify-start md:slp-justify-center slp-overflow-x-auto slp-mb-16 md:slp-mb-0">
+    <% if current_article.data.related_posts %>
+      <% related_posts_articles = blog('blog').articles.keep_if{ |a| current_article.data.related_posts.include?(a.url) }[0...3] %>
+      <% related_release_posts = blog('releases').articles.keep_if{ |a| current_article.data.related_posts.include?(a.url) }[0...3] %>
+    <% else %>
+      <% related_posts_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?(current_article.data.categories)}.reject{|article| article == current_article}[0...3] %>
+      <% related_release_posts = blog('releases').articles.keep_if{ |a| a.data.categories.include?(current_article.data.categories)}.reject{|article| article == current_article}[0...3] %>
+    <% end %>
+    <% if related_posts_articles %>
+      <% related_posts_articles.each do | article | %>
+        <% author = author_data(author: article.data.author) %>
+        <a href="<%= article.url %>" class="slp-group slp-text-grayscale-333 slp-flex-none slp-mx-16 slp-mb-32" data-ga-name="<%= article.title %>" data-ga-location="body">
+          <div class="slp-max-w-lg slp-rounded-md hover:slp-shadow-lg slp-ease-in-out slp-transition-all slp-duration-300 slp-p-32 slp-h-full slp-box-border slp-flex slp-flex-col" style="box-shadow: 0 2px 10px 0 rgb(0 0 0 / 8%)">
+            <div class="slp-mb-6">
+              <svg
+                width="14"
+                height="16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                class="slp-inline-block slp-mr-2"
+              >
+                <path
+                  d="M11.96 13.728H8.184a.642.642 0 01-.64-.64c0-.352.288-.64.64-.64h3.776c.352 0 .64-.288.64-.64V1.92a.642.642 0 00-.64-.64H2.04a.642.642 0 00-.64.64v9.888c0 .352.288.64.64.64h2.368c.352 0 .64.288.64.64 0 .352-.288.64-.64.64H2.04a1.926 1.926 0 01-1.92-1.92V1.92C.12.864.984 0 2.04 0h9.92c1.056 0 1.92.864 1.92 1.92v9.888c0 1.056-.864 1.92-1.92 1.92z"
+                  fill="#7759c2"
+                ></path>
+                <path
+                  d="M10.36 6.752H3.64a.642.642 0 01-.64-.64V3.328c0-.352.288-.64.64-.64h6.72c.352 0 .64.288.64.64v2.784c0 .352-.288.64-.64.64zm-6.08-1.28h5.44V3.968H4.28v1.504zM7.704 11.04H3.64A.642.642 0 013 10.4c0-.352.288-.64.64-.64h4.064c.352 0 .64.288.64.64 0 .352-.288.64-.64.64zM10.36 8.896H3.64a.642.642 0 01-.64-.64c0-.352.288-.64.64-.64h6.72c.352 0 .64.288.64.64 0 .352-.288.64-.64.64zM4.408 16a.617.617 0 01-.32-.096c-.192-.128-.32-.32-.32-.544v-2.272c0-.352.288-.64.64-.64.352 0 .64.288.64.64v1.152l2.784-1.696a.602.602 0 01.864.224.602.602 0 01-.224.864L4.76 15.904a.645.645 0 01-.352.096z"
+                  fill="#7759c2"
+                ></path>
+              </svg>
+              <span class="slp-uppercase slp-text-xs slp-text-black"><%= article.data.categories %></span>
+            </div>
+            <h2 class="group-focus:slp-text-ui-secondary group-hover:slp-text-ui-secondary slp-text-lg slp-leading-tight slp-mb-6 slp-font-normal slp-text-grayscale-333">
+              <%= article.title %>
+              <svg
+                width="9"
+                height="6"
+                xmlns="http://www.w3.org/2000/svg"
+                class="slp-inline-block"
+              >
+                <path
+                  d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z"
+                  fill="none"
+                  class="slp-fill-current slp-text-black group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"
+                ></path>
+              </svg>
+            </h2>
+            <% if current_article.data.author == "GitLab" or current_article.data.author == nil %>
+              <div class="slp-flex slp-items-center slp-mt-auto">
+                <img
+                  alt="Tanuki GitLab profile"
+                  src="/images/gitlab-logo-extra-whitespace.png"
+                  height="39"
+                  width="39"
+                  class="slp-mr-4 slp-rounded-full slp-bg-grayscale-gray2"
+                />
+                <span class="slp-text-xs slp-text-grayscale-333">GitLab</span>      
+              </div>
+            <% elsif author %> 
+              <div class="slp-flex slp-items-center slp-mt-auto">
+                <img
+                  alt="<%= author.name %> GitLab profile"
+                  src="<%= author.avatar_url %>"  
+                  height="39"
+                  width="39"
+                  class="slp-mr-4 slp-rounded-full slp-bg-grayscale-gray2"
+                />
+                <span class="slp-text-xs slp-text-grayscale-333"><%= author.name %></span>    
+              </div> 
+            <% end %>
+          </div>
+        </a>
+      <% end %>
+    <% end %>
+  </div>
+  <a
+    href="/blog/"
+    id="all-blog-posts"
+    class="slp-text-ui-secondary slp-font-bold slp-text-sm slp-leading-4 slp-min-w-full slp-text-center slp-block"
+    data-ga-name="blog"
+    data-ga-location="body"
+    >
+    All Blog Posts
+    <svg
+    width="9"
+    height="6"
+    xmlns="http://www.w3.org/2000/svg"
+    class="slp-inline-block"
+    >
+      <path
+      d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z"
+      fill="none"
+      class="slp-fill-current slp-text-ui-secondary group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"
+    ></path>
+    </svg>
+  </a>
+</div>

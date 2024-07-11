@@ -1,0 +1,548 @@
+---
+title: "Looking back on the 11.x releases for GitLab CI/CD"
+author: Jason Yavorska
+author_gitlab: jyavorska
+author_twitter: j4yav
+categories: engineering
+image_title: '/images/blogimages/photo-cicdlookback.png'
+description: "With GitLab 12.0 coming soon, it's a great time to reflect on all the features we've launched since 11.0."
+tags: DevOps, CI/CD, features
+twitter_text: "With @gitlab 12.0 coming soon, it's a great time to reflect on all the features we've launched since 11.0"
+postType: product
+---
+
+GitLab releases each month, so if you aren't paying close attention it can be easy to
+lose track of all the great features that are coming out. With an eye towards [CI/CD](/features/continuous-integration/)
+in particular, I'd like to take you through some of the highlights in each of our 11.x releases,
+each of which contributed to our strategy around cloud native CI/CD that has
+security and smarts built right in, supports code reusability and live troubleshooting,
+and in general enables your team to make progress towards your goal of better, more
+reliable software delivery.
+
+![Release Badges](/images/blogimages/11x_release_logos.png){: .shadow.medium.center}
+
+For those who don't know me, I'm the director of product for CI/CD and I've spent
+my career (going all the way back to doing build automation of Windows 98 at my
+first corporate job) out of doing build and release automation and process. I love
+this stuff, and my career move from building CI/CD implementations to building
+CI/CD tools for folks just like me has been one of the most rewarding things I've
+done in my life. I hope that experience and passion comes through in the features
+we've delivered – either way, I'd love to chat with you if you're a user of GitLab
+CI/CD. DM me on [Twitter](https://twitter.com/j4yav) or contact me via my [GitLab profile](https://gitlab.com/jyavorska) if you'd like to chat.
+
+Anyway, without further ado let's dive into the first 11.x release!
+
+## [GitLab 11.0](/releases/2018/06/22/gitlab-11-0-released/)
+
+### Auto DevOps Generally Available
+
+We kicked off the 11.0 series in June 2018 by launching [Auto DevOps](/stages-devops-lifecycle/auto-devops/).
+Beyond making it easy to host and collaborate on public and private repositories,
+GitLab also simplifies the rest of the process by offering the whole delivery toolchain,
+built in and automated: Simply commit your code and Auto DevOps can do the rest.
+Auto DevOps is a pre-built, fully featured CI/CD pipeline that takes the best of
+GitLab CI/CD features, adds a lot of smarts around auto-detecting what's in your
+project, and automates the entire delivery process to your Kubernetes cluster.
+
+Check out our [quick-start guide](https://docs.gitlab.com/ee/topics/autodevops/quick_start_guide.html)
+if you haven't had a chance to play with it yet – you might be surprised what it's
+capable of out of the box.
+
+![Auto DevOps](/images/11_0/auto-devops.png){: .shadow.medium.center}
+
+### Job logs in the Web IDE
+
+Tying operational deployments/execution together with development is also a priority
+for GitLab. In 11.0 we made the CI status of the current commit available in the status
+bar of the Web IDE, and made it possible to view the [status and the logs for each job on the right](https://docs.gitlab.com/ee/user/project/web_ide/#view-ci-job-logs).
+This made it easy to fix a merge request with CI failures by opening the failed job
+right alongside your code.
+
+![Web IDE trace](/images/11_0/web_ide_ci_trace.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [CI/CD pipeline jobs integrated with the Web IDE](https://docs.gitlab.com/ee/user/project/web_ide/#view-ci-job-logs)
+- [Variable-defined deployment policies for Canary deployments](https://docs.gitlab.com/ee/topics/autodevops/#deploy-policy-for-canary-environments)
+- [Specify deployment strategy from Auto DevOps settings](https://docs.gitlab.com/ee/topics/autodevops/#auto-deploy)
+
+---
+
+## [GitLab 11.1](/releases/2018/07/22/gitlab-11-1-released/)
+
+### Security reports in pipeline view
+
+Security was another important area of focus for us throughout the 11.x series. We
+already had security reports in the MR before this release, but here we also
+added status for branches so this information can be acted upon even earlier.
+GitLab 11.1 (July 2018) completed the [set of security reports shown in the pipeline view](https://docs.gitlab.com/ee/user/project/merge_requests/#security-reports),
+adding both Container Scanning and DAST. From there you could now simply review
+the Reports tab to access all security information and take action.
+
+![Security Reports](/images/11_1/security_reports.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Redesign of the merge request and pipeline info sections](https://docs.gitlab.com/ee/user/project/merge_requests/)
+- [Improved Kubernetes cluster page design](https://docs.gitlab.com/ee/user/project/clusters/)
+
+---
+
+## [GitLab 11.2](/releases/2018/08/22/gitlab-11-2-released/)
+
+### Custom templates at the instance level
+
+In 11.2 (August 2018) we also introduced [custom templates at the instance level](https://docs.gitlab.com/ee/administration/custom_project_templates.html),
+making it easy for organizations to set up a basic template for how they want
+their CI/CD pipelines to run. Development teams can grab a copy of the template
+and go, confident their following their organizational processes. Our enterprise
+customers are very important to us, and this feature came directly from the great
+feedback we get from our customers.
+
+![Project Templates](/images/11_2/project-templates-instance.png){: .shadow.medium.center}
+
+### Kaniko for Docker Builds
+
+Historically, building Docker images within a containerized environment had
+required compromises, using techniques like docker-in-docker on privileged
+containers. These solutions were often insecure and slow. In this release we
+made the Runner compatible with [Kaniko](https://docs.gitlab.com/ee/ci/docker/using_kaniko.html),
+a new tool developed by Google which is able to securely build an image within
+an unprivileged container. Cloud-first build technology is so important for the
+journey we want to take with our users, and supporting these kinds of foundational
+technologies that make your life easier are so nice to deliver.
+
+![Kaniko](/images/11_2/kaniko.png){: .shadow.medium.center}
+
+### JUnit test results in merge requests
+
+Finally, testing will always be an important part of any CI/CD pipeline. With the 11.2 release,
+we made it possible to [see JUnit test results directly](https://docs.gitlab.com/ee/ci/unit_test_reports.html)
+right from the CI view in the merge request widget, as part of our ongoing efforts
+to invest in full-spectrum integrated testing within GitLab.
+
+![JUnit Results](/images/feature_page/screenshots/junit-test-summaries-MR-widget.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [GitLab Runner in cloud native Helm Chart](https://docs.gitlab.com/charts/)
+- [Built-in project templates switched to use Dockerfiles](https://docs.gitlab.com/ee/user/project/working_with_projects.html#create-a-project)
+- [Manually stop an environment](https://docs.gitlab.com/ee/ci/environments/index.html#stopping-an-environment)
+
+---
+
+## [GitLab 11.3](/releases/2018/09/22/gitlab-11-3-released/)
+
+### Built-in Maven package repository
+
+For any development organization, having an easy and secure way to manage
+dependencies is critical. Package management tools, such as Maven for Java
+developers, provide a standardized way to share and version control these
+libraries across projects. In GitLab 11.3 (September 2018), we opened up [Maven repositories built directly into GitLab](https://docs.gitlab.com/ee/user/packages/maven_repository/index.html).
+Java developers were now easily able to publish their packaged libraries to
+their project’s Maven repository: Just share a simple XML snippet with
+other teams looking to utilize that library, and Maven and GitLab will take care
+of the rest.
+
+![Maven Repo](/images/11_3/maven.png){: .shadow.medium.center}
+
+### Interactive Web Terminals
+
+CI/CD jobs are executed in the runner as part of pipelines, but this execution wasn't interactive.
+When they failed, it wasn't always easy to dig into details to spot the source of the problem.
+[Interactive web terminals](https://docs.gitlab.com/ee/ci/interactive_web_terminal/)
+brought the capability to connect to a running or completed job and manually enter
+commands to understand what’s happening in the system, and helped us move the story
+forward on empowering teams to deliver code, troubleshoot, and solve issues directly.
+
+![Web Terminal](/images/11_3/verify-webterm.png){: .shadow.medium.center}
+
+### Better includes with `extends` keyword
+
+Reusing CI/CD code is a great way to help ensure consistency in software delivery,
+and also minimizes the amount of per-job scripting that’s needed to write and
+maintain. As of 11.11, we began offering a powerful alternative approach
+for code reuse in templates using [YAML `extends` keywords](https://docs.gitlab.com/ee/ci/yaml/#extends),
+expanding upon our vision for reusability and compliance in the enterprise.
+
+![Extends](/images/11_3/verify-includes.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+- [Auto DevOps enabled by default](https://docs.gitlab.com/ee/topics/autodevops/)
+- [Custom file templates for self-managed instances](https://docs.gitlab.com/ee/administration/settings/instance_template_repository.html)
+
+---
+
+## [GitLab 11.4](/releases/2018/10/22/gitlab-11-4-released/)
+
+### Feature Flags
+
+Feature Flags are a no-brainer to make software deliver easier, so you knew we'd eventually
+want to include them in the GitLab single application. With the 11.4 release (October 2018) we delivered on
+this promise by adding [Feature Flags](https://docs.gitlab.com/ee/operations/feature_flags.html),
+helping teams to achieve continuous delivery by offering better options for incrementally
+rolling out changes and separating feature delivery from customer launch.
+
+![Feature Flags](/images/11_4/feature_flags.png){: .shadow.medium.center}
+
+### `only/except` rules for changes to files
+
+A very popular requested feature, in 11.4 we added the ability within the
+`.gitlab-ci.yml` to [use `only`/`except` rules for jobs](https://docs.gitlab.com/ee/ci/yaml/#only--except)
+based on when modifications occur to a specific file or path (or glob). This allowed
+for even more smarts in the pipeline, especially for monorepo/microservice-type
+use cases, where the pipeline behavior can be optimized based on the changed files
+in the repository.
+
+![Only Except Changes](/images/11_4/verify-onlyexceptchanges.png){: .shadow.medium.center}
+
+### Timed incremental rollouts
+
+Teams already had the ability within Auto DevOps to set up incremental rollouts,
+but with this release we added an option to also set up [timed incremental rollouts](https://docs.gitlab.com/ee/topics/autodevops/#timed-incremental-rollout-to-production)
+where the rollout will automatically continue forward on a timed cadence, making
+sure there is no error before continuing. This helped us push our vision for safe,
+continous deployment forward by providing teams with a new tool to have control over
+their code rollouts.
+
+![Timed Incremental Rollouts](/images/11_4/timed_incremental_rollouts.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Moving `includes` from Starter to Core](https://docs.gitlab.com/ee/ci/yaml/#include)
+- [Auto DevOps support for RBAC](https://docs.gitlab.com/ee/topics/autodevops/)
+- [Filter admin runners view by type/state](https://docs.gitlab.com/ee/ci/runners/)
+- [Support for interactive web terminals with Docker executor](https://docs.gitlab.com/ee/ci/interactive_web_terminal/)
+- [Delayed jobs for pipelines](https://docs.gitlab.com/ee/ci/yaml/#whendelayed)
+
+---
+
+## [GitLab 11.5](/releases/2018/11/22/gitlab-11-5-released/)
+
+### Access control for Pages
+
+With the 11.5 release (November 2018) we delivered a fantastic community-contributed feature which enabled
+access control for Pages. From now on, instead of only supporting use cases where the
+content associated with the product is public, you could use Pages to build and
+publish protected content that should [only be accessible by project members](https://docs.gitlab.com/ee/user/project/pages/introduction.html#gitlab-pages-access-control).
+Operational documentation, internal secrets, or even just private planning or
+other information can now be confidently published via your pipelines in an
+easy-to-access way, with confidence that only the right people are able to see it.
+
+![Access Control Pages](/images/11_5/access-control-pages.png){: .shadow.medium.center}
+
+### Deploy Knative to your Kubernetes cluster
+
+Building [serverless applications](/topics/serverless/) enables teams to focus their time on making a
+great product and eliminates the need of provisioning, managing, and operating
+servers. Starting in GitLab 11.5, we enabled [deploying Knative to your existing Kubernetes cluster](https://docs.gitlab.com/ee/user/project/clusters/serverless/)
+with a single click using the GitLab Kubernetes integration. Knative is a
+Kubernetes-based platform to build, deploy, and manage modern serverless workloads.
+Tasks that were once difficult, such as source-to-container builds, routing and
+managing traffic, and scaling-to-zero, now work effortlessly out of the box.
+
+![KNative](/images/11_5/knative.png){: .shadow.medium.center}
+
+### Parallel attribute for faster pipelines
+
+The speed to delivery in a CI/CD environment can oftentimes be limited by the time it takes to complete the various tests in order to ensure the code is able to be shipped. With the `parallel` keyword in GitLab CI/CD, teams can quickly and easily parallelize these tests – accelerating the testing process and overall time to delivery.
+
+![Parallel](/images/11_5/parallel-keyword.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Review Apps can now link directly to changed pages](https://docs.gitlab.com/ee/ci/environments/index.html#going-from-source-files-to-public-pages)
+- [New CI/CD syntax for security, quality, and performance report types](https://docs.gitlab.com/ee/ci/yaml/#artifactsreports)
+- [Additional information about deployments in merge requests](https://docs.gitlab.com/ee/user/project/merge_requests/index.html#pipeline-status-in-merge-requests)
+
+---
+
+## [GitLab 11.6](/releases/2018/12/22/gitlab-11-6-released/)
+
+### GitLab Serverless
+
+Building on the Knative integration introduced in the previous month, 11.6's new, more
+comprehensive [Serverless](https://docs.gitlab.com/ee/user/project/clusters/serverless/)
+capability enabled users to easily define functions in their repository and have
+them served and managed by Knative. Cloud native is such an important part of our
+roadmap, and it was really exciting to launch this feature while I was at KubeCon
+no less.
+
+By simply defining your function data in the repo’s `serverless.yml` file and
+using a `.gitlab-ci.yml` template, each function will be deployed to your cluster,
+with Knative taking care of scaling your function based on request volume. This
+enables application developers to iterate quickly without having to worry about
+provisioning or managing infrastructure.
+
+![Serverless](/images/11_6/serverless.png){: .shadow.medium.center}
+
+### Run pipeline jobs for merge requests
+
+Running a given job only when dealing with a merge request was made much easier in 11.6. Using the
+`merge_requests` value with `only/except` keywords will allow you to configure jobs
+to run [only or except when in the context of a merge request](https://docs.gitlab.com/ee/ci/merge_request_pipelines/index.html).
+This allows finer control over pipeline behavior, and also provides access to new
+environment variables indicating the target branch and merge request ID to be used
+for additional automated behaviors.
+
+![Merge Request Pipelines](/images/11_6/verify-mergerequestpipelines.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Kubernetes clusters for groups](https://docs.gitlab.com/ee/user/group/clusters/)
+- [Pipelines are now deletable via API](https://docs.gitlab.com/ee/api/pipelines.html#delete-a-pipeline)
+- [Trigger variables are now hidden in UI by default](https://docs.gitlab.com/ee/ci/triggers/)
+
+---
+
+## [GitLab 11.7](/releases/2019/01/22/gitlab-11-7-released/)
+
+### Releases page
+
+The 11.7 release (January 2019) added the ability to [create releases in GitLab](https://docs.gitlab.com/ee/user/project/releases/index.html)
+and view them on a summary page. Releases are a snapshot in time of the source,
+links, and other metadata or artifacts associated with a released version of your
+code, and helps users of your project to easily discover the latest releases
+of your software.
+
+This is a feature that was, as a career release manager, near and dear to my heart.
+I have so many plans around [Release Orchestration](/direction/release/release_orchestration/)
+that build on this feature as a foundation. Being able to tie a milestone to
+a release, a feature coming very soon, will open the door to tying together all
+kinds of interesting things happening in GitLab to a release. This isn't my forward-looking
+blog post so I won't go too far here, but I'll just say I can't wait to
+go on that journey to build something really unique and powerful together with our users.
+
+![Releases Page](/images/11_7/release-releases_page.png){: .shadow.medium.center}
+
+### Expand upstream/downstream pipelines across projects
+
+With 11.7 it became possible to [expand upstream or downstream cross-project pipelines](https://docs.gitlab.com/ee/ci/pipelines/index.html#visualize-pipelines)
+right from the pipeline view, giving you visibility into your end-to-end pipelines,
+no matter in which project they start or finish. It's one pattern we've been seeing
+more and more of in GitLab, and we're adding more features to support. The reality of
+continuous delivery is complex orchestration across projects and even groups, so
+this is a feature that was nice to get out the door to help make this easier.
+
+![Cross-Project Pipelines](/images/11_7/release-pipeline_expansion.png){: .shadow.medium.center}
+
+### NPM package repository
+
+In January we also started offering [NPM registries](https://docs.gitlab.com/ee/user/packages/npm_registry/index.html)
+built directly into GitLab. From this point teams can share a simple package-naming
+convention to utilize that library in any Node.js project, and NPM and GitLab will
+do the rest – all from a single, easy-to-use interface. Yet another step on our path
+to enable all kinds of repositories, built right into GitLab when you need them.
+
+![NPM Packages](/images/11_7/npm_package_view.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Ability to configure Kubernetes app secrets as variables in Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/#application-secret-variables)
+- [API support for Kubernetes integration](https://docs.gitlab.com/ee/api/project_clusters.html)
+- [Short commit SHA available as environment variable](https://docs.gitlab.com/ee/ci/variables/predefined_variables.html)
+- [Authorization support for fetching includes](https://docs.gitlab.com/ee/ci/yaml/#include)
+- [Skip CI builds during git push with `skip_ci` keyword](https://docs.gitlab.com/ee/ci/pipelines/#skip-a-pipeline)
+
+---
+
+## [GitLab 11.8](/releases/2019/02/22/gitlab-11-8-released/)
+
+### `trigger:` keyword for pipelines
+
+Even as of GitLab 9.3 you were able to create multi-project pipelines by triggering
+a downstream pipeline via a GitLab API call in your job. In GitLab 11.8 (February 2019), we added
+first-class support for triggering these downstream pipelines with the [`trigger:`](https://docs.gitlab.com/ee/ci/yaml/#trigger)
+keyword, instead of requiring teams to make an API call to trigger the downstream
+pipeline. A bit more for those cross-project use cases that makes everything just
+a little bit nicer to use.
+
+![Trigger](/images/11_8/multi_project_pipeline_graph.png){: .shadow.medium.center}
+
+### Pages support for subgroups
+
+Pages was updated in 11.8 to [work with subgroups in GitLab](https://docs.gitlab.com/ee/administration/pages/),
+giving you the ability to create Pages sites at that level as well. Sites set up in this
+way will have a URL in the format of `toplevel-group.gitlab.io/subgroup/project`,
+making them very easy to find.
+
+![Pages for SubGroups](/images/11_8/release-pages-subgroups.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Several new templates for getting started quickly with GitLab Pages](https://docs.gitlab.com/ee/user/project/pages/#getting-started)
+- [Auto DevOps support for environment-specific custom domain](https://docs.gitlab.com/ee/topics/autodevops/#environment-variables)
+- [Feature Flags was improved by making them environment-aware](https://docs.gitlab.com/ee/operations/feature_flags.html#define-environment-specs)
+- [CI_PAGES and CI_PAGES_URL added as helpful variables accessible to Pages pipelines](https://docs.gitlab.com/ee/user/project/pages/)
+- [.html extensions are now automatically resolved for Pages sites](https://docs.gitlab.com/ee/user/project/pages/)
+- [Tolerations were added to the Kubernetes executor](https://docs.gitlab.com/runner/executors/kubernetes.html#the-keywords)
+- [A new cleanup procedure for the Container Registry](https://docs.gitlab.com/ee/api/container_registry.html#delete-a-repository-tag)
+- [Force redeploy when Auto DevOps secrets are updated](https://docs.gitlab.com/ee/topics/autodevops/#environment-variables)
+
+---
+
+## [GitLab 11.9](/releases/2019/03/22/gitlab-11-9-released/)
+
+### Feature Flag auditability
+
+With the 11.9 release (March 2019), operations like adding, removing, or changing Feature Flags
+are now [recorded in the GitLab audit log](https://docs.gitlab.com/ee/administration/audit_events.html),
+giving you visibility into what is changing and when. If you’re having an incident
+and need to see what changed recently, or just need to look back as an auditor on
+how your feature flags have been modified, this is now very easy to do. We have
+big plans for Feature Flags, and also compliance built right into your pipelines.
+It was great to knock out a two-for-one with this one.
+
+![Feature Flag audit events](/images/11_9/release-ffaudit.png){: .shadow.medium.center}
+
+### Security templates for pipelines
+
+GitLab security features evolve very fast, and they always need to be up to
+date to be effective and protect your code. We know that changing the job
+definition is difficult if you have to manage multiple projects. As of this release we
+include bundled security templates [directly into your configuration](https://docs.gitlab.com/ee/user/application_security/sast/#configuring-sast),
+and have them updated with your system every time you upgrade to a new version of
+GitLab, without any change to any pipeline configuration required. Security plus
+reusability, a great combination.
+
+![Security Templates](/images/11_9/templates.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Project templates for .NET, Go, iOS, and Pages](https://docs.gitlab.com/ee/user/project/working_with_projects.html#built-in-templates)
+- [Run specific jobs on merge requests only when files change](https://docs.gitlab.com/ee/ci/jobs/job_control.html#use-onlychanges-with-merge-request-pipelines)
+- [Auto DevOps build jobs for tags](https://docs.gitlab.com/ee/topics/autodevops/#auto-build)
+
+---
+
+## [GitLab 11.10](/releases/2019/04/22/gitlab-11-10-released/)
+
+### Pipeline dashboard
+
+In 11.10 (April 2019) we added [pipeline status information to the Operations Dashboard](https://docs.gitlab.com/ee/user/operations_dashboard/).
+This helps teams view the pipeline health of all the projects that they care about,
+all together in a single interface. Yet another step towards making pipelines across
+your instance easy to understand and follow, this one was built in real-time coordination
+with a customer, which is always a nice way to get something done. You get to build
+something that solves a real problem and collaborate directly with the folks who
+need it.
+
+![Pipeline Dashboard](/images/11_10/cross-project-pipelines-dashboard.gif){: .shadow.medium.center}
+
+### Pipelines on merge results
+
+When working in a feature branch, it’s normal to have it diverge over
+time from the target branch if you aren’t rebasing frequently. This can result
+in a situation where both the source and target branch’s pipelines are green and
+there are no merge conflicts, but the combined output will result in a failed
+pipeline due to an incompatibility between the changes.
+
+With 11.10 it became possible for a pipeline to automatically create a new ref that
+contains the combined merge result of the source and target branch, then
+[run the pipeline against that ref](https://docs.gitlab.com/ee/ci/merge_request_pipelines/#pipelines-for-merged-results)
+(what we call an `attached` state). In this way, GitLab can help teams keep their
+master branch green even when they have many teams merging into the release branch.
+
+Tools and techniques built right into GitLab for keeping master green was a big
+focus in the last few releases of 11.x, and will remain so for 12.x as well. Look
+for [merge trains](https://gitlab.com/gitlab-org/gitlab-ee/issues/9186) to be built
+on top of this foundation, and some really cool enhancements around sequencing and
+parallelization of them.
+
+![Merge Ref Pipeline](/images/11_10/merge_request_pipeline.png){: .shadow.medium.center}
+
+### Composable Auto DevOps
+
+Auto DevOps enables teams to adopt modern DevOps practices with little to no effort.
+Starting in GitLab 11.10 each job of Auto DevOps was made available as an
+independent template. Using the includes feature of GitLab CI, users can [choose to bring in
+only certain stages of Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/#using-components-of-auto-devops) while continuing to use their own custom
+`gitlab-ci.yml` for the rest. This helps teams to use just the desired jobs, while
+taking advantage of any updates made upstream.
+
+![Composable Auto DevOps](/images/11_10/composable-auto-devops.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [More thorough Container Registry cleanup](https://docs.gitlab.com/omnibus/maintenance/#removing-unused-layers-not-referenced-by-manifests)
+- [Ability to purchase CI add-on runner minutes](https://docs.gitlab.com/ee/administration/settings/continuous_integration.html#extra-shared-runners-pipeline-minutes-quota)
+- [Change the cloning path for pipelines](https://docs.gitlab.com/ee/ci/runners/configure_runners.html#custom-build-directories)
+- [Simple masking of protected variables in logs](https://docs.gitlab.com/ee/ci/variables/#masked-variables)
+- [Enable/disable Auto DevOps at the group level](https://docs.gitlab.com/ee/topics/autodevops/#enablingdisabling-auto-devops-at-the-group-level)
+- [Group-level runners for group-level clusters](https://docs.gitlab.com/ee/user/group/clusters/#installing-applications)
+- [Control over `git clean` flags in pipeline jobs](https://docs.gitlab.com/ee/ci/runners/configure_runners.html#git-clean-flags)
+
+---
+
+## [GitLab 11.11](/releases/2019/05/22/gitlab-11-11-released/)
+
+### Windows Container Executor
+
+In GitLab 11.11 (May 2019) we were very pleased to add a new executor to the GitLab Runner
+for using [Docker containers on Windows](https://docs.gitlab.com/runner/executors/docker.html#using-windows-containers).
+Previously, using the shell executor to orchestrate Docker commands was the primary
+approach for Windows, but with this update you are now able to use Docker
+containers on Windows directly, in much the same way as if they were on Linux
+hosts. This opened up the door for more advanced kinds of pipeline orchestration
+and management for our users of Microsoft platforms.
+
+Also included with this update was improved support for PowerShell throughout GitLab
+CI/CD, as well as new helper images for various versions of Windows containers.
+
+![Windows Executor](/images/11_11/windows-container.png){: .shadow.medium.center}
+
+### Caching proxy for Container Registry
+
+Lots of teams are using containers as part of their build pipelines, and our new
+[caching proxy](https://docs.gitlab.com/ee/user/packages/dependency_proxy/index.html) for
+frequently used upstream images/packages introduced a great way to speed them up.
+By keeping a copy of needed layers locally using the new caching proxy, you can
+easily improve execution performance for the commonly used images in your environment.
+
+![Dependency Proxy](/images/11_11/dependency-proxy-mvc.png){: .shadow.medium.center}
+
+### Chat notifications for deployments
+
+In 11.11 deployment events were available to be [automatically shared in your team’s channel](https://docs.gitlab.com/ee/user/project/integrations/project_services.html)
+through our Slack and Mattermost chat integrations, helping bring visibility to
+these important activities that your teams need to be aware of.
+
+![Notifications](/images/11_11/release-slack-notification.png){: .shadow.medium.center}
+
+### Guest Access for Releases
+
+It also became possible in this release for [guest users of your projects to view releases](https://docs.gitlab.com/ee/user/permissions.html#releases-permissions)
+that you have published on the Releases page. They will be able to download your
+published artifacts, but are prevented from downloading the source code or seeing
+repository information such as tags and commits.
+
+![Guest Releases](/images/11_7/release-releases_page.png){: .shadow.medium.center}
+
+### Other highlights
+
+- [Add-on runner minutes extended to free plans](https://docs.gitlab.com/ee/administration/settings/continuous_integration.html#extra-shared-runners-pipeline-minutes-quota)
+- [Access deployment details through environments API](https://docs.gitlab.com/ee/api/environments.html#get-a-specific-environment)
+- [Create a file directly from environment variable](https://docs.gitlab.com/ee/ci/variables/#variable-types)
+- [Run all manual jobs for a stage in one click](https://docs.gitlab.com/ee/ci/pipelines/index.html#add-manual-interaction-to-your-pipeline)
+
+---
+
+## In conclusion
+
+Phew... that was a lot of great features, and the team here at GitLab is really proud of
+what we delivered with this series of GitLab releases. I hope you found something
+that you can take advantage of in your own CI/CD process. If you're interested in
+seeing where we're heading next, head over to our [CI/CD strategy page](/direction/ops/)
+and check out what's coming. Also, be sure to check out our 12.0 release post coming out on the 22nd of this month.
+
+One of the things you may have noticed is that we frequently add new iterations
+on our features, even month to month. We have a lot more iterations planned, both
+for new and existing features, but what would you like to see in the next
+version of your favorite feature? We'd love to hear – let us know in the
+comments below.
+
+
+Photo by [Zoltan Tasi](https://unsplash.com/photos/O_mBXldZ0hc?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/arrow?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

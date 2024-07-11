@@ -1,0 +1,50 @@
+---
+title: "GitLab and HashiCorp: Providing application and infrastructure delivery workflows"
+author: Anthony Davanzo and Kelly Hair
+categories: insights
+image_title: '/images/blogimages/gitlab-terraform-pipelines.jpg'
+description: "Discover how to leverage CI/CD for your infrastructure scripts with Terraform and GitLab."
+tags: CI/CD, cloud native, DevOps, integrations, brooklyn-2019
+guest: true
+twitter_text: "How to do GitOps with @HashiCorp Terraform and @gitlab CI/CD"
+postType: product
+merch_banner: merch_three
+merch_sidebar: merch_three
+---
+
+A growing number of teams are becoming more and more invested in continually improving the business through iterative development. Adopting the culture of DevOps isn’t necessarily confined to software development itself, but is equally applicable to ITOps, System Admins, and other infrastructure teams as well. Just as a proper CI/CD workflow is the foundation of today’s application delivery, a similar automated workflow is essential for managing the delivery of infrastructure as well.
+
+As developers try to become more agile in building, packing, and testing their applications, having the right CI/CD tool that is flexible to other automation use cases is critical. GitLab has gone into great detail about their [flexible CI/CD capabilities here](https://docs.gitlab.com/ee/ci/introduction/index.html#how-gitlab-cicd-works). What’s sometimes overlooked is implementing the proper CI/CD process for the underlying infrastructure that these applications rely on. In addition to application delivery, organizations need to consider what their infrastructure delivery process looks like. GitLab and HashiCorp have partnered to create a multi-blog series on how to combine the application delivery workflow with the infrastructure delivery workflow. In this part we will discuss a high-level overview of the solutions that we will dive deeper into in Part 2.
+
+## Leveraging HashiCorp Terraform for CI/CD Pipelines
+
+[HashiCorp Terraform](https://www.terraform.io/) is an open source tool for provisioning infrastructure as code. Users define infrastructure in HashiCorp Configuration Language (HCL) configuration files, Terraform reads those configurations, offers a speculative plan of what it will create, and then users confirm and apply those changes. Terraform keeps track of what infrastructure is provisioned in a state file.
+
+The recently announced Terraform Cloud application provides users with additional automation and collaboration capabilities on top of Terraform, such as remotely managing and version that state file, executing Terraform runs (plan/apply) remotely, and allowing teams to comment and collaborate on Terraform. By remotely managing state files, Terraform Cloud empowers teams to work more quickly and safely in parallel without concerns of losing the file or overwriting each other's changes. These features are especially helpful for users implementing CI/CD pipelines because they allow users to interact with Terraform via webhooks/API instead of having Terraform run on a local machine.
+
+
+
+Most users will store their configuration files in a VCS (Version Control System) like GitLab and connect that VCS to Terraform Cloud. That connection allows users to borrow best practices from software engineering to version and iterate on infrastructure as code, using VCS and Terraform Cloud as a provisioning pipeline for infrastructure. Terraform will automatically run a plan upon changes to configuration files in a VCS. This plan can be reviewed by the team for safety and accuracy in the Terraform UI, then it can be applied to provision the specified infrastructure. Terraform Cloud can also be configured to automatically apply those changes.
+
+Terraform Cloud also includes a Governance upgrade, which provides access to the [Sentinel](https://www.hashicorp.com/sentinel) policy as code framework.  This framework allows users to define fine-grain rules and policies for their infrastructure that are automatically enforced before that infrastructure is provisioned. This allows users to work with the speed and efficiency they want in their continuous integration/delivery pipelines, while still ensuring that best practices are being implemented.
+
+### Future iterations
+
+It is also worth discussing current work in progress with GitLab and Vault. Vault from Hashicorp secures, stores, and tightly controls access to tokens, passwords, certificates, API keys, and other secrets that services depend on. In efforts to improve [Variables and secrets management in GitLab CI/CD](https://gitlab.com/groups/gitlab-org/-/epics/816) we’re working with HashiCorp to provide a [first-class integration with Vault](https://gitlab.com/gitlab-org/gitlab-ce/issues/61053) sometime in the future.
+
+## Next steps
+
+As a follow up, we will soon be posting a blog on the technical details of _how_ to build a Terraform pipeline in GitLab CI/CD.
+
+In meantime, check out how [WagLabs reduced their release process from 40 minutes to just six](/blog/2019/01/16/wag-labs-blog-post/), using Terraform and GitLab CI/CD!
+
+### About the authors
+
+_[Anthony Davanzo](https://www.linkedin.com/in/anthonydavanzo/) is the product marketing manager for Terraform Cloud at HashiCorp. In this role he focuses on bringing Terraform Cloud to market, hoping to drive adoption and spread awareness of the tool. His prior role as the technical product marketing manager for Terraform helps with deep domain knowledge and before HashiCorp, he was a product marketing manager at Cloudflare._
+
+_[Kelly Hair](/company/team/#khair1) is a solutions architect at GitLab._
+
+Photo by [Saad Salim](https://unsplash.com/@saadx?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

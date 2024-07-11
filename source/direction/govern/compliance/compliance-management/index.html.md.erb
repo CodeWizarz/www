@@ -1,0 +1,180 @@
+---
+layout: markdown_page
+title: "Category Direction - Compliance Management"
+description: "The goal of Compliance Management is to change the current paradigm for compliance to create an experience that's simple and friendly."
+canonical_path: "/direction/govern/compliance/compliance-management/"
+---
+
+- TOC
+{:toc}
+
+## Compliance Management
+
+| **Stage** | **Maturity** | **Content Last Reviewed** |
+| --- | --- | --- |
+| [Govern](/direction/security/#govern) | [Viable](/direction/maturity/) | `2023-09-19` |
+
+### Overview
+
+Businesses have regulatory standards they must adhere to as well as internal policies. These policies are designed to minimize risk, maximize product quality, and protect end-users. Historically, ensuring that these policies are reflected and followed daily was challenging. Many times compliance teams, development teams, and others all worked separately, which made it difficult to reconcile all the various requirements that these external and internal standards imposed.
+
+The goal of **Compliance Management** is to enable organizations to define and enforce policies to help them meet their regulatory and business requirements. Compliance with GitLab should happen within GitLab and in the workflows that teams already are using. Keeping compliance within GitLab, rather than other tools, enables [everyone to contribute](https://about.gitlab.com/company/mission/#mission) and allows compliance to be a collaborative, rather than a confrontational, activity. Compliance Management helps ensure everyone can use GitLab to effectively develop, deploy, and manage applications inside of GitLab while still meeting their compliance requirements.
+
+This category focuses on enabling compliance professionals to easily view compliance data for groups and projects, define policies to meet business requirements, and optionally enforce workflow steps to meet those requirements. A key goal of the category is ensuring that compliance features do not negatively affect non-compliant teams.
+
+##### Use Cases
+
+* [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager) needs a single place to view key compliance data (e.g. segregation of duties, pipelines and project security grades) about their GitLab groups and projects to ensure their teams are operating appropriately, so the organization can maintain a good compliance posture with their use of GitLab.
+* [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager) needs to implement separation of duties controls within GitLab to prevent the risk of a single individual having the ability to carry out multiple job functions, so the organization can mitigate risk and meet the compliance controls of a multitude of compliance frameworks.
+* [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager) needs a way to identify when a project is subject to compliance requirements to ensure appropriate policies and procedures are in place, so they can be managed easily and reported on with minimal effort.
+
+#### Target Audience
+
+* [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager)
+* [Amy (Application Security Engineer)](https://about.gitlab.com/handbook/product/personas/#amy-application-security-engineer)
+* [Isaac (Infrastructure Security Engineer)](https://about.gitlab.com/handbook/product/personas/#isaac-infrastructure-security-engineer)
+* [Sidney (Systems Administrator)](https://about.gitlab.com/handbook/product/personas/#sidney-systems-administrator)
+* [Rachel (Release Manager)](https://about.gitlab.com/handbook/product/personas/#rachel-release-manager)
+
+#### Challenges to address
+
+1. Separation of duties is a core concept among all compliance frameworks and is generally a risk management practice for organizations. Within GitLab, there are many areas where separation of duties is required, such as for merge requests, within CI/CD pipelines, or even changing certain project settings. This is a broad area to cover, but it's also one of the most important requirements our customers have. The implementation of separation of duties features will require collaboration across multiple GitLab product groups to ensure we've covered all of our customers' needs.
+   1. What success looks like: GitLab should have features and experiences in place that allow compliance-minded organizations to configure and enforce separation of duties within GitLab. Customers should be able to require more than a single individual be involved with certain actions, such as merge requests or within CI/CD pipelines, to manage risk for their organization and meet their compliance requirements. This can manifest as [two-person approvals](https://gitlab.com/groups/gitlab-org/-/epics/3839), a specific [deployer role](https://docs.gitlab.com/ee/ci/environments/protected_environments.html#deployment-only-access-to-protected-environments), and bringing merge request approvals to the [group level](https://gitlab.com/groups/gitlab-org/-/epics/4367) to prevent maintainers from modifying these settings.
+1. Enterprises operating in regulated environments need to ensure the technology they use complies with their internal company policies and procedures, which are largely based on the requirements of a particular legal or regulatory framework (e.g. GDPR, SOC 2, ISO, PCI-DSS, SOX, COBIT, HIPAA, FISMA, NIST, FedRAMP) governing their industry. Customers need features that enable them to comply with these frameworks beginning with defining the rules, or controls, for their GitLab environment.
+   1. What success looks like: Using [compliance frameworks](https://docs.gitlab.com/ee/user/project/settings/#compliance-framework), administrators and group owners should be able to clearly label their GitLab projects. These labels should be [customizable and more versatile](https://gitlab.com/groups/gitlab-org/-/epics/4082) to support many aspects of a project's configuration. When a compliance framework is applied to a project, it should automatically apply sensible default settings to a project, based on control mappings, and provide enforcement capabilities for these settings. These labels should also help users in a GitLab namespace know when a project has special requirements for compliance and give [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager) peace of mind knowing these projects have enforcement capabilities to prevent unauthorized changes. These labels should evolve to be tied to certain compliance controls for auditing and reporting purposes.
+1. Compliance-minded organizations are data-informed and need visibility into all of their business operations to make the best decisions. Currently, GitLab does not aggregate the specific information organizations need to make these compliance decisions or monitor compliance status for their groups and projects. The information exists in many cases, but is simply not consolidated and presented in a way that makes compliance a simple, friendly task. Organizations have to dig for information in many disparate areas of the GitLab application and then need to build custom API-driven solutions to extract the data they need for internal compliance management or for reporting to auditors.
+   1. What success looks like: GitLab provides a native, in-app experience for data and insights centered around compliance for organizations. This could manifest as a group-level dashboard to track the compliance progress and status of projects, [changes (MRs)](https://gitlab.com/groups/gitlab-org/-/epics/4802), commits, etc. in the context of a specific compliance framework or program. These insights should be derived by measuring activities in GitLab against specific compliance controls, such as separation of duties, access controls, SDLC policy, and more.
+1. Managing large numbers of users with expansive group and project footprints can be difficult to do without the proper insight and tooling. In many cases, customers are building custom scripts or services to enforce things like credential rotation. Credential management is an important element of compliance because the number of people who have access, the systems they have access to, their type of access, and the layered controls in place to mitigate risk of breaches or credential misuse can have far-reaching affects on an organization in the event of a security incident.
+   1. What success looks like: GitLab provides a built-in experience that can be used to monitor, revoke, and ensure rotation of the credentials used to access GitLab. We currently have the [Credential Inventory](https://docs.gitlab.com/ee/administration/credentials_inventory.html) to provide some of this information on self-managed GitLab and will continue to enhance it to provide more information and to work for customers on SaaS.
+1. In organizations with complex systems and approval structures, there is sometimes a need to bypass an approval flow for emergencies or to override a process that may be particularly burdensome in the moment. These bypasses are normally infrequent, but important. For example, an organization that needs to deploy an emergency fix to their production environment because their website or application is down, and the workflows they've built around deploying that change may require much more time than is available to them.
+1. When organizations adopt GitLab, they are incorporating it into a complex and comprehensive set of systems that are already in operation. These complex systems cover a broad range of functions and exist to support business functions outside of GitLab. Those systems, however, are critical to an organizations' use of GitLab because it could be anything from ITSM to internal reporting systems that generate outputs necessary for the GitLab users to meet company requirements. These systems are involved in the decision process for changes made within GitLab to a production environment. Connecting those systems to GitLab is time consuming, complicated, and comes with inherent challenges since they're not natively supported in GitLab.
+   1. What success looks like: GitLab provides a way to interface and interact with these external systems. We are starting on this with [external status checks](https://gitlab.com/groups/gitlab-org/-/epics/3869),
+which allows users to contact external systems as part of a merge request to either create a record in those systems, get back an approval, or any action that may need to be triggered in those
+external systems.
+
+### The Compliance Toolbox
+GitLab frequently gets asked for an "easy button" for compliance. Users want to be able to flip a switch an be compliant with SOX, GDPR, and other standards immediately. Unfortunately,
+this is not possible for any vendor to provide. Meeting a compliance standard depends on the unique characteristics of a business and what the business's auditors want to see. For example,
+an eCommerce site will have different auditing needs and required controls than a financial institution, even if both are working on meeting a similar compliance standard.
+
+GitLab recognizes that each of our users have these unique needs and so Compliance Management provides a collection of controls, settings, and workflow enforcements that we dub
+the "Compliance Toolbox." While no one control is enough to pass a specific audit, using the different individual capabilities in GitLab, an organization can compose and build
+the controls and workflows they need to meet their own unique requirements to pass an audit. This approach is also beneficial because it allows organizations to opt-in to more and
+more controls over time, rather than having to immediately enable every control at once.
+
+### Where we are Headed
+
+Compliance is focused on addressing adherence, visibility, and observability through reporting and data sources. We understand that customers gain value by having multiple means of understanding their compliance posture and where to take action.
+
+With this in mind, we're extending our compliance capabilities through a number of themes:
+
+1. Expansion of our Audit Events (Hierarchically) -- This entails extending support across instance, group, and project layers for each type of audit event capability.
+1. Expansion of our Audit Events -- This entails extending support across instance, group, and project layers for each type of audit event capability.
+2. Expansion of our Streaming Audit Events -- This effort encompasses adding support for new audit log destinations through 3rd party partners, including GCP, AWS, Azure, and others.
+3. Supporting the Unification of Compliance Pipelines and Security Policies -- As new capabilities are extended into security policies to support custom yaml in scan execution policies, as well as the support of linking policies to compliance frameworks, the Compliance group will support in this effort and aide in the transtion between the two implementations. This collaboration will contribute to the Compliance team's ability to double down on Compliance Standards Adherence and move more quickly, while Security Policy Management addresses implementation of compliance controls and checks.
+4. Compliance Standards Adherence -- While we may start humbly with a few common compliance adherence checks, we'll be focusing deeply and building rapidly to support the most common regulatory standards and compliance frameworks that challenge our customers today. Such frameworks could include SLSA, PCI-DSS, HIPAA, FISMA, NIST, FedRAMP, CIS Benchmarks, OpenSSF, among others. Through this effort, our Standards Adherence report will grow to address two facets: proactive compliance through adherence checks and violation reports to detect non-compliance reactively.
+
+## What's Next & Why
+
+<%= partial("direction/govern/compliance/compliance-management/templates/next") %>
+
+## What We're Not Doing
+
+#### Continued development and support of compliance pipelines
+
+To evolve the overall Govern vision, we'll be unifying the capabilities of Compliance Frameworks, Compliance Pipelines, and Security Policies. This enhancement will bring unique advantages offered separately today into a singular implementation via scan execution policies:
+
+- Scan execution security policies will enable support of custom yaml
+- These policies will allow for granular definition and enforcement of custom jobs, scripts, and automations
+- Policies will soon support scoping of projects through compliance framework labels, easing the ability to organize and manage policies within a framework
+
+For future use cases and development enhancements related to enforcing security and compliance controls, as they may have previously been handled through compliance pipelines, will continue through the `Govern::Security Policies` group. Learn more:
+
+- [GitLab Security Policies Direction](https://about.gitlab.com/direction/govern/security_policies/security_policy_management/)
+- [Epic: Linking/scoping security policies to Compliance Frameworks](https://gitlab.com/groups/gitlab-org/-/epics/5510)
+- [Epic: Add custom yaml support to scan execution policies](https://gitlab.com/groups/gitlab-org/-/epics/7312)
+
+#### Status checks
+
+We'll be working with Security Policies to transfer ownership of this capability. Status checks operate similarly to existing Scan Result Policies (aka Merge Request Approval Policies). Status checks are able to block merge requests based on a status update via a middleware API (owned/maintained by the customer). They receive responses from a source and allow for implementation of external compliance checks.
+
+## Maturity
+
+Compliance Management is currently in the **viable** state.  You can read more about GitLab's [maturity framework here](https://about.gitlab.com/direction/maturity/), including an approximate timeline.
+
+Achieving a **complete** level of maturity will involve collecting customer feedback and evolving the [Compliance Dashboard](https://gitlab.com/groups/gitlab-org/-/epics/2537) further and ensuring a more complete coverage of group-level and instance-level compliance controls that enable you to confidently and effectively manage the compliance posture of your GitLab environment. Assuming we're on the right track, we'll continue to focus on these areas:
+
+* Increase the number of settings and features you can affect by assigning a framework to a group or project.
+* Increase the comprehensiveness of "out-of-the-box" Compliance Management to incorporate evidence collection, reporting, and automation of auditing tasks.
+* Improve the visibility and consolidation of compliance-relevant data points in the Compliance Dashboard.
+* Simplify repeatable workflows, such as evidence collection, audit project management, and project creation in a regulated context.
+
+Finally, once we've achieved a rule set that's sufficiently flexible and powerful for enterprises, it's not enough to be able to define these rules - we should be able to measure and confirm that they're being adhered to. Achieving **Lovable** maturity likely means further expansion of the two dimensions above, plus visualizing/reporting on the state of Compliance Management across the instance.
+
+### User Success Metrics
+
+We'll know we're on the right track with **Compliance Management** based on the following metrics:
+
+* An increase in the [total number of projects with a compliance framework](https://about.gitlab.com/handbook/product/performance-indicators/) taken by users
+* An increase in the amount of time spent viewing the [Compliance Dashboard](https://docs.gitlab.com/ee/user/compliance/compliance_report/)
+* An increase in the number [compliance framework labels](https://docs.gitlab.com/ee/user/project/settings/#compliance-framework) with an associated compliance pipeline.
+
+### Market opportunity
+
+According to the [Worldwide Governance, Risk, and Compliance Software Forecast, 2020–2024](https://www.idc.com/getdoc.jsp?containerId=US45856620), the worldwide GRC software market is expected to grow by an average of **4.2%** over the next five years to **$12.8 Bn** in 2024 (Source: [IDC](https://www.idc.com/) DOC #US45856620, SEP 3, 2020). While GitLab does not fit perfectly into the GRC software market, the [Compliance group](https://about.gitlab.com/handbook/product/categories/#compliance-group) at GitLab aims to build out the features and experiences necessary to provide the same value as these companies and services. Extending the functionality of GitLab to simplify GRC related activities will allow our customers to save time and effort on defining policies, capturing relevant audit data, reporting on the compliance status of their systems and resources, and automating SDLC compliance tasks.
+
+Further strengthening GitLab's position for this opportunity is our inherent design for both a public SaaS option as well as an on-premise/self-managed solution. Providing both options allows us to capture more of this market share, particularly within organizations where public SaaS is not an option due to stricter requirements around air-gapped networks or multi-tenant SaaS solutions.
+
+Even by conservative estimations, if GitLab can capture even 1% of this market, that is $128 MM in revenue that could be captured by building first-class experiences for governance, risk and compliance. By focusing on the themes discussed on this direction page, we believe it's possible to capture portions of this market while ensuring our customers benefit from the time and cost savings of having native GRC capabilities within the GitLab application.
+
+### Competitive landscape
+
+[Microsoft Compliance Manager](https://docs.microsoft.com/en-us/microsoft-365/compliance/compliance-manager?view=o365-worldwide) is the most direct competition with this category and our vision for the future. The [Compliance Dashboard](https://gitlab.com/groups/gitlab-org/-/epics/2537) is moving in this direction, but there are some key differences in each. Microsoft's Compliance Manager provides pre-built assessments for various compliance frameworks or certifications, introduces workflows to complete those assessments or risk assessments, offers "improvement actions" to improve an organization's compliance posture, and generates a compliance score.
+
+After review, our impressions are:
+
+* It's unclear what programmatic actions are being taken to automate compliance tasks
+* It appears to require [manual effort](https://docs.microsoft.com/en-us/microsoft-365/compliance/compliance-score-calculation?view=o365-worldwide#initial-score-based-on-microsoft-365-data-protection-baseline) to manage the assessments beyond Microsoft's baseline capabilities
+* The scoring mechanism is a gamification of the compliance program, which can help provide a sense of compliance posture for that program
+* Creating custom assessment templates seems to require creating a spreadsheet that's formatted in a [specific way](https://docs.microsoft.com/en-us/microsoft-365/compliance/compliance-manager-templates?view=o365-worldwide#formatting-your-template-data-with-excel) to import into the compliance manager, which then renders that data in the UI
+* There's no obvious clarification about whether a score can reach 100%, which could imply an attestation of compliance
+* Ultimately, it seems this is a much broader Governance, Risk, and Compliance (GRC) tool that helps a Microsoft customer track their compliance programs within the Microsoft 365 ecosystem
+* The documentation mentions a baseline compliance score based on a ["default Data Protection Baseline assessment provided to all organizations"](https://docs.microsoft.com/en-us/microsoft-365/compliance/compliance-score-calculation?view=o365-worldwide#initial-score-based-on-microsoft-365-data-protection-baseline), but does not provide specifics about this
+
+There's an interesting, and valuable, feature that shows [Microsoft-managed controls](https://docs.microsoft.com/en-us/microsoft-365/compliance/compliance-manager?view=o365-worldwide#controls) versus customer-owned and shared controls. This would be helpful for identifying where Microsoft needs to take ownership to deliver the controls a customer inherently needs in their service provider.
+
+Microsoft seems focused on building out a comprehensive, natively connected [compliance center](https://docs.microsoft.com/en-us/microsoft-365/compliance/microsoft-365-compliance-center?view=o365-worldwide) which is a massive undertaking and commits to a full-on GRC application within Microsoft 365. There doesn't seem to be a specific focus on DevOps, which suggests there's an opportunity for GitLab to provide this focus and supplement other GRC tools that seem to follow a similar pattern.
+
+### Analyst landscape
+
+The feedback we've received about this category has been supportive of our direction to save compliance professionals time and make compliance tasks easier. While there are companies and applications that exist as holistic GRC solutions, GitLab is well-positioned to make a lot of the compliance process easier and automated by enabling customers to leverage the data they're already generating in their usage of GitLab.
+
+We spoken with some analysts about the `Compliance Management` direction and here's what they said:
+
+* Automating traceability, and the retrieval of that data, will be valuable because it saves a lot of time
+* We should provide a "glue" mechanism to tie our customers' various systems together in a way that
+lets us streamline and automate reporting
+* We should endeavor to build generic integrations and not specific ones to allow maximum flexibility
+to customers connecting their external compliance systems
+* Realize we're solving for more than employee dissatisfaction; we're helping customers save money and avoid downtime too
+* Save time from checking and double-checking audit data; that time can be reallocated for other value-adding tasks
+* We should build an experience that connects to the [Value Stream Management](https://about.gitlab.com/direction/plan/value_stream_management/)
+direction with compliance data
+* We should be focusing our messaging and efforts on automation and ensuring our users understand that value
+* Leverage the concept of "Continuous Compliance" and help organizations break away from their waterfall methods
+* Partnering with auditors on the [Compliance Dashboard](https://gitlab.com/groups/gitlab-org/-/epics/2537) should help build credibility and drive adoption
+* C-level executives will take an interest in the dashboard particularly if it helps them mitigate the risk of monetary fines from non-compliance with regulatory requirements
+
+**What this means for our direction:** The analysts feedback we received is closely aligned with our current direction. The biggest deviation is the emphasis, from analysts, on incorporating compliance data into [Value Stream Management](https://about.gitlab.com/direction/plan/value_stream_management/). This is not something we're actively pursuing and will re-evaluate. We are currently pursuing some issues, such as a [Change Management](https://gitlab.com/gitlab-org/gitlab/-/issues/12424) that will provide some of this data to our customers in the interim.
+
+We've validated most of this feedback directly with customers through our day-to-day work on existing issues and we do not anticipate a significant deviation of our direction for the `Compliance Management` category. We will continue to invest in the issues that allow our customers to automate their auditing and compliance requirements, connect their proprietary systems to GitLab, and find the right data in the right places for [Cameron (Compliance Manager)](https://about.gitlab.com/handbook/product/personas/#cameron-compliance-manager).
+
+### Top user issue(s)
+
+* [Configure Protected Branches at the Group and Instance Level](https://gitlab.com/gitlab-org/gitlab/-/issues/18488)
+* [Group-level merge request approval rules](https://gitlab.com/groups/gitlab-org/-/epics/4367)
+* [Group-level merge request approval settings](https://gitlab.com/groups/gitlab-org/-/epics/5957)
+
+### Top Vision issue(s)
+
+* [Compliance Dashboard](https://gitlab.com/groups/gitlab-org/-/epics/2537)

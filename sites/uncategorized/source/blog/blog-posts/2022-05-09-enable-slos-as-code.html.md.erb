@@ -1,0 +1,115 @@
+---
+title: "Enable SLO-as-Code with Nobl9 and GitLab"
+author: Quan To and Jeremy Cooper and Ian Bartholomew
+author_gitlab: quanto
+author_twitter:
+categories: news
+image_title: '/images/blogimages/nobl9_1.jpeg' 
+description: "Learn how to take advantage of a streamlined SLO process and maintain a single source of truth for SLO definitions within your DevOps platform."
+tags: integrations, CI, DevOps
+guest: true
+twitter_text: "Nobl9 integrated Service Level Objectives into GitLab CI to streamline SLO process."
+featured: no
+---
+
+Nobl9 recently integrated with GitLab's CI to enable a consistent mechanism to publish Service Level Objectives (SLO) definitions from GitLab to Nobl9. With this SLO-as-Code integration, DevOps teams can take action when their error budgets are burning too fast or are about to be exhausted.
+
+In today’s systems, 100% uptime isn’t realistic given the complex architectures and dependencies involved. SLOs enable you to define targets and have an error budget for tracking what's “good enough.” For example, you can target uptime of 99.9%, 99%, or even 95% because what truly matters is how much downtime or errors are acceptable before there is real customer impact.
+
+Typically when organizations think about SLO-as-Code, they must use separate products to ensure their SLO definitions are always in sync with whatever tool they are using. This usually includes running command-line tools manually or building custom integrations within their code repositories.    
+
+With this CI configuration, every time you build your repo, GitLab will call [sloctl](https://docs.nobl9.com/sloctl-user-guide), our command-line tool, and push the SLO definition to Nobl9. Customers can continue using GitLab to version their SLO definitions and keep their SLOs consistent. This ensures your SLO definition will always be up to date with what’s in Nobl9 and removes any discrepancies over what the latest SLO definition actually is. SREs, engineers, and anyone using the SLOs can still debate what the targets need to be, but there will always be a definitive source of truth in your code repository on what the current definition is.
+
+## Getting started
+
+To set this up in GitLab, follow these steps:
+
+**1.** Select Settings -> CI/CD, and click the Expand button next to Variables. 
+
+![CICD_settings](/images/blogimages/nobl9_2.png)
+
+
+**2.** Add the following variables:
+
+- CLIENT_ID
+
+- CLIENT_SECRET
+
+- ACCESS_TOKEN
+
+- PROJECT 
+
+- SLOCTL_YML
+
+
+**Note:** If you haven’t done so already, you’ll need to install sloctl. You can install the executable on your local machine by following the instructions in the [user guide](https://docs.nobl9.com/sloctl-user-guide#setting-up-sloctl). Once sloctl is installed, you can run the following command to retrieve your CLIENT_ID, CLIENT_SECRET, and ACCESS_TOKEN:
+
+
+    cat ~/.config/nobl9/config.toml
+
+
+    The PROJECT value is the name of the project inside Nobl9 that your SLO belongs 
+    to.
+
+
+    The SLOCTL_YML value is the Nobl9 YAML file you want to push to Nobl9 on each 
+    change.
+
+
+
+![install_sloctl](/images/blogimages/nobl9_3.png)
+
+
+
+**3.** Create the CI/CD job to apply the YAML, by going to CI/CD -> Jobs and clicking “Create CI/CD configuration file”. 
+
+
+
+![create_config](/images/blogimages/nobl9_4.png)
+
+
+
+Enter the following code in the _.gitlab.ci.yml_ file:
+
+
+        variables:
+
+
+          CLIENT_ID: $NOBL9_CLIENT_ID
+
+
+          CLIENT_SECRET: $NOBL9_CLIENT_SECRET
+
+
+          ACCESS_TOKEN: $NOBL9_ACCESS_TOKEN
+
+
+          PROJECT: $NOBL9_PROJECT
+
+
+          SLOCTL_YML: $SLOCTL_YML
+
+
+        include:
+
+
+          - project: 'nobl9/nobl9-ci-template'
+
+
+            ref: main
+
+
+            file: '/nobl9.gitlab-ci.yml'
+
+
+
+
+**4.** Kick off a build. Any changes to the SLOCTL_YML file that you reference will now automatically be pushed to Nobl9 once the updates are committed.
+
+By partnering with GitLab and providing a convenient CI script and a command-line tool for managing SLOs, Nobl9 has truly enabled SLO-as-Code. We encourage existing Nobl9 customers who use GitLab to give it a try. 
+
+If you haven’t experienced Nobl9 yet, you can sign up for a free 30-day trial at [nobl9.com/signup](http://nobl9.com/signup) to see all that it has to offer.
+
+_Quan To is Senior Director of Product Management, Jeremy Cooper is Senior Solutions Engineer, and Ian Bartholomew is SRE Manager at Nobl9._
+
+Cover image by [Vardan Papikayan](https://unsplash.com/@varpap) on [Unsplash](https://unsplash.com/photos/JzE1dHEaAew)

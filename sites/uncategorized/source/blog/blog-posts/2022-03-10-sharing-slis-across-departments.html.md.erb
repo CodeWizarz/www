@@ -1,0 +1,84 @@
+---
+title:  How we share SLIs across engineering departments
+author: Bob Van Landuyt
+author_gitlab: reprazent
+categories: engineering
+description: "The Scalability team engages with the Development department for collaborating on SLIs. The first post in this series explains how we made available information accessible for development groups."
+twitter_image: "/images/blogimages/tanuki-bg-full.png"
+tags: production, performance, workflow, collaboration
+postType: product
+twitter_text: "An inside look at how @gitlab uses service level indicators (SLIs) to contribute to availability"
+---
+
+At GitLab everyone can contribute to GitLab.com's availability. We
+measure the availability using several Service Level Indicators (SLIs)
+But it's not always easy to see how the features you're building are
+performing. GitLab's features are divided amongst development groups,
+and every group has [their own dashboard](https://docs.gitlab.com/ee/development/stage_group_dashboards.html)
+displaying an availability score.
+
+![Stage group availability](/images/blogimages/2022-02-share-infrastructure-slis/2022-02-23-code_review_availability.png)
+
+When a group's availability goes below 99.95%, we work with the group
+on figuring out why that is and how we can improve the performance or
+reliability of the features that caused their number to drop. The
+99.95% service level objective (SLO) is the same target the
+infrastructure department has set for
+[GitLab.com availability](/handbook/engineering/infrastructure/performance-indicators/#gitlabcom-availability).
+
+By providing specific data about how features perform on our production systems, it has become easier to recognize when it is important to prioritize performance and availability work.
+
+## Service availability on GitLab.com
+
+Our infrastructure is separated into multiple services, handling
+different kinds of traffic but running the same monolithic Rails
+application. Not all features have a similar usage pattern. For
+example, on the service handling web requests for GitLab.com we see a
+lot more requests related to `code_review` or `team_planning` than we
+do related to `source_code_management`. It's important that we
+look at these in isolation as well as a service aggregate.
+
+There's nobody who knows better how to interpret these numbers in
+feature aggregations than the people who build these features.
+
+This number is sourced by the same SLIs that we use to monitor
+GitLab.com's availability. We calculate this by dividing the number of
+successful measurements by the total number of measurements over the
+past 28 days. A measurement could be several things, most commonly a
+request handled by our Rails application or a background job.
+
+## Monitoring feature and service availability
+
+For monitoring GitLab.com we have Grafana dashboards, generated using
+[Grafonnet](https://grafana.github.io/grafonnet-lib/), that show these
+source metrics in several dimensions. For example, these are error
+rates of our monolithic Rails application, separated by feature:
+
+![Puma SLI by feature](/images/blogimages/2022-02-share-infrastructure-slis/2022-02-23-puma_sli_per_feature.png)
+
+We also generate [multiwindow, multi-burn-rate alerts](https://sre.google/workbook/alerting-on-slos/#short_and_long_windows_for_alerting)
+as defined in Google's SRE workbook.
+
+![Puma SLI error rate and requests per second](/images/blogimages/2022-02-share-infrastructure-slis/2022-02-23-puma_sli.png)
+
+The red lines represent alerting thresholds for a burn rate. The
+thin threshold means we'll alert if the SLI has spent more than 5%
+of its monthly error budget in the past 6 hours. The thicker
+threshold means we'll alert when the SLI has not met SLO for more than
+2% of measurements in the past hour.
+
+Because both GitLab.com's availability number and the availability
+number for development groups are sourced by the same metrics, we
+can provide similar alerts and graphs tailored to the
+development groups. Features with a relatively low amount of traffic would not easily show
+problems in our bigger service aggregations. With this mechanism we can see those problems
+and put them on the radar of the teams building those features.
+
+## Building and adoption
+
+In upcoming posts, we will talk about how we built this tooling and how we worked with other teams to have this adopted into the product prioritization process.
+
+## Related content
+
+- [Our project to provide more detailed data on the stage group dashboards](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/664)
+- [Development documentation for how to change dashboard content](https://docs.gitlab.com/ee/development/stage_group_dashboards.html)

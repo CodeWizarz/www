@@ -1,0 +1,59 @@
+<section class="md:slp-grid-cols-2 md:slp-grid md:slp-gap-12 slp-mb-64 slp-mb-16">
+  <div class="sm:slp-text-center">
+    <h1
+      class="slp-text-3xl slp-pt-32 slp-pb-16 sm:slp-mr-16 md:slp-text-5xl lg:slp-mr-96"
+    >
+      <%= header.title %>
+    </h1>
+    <% if header.subtitle %>
+      <p class="slp-text-lg slp-pb-8 md:slp-text-xl ">
+        <%= header.subtitle %>
+      </p>
+    <% end %>
+    <% if header.body %>
+      <div class="slp-text-lg slp-pb-8 md:slp-text-xl">
+        <%= kramdown(header.body) %>
+      </div>
+    <% end %>
+    <!-- A neat little loop that catches if it's the last button and applies a different class. By defualt, Netlify CMS sets this to a max of 2 buttons max -->
+    <% if header.buttons %>
+      <% len = header.buttons.length %>
+      <% header.buttons.each_with_index do |button, index| %>
+        <a 
+          href="<%= button.button_url %>"
+          data-ga-name="<%= button.button_text %>" 
+          data-ga-location="header" 
+          class="
+            sm:slp-min-w-min slp-mr-8 slp-btn <%= button.button_class %>
+            <% if index+1 == len && len != 1 %>
+              slp-btn--secondary
+            <% end %>
+          "
+        >
+          <%= button.button_text   %>
+        </a>
+      <% end %>
+    <% end %>
+    <% if header.tagline %>
+      <p class="slp-mt-24 slp-text-md">
+        <%= header.tagline %>
+      </p>
+    <% end %>
+  </div>
+  <img
+    src="<%= header.image %>"
+    alt=""
+    class="slp-w-full slp-order-2 md:slp-justify-self-center m-auto w-full"
+    style="margin-top: 3.2rem"
+  />
+</section>
+
+<style>
+@media (max-width: 1024px) {
+  .sm\:slp-text-center {
+    text-align: center !important;
+  }
+}
+</style>
+
+

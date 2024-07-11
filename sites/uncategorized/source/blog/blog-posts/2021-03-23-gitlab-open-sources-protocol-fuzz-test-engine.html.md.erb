@@ -1,0 +1,150 @@
+---
+title: "We're open sourcing Protocol Fuzzer Community Edition!"
+author: Sam Kerr
+author_gitlab: stkerr 
+author_twitter: gitlab
+categories: news
+image_title: /images/blogimages/library/open-source-community.png
+description: "GitLab is releasing an open source protocol fuzz testing repository."
+tags: open source, news
+ee_cta: false
+install_cta: false
+postType: product
+merch_banner: merch_three
+related_posts:
+  - "/blog/2020/07/17/fuzz-testing/"
+  - "/blog/2020/08/19/arctic-engine-fuzz-testing-blog/"
+  - "/blog/2020/12/10/why-continuous-fuzzing/"
+---
+
+[GitLab acquired Peach Tech](/press/releases/2020-06-11-gitlab-acquires-peach-tech-and-fuzzit-to-expand-devsecops-offering.html), the industry leader in protocol and API fuzz testing, last year.
+
+We were thrilled to release [API fuzz testing](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/) as part of our [13.4 release](/releases/2020/09/22/gitlab-13-4-released/#api-fuzz-testing-with-openapi-specs-or-har-files).
+Since then we’ve made tons of improvements, such as [adding Postman support](https://about.gitlab.com/releases/2020/11/22/gitlab-13-6-released/#postman-collection-support-for-api-fuzz-testing)
+and [supporting runtime value overrides](https://gitlab.com/gitlab-org/gitlab/-/issues/273111), and we've received great feedback.
+We’ve also heard the questions about the Peach protocol fuzz testing
+capabilities and what is going to happen to them.
+
+Today, we are incredibly excited to announce that we are releasing the core
+protocol fuzz testing engine of Peach as [GitLab Protocol Fuzzer Community Edition](https://gitlab.com/gitlab-org/security-products/protocol-fuzzer-ce), and it's open source! This edition has many
+capabilities previously only available with a commercial Peach license.
+It contains the engine to run and orchestrate fuzz tests as well as the
+pieces needed to define your own protocols.
+
+## This is a major gain for the open source community
+
+Previously, the only way
+to get access to many of these tools was to pay for the commercial
+version of Peach Fuzzer, or to use an older, unmaintained version of Peach Fuzzer
+Community that lacked many of the features and bug fixes available in the commercial version.
+By open sourcing much of what
+was previously available only with a paid license, we are thrilled to
+enable more security researchers, students, and developers to experiment
+with and use protocol fuzz testing to find vulnerabilities and bugs
+that other tools will not. This also enables everyone to contribute and
+help advance the state of the art even further!
+
+## What is fuzz testing?
+
+Fuzz testing is an automated software testing technique that provides invalid, unexpected, or random data to a computer program. Like black box testing, a fuzzing tool injects these unexpected inputs into the system and monitors for negative reactions such as crashes or information leakage, which could indicate security, performance, or quality gaps or issues.
+The goal is to reveal software defects and vulnerabilities. 
+
+The name “fuzzing” dates back to 1988 when the University of Wisconsin - Madison Professor Barton Miller noticed significant interference on the signal while logging into a UNIX system via a dial-up network during a storm. The interference ultimately resulted in a crash.
+
+Later, Miller decided to have his students conduct a simulation of his experience with the idea that external “noise” couldn’t be tolerated by code. They blasted UNIX, Mac, and Windows systems with noise using a fuzz generator to see if they would crash.
+
+## What is a peach fuzzer?
+
+Peach is a SmartFuzzer that provides a way to define the format of data that should be generated as well as how and when the fuzzed data should be generated.
+It requires the creation of Peach Pit files, which are XML files that contain complete information about the data structure, type of information, and the relationship of the data. The files define the structure, type of information, and relationships in the data to be fuzzed.
+Additionally, it allows for the configuration of a fuzzing run, including selecting a data transport ([Publisher](https://peachtech.gitlab.io/peach-fuzzer-community/v3/Publisher.html)), logging interface, etc.
+Peach has been under development since 2004.
+
+### What a peach fuzzer does
+
+A peach fuzzer is capable of performing both [generation and mutation-based](https://peachtech.gitlab.io/peach-fuzzer-community/GenerationMutationFuzzing.html) fuzzing.
+
+### Benefits of a peach fuzzer
+
+A peach fuzzer tool is easy to use and allows for efficient testing and standardized reporting suitable for all stakeholders. Tests are repeatable, and findings can be verified and validated across multiple testing sessions.
+
+## Benefits and challenges of fuzz testing
+
+Because of its random nature, experts believe fuzz testing is most likely to find bugs that other conventional tests and manual audits miss. Some of its other many benefits include:
+ 
+- Providing a good overall picture of the quality of the target system and software. Fuzzing tools let you easily assess the robustness and security risk posture of the system and software being tested.
+- Fuzzing is the main technique malicious hackers use to find software vulnerabilities. When used in a security program, it helps prevent zero-day exploits from unknown bugs and weaknesses in your system.
+- Reduced cost and time. Once a fuzzer is up and running, it can start to look for bugs on its own, with no manual intervention, and can continue to do so for as long as needed.
+
+Setup and data analysis are the two main challenges practitioners face when trying to implement fuzz testing. It also isn’t easy to set up fuzz testing--it requires complex testing “harnesses” that can be even more tricky to create if the fuzz testing isn’t actually located within an existing toolchain.
+
+Further, fuzz testing can generate a lot of data, including potentially false positives. So it’s critical that a testing team is prepared to deal with the onslaught of information.
+
+There is also a perception issue. Because it is less easy to document, negative attitudes toward the “vague” nature of fuzz testing persist in the QA community.
+
+## How to get started with fuzz testing
+
+Fuzzing, like another aspect of a software project, requires planning, maintenance, and commitment.
+First, figure out what you want to fuzz, what you want to find, and how you are going to fuzz. Then you will want to make sure the tool you’re going to use is flexible enough to cover all uses.
+
+If you are setting up a fuzzing system but aren’t one of the developers who will actually fix the results found, communicating with the people will be. Ask about the kind of information they want to receive in a bug report from fuzz testing.
+
+At the very least, a bug report should contain all the information required to reproduce the issue. This may include test case, configuration, operating system used, version or build number of the target, CPU and memory information, and, where applicable, compiler options and debug flags.
+ 
+If no new bugs are found after running the fuzz test for a long period of time, this might indicate your fuzzing is either doing a great job, and the robustness of your target is increasing—or that the fuzz is stuck.
+
+## Some fuzz testing best practices
+
+To ensure the efficiency of your fuzz software and security testing, make sure to follow these best practices:  
+
+- Determine what the target software is to be developed
+- Identify the inputs for the data to be tested
+- Generate your fuzz data  
+- Use the generated fuzz data to execute the test   
+- Monitor the system for potential security vulnerabilities, crashes, and memory leaks  
+- Check defects in the log so they can be addressed before the product is released
+
+## How to use fuzz testing in GitLab
+
+Gitlab recommends doing fuzz testing in addition to the other security scanners in [GitLab Secure](https://docs.gitlab.com/ee/user/application_security/index.html) and your own test processes. If you’re using [GitLab CI/CD](https://docs.gitlab.com/ee/ci/index.html), you can run your coverage-guided fuzz testing as part of your CI/CD workflow.
+Web API fuzzing runs in the fuzz stage of the CI/CD pipeline. To ensure API fuzzing scans the latest code, your CI/CD pipeline should deploy changes to a test environment in one of the stages preceding the fuzz stage.
+
+The following changes have been made to the API fuzzing template:
+
+- In GitLab 14.0 and later, you must define a fuzz stage in your .gitlab-ci.yml file.
+- In GitLab 13.12 and earlier, the API fuzzing template defines the build, test, deploy, and fuzz stages. The fuzz stage runs last by default. The predefined stages were deprecated and removed from the API-Fuzzing.latest.gitlab-ci.yml template. They will be removed in a future GitLab version.
+
+If your pipeline is configured to deploy to the same web server on each run, running a pipeline while another is still running could cause a race condition in which one pipeline overwrites the code from another. The API to scan should be excluded from changes for the duration of a fuzzing scan.
+ 
+The only changes to the API should be from the fuzzing scanner. Any changes made to the API (for example, by users, scheduled tasks, database changes, code changes, other pipelines, or other scanners) during a scan could cause inaccurate results.
+
+You can run a [Web API fuzzing scan](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/) using the following methods:
+
+- OpenAPI Specification - versions 2 and 3.
+- GraphQL Schema
+- HTTP Archive (HAR)
+- Postman Collection - versions 2.0 or 2.1
+
+Example projects using these methods are available:
+
+- Example OpenAPI v2 Specification project
+- Example HTTP Archive (HAR) project
+- Example Postman Collection project
+- Example GraphQL project
+- Example SOAP project
+
+More information about web API fuzz testing in GitLab can be found [here](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/).
+
+## Future plans for fuzz testing
+
+We plan to add additional capabilities to the Community Edition in the future
+and integrate it into GitLab the product. You can read more details about our
+future plans on our [fuzz testing direction page](/direction/secure/dynamic-analysis/fuzz-testing/).
+We will keep our [stewardship policy](/company/stewardship/) in mind as we [determine which tiers of GitLab that specific features
+are added to](/handbook/product/tiering-guidance-for-features/). Some of the capabilities you can look forward to are
+industry-specific features, tighter integration with the CI process and vulnerability
+management, as well as pre-built support for many common network protocols.
+
+One of our values at GitLab is [iteration](/handbook/values/#iteration) and we wanted to share the Community
+Edition as soon as we could so everyone can contribute sooner! We would
+love for you to check it out and provide feedback and your own contributions.

@@ -1,0 +1,28 @@
+!!! XML
+%feed{:xmlns => "http://www.w3.org/2005/Atom"}
+
+  - site_url = "https://about.gitlab.com/releases/categories/releases/"
+
+  %title GitLab Security Releases
+  %id= URI.join(site_url, blog('releases').options.prefix.to_s)
+  %link{:href => site_url}
+
+  - unless blog('releases').articles.empty?
+    %updated= blog('releases').articles.first.date.to_datetime.rfc3339
+  %author
+    %name The GitLab Team
+
+  - blog('releases').articles.each do |article|
+    - if article.data.categories == 'releases'
+      - unless article.data.tags.nil?
+        - if article.data.tags.include?('security')
+          %entry
+            %title= h(article.title)
+            %release= article.metadata[:page][:release_number]
+            %link{:rel => "alternate", :href => URI.join(site_url, article.url)}
+            %id= URI.join(site_url, article.url)
+            %published= article.date.to_datetime.rfc3339
+            %updated= article.date.to_datetime.rfc3339
+            %author
+              %name= h(article.data.author)
+            %content{:type => "html"}= xml_feed_content(article)

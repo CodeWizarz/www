@@ -1,0 +1,104 @@
+---
+title: "It's time to update Docker Engine"
+author: Tomasz Maczukin
+author_gitlab: tmaczukin
+author_twitter: TomaszMaczukin
+categories: engineering
+image_title: /images/blogimages/library/engineering.png
+description: "Now that Alpine Linux 3.14 is being used by more images, it's time to upgrade Docker Engine to 20.10.6 or newer."
+tags: CI/CD, Docker
+twitter_text: "Learn why you should upgrade to Docker 20.10.6 or higher for GitLab CI/CD"
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2020/11/18/docker-hub-rate-limit-monitoring/"
+  - "/blog/2021/08/24/stageless-pipelines/"
+  - "/blog/2021/08/17/100-runners-in-less-than-10mins-and-less-than-10-clicks/"
+merch_banner: merch_two
+---
+
+[Alpine Linux](https://alpinelinux.org/) distribution is the base OS used by many Linux container images. It provides a handy packaging mechanism, new versions of software, and a quick and predictable release cycle – all while being distributed using a minimal image size. It's used by many very popular container images, for example `docker:dind`,
+[widely used in GitLab CI/CD workloads](https://docs.gitlab.com/ee/ci/docker/using_docker_build.html) handling container
+images building and management in the jobs.
+
+On June 15, 2021, Alpine Linux released version 3.14. [As documented in the release notes](
+https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2), changes in the `musl` library require
+an updated version of [runc](https://github.com/opencontainers/runc) or updated version of
+[Docker](https://github.com/moby/moby) for the Alpine 3.14-based images to work properly.
+
+Software products across the computer industry have started migrating their Alpine Linux-based container images to 3.14 since it includes significant updates for various network and security-oriented use cases. In cases where the GitLab Runner environment uses a Docker version older than 20.10.6 to handle new container images based on Alpine 3.14, CI/CD jobs may encounter unexpected problems during execution and cause jobs to fail.
+
+[We encountered this problem](https://gitlab.com/gitlab-org/gitlab/-/issues/335641) at GitLab a few weeks ago, when
+the `ruby:2.7` image was migrated to use Alpine Linux 3.14 as the base. We used a quick workaround to unlock our
+pipelines by explicitly tagging the Alpine 3.13 version of the image (fortunately, it was provided!). To fully
+resolve the problem for all GitLab.com users who use our instance runners, we pushed forward an update to our autoscaled
+VMs base image, which included an update of Docker Engine.
+
+
+One of the popular and widely used container images that is migrating to Alpine 3.14 [are the `docker` and 
+`docker:dind` images](https://github.com/docker-library/docker/pull/317).
+What's important is the change will rebuild
+and re-push the existing specific images for supported versions, like `docker:20.10-dind`. This means users
+who pinned their version of the Docker-in-Docker service in their `.gitlab-ci.yml` files will still get the image
+version updated to Alpine 3.14. Using a Docker Engine older than 20.10.6 will probably create
+problems for the user.
+
+## What's the solution?
+
+The real solution is to upgrade the execution environment accordingly to Alpine's release notes, which state:
+
+> Therefore, Alpine Linux 3.14 requires **at least one** of the following:
+>
+> 1. runc v1.0.0-rc93
+>    - If using Docker's Debian repositories, this is part of containerd.io 1.4.3-2
+>    - If using Docker Desktop for Windows or Mac, this is part of Docker Desktop 3.3.0
+> 1. Docker 20.10.0 (which contains [moby commit a181391](https://github.com/moby/moby/commit/a18139111d8a203bd211b0861c281ebe77daccd9))
+or greater, **AND** libseccomp 2.4.4 (which contains backported [libseccomp commit 5696c89](https://github.com/seccomp/libseccomp/commit/5696c896409c1feb37eb502df33cf36efb2e8e01))
+or greater. In this case, to check if your host libseccomp is faccessat2-compatible, invoke
+`scmp_sys_resolver faccessat2`. If `439` is returned, faccessat2 is supported. If `-1` is returned, faccessat2 is not
+supported. Note that if runc is older than v1.0.0-rc93, Docker must still be at least version 20.10.0, regardless of
+the result of this command.
+> 1. As a workaround, in order to run under old Docker or libseccomp versions,
+[the moby default seccomp profile](https://github.com/moby/moby/blob/master/profiles/seccomp/default.json) should be
+downloaded and on line 2, `defaultAction` changed to `SCMP_ACT_TRACE`, then `--seccomp-profile=default.json` can be
+passed to dockerd, or `--security-opt=seccomp=default.json` passed to `docker create` or `docker run`. This will cause
+the system calls to return ENOSYS instead of EPERM, allowing the container to fall back to faccessat.
+>
+> Note: When using nested Docker, **every layer** must meet one of the above requirements, since if
+**any layer** improperly denies the use of faccessat2, Alpine Linux 3.14 will not function correctly.
+
+There are several ways to solve this problem, but since they depend on a specific configuration, users need to choose the solution that best matches their environment.
+
+Although the [release notes](https://wiki.alpinelinux.org/wiki/Release_Notes_for_Alpine_3.14.0#faccessat2) mentions Docker 20.10.0, (which brings some needed changes), the release notes also mention that the updated version of libseccomp must be used in this case. For environments that use Docker Engine on Linux, these criteria should be met by Docker Engine 20.10.6 and higher.
+
+The requirement for nested Docker environments (which in case of GitLab CI/CD mostly means
+the Docker-in-Docker based jobs) to work properly with images based on Alpine Linux 3.14, both the Docker
+Engine on Runner's host **AND** the `docker:dind` image must be updated to at least 20.10.6.
+
+To summarize:
+
+1. Users **using images** based on Alpine Linux 3.14 for their job execution (read: as the value of `image:` or
+`services:` keywords in `.gitlab-ci.yml`) must update Docker Engine on their hosts to version 20.10.6 or higher.
+
+1. Users **building images** based on Alpine Linux 3.14 using the Docker-in-Docker approach (read: using
+`services: [docker:X.Y-dind]` and `script: [..., docker build -t my/image ., ...]` in `.gitlab-ci.yml`) must
+also update the `docker:dind` image version to `docker:20.10.6-dind` or higher.
+
+**For users of GitLab.com instance-level Runners, the upgrade of Docker Engine was completed a few weeks ago. Still, users likely need to update the used Docker-in-Docker service to `docker:20.10.6-dind` or higher.**
+
+## Some temporary workarounds
+
+Since the update of Docker Engine may not be easy in some environments, the only known workaround is to pin used
+images to versions using Alpine Linux 3.13. As you can see in the [Docker library issue](https://github.com/docker-library/docker/pull/317#issuecomment-880140631), many projects have already found this
+is a problem for their users and provided the versions of images tagged with `-alpine3.13` suffix.
+
+The Docker-in-Docker case described in this post [was done quite recently](https://github.com/docker-library/docker/pull/327).
+Users who can't update the Docker Engine on the Runner host or for Docker-in-Docker can temporarily solve
+the problem by using for example `services: [docker:19.03.15-dind-alpine3.13]`.
+
+Remember that this is only a temporary solution. For example, the official `docker` image
+[have already abandoned the 19.03 line](https://github.com/docker-library/docker/pull/329) and new images for `19.03.x` will
+not be released.
+
+The only real, long-term solution is to plan and maintain the upgrade. 
+

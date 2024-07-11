@@ -1,0 +1,63 @@
+---
+title: "The feature you wanted - Expanded Guest capabilities in GitLab Ultimate"
+author: Hannah Sutor
+author_gitlab: hsutor
+author_twitter: hhsutor
+categories: engineering
+tags: features, collaboration, devsecops platform
+description: "GitLab Ultimate customers can now provide Guests the ability to view code.
+  Learn how to access this new capability."
+image_title: /images/blogimages/iterating-towards-customizable-roles/iterating-cover.jpg
+twitter_text: "Customers spoke and we listened. Guest roles in GitLab Ultimate tier can now be customized to include the ability to view code. Find out
+  how."
+---
+
+[Customizable roles](https://docs.gitlab.com/ee/user/permissions.html) have been on GitLab's roadmap for the past two years. When we began working on them a year ago, our team struggled to find the [minimal viable change](https://about.gitlab.com/handbook/product/product-principles/#the-minimal-viable-change-mvc) (MVC) that would benefit customers. At the same time, through different feedback channels, customers were telling us they wanted more from their Ultimate tier Guest user roles. There it was: our MVC!
+
+Here is what happened next.
+
+## Our MVC journey
+
+When we began working on customizable roles, we knew that the six static, out-of-the-box roles that come with GitLab were not flexible enough to cover the use cases of our customers. Some roles were too permissive, while others didn’t grant the permissions necessary to accomplish a task. At a time when security and abiding by [the principle of least privilege](https://www.techtarget.com/searchsecurity/definition/principle-of-least-privilege-POLP) is more top of mind than ever, we needed to give our customers a way to define their own roles.
+
+The customer ask was clear, but the implementation path was not. Performance considerations were top of mind. Permission policies are evaluated when any user action is performed, and we need a secure but scalable way for thousands of users, who may have hundreds of custom roles created, to do their work in GitLab. The team did a lot of technical discovery and performance testing in order to ensure the chosen technical implementation was scalable.
+
+We decided to start with a very small implementation of custom roles - something that would be meaningful to customers, while also allowing our team to test the new backend implementation that will support custom role creation and usage.
+
+## How custom roles work
+
+For our MVC, we decided that GitLab.com customers with an Ultimate license should be able to create a custom role that is based on the current “Guest” role. They will be able to add one additional permission to the “Guest” role - the ability to view code. This effectively creates a “Guest+1” role. They can then assign this custom role to any existing user. 
+
+Previously, Guests were able to view code on Self-Managed GitLab, and only on internal or public projects. Now, this functionality is available to Guests across the board - in GitLab.com and Self-Managed GitLab, and regardless of project visibility setting. You just need to create and apply the custom Guest role to any user who wishes to view code.
+
+You can read more about how to [implement this yourself](https://docs.gitlab.com/ee/user/permissions.html#custom-roles) and watch a demo [here](https://about.gitlab.com/releases/2023/02/22/gitlab-15-9-released/#users-with-the-guest-role-can-view-private-repositories).
+
+## Create a custom role
+
+Use the API to create the “Guest+1” custom role. This role will show up as "Guest - custom" in the UI, so that it's easy to see which users have this version of the "Guest" role assigned.
+
+Once the custom role is created, you can [use the API](https://docs.gitlab.com/ee/user/permissions.html#custom-roles) to associate it to a list of users. Voila! Now, your users have a custom role that allows them to view code as a Guest.
+
+![customizable guest role](/images/blogimages/iterating-towards-customizable-roles/guest-custom-role.png){: .shadow}
+
+## Why this MVC?
+
+Sometimes, something is so loud that you’re forced to listen to it. That’s undoubtedly how I felt when I heard the dissatisfaction of our Ultimate customers around Guest users in private projects.
+
+An unlimited number of Guest users are free with a GitLab Ultimate subscription. However, if the Guest user doesn’t have enough access to really do much within the product, is it really of any value at all? Customers left us a lot of feedback that the low level of privilege the Guest users have for private projects was detrimental to their users' workflows - making those “free” users not actually useful at all. We knew it was time to deliver more value.
+
+## What’s next
+
+Our final vision for customizable roles in GitLab is for our users to be able to take what exists today in our [permissions table](https://docs.gitlab.com/ee/user/permissions.html) and toggle each permission off/on as they please to define a custom role. 
+
+We plan to start on this by [consolidating](https://gitlab.com/groups/gitlab-org/-/epics/8914) some of these permissions - both for practical and performance reasons. As you can imagine, some permissions don’t make sense to be toggled “on” if a different feature is “off." We will be removing the need for complex logic by consolidating permissions into larger sets that make sense to be enabled/disabled at the same time. This should also translate nicely on the usability side - permutations of 100+ individual permissions would be unwieldy to manage, as a systems administrator, and difficult to understand your role definition, as an end user.
+
+This update to custom roles is a great example of our iteration value here at GitLab, and I’m most excited about the fact that it’s solving an acute pain point for our Ultimate customers. They deserve to get a lot of value out of their Ultimate subscription, and I am hopeful that an additional permission for Guest users is one way we can increase their value. It’s also a great first step towards our grand customizable roles vision. I hope you’ll give it a try!
+
+**Check out this demo that shows the customizable guest role in action:**
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/46cp_-Rtxps" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->

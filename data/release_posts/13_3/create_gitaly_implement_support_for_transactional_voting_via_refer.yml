@@ -1,0 +1,18 @@
+---
+features:
+  secondary:
+  - name: "Gitaly Cluster reference transactions"
+    available_in: [core, starter, premium, ultimate]
+    gitlab_com: false
+    documentation_link: 'https://docs.gitlab.com/ee/administration/gitaly/praefect.html#strong-consistency'
+    reporter: jramsay
+    stage: create
+    categories:
+    - Gitaly
+    issue_url: 'https://gitlab.com/gitlab-org/gitaly/-/issues/2956'
+    description: |
+      Gitaly Cluster allows Git repositories to be replicated on multiple warm Gitaly nodes. This improves fault tolerance by removing single points of failure. Write operations are currently replicated asynchronously however, which means that the GitLab server only has one copy of the change from when the write is accepted, until replication is complete.
+
+      Transactional write operations to Git repositories in GitLab 13.3 causes changes to be broadcast to all Gitaly nodes. Only the Gitaly nodes that vote in agreement with the primary node persist the changes to disk. Dissenting nodes are brought in sync by asynchronous replication. This means the change will typically be written to all Gitaly nodes when the write is accepted. This is not guaranteed, however, because all replica nodes could vote against the primary. [Quorum-based voting (beta)](#gitaly-cluster-quorum-based-voting-beta) can be enabled to prevent this.
+
+      **Note:** Gitaly Clusters can be created using GitLab Core and higher tiers. However, technical support is limited to GitLab Premium and Ultimate customers only.

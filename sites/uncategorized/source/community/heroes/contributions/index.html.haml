@@ -1,0 +1,60 @@
+---
+title: GitLab Heroes Contributions
+description: Recent contributions to the GitLab community
+canonical_path: "/community/heroes/contributions/"
+twitter_image: "/images/opengraph/Heroes/Heroes-contribution.png"
+twitter_image_alt: "Graphical GitLab Heroes logo and the text recent contributions"
+twitter_site: "gitlab"
+twitter_creator: "gitlab"
+suppress_header: true
+extra_css:
+  - heroes-contributions.css
+  - community.css
+  - bl-modal.css
+  - video-carousel.css
+extra_js:
+  - libs/slick.min.js
+  - video-carousel.js
+---
+
+.blank-header
+  = image_tag "/images/home/icons-pattern-left.svg", class: "image-border image-border-left", alt: "Gitlab hero border pattern left svg"
+  = image_tag "/images/home/icons-pattern-right.svg", class: "image-border image-border-right", alt: "Gitlab hero border pattern right svg"
+  .header-content
+    %h1 GitLab Heroes Contributions
+    %p Recent contributions to the GitLab community
+    .row.text-center
+      .btn-group.u-padding-right-sm
+      = link_to "Become a GitLab Hero", "mailto:incoming+gitlab-com-marketing-community-relations-evangelist-program-git-18503012-issue-@incoming.gitlab.com?subject=GitLab%20Heroes%20Application&body=Please send us a message to start the GitLab Heroes application process.", class: "btn cta-btn orange margin-top20"
+      = link_to "Meet the GitLab Heroes", "/community/heroes/members", class: "btn cta-btn orange margin-top20"
+
+.gitlab-content-container.margin-top50
+  .content
+    .content-section
+      - data.heroes_contributions.recent_contributions.sort_by(&:date).reverse.each do |contribution, index|
+        .press-block
+          .attributes
+            = image_tag "#{contribution.logo}", class: "contribution-logo-small", alt: "Gitlab Heroes contribution type"
+            %p.contribution-type
+            = contribution.date
+          %p.contribution-type
+            = contribution.type
+          %a.contribution-link{ href: "#{contribution.link}", target: "_blank" }
+            = contribution.title
+          %p
+            = image_tag "/images/heroes/gitlab-heroes-icon.svg", class: "contribution-logo-small", alt: "Gitlab Heroes logo"
+            = contribution.contributor
+
+.gitlab-content-container
+  .content
+  .row.u-margin-top-md
+    %h2.u-margin-bottom-sm.text-center
+      Everyone can contribute
+    .video-slider
+      - data.video_carousel.each do |video|
+        -if video.carousel_identifier.include?("Community Heroes Contributors and Members Carousel 1")
+          = partial "includes/components/video-carousel/video-item.html.haml", locals: {name: video.name, title: video.title, company: video.company, photourl: video.photourl, videolink: video.video_link}
+
+  - data.video_carousel.each do |video|
+    -if video.carousel_identifier.include?("Community Heroes Contributors and Members Carousel 1")
+      = partial "includes/components/video-carousel/video-carousel-modal.html.haml", locals: {videolink: video.video_link, title: video.title, photourl: video.photourl}

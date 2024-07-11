@@ -1,0 +1,27 @@
+---
+layout: markdown_page
+title: "Features by Tier"
+description: "This page is meant to showcase the features by Paid Tier across GitLab's Product Hierarchy."
+canonical_path: "/features/by-paid-tier/"
+---
+## Features by Stage and Tier
+This page is meant to showcase the features by Paid Tier across GitLab's Product Hierarchy.
+
+<% Gitlab::Homepage::Stage.all!.select{ |stage| (stage.marketing || stage.enabling) }.each do |stage| %>
+  <%= "<h3 id='#{stage.display_name}'> #{stage.display_name} </h3>" %>
+  <%= "\n" %>
+  <%= "| Category | Features in Premium | Features in Ultimate |" %>
+  <%= "|:--------:|:--------------------|:---------------------|" %>
+  <% stage.categories.select{|category| category.marketing}.each do |category| %>
+    <% ultimateList=[] %>
+    <% premiumList=[] %>
+    <% if category.features? %>
+      <% category.features.each do |feature| %>
+        <% ultimateList << "[#{feature.title}](#{feature.link})" if feature.gitlab_ultimate && !feature.gitlab_premium %>
+        <% premiumList << "[#{feature.title}](#{feature.link})" if feature.gitlab_premium && !feature.gitlab_core %>
+      <% end %>
+    <% end %>
+    <%= "| **[#{category.name}](#{category.best_link})** | #{premiumList.join('<br>')} | #{ultimateList.join('<br>')} | " %>
+  <% end %>
+  <%= "\n" %>
+<% end %>

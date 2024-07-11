@@ -1,0 +1,67 @@
+- if (!is_remotestory) || (is_remotestory && member.remote_story)
+  .col-xl-2.col-lg-2.col-md-3.col-sm-4.col-xs-12.member{class: ("pet" if is_pet), id: anchor, data: { departments: member.departments }}
+    .card
+      .front
+        - image_url = is_pet ? "/images/team/pets/#{member.picture}" : member.avatar_url
+        - photo = image_tag image_url, alt: member.name, class: "member-img", width: 120, height: 120, loading: 'lazy'
+        - if anchor
+          = link_to photo, "##{anchor}", class: 'member-id', 'data-twitter': member.twitter ? "##{member.twitter}" : nil
+        - else
+          = photo
+
+        %h3
+          = member.name
+        -#- if member.country == "Remote"
+        -#  %h5
+        -#    = member.country
+        -#- elsif member.locality || member.country
+        -#  - location = [member.locality, member.country].compact.join(", ")
+        -#  %h5
+        -#    = link_to "https://maps.google.com?q=#{location}" do
+        -#      = location
+        -#      = member.country_info&.emoji_flag
+        %h4.role
+          = member.role
+        - Array(member.specialty).each do |specialty|
+          %h5
+            = specialty
+            = link_to 'Specialist', '/company/team/structure/#specialist'
+
+        - if is_remotestory && member.remote_story
+          .assignments.font-small.margin-top20
+            .expertise.font-small
+              = member.remote_story
+
+        - if !is_remotestory
+          .assignments.font-small.margin-top20
+            - if member.assignments.to_a.any?
+              %ul
+                - member.assignments.each do |assignment|
+                  %li
+                    = link_to assignment.responsibility_label.capitalize, "/handbook/engineering/workflow/code-review/##{assignment.responsibility_anchor}"
+                    of
+                    = link_to assignment.project.name, assignment.project.link
+                    - if assignment.description?
+                      = "(#{assignment.description})"
+
+          .expertise.font-small
+            - if member.expertise
+              %ul
+                = member.expertise
+
+        .social
+          - if member.linkedin
+            %a{href: "https://www.linkedin.com/in/#{member.linkedin}"}
+              %span.sr-only
+                LinkedIn
+              %i.fab.fa-linkedin
+          - if member.twitter
+            %a{href: "https://twitter.com/#{member.twitter}"}
+              %span.sr-only
+                Twitter
+              %i.fab.fa-twitter
+          - if member.gitlab
+            %a.gitlab-logo{href: "https://gitlab.com/#{member.gitlab}"}
+              %img{ src: "/images/icons/logos/slp-icon.svg", alt: "GitLab" }
+      .extra
+        = partial "includes/team/member_detail", locals: {member: member, is_pet: is_pet || false}

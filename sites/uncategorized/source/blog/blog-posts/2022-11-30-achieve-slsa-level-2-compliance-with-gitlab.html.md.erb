@@ -1,0 +1,57 @@
+---
+title: Achieve SLSA Level 2 compliance with GitLab
+author: Sandra Gittlen
+author_gitlab: sgittlen
+author_twitter: sandragwrites
+categories: security
+tags: DevSecOps, security, open source
+image_title: '/images/blogimages/container-security.jpg'
+description: Compliance mandates call for controls to prevent software
+  tampering, improve integrity of builds and artifacts, and support attestation.
+  Here's how GitLab can help.
+twitter_text: SLSA compliance mandates call for controls to prevent software
+  tampering, improve integrity of builds and artifacts, and support attestation.
+  Here's how GitLab can help.
+---
+
+Organizations are under intense pressure from governing bodies to attest to the fact that their software supply chains have not been tampered with. The industry has come together to create an industry standard, Supply chain Levels for Software Artifacts ([SLSA](https://slsa.dev/)), to guide companies on exactly how to achieve such attestation. GitLab helps organizations comply with SLSA requirements by incorporating attestation capabilities into its DevSecOps platform.
+
+“Although SLSA compliance is relatively new, security-conscious DevOps teams are already adopting its requirements to demonstrate their software is trustworthy,” says [Sam White](https://gitlab.com/sam.white), Group Manager of Product for the [Govern stage](/direction/govern/) at GitLab. 
+
+GitLab Federal CTO [Joel Krooswyk](https://gitlab.com/jkrooswyk) agrees. “DevOps teams will need to understand attestation as part of new government regulations around the larger release verification process. Vendors, third-party development and integration providers, and other data-sensitive industries will be required to adhere to published guidance,” he says. “GitLab helps companies across all sectors address these compliance mandates.”
+
+## What is SLSA?
+
+SLSA first launched in 2021 in response to calls for a framework to [secure software supply chains](/blog/2022/08/30/the-ultimate-guide-to-software-supply-chain-security/). SLSA provides a checklist of standards and controls to prevent tampering, improve integrity, and secure packages and infrastructure. The goal is for software developers to be able to use best practices to [guarantee the integrity](/blog/2022/08/10/securing-the-software-supply-chain-through-automated-attestation/) of each and every artifact, more specifically that the source code users are relying on is the code they are actually using and that the build machine producing the artifacts was secure.
+
+The SLSA standard has four levels that examine the builds, sources, and dependencies in open source and commercial software. The levels build on one another, growing from simple visibility and being able to generate provenance to providing the highest assurances of build integrity and measures for dependency management.
+
+GitLab’s DevSecOps platform currently supports SLSA Levels 1 and 2. GitLab makes it simple for users to comply with these first two levels, according to White. “Whether you are working on an open source project or developing commercial software, there is no reason not to generate provenance for your code and attest to it. Even if you are just tinkering around, there is no harm in following the SLSA specifications,” he says.
+
+## How to generate artifact metadata with the GitLab Runner
+
+GitLab enables users to generate artifact metadata following the SLSA format for any artifacts that are built on the platform. Because the process happens within the GitLab Runner, without needing third-party software, it prevents the opportunity for any tampering or corruption of the attestation itself.
+
+To generate an attestation, all that is required is to simply set `RUNNER_GENERATE_ARTIFACTS_METADATA: true` in your `.gitlab-ci.yml` file. You can set the variable globally or on a per-job basis. A CI pipeline then will produce a data.txt file and generate metadata to describe how that file was produced and verify the origin of it or the provenance of it. Users can download this artifact file, which comes as a zip file with the two files inside of it – one is the data.txt and the other is an artifacts metadata .json file.
+
+The file offers metadata about what was done and it lists out all of the different parameters and input points, including the SHA hash of the file itself as well as the hash of the repository.
+
+“This level of detail enables someone to come in later and get an idea of the steps that were taken in order to produce it as well as information about where it was built so someone can protect their artifacts and reduce the chance of tampering,” White says.
+
+
+Follow the step-by-step instructions here:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/MlIdqrDgI8U" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+The idea of all this, White explains, is to provide a recipe for how the file was built so that if a DevOps team needed to replicate it, they could use those instructions on another machine and get the same build.
+
+## GitLab’s next SLSA step
+
+As SLSA matures, GitLab plans to [introduce additional features](/direction/supply-chain/), such as the ability to sign the attestation, to guide DevOps teams through SLSA Levels 3 and 4. For instance, users currently can use an external code signer to verify the signing and verify the attestation but the ideal state would be to integrate code signing functionality directly into the platform. GitLab also plans to add capabilities that enable more detailed inspection and validation of attestations from upstream dependencies.
+
+**Disclaimer This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab.**
+

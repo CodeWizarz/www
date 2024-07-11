@@ -1,0 +1,18 @@
+= cache_bust(javascript_include_tag("libs/jquery.min.js"), cache_bust_value)
+= cache_bust(javascript_include_tag("libs/jquery-migrate-3.3.0.min.js"), cache_bust_value)
+= cache_bust(javascript_include_tag("libs/bootstrap.min.js"), cache_bust_value)
+= cache_bust(javascript_include_tag("libs/jqBootstrapValidation.js"), cache_bust_value)
+= cache_bust(javascript_include_tag("scripts.js"), cache_bust_value)
+- if current_page.data.extra_js
+  - current_page.data.extra_js.each do |js_name|
+    = cache_bust(javascript_include_tag("#{js_name}"), cache_bust_value)
+
+:javascript
+  $.ajax({
+    url: '//munchkin.marketo.net/munchkin.js',
+    dataType: 'script',
+    cache: true,
+    success: function() {
+      Munchkin.init('194-VVC-221');
+    }
+  });

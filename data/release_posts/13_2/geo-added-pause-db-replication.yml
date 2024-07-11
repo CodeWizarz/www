@@ -1,0 +1,27 @@
+features:
+  secondary:
+    - name: "Geo supports pausing database replication on a Geo secondary"
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/index.htmlpausing-and-resuming-replication'
+      reporter: fzimmer
+      stage: systems
+      categories:
+        - "Geo-replication"
+        - "Disaster Recovery"
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/35913'
+      epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/2159'
+      description: | 
+        Geo replicates data from a primary Geo node to one or several Geo
+        secondary nodes. While Geo supports pausing replication for
+        repositories and files via the administrator interface, it was
+        not possible to pause database replication. In 13.2, Geo supports
+        pausing and resuming replication of all replicated data, including the
+        PostgreSQL database using the new `gitlab-ctl geo:pause` and `gitlab-ctl geo:resume` commands on a secondary Geo node.
+
+        This allows systems administrators to pause all replication on a
+        secondary Geo node while performing critical maintenance operations on
+        the primary Geo node. In the case of a failure on the primary, no
+        changes are replicated to the paused secondary node, which can then be
+        used to failover to.
+

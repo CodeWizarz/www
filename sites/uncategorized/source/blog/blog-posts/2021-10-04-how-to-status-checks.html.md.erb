@@ -1,0 +1,202 @@
+---
+title: "How to use external status checks for merge requests"
+author: Cesar Saavedra
+author_gitlab: csaavedra1
+author_twitter: cesar_saavedr
+categories: engineering
+description: "Want to integrate third-party systems and apps with GitLab merge requests? Here's everything you need to know."
+tags: integrations, workflow, DevOps
+twitter_text: "How to use external status checks for merge requests" 
+twitter_image: "/images/blogimages/global-developer-survey.png" 
+postType: content marketing
+---
+
+The [external status checks for merge requests capability](/releases/2021/07/22/gitlab-14-1-released/#external-status-checks-for-merge-requests) was recently introduced in GitLab and it allows the integration of third-party systems and applications with GitLab merge requests.
+
+## What are "external status checks for merge requests"?
+
+External status checks are API calls to systems or applications that sit outside GitLab. These API calls are invoked during merge requests, which display a widget with the status of each external check. With external status checks, you can integrate GitLab with third-party systems, e.g. Salesforce, PeopleSoft, Microsoft Dynamics, etc., that require manual approval for merge requests. This makes it easy to see that merge requests have met external requirements before being merged, adding an extra method to ensure compliance and audit requirements are met.
+
+## Steps to enable and use external status checks for merge requests
+
+In this example, I have a sample project called **my-proj**, for which I'd like to add and exercise a single external status check, which will hypothetically do some kind of validation for the merge request.
+
+### Adding an external status check to your project
+
+External status checks are added to merge requests by heading to your project’s **Settings > General** and then expanding the **Merge requests** section. Towards the bottom of the **Merge requests** section, you will see an **Add status check** button, which you will need to click to to display the **Add status check** pop-up dialog:
+
+<!--
+![Add status check dialog](/images/blogimages/how-to-status-checks/1-add-status-check-dialog.png){: .shadow.small.center.wrap-text}
+Add status check dialog with filled values
+{: .note.text-center}
+-->
+
+<img src="/images/blogimages/how-to-status-checks/1-add-status-check-dialog.png" width="50%" height="50%">
+Add status check dialog with filled values
+{: .note.text-center}
+
+In the dialog above, the external service name is being given the name *compliance-check*. The external API that will be called is:
+
+> https://tech-marketing-sandbox-cd-compvalidator.compliance.gitlabworkshops.io/validate
+
+> **NOTE:** the *validate* service above was [a simple Java service that I set up](https://gitlab.com/tech-marketing/sandbox/cd/compvalidator) ahead of time to mimic a third-party external service. It returned an HTTP 200 success message when invoked. In a real life scenario, this external API call would be a SaaS service or an on-premises ERP system, for example.
+
+The API above is a call - invoked from any merge requests created under this project - to an external system that will run a compliance check and validate modifications to this application.
+
+As the target branch, the default *Any branch* has been selected. Another option could have been the *main* branch.
+
+When you click the **Add status check** button, an entry will be created in the **Status checks** table, as shown below:
+
+![status check table](/images/blogimages/how-to-status-checks/2-status-checks-table.png){: .shadow.small.center.wrap-text}
+Status checks table
+{: .note.text-center}
+
+### External status check in action
+
+To exercise the external status check for merge requests, we need to create a merge request. But before that, let's create an issue.
+
+1. Create an issue by clicking on **Issues > List** from the left vertical navigation menu to get to the Issues screen.
+
+2. Then click on the **New Issue** button
+
+3. On the **New Issue** window:
+
+3.1. In the Title field, enter "External status check demo"
+
+3.2. In the Description field, enter "Issue to demonstrate an external status check"
+
+3.3. Click on **Assign to me** next to the **Assignees** field
+
+3.4. Click on the **Create issue** button at the bottom of the window
+
+<!--
+![issue create window](/images/blogimages/how-to-status-checks/3-issue-create-window.png){: .shadow.small.center.wrap-text}
+Creating an issue
+{: .note.text-center}
+-->
+
+<img src="/images/blogimages/how-to-status-checks/3-issue-create-window.png" width="75%" height="75%">
+Creating an issue
+{: .note.text-center}
+
+Once the issue is created, you will be in the detail issue window.
+
+4. Click on the **Create merge request** button on the right hand side of the detailed issue window.
+
+![create a merge request](/images/blogimages/how-to-status-checks/4-create-merge-req.png){: .shadow.small.center.wrap-text}
+Creating a merge request
+{: .note.text-center}
+
+Once the merge request is created, you will be in the detail merge request window.
+
+5. Click on the **Open in Web IDE** button on the right hand side of the detailed merge request window:
+
+![open webIDE](/images/blogimages/how-to-status-checks/5-open-webide.png){: .shadow.small.center.wrap-text}
+Opening the Web IDE
+{: .note.text-center}
+
+6. Make a minor update to the application. In the sample project **my-proj**, I modified two files: DemoApplication.java and DemoApplicationTests.java.
+
+6.1. In the DemoApplication.java class, I added the word "today" to the string returned by a call to this class:
+
+![update DemoApp](/images/blogimages/how-to-status-checks/6-update-demoapp.png){: .shadow.small.center.wrap-text}
+Making a simple update to DemoApplication.java
+{: .note.text-center}
+
+6.2. In the DemoApplicationTests.java class, which is a unit test for DemoApplication.java, I also added the word "today" to the string in the *assertThat()* invocation to match the value returned by a call to the DemoApplication.java class:
+
+![update DemoAppTests](/images/blogimages/how-to-status-checks/7-update-demoapptests.png){: .shadow.small.center.wrap-text}
+Making a simple update to DemoApplicationTests.java
+{: .note.text-center}
+
+7. Click on the **Commit…** button at the bottom of the Web IDE window. And then ensure to select the feature branch for the merge request before clicking on the **Commit** button again:
+
+<!--
+![committing to feature branch](/images/blogimages/how-to-status-checks/8-click-commit.png){: .shadow.small.center.wrap-text}
+Committing to the feature branch
+{: .note.text-center}
+-->
+
+<img src="/images/blogimages/how-to-status-checks/8-click-commit.png" width="30%" height="30%">
+Committing to the feature branch
+{: .note.text-center}
+
+8. Go back to the merge request detail window by clicking on the merge request number on the bottom margin of the window:
+
+<!--
+![click on merge request link](/images/blogimages/how-to-status-checks/9-click-mr-at-bottom.png){: .shadow.small.center.wrap-text}
+Clicking on merge request link at bottom of window
+{: .note.text-center}
+-->
+
+<img src="/images/blogimages/how-to-status-checks/9-click-mr-at-bottom.png" width="75%" height="75%">
+Clicking on merge request link at bottom of window
+{: .note.text-center}
+
+9. On the detail merge request window, scroll down until you see a section titled **Status checks 1 pending**. This is the merge request widget that lists all external status checks associated with merge requests. Click on the **Expand** button on the right hand side of this section:
+
+![expanding status checks widget](/images/blogimages/how-to-status-checks/10-click-on-expand.png){: .shadow.small.center.wrap-text}
+Expanding the status checks widget in the merge request
+{: .note.text-center}
+
+10. In the expanded section, you will see an entry for the external status check you defined above, whose name is *compliance-check*. Notice that to the left of its name, there is a pause symbol indicating to the merge request stakeholders that the check is still in progress and has not communicated its approval to the merge request yet:
+
+![list of status checks](/images/blogimages/how-to-status-checks/11-status-checks-widget-expanded.png){: .shadow.small.center.wrap-text}
+List of external status checks
+{: .note.text-center}
+
+11. In a real life scenario, the pause symbol would change to a green checkmark when the external status check communicates to GitLab that the compliance validation is finished, i.e. the merge request has been approved by the external service:
+
+![status checks passed](/images/blogimages/how-to-status-checks/12-status-check-passed.png){: .shadow.small.center.wrap-text}
+Status checks that have passed
+{: .note.text-center}
+
+### How does an external status check inform GitLab that it has approved the merge request
+
+Using an external status check integrates GitLab merge requests to a home-grown or SaaS application, for example, by invoking an API of this external system. Once this external system does its compliance validation or check, then it needs to inform GitLab that it has approved the merge request. To do this, the external system API must make use of the [GitLab external status checks API](https://docs.gitlab.com/ee/api/status_checks.html) to communicate to GitLab that the MR is approved. This is a 2-step process:
+
+1. The first step is to get the ID of the external status check you need to approve. Here is an example of how to invoke the GitLab API to do this:
+
+> curl --request GET --header "PRIVATE-TOKEN: <replace with your GitLab API token>" "https://gitlab.com/api/v4/projects/28933616/merge_requests/1/status_checks"
+
+An example of what the command above will return follows:
+
+> [{"id":86,"name":"compliance-check","external_url":"https://tech-marketing-sandbox-cd-compvalidator.compliance.gitlabworkshops.io/validate","status":"pending"}]
+
+The example return value above shows that the ID of the external status check that we’d like to approve is 86.
+
+> **NOTE:** Although I'm showing an example of how to invoke the GitLab API above using the *curl* command, the idea is that your external system API call would carry out any checks and validation and then it would assemble this message in a REST HTTP call back to GitLab to communicate its approval of the merge request.
+
+2. Once you have the ID of the external status check, you can then approve it by using the GitLab API. Here’s an example:
+
+> curl --request POST --header "PRIVATE-TOKEN:<replace with your GitLab API token>" "https://gitlab.com/api/v4/projects/28933616/merge_requests/1/status_check_responses?sha=<replace with SHA at HEAD of the source branch>&external_status_check_id=86"
+
+Executing the REST API call above will approve the external status check on the GitLab merge request.
+
+```
+NOTE: to obtain the <SHA at HEAD of the source branch>, here’s an example of the command you’d need to execute:
+
+$ git ls-remote https://gitlab.com/tech-marketing/sandbox/cd/my-proj.git
+
+The URL in the preceding line is the URL to the git project for your merge request. And here’s an example of the output of the preceding command:
+
+ad1eeee497c99466797a1155f514d3c0c2f0cc45	HEAD
+9e209c8d409a0867c1df4e0965aa675277176137	refs/heads/1-external-status-check-demo
+ad1eeee497c99466797a1155f514d3c0c2f0cc45	refs/heads/master
+9e209c8d409a0867c1df4e0965aa675277176137	refs/merge-requests/1/head
+```
+
+In the output above, the SHA for the feature branch associated with the merge request is *9e209c8d409a0867c1df4e0965aa675277176137*
+
+## What we've learned
+
+GitLab recently introduced "external status checks for merge requests," which are effectively API calls to systems/application that sit outside GitLab. As you could see, with external status checks for merge requests, we were able to integrate GitLab with a third-party system that required manual approval for a merge request, ensuring that your application updates meet compliance and audit requirements.
+
+For a demo of this feature in action, watch the video below:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/v4iY8qMvFLo" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+

@@ -1,0 +1,497 @@
+---
+title: "How to publish Android apps to the Google Play Store with GitLab and fastlane"
+author: Jason Yavorska
+author_twitter: j4yav
+categories: engineering
+image_title: '/images/blogimages/android-fastlane-pipeline.png'
+description: "See how GitLab, together with fastlane, can build, sign, and publish apps for Android to the Google Play Store."
+tags: CI/CD, integrations, google, features
+postType: product
+ee_cta: false
+twitter_text: "How to publish @android apps to the @googleplay Store with @gitlab and @FastlaneTools"
+---
+
+When we heard about [_fastlane_](https://fastlane.tools), an app automation tool for delivering iOS and Android builds, we wanted to give it a spin to see if a combination of GitLab and _fastlane_ could help us bring our mobile build and deployment automation to the next level and make mobile development a bit easier. You can see an [actual production deployment](https://gitlab.com/gitlab-org/gitter/gitter-android-app/pipelines/40768761) of the [Gitter Android app](https://gitlab.com/gitlab-org/gitter/gitter-android-app) that uses what we'll be implementing in this blog post; suffice to say, the results were fantastic and we've become big believers that the combination of GitLab and _fastlane_ is a truly game-changing way for developers to [enable CI/CD](/topics/ci-cd/) (continuous integration and continuous delivery) for their mobile applications. With GitLab and _fastlane_ we're getting, with minimal effort:
+
+- Source control, project home, issue tracking, and everything else that comes with GitLab.
+- Content and images (metadata) for Google Play Store listing managed in source control.
+- Automatic signing, version numbers, and changelog.
+- Automatic publishing to `internal` distribution channel in Google Play Store.
+- Manual promotion through `alpha`, `beta`, and `production` channels.
+- Containerized build environment, available in GitLab's container registry.
+
+If you'd like to jump ahead and see the finished product, you can take a look at the already-completed Gitter for Android [.gitlab-ci.yml](https://gitlab.com/gitlab-org/gitter/gitter-android-app/blob/master/.gitlab-ci.yml), [build.gradle](https://gitlab.com/gitlab-org/gitter/gitter-android-app/blob/master/app/build.gradle), [Dockerfile](https://gitlab.com/gitlab-org/gitter/gitter-android-app/blob/master/Dockerfile), and [_fastlane_ configuration](https://gitlab.com/gitlab-org/gitter/gitter-android-app/tree/master/fastlane).
+
+## Configuring _fastlane_
+
+We'll begin first by setting up _fastlane_ in our project, make a couple key changes to our Gradle configuration, and then wrap everything up in a GitLab pipeline.
+
+_fastlane_ has pretty good [documentation](https://docs.fastlane.tools/getting-started/android/setup/) to get you started, and if you run into platform-specific trouble it's the first place to check, but to get under way you really just need to complete a few straightforward steps.
+
+### Initializing your project
+
+First up, you need to get _fastlane_ installed locally and initialize your product. We're using the Ruby `fastlane` gem so you'll need Ruby on your system for this to work. You can read about [other install options in the _fastlane_ documentation](https://docs.fastlane.tools/getting-started/android/setup/).
+
+``` ruby
+source "https://rubygems.org"
+
+gem "fastlane"
+```
+
+Once your Gemfile is updated, you can run `bundle update` to update/generate your `Gemfile.lock`. From this point you can run _fastlane_ by typing `bundle exec fastlane`. Later, you'll see that in CI/CD we use `bundle install ...` to ensure the command runs within the context of our project environment.
+
+Now that we have _fastlane_ ready to run, we just need to initialize our repo with our configuration. Run `bundle exec fastlane init` from within your project directory, answer a few questions, and _fastlane_ will create a new `./fastlane` directory containing its configuration.
+
+### Setting up _supply_
+
+_supply_ is a feature built into _fastlane_ which will help you manage screenshots, descriptions, and other localized metadata/assets for publishing to the Google Play Store.
+
+Please refer to these [detailed instructions for collecting the credentials necessary to run _supply_](https://docs.fastlane.tools/getting-started/android/setup/#setting-up-supply).
+
+Once you've set this up, simply run `bundle exec fastlane supply init` and all your current metadata will be downloaded from your store listing and saved in `fastlane/metadata/android`. From this point you're able to manage all of your store content as-code; when we publish a new version to the store later, the versions of content checked into your source repo will be used to populate the entry.
+
+### Appfile
+
+The `./fastlane/Appfile` is pretty straightforward, and contains basic configuration you chose when you initialized your project. Later we'll see how to inject the `json_key_file` in your CI/CD pipeline at runtime.
+
+`./fastlane/Appfile`
+``` yaml
+json_key_file("~/google_play_api_key.json") # Path to the json secret file - Follow https://docs.fastlane.tools/actions/supply/#setup to get one
+package_name("im.gitter.gitter") # e.g. com.krausefx.app
+```
+
+### Fastfile
+
+The `./fastlane/Fastfile` is more interesting, and contains the first changes you'll see that we made for Gitter vs. the default one created when you run `bundle exec fastlane init`.
+
+The first section contains our definitions for how we want to run builds and tests. As you can see, this is pretty straightforward and builds right on top of your already set up Gradle tasks.
+
+`./fastlane/Fastfile`
+``` yaml
+default_platform(:android)
+
+platform :android do
+
+  desc "Builds the debug code"
+  lane :buildDebug do
+    gradle(task: "assembleDebug")
+  end
+
+  desc "Builds the release code"
+  lane :buildRelease do
+    gradle(task: "assembleRelease")
+  end
+
+  desc "Runs all the tests"
+  lane :test do
+    gradle(task: "test")
+  end
+
+...
+```
+
+Creating Gradle tasks that publish/promote builds can be complicated and error prone, but _fastlane_ makes this much easier by giving you pre-built commands (called _fastlane_ actions) that let you perform complex tasks with just a few simple actions.
+
+In our example, we've set up a workflow where a new build can be published to the internal track and then optionally promoted through alpha, beta, and ultimately production. We initially had a new build for each track but it's safer to have the same/known build go through the whole process.
+
+``` yaml
+...
+
+  desc "Submit a new Internal Build to Play Store"
+  lane :internal do
+    upload_to_play_store(track: 'internal', apk: 'app/build/outputs/apk/release/app-release.apk')
+  end
+
+  desc "Promote Internal to Alpha"
+  lane :promote_internal_to_alpha do
+    upload_to_play_store(track: 'internal', track_promote_to: 'alpha')
+  end
+
+  desc "Promote Alpha to Beta"
+  lane :promote_alpha_to_beta do
+    upload_to_play_store(track: 'alpha', track_promote_to: 'beta')
+  end
+
+  desc "Promote Beta to Production"
+  lane :promote_beta_to_production do
+    upload_to_play_store(track: 'beta', track_promote_to: 'production')
+  end
+end
+```
+
+An important note is that we've only scratched the surface of the kinds of actions that _fastlane_ can automate. You can [read more about available actions here](https://docs.fastlane.tools/actions/), and it's even possible to create your own.
+
+## Gradle configuration
+
+We also made a couple of key changes to our basic Gradle configuration to make publishing easier. Nothing major here, but it does help us make things run a little more smoothly.
+
+### Secret properties
+
+The first changed section gathers the secret variables to be used for signing. These are either loaded via configuration file, or gathered from environment variables in the case of CI.
+
+`app/build.gradle`
+``` groovy
+// Try reading secrets from file
+def secretsPropertiesFile = rootProject.file("secrets.properties")
+def secretProperties = new Properties()
+
+if (secretsPropertiesFile.exists()) {
+    secretProperties.load(new FileInputStream(secretsPropertiesFile))
+}
+// Otherwise read from environment variables, this happens in CI
+else {
+    secretProperties.setProperty("oauth_client_id", "\"${System.getenv('oauth_client_id')}\"")
+    secretProperties.setProperty("oauth_client_secret", "\"${System.getenv('oauth_client_secret')}\"")
+    secretProperties.setProperty("oauth_redirect_uri", "\"${System.getenv('oauth_redirect_uri')}\"")
+    secretProperties.setProperty("google_project_id", "\"${System.getenv('google_project_id') ?: "null"}\"")
+    secretProperties.setProperty("signing_keystore_password", "${System.getenv('signing_keystore_password')}")
+    secretProperties.setProperty("signing_key_password", "${System.getenv('signing_key_password')}")
+    secretProperties.setProperty("signing_key_alias", "${System.getenv('signing_key_alias')}")
+}
+```
+
+### Automatic versioning
+
+We also set up automatic versioning using environment variables `VERSION_CODE`, `VERSION_SHA`, which we will set up later in CI/CD (locally they will just be `null` which is fine). Because each build's `versionCode` that you submit to the Google Play Store needs to be higher than the last, this makes it simple to deal with.
+
+`app/build.gradle`
+``` groovy
+android {
+    defaultConfig {
+        applicationId "im.gitter.gitter"
+        minSdkVersion 19
+        targetSdkVersion 26
+        versionCode Integer.valueOf(System.env.VERSION_CODE ?: 0)
+        // Manually bump the semver version part of the string as necessary
+        versionName "3.2.0-${System.env.VERSION_SHA}"
+```
+
+### Signing configuration
+
+Finally, we inject the signing configuration which will automatically be used by Gradle to sign the release build. Depending on your configuration, you may already be doing this. We only worry about signing in the release build that would potentially be published to the Google Play Store.
+
+> When using App Signing by Google Play, you will use two keys: the app signing key and the upload key. You keep the upload key and use it to sign your app for upload to the Google Play Store.
+>
+> [*https://developer.android.com/studio/publish/app-signing#google-play-app-signing*](https://developer.android.com/studio/publish/app-signing#google-play-app-signing)
+
+> IMPORTANT: Google will not re-sign any of your existing or new APKs that are signed with the app signing key. This enables you to start testing your app bundle in the internal test, alpha, or beta tracks while you continue to release your existing APK in production without Google Play changing it.
+>
+> *`https://play.google.com/apps/publish/?account=xxx#KeyManagementPlace:p=im.gitter.gitter&appid=xxx`*
+
+`app/build.gradle`
+``` groovy
+    signingConfigs {
+        release {
+            // You need to specify either an absolute path or include the
+            // keystore file in the same directory as the build.gradle file.
+            storeFile file("../android-signing-keystore.jks")
+            storePassword "${secretProperties['signing_keystore_password']}"
+            keyAlias "${secretProperties['signing_key_alias']}"
+            keyPassword "${secretProperties['signing_key_password']}"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            testCoverageEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+}
+```
+
+## Setting up the Docker build environment
+
+We are building a Docker image to be used as a repeatable, consistent build environment which will speed things up because it will already have the dependencies downloaded and installed. We're just fetching a few prerequisites, installing the Android SDK, and then grabbing _fastlane_.
+
+`Dockerfile`
+```dockerfile
+FROM openjdk:8-jdk
+
+# Just matched `app/build.gradle`
+ENV ANDROID_COMPILE_SDK "26"
+# Just matched `app/build.gradle`
+ENV ANDROID_BUILD_TOOLS "28.0.3"
+# Version from https://developer.android.com/studio/releases/sdk-tools
+ENV ANDROID_SDK_TOOLS "24.4.1"
+
+ENV ANDROID_HOME /android-sdk-linux
+ENV PATH="${PATH}:/android-sdk-linux/platform-tools/"
+
+# install OS packages
+RUN apt-get --quiet update --yes
+RUN apt-get --quiet install --yes wget tar unzip lib32stdc++6 lib32z1 build-essential ruby ruby-dev
+# We use this for xxd hex->binary
+RUN apt-get --quiet install --yes vim-common
+# install Android SDK
+RUN wget --quiet --output-document=android-sdk.tgz https://dl.google.com/android/android-sdk_r${ANDROID_SDK_TOOLS}-linux.tgz
+RUN tar --extract --gzip --file=android-sdk.tgz
+RUN echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter android-${ANDROID_COMPILE_SDK}
+RUN echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter platform-tools
+RUN echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter build-tools-${ANDROID_BUILD_TOOLS}
+RUN echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter extra-android-m2repository
+RUN echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter extra-google-google_play_services
+RUN echo y | android-sdk-linux/tools/android --silent update sdk --no-ui --all --filter extra-google-m2repository
+# install Fastlane
+COPY Gemfile.lock .
+COPY Gemfile .
+RUN gem install bundle
+RUN bundle install
+```
+
+## Setting up GitLab
+
+With our build environment ready, let's set up our `.gitlab-ci.yml` to tie it all together in a CI/CD pipeline.
+
+### Stages
+
+The first thing we do is define the stages that we're going to use. We'll set up our build environment, do our debug and release builds, run our tests, deploy to internal, and then promote through alpha, beta, and production. You can see that, apart from `environment`, these map to the lanes we set up in our `Fastfile`.
+
+``` yaml
+stages:
+  - environment
+  - build
+  - test
+  - internal
+  - alpha
+  - beta
+  - production
+```
+
+### Build environment update
+
+Next up we're going to update our build environment, if needed. If you're not familiar with `.gitlab-ci.yml` it may look like there's a lot going on here, but we'll take it one step at a time. The very first thing we do is set up an `.updateContainerJob` yaml template which can be used to capture shared configuration for other steps that want to use it. In this case, it will be used by the subsequent `updateContainer` and `ensureContainer` jobs.
+
+#### `.updateContainerJob` template
+
+In this case, since we're dealing with Docker in Docker (`dind`), we are running some scripts which log into the local [GitLab container registry](https://docs.gitlab.com/ee/user/packages/container_registry/index.html), fetch the latest image to be used as a layer cache reference, build a new image, and finally push the new version to the registry.
+
+``` yaml
+.updateContainerJob:
+  image: docker:stable
+  stage: environment
+  services:
+    - docker:dind
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    - docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG || true
+    - docker build --cache-from $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG -t $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+```
+
+#### `updateContainer` job
+
+The first job that inherits `.updateContainerJob`, `updateContainer`, only runs if the `Dockerfile` was updated and will run through the template steps described above.
+
+``` yaml
+updateContainer:
+  extends: .updateContainerJob
+  only:
+    changes:
+      - Dockerfile
+```
+
+#### `ensureContainer` job
+
+Because the first pipeline on a branch can fail, the `only: changes: Dockerfile` syntax won't trigger for a subsequent pipeline after you fix things. This can leave your branch without a Docker image to use. So the `ensureContainer` job will look for an existing image and only build one if it doesn't exist. The one downside to this is that both of these jobs will run at the same time if it is a new branch.
+
+Ideally, we could just use `$CI_REGISTRY_IMAGE:master` as a fallback when `$CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG` isn't found but there isn't any syntax for this.
+
+``` yaml
+ensureContainer:
+  extends: .updateContainerJob
+  allow_failure: true
+  before_script:
+    - "mkdir -p ~/.docker && echo '{\"experimental\": \"enabled\"}' > ~/.docker/config.json"
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+    # Skip update container `script` if the container already exists
+    # via https://gitlab.com/gitlab-org/gitlab-ce/issues/26866#note_97609397 -> https://stackoverflow.com/a/52077071/796832
+    - docker manifest inspect $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG > /dev/null && exit || true
+```
+
+### Build and test
+
+With our build environment ready, we're ready to build our `debug` and `release` targets. Similar to above, we use a template to set up repeated steps within our build jobs, avoiding duplication. Within this section, the first thing we do is set the image to the build environment container image we built in the previous step.
+
+#### `.build_job` template
+
+``` yaml
+.build_job:
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  stage: build
+
+...
+```
+
+Next up is a step that's specific to Gitter, but if you use shared assets between a iOS and Android build you might consider doing something similar. What we're doing here is grabbing the latest mobile artifacts built by the web application pipeline and placing them in the appropriate location.
+
+``` yaml
+  before_script:
+    - wget --output-document=artifacts.zip --quiet "https://gitlab.com/gitlab-org/gitter/webapp/-/jobs/artifacts/master/download?job=mobile-asset-build"
+    - unzip artifacts.zip
+    - mkdir -p app/src/main/assets/www
+    - mv output/android/www/* app/src/main/assets/www/
+```
+
+Next, we use [project-level variables](https://docs.gitlab.com/ee/ci/variables/) containing a binary (hex) dump of our signing keystore file and convert it back to a binary file. This allows us to inject the file into the build at runtime instead of checking it into source control, a potential security concern. To get the `signing_jks_file_hex` variable hex value, we use this binary -> hex command, `xxd -p gitter-android-app.jks`
+
+``` yaml
+    # We store this binary file in a variable as hex with this command, `xxd -p gitter-android-app.jks`
+    # Then we convert the hex back to a binary file
+    - echo "$signing_jks_file_hex" | xxd -r -p - > android-signing-keystore.jks
+```
+
+Here we're setting the version at runtime – these environment variables will be used by the Gradle build as implemented above. Because `$CI_PIPELINE_IID` increments on each pipeline, we can guarantee our `versionCode` is always higher than the last and be able to publish to the Google Play Store.
+
+``` yaml
+    # We add 100 to get this high enough above current versionCodes that are published
+    - "export VERSION_CODE=$((100 + $CI_PIPELINE_IID)) && echo $VERSION_CODE"
+    - "export VERSION_SHA=`echo ${CI_COMMIT_SHORT_SHA}` && echo $VERSION_SHA"
+```
+
+Next, we automatically generate a changelog to include by copying whatever you have in `CURRENT_VERSION.txt` to the current `<versionCode>.text`. You can update `CURRENT_VERSION.txt` as necessary. I won't dive into the details of the merge request (MR) creation script here since it's somewhat specific to Gitter, but if you're interested in how something like this might work check out the [`create-changlog-mr.sh` script](https://gitlab.com/gitlab-org/gitter/gitter-android-app/blob/master/ci-scripts/create-changlog-mr.sh).
+
+``` yaml
+    # Make the changelog
+    - cp ./fastlane/metadata/android/en-GB/changelogs/CURRENT_VERSION.txt "./fastlane/metadata/android/en-GB/changelogs/$VERSION_CODE.txt"
+    # We allow the remote push and MR creation to fail because the other job could create it
+    # and it's not strictly necessary (we just need the file locally for the CI/CD build)
+    - ./ci-scripts/create-changlog-mr.sh || true
+    # Because we allow the MR creation to fail, just make sure we are back in the right repo state
+    - git checkout "$CI_COMMIT_SHA"
+```
+
+Just a couple of final items: First, whenever a build job is done, we remove the jks file just to be sure it doesn't get saved to artifacts, and second we set up the artifact directory from where the output of the build (`.apk`) will be saved.
+
+``` yaml
+  after_script:
+    - rm android-signing-keystore.jks || true
+  artifacts:
+    paths:
+    - app/build/outputs
+```
+
+#### `buildDebug` and `buildRelease` jobs
+
+Most of the complexity here was set up in the template, so as you can see our `buildDebug` and `buildRelease` job definitions are very clear. Both just call the appropriate _fastlane_ task (which, if you remember, then calls the appropriate Gradle task). The `buildRelease` output is associated with the `production` environment so we can define an extra production-scoped set of [project-level variables](https://docs.gitlab.com/ee/ci/variables/) which are different from our testing variables.
+
+Since we set up code signing in the Gradle config (`build.gradle`) earlier, we can be confident here that our `release` builds are appropriately signed and ready for publishing.
+
+```
+buildDebug:
+  extends: .build_job
+  script:
+    - bundle exec fastlane buildDebug
+
+buildRelease:
+  extends: .build_job
+  script:
+    - bundle exec fastlane buildRelease
+  environment:
+    name: production
+```
+
+Testing is really just another instance of the same thing, but instead of calling one of the build lanes we call the test lane. Note that we are using a `dependency` from the `buildDebug` job to ensure we don't need to rebuild anything.
+
+``` yaml
+testDebug:
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  stage: test
+  dependencies:
+    - buildDebug
+  script:
+    - bundle exec fastlane test
+```
+
+### Publish
+
+Now that our code is being built, we're ready to publish to the Google Play Store. We only *publish* to the `internal` testing track and *promote* this same build to the rest of the tracks.
+
+This is achieved through the _fastlane_ integration, using a pre-built action to handle the job. In this case we are using a `dependency` on the `buildRelease` job, and creating a local copy of the Google API JSON keyfile (again stored in a [project-level variable](https://docs.gitlab.com/ee/ci/variables/) instead of checking it into source control.) We have this job (and all subsequent jobs) set to run only on `manual` action so we have full human control/intervention from this point forward. If you prefer to continuously deliver to your `internal` track you'd simply need to remove the `when: manual` entry and you'd have achieved your goal.
+
+If you're like me, this may seem too easy to work. With everything we've configured in GitLab and _fastlane_ to this point, it's really this simple!
+
+``` yaml
+publishInternal:
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  stage: internal
+  dependencies:
+    - buildRelease
+  when: manual
+  before_script:
+    - echo $google_play_service_account_api_key_json > ~/google_play_api_key.json
+  after_script:
+    - rm ~/google_play_api_key.json
+  script:
+    - bundle exec fastlane internal
+```
+
+### Promote
+
+As indicated earlier, promotion through alpha, beta, and production are all `manual` jobs. If internal testing is good, it can be promoted one step forward in sequence all the way through to production using these manual jobs.
+
+If you're with me to this point, there's really nothing new here and this really highlights the power of GitLab with _fastlane_. We have a `.promote_job` template job which creates the local Google API JSON key file and the promote jobs themselves are basically identical.
+
+``` yaml
+.promote_job:
+  image: $CI_REGISTRY_IMAGE:$CI_COMMIT_REF_SLUG
+  when: manual
+  dependencies: []
+  only:
+    - master
+  before_script:
+    - echo $google_play_service_account_api_key_json > ~/google_play_api_key.json
+  after_script:
+    - rm ~/google_play_api_key.json
+
+promoteAlpha:
+  extends: .promote_job
+  stage: alpha
+  script:
+    - bundle exec fastlane promote_internal_to_alpha
+
+promoteBeta:
+  extends: .promote_job
+  stage: beta
+  script:
+    - bundle exec fastlane promote_alpha_to_beta
+
+promoteProduction:
+  extends: .promote_job
+  stage: production
+  script:
+    - bundle exec fastlane promote_beta_to_production
+```
+
+Note that we're `only` allowing production promotion from the `master` branch, instead of from any branch. This is to ensure that the production build uses the separate set of `production` environment variables which only happens for the `buildRelease` job. We also have these [variables set as protected](https://docs.gitlab.com/ee/ci/variables/#protected-variables) so we can enforce that they are only used on the `master` branch which is protected.
+
+### Variables
+
+The last step is to make sure you set up the [project-level variables](https://docs.gitlab.com/ee/ci/variables/) we used throughout the configuration above:
+
+ - `google_play_service_account_api_key_json`: see [https://docs.fastlane.tools/getting-started/android/setup/#collect-your-google-credentials](https://docs.fastlane.tools/getting-started/android/setup/#collect-your-google-credentials)
+ - `oauth_client_id`
+ - `oauth_client_id`, protected, `production` environment
+ - `oauth_client_secret`
+ - `oauth_client_secret`, protected, `production` environment
+ - `oauth_redirect_uri`
+ - `oauth_redirect_uri`, protected, `production` environment
+ - `signing_jks_file_hex`: `xxd -p gitter-android-app.jks`
+ - `signing_key_alias`
+ - `signing_key_password`
+ - `signing_keystore_password`
+
+If you are using the same [`create-changlog-mr.sh` script](https://gitlab.com/gitlab-org/gitter/gitter-android-app/blob/master/ci-scripts/create-changlog-mr.sh) as us,
+
+ - `deploy_key_android_repo`: see [https://docs.gitlab.com/ee/user/project/deploy_tokens/](https://docs.gitlab.com/ee/user/project/deploy_tokens/)
+ - `gitlab_api_access_token`: see [https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html](https://docs.gitlab.com/ee/user/profile/personal_access_tokens.html) (we use a bot user)
+
+![Project variables for Gitter for Android](/images/blogimages/android-fastlane-variables.png){: .shadow.medium.center}
+
+## What's next
+
+Using this configuration we've got Gitter for Android building, signing, deploying to our internal track, and publishing to production as frequently as we like. Next up will be to do the same for iOS, so watch this space for our next post!
+
+Photo by [Patrick Tomasso](https://unsplash.com/@impatrickt) on [Unsplash](https://unsplash.com/photos/KGcLJwIYiac)
+{: .note}

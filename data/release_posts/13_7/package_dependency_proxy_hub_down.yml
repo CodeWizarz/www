@@ -1,0 +1,17 @@
+features:
+  secondary:
+    - name: "Avoid Docker rate limits and speed up your pipelines"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/packages/dependency_proxy/#docker-hub-rate-limits-and-the-dependency-proxy'
+      reporter: trizzi
+      stage: package
+      video: 'https://www.youtube.com/embed/Nc4nUo7Pq08'
+      categories:
+        - 'Dependency Proxy'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/241639'
+      description: |
+        For faster and more reliable builds, you can use the Dependency Proxy to cache the container images hosted on Docker Hub. But, when Docker started to enforce [rate limits on pull requests from Docker Hub](/blog/2020/10/30/mitigating-the-impact-of-docker-hub-pull-requests-limits/), you noticed that even when your image was pulled from the cache, Docker counted it against your limit. That's because the Dependency Proxy was only caching the image's layers (or blobs) and not the manifest, which contains information about how to build a given image. Since the manifest is required, a pull request was still required. This also means that if Docker Hub was unavailable, you couldn't pull your image.
+
+        Moving forward, the Dependency Proxy will cache both the image's layers and manifest. So, the first time you pull `alpine:latest`, the image will be added to the Dependency Proxy cache and count as one pull against your rate limit. The next time you pull `alpine:latest`, it will be pulled from the cache, even if Docker Hub is unavailable and will not count against your rate limit.
+
+        Don't forget, as of milestone 13.6, the [Dependency Proxy is available in Core](/releases/2020/11/22/gitlab-13-6-released/#the-dependency-proxy-is-now-open-source). So, give it a try and let us know what you think. Or better yet, consider contributing to one of the open [issues](https://gitlab.com/groups/gitlab-org/-/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=devops%3A%3Apackage&label_name[]=Category%3ADependency%20Proxy).

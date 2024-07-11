@@ -1,0 +1,18 @@
+---
+features:
+  secondary:
+  - name: "Trigger job mirror status of downstream pipeline when cancelled"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/ci/yaml/#triggerstrategy'
+    reporter: dhershkovitch
+    stage: verify
+    categories:
+    - Pipeline Composition
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/220794'
+    description: |
+      Previously, a trigger job configured with `strategy: depends` mirrored the job status of the downstream pipeline. If the downstream pipeline was in the `running` status, the trigger job was also marked as `running`. Unfortunately, if the downstream job did not comnplete and had a status `canceled`, the trigger job's status was inaccurately `failed`.
+
+      In this release, we have updated trigger jobs with `strategy: depend` to reflect the downstream's pipelines's statis accurately. When a downstream pipeline is cancelled, the trigger also shows canceled.
+
+      This change may have an impact on your existing pipelines, especially if you have jobs that rely on the trigger job's status being marked as failed. We recommend reviewing your pipeline configurations and making any necessary adjustments to accommodate this change in behavior.
+

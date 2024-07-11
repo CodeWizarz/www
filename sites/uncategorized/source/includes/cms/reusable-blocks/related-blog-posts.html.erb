@@ -1,0 +1,111 @@
+<div class="container md:slp-mb-160">
+  <div class="slp-relative slp-text-center slp-max-w-7xl slp-mb-32 slp-mx-auto">
+    <h2
+      class="slp-font-normal slp-text-grayscale-333 slp-text-3xl md:slp-text-4xl slp-leading-tight slp-mb-16 slp-col-span-full"
+    >
+      <%= related_posts.heading %>
+    </h2>
+    <% if related_posts.subheading %>
+      <p
+        class="slp-font-normal slp-text-grayscale-333 slp-text-xl slp-mb-8 slp-leading-tight"
+      >
+        <%= related_posts.subheading %>
+      </p>
+    <% end %>
+  </div>
+
+  <div class="grid-layout grid-layout3">
+    <!-- Gather all suggested content urls from the topic data file 
+         These must by blog articles -->
+    <% related_posts.posts.each do |article| %>
+    <!--/ Create list of posts if title from data file matches the URL of a blog post from our blog, 
+        -->
+      <% posts = blog('blog').articles.keep_if{ |a| a.url.include?(article.url)}[0...6] %>
+      <% releases = blog('releases').articles.keep_if{ |a| a.url.include?(article.url)}[0...6] %>
+      <!--/ for each post in our group, print card
+          -->
+          <!--/ This allows us to designate just post URLs in Netlify CMS, and the template will go find a post with the matching title an pull in data from the blog post such as author, description, and image. This avoids having to enter in lost of data for each card (image, description) and pulls data from single point of truth
+          -->
+      <% posts.each do | article | %>
+        <% author = author_data(author: article.data.author) %>
+        <a class="tile-resource grid-item slp-border slp-border-grayscale-highlight slp-border-solid slp-relative slp-card-shadow hover:slp-shadow-lg slp-ease-in-out slp-transition-all slp-duration-300 slp-rounded-md slp-group slp-max-w-lg slp-flex slp-flex-col slp-bg-white slp-p-32 " href="<%= article.url %>">
+            <div class="slp-mb-6">
+              <svg
+                width="14"
+                height="16"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                class="slp-inline-block slp-mr-2"
+              >
+                <path
+                  d="M11.96 13.728H8.184a.642.642 0 01-.64-.64c0-.352.288-.64.64-.64h3.776c.352 0 .64-.288.64-.64V1.92a.642.642 0 00-.64-.64H2.04a.642.642 0 00-.64.64v9.888c0 .352.288.64.64.64h2.368c.352 0 .64.288.64.64 0 .352-.288.64-.64.64H2.04a1.926 1.926 0 01-1.92-1.92V1.92C.12.864.984 0 2.04 0h9.92c1.056 0 1.92.864 1.92 1.92v9.888c0 1.056-.864 1.92-1.92 1.92z"
+                  fill="#7759c2"
+                ></path>
+                <path
+                  d="M10.36 6.752H3.64a.642.642 0 01-.64-.64V3.328c0-.352.288-.64.64-.64h6.72c.352 0 .64.288.64.64v2.784c0 .352-.288.64-.64.64zm-6.08-1.28h5.44V3.968H4.28v1.504zM7.704 11.04H3.64A.642.642 0 013 10.4c0-.352.288-.64.64-.64h4.064c.352 0 .64.288.64.64 0 .352-.288.64-.64.64zM10.36 8.896H3.64a.642.642 0 01-.64-.64c0-.352.288-.64.64-.64h6.72c.352 0 .64.288.64.64 0 .352-.288.64-.64.64zM4.408 16a.617.617 0 01-.32-.096c-.192-.128-.32-.32-.32-.544v-2.272c0-.352.288-.64.64-.64.352 0 .64.288.64.64v1.152l2.784-1.696a.602.602 0 01.864.224.602.602 0 01-.224.864L4.76 15.904a.645.645 0 01-.352.096z"
+                  fill="#7759c2"
+                ></path>
+              </svg>
+              <span class="slp-uppercase slp-text-xs"><%= article.data.categories %></span>
+            </div>
+            <h2 class="group-focus:slp-text-ui-secondary group-hover:slp-text-ui-secondary slp-text-lg slp-leading-tight slp-mb-6 slp-font-normal slp-text-grayscale-333">
+              <%= article.title %>
+              <svg
+                width="9"
+                height="6"
+                xmlns="http://www.w3.org/2000/svg"
+                class="slp-inline-block"
+              >
+                <path
+                  d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z"
+                  fill="none"
+                  class="slp-fill-current slp-text-black group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"
+                ></path>
+              </svg>
+            </h2>
+            <% if article.data.author == "GitLab" or article.data.author == nil %>
+              <div class="slp-flex slp-items-center slp-mt-auto">
+                <img
+                  alt="Tanuki GitLab profile"
+                  src="/images/gitlab-logo-extra-whitespace.png"
+                  height="39"
+                  width="39"
+                  class="slp-mr-4 slp-rounded-full slp-bg-grayscale-gray2"
+                />
+                <span class="slp-text-xs slp-text-grayscale-333">GitLab</span>      
+              </div>
+            <% elsif author %> 
+              <div class="slp-flex slp-items-center slp-mt-auto">
+                <img
+                  alt="<%= author.name %> GitLab profile"
+                  src="<%= author.avatar_url %>"  
+                  height="39"
+                  width="39"
+                  class="slp-mr-4 slp-rounded-full slp-bg-grayscale-gray2"
+                />
+                <span class="slp-text-xs slp-text-grayscale-333"><%= author.name %></span>    
+              </div> 
+            <% end %>
+        </a>
+      <% end %>
+    <% end %>
+  </div>
+  <a
+    href="/blog/"
+    class="slp-text-ui-secondary slp-font-bold slp-text-sm slp-leading-4  hover:slp-underline slp-min-w-full slp-text-center slp-block"
+    >
+    All Blog Posts
+    <svg
+    width="9"
+    height="6"
+    xmlns="http://www.w3.org/2000/svg"
+    class="slp-inline-block"
+    >
+      <path
+      d="M6.685.683L9 3 6.685 5.317a.624.624 0 11-.883-.884l.808-.808H.624a.625.625 0 010-1.25H6.61l-.808-.808a.625.625 0 01.883-.884z"
+      fill="none"
+      class="slp-fill-current group-hover:slp-text-ui-secondary group-focus:slp-text-ui-secondary"
+    ></path>
+    </svg>
+  </a>
+</div>

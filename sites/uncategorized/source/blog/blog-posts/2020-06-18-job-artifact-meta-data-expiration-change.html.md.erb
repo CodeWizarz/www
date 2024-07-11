@@ -1,0 +1,59 @@
+---
+title: Artifact and job meta data expiration settings are changing for GitLab.com
+author: Parker Ennis
+author_gitlab: parker_ennis
+author_twitter: Parker_GitLab
+categories: news
+image_title: '/images/default-blog-image.png'
+description: Default expiration dates for job meta data and artifacts will change on June 22, 2020. Find out how this benefits all users of GitLab.com
+tags: performance, releases, production
+twitter_text: "Default expiration dates for job meta data and artifacts will change on June 22, 2020. Find out why this will benefit all @gitlab users"
+featured: no
+postType: product, Product Marketing
+---
+
+To help maintain overall stability and performance for all GitLab users, some changes are coming to GitLab.com effective June 22, 2020. This will directly impact the default retention period for [older job metadata](https://docs.gitlab.com/ee/administration/settings/continuous_integration.html#archive-jobs) as well as enable a [default expiration policy](https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlab-cicd) for older job artifacts.
+
+## TL;DR
+
+### **Updating GitLab.com's Job Artifact Expiration Policy**
+
+What you need to know:
+* Starting June 22, 2020, new job artifacts will immediately default to a 30 day expiration upon initial creation.
+* Existing job artifacts without an expiration date that were created after October 22, 2019, but before June 22, 2020, will have their expiration date set to 1 year after the initial creation date.
+   * _For example, if the last pipeline job you created and ran successfully was on November 10th, 2019, then the job artifacts produced by that job upon completion would have a default expiration date automatically set to November 10th, 2020._
+* Existing job artifacts without an expiration date that were created before October 22, 2019, will have their expiration date set to April 22, 2021.
+   * _For example, if the last pipeline job you created and ran successfully was on July 10th, 2019, then the job artifacts produced by that job upon completion would have a default expiration date automatically set to April 22nd, 2021, unless you specify a different expiration date._
+
+For additional details, please see our [GitLab.com CI/CD settings documentation](https://docs.gitlab.com/ee/user/gitlab_com/index.html#gitlab-cicd).
+
+### **Default archive of jobs on GitLab.com set to 3 months**
+
+What you need to know:
+* Starting June 22, 2020 jobs older than 12 months will be archived.
+* Starting August 6, 2020 jobs older than 6 months will be archived.
+* Starting September 22, 2020 jobs older than 3 months will be archived. This will be the default setting going forward on GitLab.com.
+* New build data will be archived 3 months after creation starting June 22, 2020.
+* New job metadata will be archived 3 months after creation starting June 22, 2020.
+For additional details, please see our GitLab.com CI/CD settings documentation, linked above.
+
+## Additional context
+
+### What are we doing and why?
+
+The functionality changes will set build artifacts to expire on GitLab.com after 30 days and archive [build metadata](/blog/2019/08/28/building-build-images/) after 3 months. In most cases, you probably aren't utilizing old job artifacts that are sitting in storage and will be set to expire. This same concept applies to old metadata for jobs that aren't getting used and you may have even forgotten about.
+
+### When do the changes take effect?
+
+New artifacts will have their expiration date set to 30 days by default starting June 22nd, 2020. Existing artifacts will automatically have their expiration dates set to the updated policy if they aren't already set by the aforementioned date. The last of those existing artifacts will have an expiration date of 12 months.
+
+Additionally, build data older than 12 months will be archived on June 22, 2020 and any other data will be gradually set to expire within 3 months of the original creation date over the next 3 months.
+
+### What if I want to keep my artifacts and data? How can I do that?
+
+Don't worry! You can always override artifact expiration with the 'expire_in' keyword to keep a job artifact longer than 30 days. Additionally, artifacts from the [last successful job](https://gitlab.com/gitlab-org/gitlab/-/issues/16267) that were created after September 22, 2020, will not be archived after 30 days.
+
+### What's the benefit to end users?
+
+These actions will result in improved performance and value for everyone using GitLab. By making these changes, we'll free up a significant amount of space in both the GitLab.com database and on disk, which results in better reliability/performance. It also reduces operational costs for GitLab, which aids us in continuing to provide all users with the smoothest possible user experience far into the future!
+

@@ -1,0 +1,39 @@
+---
+title: GitLab.com Container Registry to use Google Cloud CDN
+author: Darren Eastman
+author_gitlab: DarrenEastman
+author_twitter: EastmanDarren
+categories: company
+image_title: '/images/blogimages/container-reg-cdn-blog.jpg'
+description: "The GitLab.com Container Registry will now interface with the Google Cloud Content Delivery Network"
+tags: DevOps, inside GitLab, customers, integrations 
+twitter_text: "GitLab.com Container Registry to use Google Cloud #CDN"
+featured: yes 
+postType: announcement
+---
+
+In January 2022, we are working on implementing a change to the Container Registry on GitLab.com. The GitLab Container Registry will now interface with the Google Cloud Content Delivery Network [CDN](https://cloud.google.com/cdn) to optimize costs and improve performance. When implemented, the system will redirect download requests for blobs stored in the GitLab Container Registry to Google Cloud CDN instead of Google Cloud Storage, as is the case today. We expect GitLab CI users to benefit from faster image downloads for those image layers retrieved from edge caches closest to your location.
+
+**Disclaimer** This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab.
+
+## How will this work?
+
+Authorized requests for [downloading a blob](https://docs.docker.com/registry/spec/api/#pulling-a-layer) and [checking if a blob exists](https://docs.docker.com/registry/spec/api/#existing-layers) in the [GitLab.com Container Registry](https://docs.gitlab.com/ee/user/packages/container_registry) will be redirected to the Google Cloud CDN at `cdn.registry.gitlab-static.net`. So far, these requests were redirected to Google Cloud Storage at `storage.googleapis.com`.
+
+The exception is for requests originating from within the Google Cloud Platform. These will continue to be redirected to Cloud Storage.
+
+## When will this change occur?
+
+We expect to start the transition in late January 2022. This will be a gradual transition using a percentage-based rollout, so you can expect an increasing number of your requests to be redirected to Google Cloud CDN instead of Google Cloud Storage until all of them are served by the former.
+
+You can follow along with the progress of this initiative and raise any questions in this [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/350048). We will post more detailed timelines in that issue as we refine the rollout plan.
+
+## How does this change impact you?
+
+Since most client tools, such as the Docker CLI, handle redirections automatically, this change will be imperceptible for most users on GitLab.com.
+
+However, if you are allow listing `storage.googleapis.com`, you will need to add `cdn.registry.gitlab-static.net` to the allow list as well. Please keep both endpoints on your allow list for the time being, as the transition will be gradual. There will be another blog post once the transition is complete.
+
+
+Cover image by [Pat Kay](https://unsplash.com/photos/3d7DTnuNj6E) on [Unsplash](https://unsplash.com)
+{: .note}

@@ -1,0 +1,188 @@
+---
+title: "How to use Scaleway to self-host your GitLab Runners"
+author: Benedikt Rollik
+categories: engineering
+description: "Learn how to set up GitLab CI for your iOS and macOS projects using a hosted Mac mini M1."
+tags: git, ci, cd
+guest: true
+ee_cta: false
+install_cta: false
+twitter_text: "Learn how to use @GitLab and Scaleway to set up CI for iOS and macOS"
+featured: no
+postType: product
+merch_banner: merch_three
+related_posts:
+  - "/blog/2019/09/26/building-a-cicd-pipeline-in-20-mins/"
+  - "/blog/2019/04/02/why-gitlab-ci-cd/"
+  - "/blog/2020/07/06/beginner-guide-ci-cd/"
+---
+
+GitLab's complete DevOps platform comes with built-in continuous integration (CI) and continuous delivery (CD) via [GitLab CI/CD](https://docs.gitlab.com/ee/ci/). GitLab CI/CD is a great solution to increase developer productivity and motivation to write higher-quality code without sacrificing speed. It runs a series of tests every time a commit is pushed, providing immediate visibility into the results of changes in the codebase. While it is not a hassle to set up a CI using Linux-based machines, iOS and macOS developers may find it is more complicated to have access to a Mac that is connected and available 24 hours a day.
+
+GitLab Runners, provided on GitLab.com, are the engine that executes CI workflows. Due to various requirements, some users may opt to self-host runners on public cloud VMs. This is super easy if the build VM OS requirement is Linux-based since there are several low-cost public cloud Linux-based VM solutions. However, iOS and macOS developers may find fewer options for public cloud-delivered macOS based systems.
+
+In this blog post tutorial, you will learn how to set up CI for iOS and macOS application development using a Scaleway Virtual Instance running the [GitLab application](https://www.scaleway.com/en/docs/install-gitlab-with-dbaas/) and a GitLab Runner that runs on a Scaleway-hosted [Mac mini M1](https://www.scaleway.com/en/hello-m1/). To complete this tutorial most successfully, we assume that you have some experience creating Xcode and GitLab projects, as well as some experiences using a Terminal and git.
+
+> **Requirements**
+>
+- You have an account and are logged into [console.scaleway.com](https://console.scaleway.com)
+- You have [configured your SSH Key](https://www.scaleway.com/en/docs/configure-new-ssh-key/)
+- You have a Virtual Instance running the GitLab InstantApp
+- **Note:** We assume you have already deployed a Virtual Instance running the GitLab InstantApp. If not, [deploy GitLab](https://www.scaleway.com/en/docs/install-gitlab-with-dbaas/) before continuing with this tutorial.
+
+### Deploying the Mac mini M1
+
+1. Log into your [Scaleway console](https://console.scaleway.com) and click on **Apple silicon** in the **Compute** section of the sidebar.
+
+   ![Orga_dashboard](/images/blogimages/scaleway-blog/Orga_dashboard.png){: .shadow.medium}
+   Click on the "Apple silicon" in the Scaleway console.
+   {: .note.text-center}
+
+1. The Apple silicon M1 as-a-Service splash screen displays. Click **Create a Mac mini M1**.
+1. Enter the details for your Mac mini M1:
+
+   - Select the geographic region in which your Mac mini M1 will be deployed.
+   - Choose the macOS version you want to run on the Mac mini M1.
+   - Select the hardware configuration for your Mac mini M1.
+   - Enter a name for your Mac mini M1.
+
+1. Click **Create a Mac mini M1** to launch the installation of your Apple silicon M1 as-a-Service.
+
+   ![M1_creation](/images/blogimages/scaleway-blog/M1_creation.png){: .shadow.medium}
+   Click "Create a Mac mini M1" to launch.
+   {: .note.text-center}
+
+1. Once deployed click **VNC** from the Mac mini M1 Overview page to launch the remote desktop client:
+
+   <img src="/assets/images/docs/gitlab-ci/mac_vnc.png" width="700" alt="">
+
+1. Launch the **App Store** and install the **Xcode development environment** on your Mac mini M1:
+
+### Setting-up the Homebrew package manager
+
+[Homebrew](https://brew.sh/) is a package manager for macOS. It can be used to manage the software installed on your Mac. We use it to install `gitlab-runner` on your Mac mini M1.
+
+1. Click on the Terminal icon to open a new **Terminal**:
+
+   <img src="/assets/images/docs/gitlab-ci/mac_terminal.png" width="100" alt="">
+
+1. Copy-paste the following code in the terminal application and press **Enter** to install Homebrew and the Xcode command line tools:
+
+   ```sh
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   ```
+
+Leave the terminal window open since it is required for the next step.
+
+#### Installing the GitLab Runner
+
+The GitLab Runner is an application installed on a different computer than your GitLab host and runs jobs in a pipeline. It executes the build task on your Mac mini M1 for the code you push to your GitLab instance.
+
+1. Make sure you are still in the **Terminal** application. If you closed it after installing Homebrew, open a new one.
+
+1. Run the following command to install `gitlab-runner`:
+
+   ```
+   brew install gitlab-runner
+   ```
+
+### Configuring the Runner in GitLab
+
+   > **Note:** You require a Virtual Instance running the [GitLab InstantApp](https://www.scaleway.com/en/docs/how-to-use-the-gitlab-instant-apps/) for the following steps.
+
+1. GitLab Runner requires a registration token for the link between your GitLab Instance and the Runner. Open the GitLab web interface of your Virtual Instance and log into it.
+
+1. Select the project you want to use in GitLab with the Runner. If you don't have a project yet, click **+** > **Create Project** and fill in the required information about the project.
+
+1. On the projects overview page, click **Settings** > **CI/CD** to view the Continuous Integration settings.
+
+1. On the Continuous Integration settings page, click **Expand** in the **Runner** section to view the required information to link GitLab with your Runner:
+
+   <img src="/assets/images/docs/gitlab-ci/mac_runners.png" width="700" alt="">
+
+1. Scroll down to retrieve the GitLab Instance URL and the registration token:
+
+   <img src="/assets/images/docs/gitlab-ci/mac_token.png" width="300" alt="">
+
+1. Run the following command in the Terminal application on your Mac to launch the configuration wizard for your GitLab Runner:
+
+   ```
+   gitlab-runner register
+   ```
+
+   Enter the required information as follows:
+
+   ```
+   Runtime platform                                    arch=arm64 os=darwin pid=810 revision=2ebc4dc4 version=13.9.0
+   WARNING: Running in user-mode.
+   WARNING: Use sudo for system-mode:
+   WARNING: $ sudo gitlab-runner...
+
+   Enter the GitLab instance URL (for example, https://gitlab.com/):
+   http://163.172.141.212/   <- Enter the URL of your GitLab instance
+   Enter the registration token:
+   1mWBwzWAZSL7-pR18K3Y  <- Enter the registration token for your Runner
+   Enter a description for the runner:
+   [306a20a2-2e01-4f2e-bc76-a004d35d9962]: Mac mini M1  <- Enter a description for your Runner
+   Enter tags for the runner (comma-separated):
+   Mac, mini, M1, dev, xcode  <- Optionally, enter tags for the runner
+   Registering runner... succeeded                     runner=1mWBwzWA
+   Enter an executor: shell, virtualbox, docker+machine, custom, docker, docker-ssh, kubernetes, parallels, ssh, docker-ssh+machine:
+   shell  <- Enter the "shell" executor for the runner
+   Runner registered successfully. Feel free to start it, but if it's running already the config should be automatically reloaded!
+   ```
+
+1. Reload the CI/CD configuration page of your GitLab instance. The runner is now linked to your project and displays as available:
+
+   <img src="/assets/images/docs/gitlab-ci/mac_runner_active.png" width="300" alt="">
+
+   > **Note:** If you have several projects in a GitLab group, you can configure the Runner at the group-level. Runners available at the group-level are available for all projects within said group.
+
+### Configuring CI for your project
+
+GitLab stores the configuration of the CI in a file called `.gitlab-ci.yml`. This file should be in the folder you created for your project. Typically this is the same directory where your Xcode project file (`ProjectName.xcodeproj`) is located. The GitLab CI configuration file is written in [YAML](https://yaml.org/).
+
+Inside the configuration file you can specify information like:
+
+* The scripts you want to run.
+* Other configuration files and templates you want to include.
+* Dependencies and caches.
+* The commands you want to run in sequence and those you want to run in parallel.
+* The location to deploy your application to.
+* Whether you want to run the scripts automatically or trigger any of them manually.
+
+1. Open a text editor on your local computer and create the `.gitlab-ci.yml` file as in the following example.
+
+   ```
+   stages:
+     - build
+     - test
+
+   build-code-job:
+     stage: build
+     script:
+       - echo "Check the ruby version, then build some Ruby project files:"
+       - ruby -v
+       - rake
+
+   test-code-job1:
+     stage: test
+     script:
+       - echo "If the files are built successfully, test some files with one command:"
+       - rake test1
+   ```
+
+1. Save the file and make a new commit to add it to your repository.
+
+1. Push the commit to GitLab. The CI will automatically launch the tasks on your Runner.
+
+For more information on the GitLab CI configuration file, refer to the [official documentation](https://docs.gitlab.com/ee/ci/yaml/gitlab_ci_yaml.html).
+
+### Speed up development with Scaleway and GitLab
+
+Having a dedicated Mac available for executing your CI jobs can reduce your development team's cycle time. In this tutorial, we covered configuring a dedicated Mac mini M1 to host a GitLab Runner. If you want to learn more about the Mac mini M1 as-a-Service, refer to our [product documentation](https://www.scaleway.com/en/docs/apple-silicon-as-a-service-quickstart/).
+We invite the GitLab community to start building on Scaleway today with a €10 voucher to use on dozens of products & services. Find out more [here.](https://www.scaleway.com/en/gitlab-m1/)
+
+<hr>
+
+_Mac mini, macOS are trademarks of Apple Inc., registered in the U.S. and other countries and regions. IOS is a trademark or registered trademark of Cisco in the U.S. and other countries and is used by Apple under license. Scaleway is not affiliated with Apple Inc._

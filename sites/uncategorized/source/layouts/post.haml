@@ -1,0 +1,122 @@
+!!! 5
+%html{lang: "en"}
+  %head
+    - if current_article.data.canonical_path
+      - current_page.data.canonical_path = current_article.data.canonical_path
+    = partial "includes/layout/head"
+    -if current_page.data.postType
+      %script
+        dataLayer.push({'postType': '#{current_page.data.postType}'});
+    -if current_page.data.tags
+      %script
+        dataLayer.push({'tags': #{current_page.data.tags.split(", ")}});
+    -if current_page.data.categories
+      %script
+        dataLayer.push({'category': '#{current_page.data.categories}'});
+  %body{:data => {:spy => "scroll", :target => ".qnav"}}
+    = partial "includes/google/gtm"
+    = partial "includes/layout/header"
+
+    .blog.article
+      - if is_blog_article?
+        - if current_article.data.image_title
+          - image_title = current_article.data.image_title
+
+      .wrapper.body
+        - if is_blog_article?
+          .category-back-link
+            - if current_article.data.categories
+              - if current_page.request_path.start_with?('releases')
+                = link_to "/releases/categories/#{current_article.data.categories}/".downcase.gsub(/[ ]/, '-') do
+                  %span &#8592;
+                  %span Back to
+                  %span #{current_article.data.categories}
+              - else
+                = link_to "/blog/categories/#{current_article.data.categories}/".downcase.gsub(/[ ]/, '-') do
+                  %span &#8592;
+                  %span Back to
+                  %span #{current_article.data.categories}
+
+          %span.date
+            = current_article.date.to_time.strftime '%b %e, %Y'
+          %span -
+          %span.author
+            - guest = current_article.data.guest
+            - anchor = current_article.data.author_twitter || current_article.data.author_gitlab
+            - if guest
+              = current_article.data.author
+            - else
+              - if anchor
+                = link_to current_article.data.author, "/company/team/##{anchor}"
+              - else
+                = current_article.data.author
+            - if current_article.data.author_gitlab
+              = link_to "https://gitlab.com/#{current_article.data.author_gitlab}" do
+                %span &nbsp;
+                %span.author-gitlab
+                  %i.fab.fa-gitlab
+            - if current_article.data.author_twitter
+              = link_to "https://twitter.com/#{current_article.data.author_twitter}" do
+                %span &nbsp;
+                %span.author-twitter
+                  %i.fab.fa-twitter
+          - if current_article.data.release_number
+            .release-number
+              = current_article.data.release_number
+          %h1
+            = current_article.title
+          - if current_article.data.description
+            %p.description
+              = current_article.data.description
+          - if current_article.data.cta_button_link && current_article.data.cta_button_text
+            = link_to(current_article.data.cta_button_text, "#{current_article.data.cta_button_link}", class: "btn cta-btn btn-red")
+          - if current_article.data.just_commit_button_link && current_article.data.just_commit_button_text
+            = link_to(current_article.data.just_commit_button_text, "#{current_article.data.just_commit_button_link}", class: "btn cta-btn btn-red just-commit")
+
+        %p 
+        - if current_article.data.image_title
+          .cover{ style: "background-image: url(#{image_title});" }
+
+        .content
+
+          = yield
+
+          = partial "includes/blog/blog-merch-banner-dynamic"
+
+          = partial "includes/blog/twitter_helper"
+
+        - if is_blog_article? && current_article.tags.length > 0
+          %ul.tag-list.list-unstyled
+            - current_article.tags.each do |tag|
+              - if current_page.request_path.start_with?('releases')
+                %li.tag
+                  = link_to tag, "/releases/tags.html##{tag.gsub(/\s+/, '-')}"
+              - else
+                %li.tag
+                  = link_to tag, "/blog/tags.html##{tag.gsub(/\s+/, '-')}"
+
+        .social
+          = partial "includes/blog/share"
+
+        = partial "includes/blog/pager"
+
+      - if current_article.data.related_posts
+        - related_posts_articles = blog('blog').articles.keep_if{ |a| current_article.data.related_posts.include?(a.url) }[0...3]
+        - related_release_posts = blog('releases').articles.keep_if{ |a| current_article.data.related_posts.include?(a.url) }[0...3]
+      - else
+        - related_posts_articles = blog('blog').articles.keep_if{ |a| a.data.categories.include?(current_article.data.categories)}.reject{|article| article == current_article}[0...3]
+        - related_release_posts = blog('releases').articles.keep_if{ |a| a.data.categories.include?(current_article.data.categories)}.reject{|article| article == current_article}[0...3]
+
+      = partial "includes/blog/related_posts", locals: { articles: related_posts_articles, releases: related_release_posts }
+
+      .wrapper.signup
+        = partial "includes/newsletter-signup.html"
+
+      - if ci_environment?
+        .wrapper.comments
+          = partial "includes/blog/comments", locals: { article: current_article}
+
+      - unless current_page.data.install_cta == false
+        = partial "includes/blog/try"
+
+      = partial "includes/layout/footer"

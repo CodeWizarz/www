@@ -1,0 +1,71 @@
+---
+title: "GitLab 11.5 to support Elasticsearch 6, sunset support for Elasticsearch 5.5"
+author: Mario de la Ossa
+author_gitlab: mdelaossa
+author_twitter: mdelaossa
+categories: engineering
+image_title: "/images/default-blog-image.png"
+description: "GitLab 11.5 will support Elasticsearch version 6 and 5.6, sunsetting support for versions 5.5 and earlier."
+tags: features, releases
+ee_cta: false # required only if you do not want to display the EE-trial banner
+featured: yes # reviewer should set
+postType: product
+---
+
+In Gitlab 11.5 (to be released on Nov. 22, 2018), GitLab's [Elasticsearch integration](https://docs.gitlab.com/ee/integration/elasticsearch.html)
+will support Elasticsearch version 6, and will no longer support versions 5.5 or earlier.
+Please make plans to upgrade Elasticsearch to version 5.6 or 6.x immediately before upgrading to GitLab 11.5. After you upgrade GitLab, you will also need
+to perform a [reindex](https://docs.gitlab.com/ee/integration/elasticsearch.html#adding-gitlabs-data-to-the-elasticsearch-index),
+as the changes required to support these Elasticsearch versions are incompatible with the indexes of previous versions.
+
+In summary, starting with 11.5, GitLab will support:
+- Elasticsearch version 5.6
+- Elasticsearch version 6.x
+
+If you are using GitLab.com, this does not impact you in any way. This is only relevant
+for [self-managed GitLab](/pricing/#self-managed).
+{: .alert .alert-info}
+
+GitLab uses Elasticsearch for [Advanced Global Search](https://docs.gitlab.com/ee/user/search/advanced_search.html)
+and [Advanced Syntax Search](https://docs.gitlab.com/ee/user/search/advanced_search.html).
+
+## Why are we doing this?
+
+Elasticsearch version 6 brings with it two large changes that were incompatible with the way we currently index:
+
+- The [removal of mapping types](https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html).
+- Parent-child relationships are now established via a [`join` datatype](https://www.elastic.co/guide/en/elasticsearch/reference/6.0/parent-join.html).
+
+We'll go into some detail on how each of these changes affects GitLab.
+
+### Removal of mapping types
+
+In Elasticsearch 6, all documents under the same index must be of the same 'type.' We need to keep all documents under the same index
+in order to be able to query based on project membership and permissions, so this change forced us to implement our own
+`type` field in order to still be able to query only a single type (for example, issues).
+
+This removal of mapping types also affected [the way parent-child relationships work](https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html#_parent_child_without_mapping_types).
+
+### `join` datatype
+
+With the mapping type change comes a change to the way parent-child relationships
+are expressed. Elasticsearch 5.6 and 6.x have introduced a [`join` datatype](https://www.elastic.co/guide/en/elasticsearch/reference/6.0/parent-join.html)
+that GitLab 11.5 puts to use. (As of 6.0, it is the required method for defining these relationships.)
+
+When using `join`, all insertions and deletions must be routed relative to their
+parent – which means we must send the parent's ID in the `routing` field. In 5.6,
+this means that the `_parent` field is ignored, and in 6.x it is removed.
+
+### Why Elasticsearch 5.6 remains compatible
+
+As noted in the [schedule for removal of mapping types](https://www.elastic.co/guide/en/elasticsearch/reference/6.x/removal-of-types.html#_schedule_for_removal_of_mapping_types),
+version 5.6 is the first Elasticsearch version where the `join` datatype is available, as well as the first version where `single_type`
+behavior can be enabled.
+
+We tested versions 5.5 and below, and unfortunately they have no support for `join` datatypes, so we need to end support for these versions as of GitLab 11.5.
+
+We're especially looking forward to supporting Elasticsearch version 6 as it brings with it some great [improvements](https://www.elastic.co/blog/elasticsearch-6-0-0-released), including:
+
+- Major improvements for sparsely populated fields
+- Faster query times with sorted indices
+- Search scalability across shards

@@ -1,0 +1,152 @@
+---
+title: "5 Great Phabricator features that inspired GitLab"
+author: Michael Friedrich
+author_gitlab: dnsmichi
+author_twitter: dnsmichi
+categories: company
+image_title: '/images/blogimages/phabricator-features-inspired-gitlab/cover-image-unsplash.jpg'
+description: "Take a deep dive into the Phabricator features that prompted GitLab to build new tooling around automation, integrated CI, and better code reviews."
+tags:  CI, code review, collaboration
+twitter_text: "5 Great @Phabricator features that inspired @GitLab"
+featured: yes
+postType: dev-evangelism
+related_posts:
+  - "/blog/2021/02/22/continuously-improving-ci-lovability/"
+  - "/blog/2019/01/31/pre-commit-post-deploy-is-dead/"
+  - "/blog/2020/09/08/efficient-code-review-tips/"
+merch_banner: merch_three
+---
+
+Innovation often happens because competition sparks new ideas. We unpack how Phabricator inspired GitLab to add new features.
+
+## Phabricator explained
+
+Turning back time a bit, what exactly is Phabricator? Built on the concept of web-based applications, Phabricator enables developers to collaborate with code reviews, repository browser, change monitoring, bug tracking and wiki. On May 29, 2021, Phacility, the maintainer and sponsor of Phabricator [announced end-of-life](https://admin.phacility.com/phame/post/view/11/phacility_is_winding_down_operations/) and stopped maintaining Phabricator.
+
+[GitLab co-founder and CEO, Sid Sijbrandij](/company/team/#sytses) gives credit to Phabricator on [HackerNews](https://news.ycombinator.com/item?id=27334636):
+
+> Phabricator was an inspiration to me when starting GitLab. It is shutting down now. [Many of its features were years ahead of its time](https://news.ycombinator.com/item?id=27334511) and there was a lot of humor in the product. As a tribute to it shall we add Clowcoptarize as a way to merge? This would be an [opt in option introduced in GitLab 14.0](https://gitlab.com/gitlab-org/gitlab/-/issues/332215).
+
+It got me curious: What are these inspirations Sid is referring to? Let's dive into GitLab's history together and see what we can learn.
+
+_Tip: Features in the [GitLab documentation](https://docs.gitlab.com/) often have a `Version History` box. You can use the issue URLs to dive deeper into feature proposals, discussions, etc._
+
+### Review workflows
+
+A typical engineering workflow is as follows: The engineering manager assigns a new issue as a task to a developer. The developer works in their preferred IDE – local in VS Code or in the [Gitpod](/blog/2021/07/19/teams-gitpod-integration-gitlab-speed-up-development/) cloud environment. Changes happen in a new feature branch in Git, which gets pushed to the remote Git server for collaboration.
+
+The Git branch is not ready yet and stays hidden in a potentially long list of branches. To keep better track of their feature branches, developers could copy-paste the branch name or URL into the related issue - which I did 10 years ago. The concept of a "diff linked to a task for review" in Phabricator, likewise a "Git branch with commits linked to Merge Requests" in GitLab was not invented yet. 
+
+Phabricator inspired GitLab to create a [default workflow](https://secure.phabricator.com/phame/post/view/766/write_review_merge_publish_phabricator_review_workflow/) for reviews. The Phabricator workflow makes the review more dominant and squashes all changes into a single commit after the review is approved. There are upsides and downsides to automatically squashing commits. Squashing the commits could mean losing information from review history and create more discussion. Depending on the application architecture, the frequency of changes, and debugging requirements, this can be a good thing or a bad thing. GitLab allows you to choose to [squash commits](https://docs.gitlab.com/ee/user/project/merge_requests/squash_and_merge.html) before merging a MR and/or specifying the default project settings around squashing commits.
+
+Phabricator treated a MR (or what they call "diff tasks") as the single source of truth for tracking changes and the review history. We felt this was a great idea, and replicated the process of a "diff task" in Phabricator in GitLab MRs. One of the major upsides to GitLab's version is that collaboration and discussion that happened in issues and epics is still available even after the change is merged.
+
+#### Draft MR (or "diff tasks")
+
+Many times when a MR is created in GitLab, the branch requires additional work before it is ready to be merged. Phabricator introduced a [formal "Draft" / "Not Yet Ready for Review" state](https://secure.phabricator.com/T2543) in 2013 for "diff tasks", which helped keep track of work in this state. GitLab added [WIP MRs in 2016](/blog/2016/01/08/feature-highlight-wip/), which we then renamed to draft merge requests in 2020. While `WIP` may make sense to some people, acronyms can exclude newcomers. We found `Draft` is more recognizable. To avoid confusion, GitLab [deprecated WIP and moved forward with draft merge requests](https://gitlab.com/gitlab-org/gitlab/-/issues/32692).
+
+#### Keep history in MRs for future debugging
+
+The commit history in GitLab is enriched with links to the MR and the corresponding Git review history. In case of a production emergency, having everything documented allows for faster research and debugging.
+
+GitLab stores the MR short URL with `<namespace>/<project>!1234` in the merge commit message. Check the history of a [demo project for the Kubernetes agent](https://gitlab.com/everyonecancontribute/kubernetes/k8s-agent/-/commits/main/) to see how the merge commit is rendered.
+
+![GitLab history with MR commit links](/images/blogimages/phabricator-features-inspired-gitlab/gitlab_history_mr_metadata_link.png)
+GitLab commit history includes link to the MR.
+{: .note.text-center}
+
+This raw information is stored in the Git repository, whereas the MR itself stays in GitLab's database backend. You can verify this by cloning a repository and inspecting the history with this command:
+
+```sh
+$ git log
+```
+
+![git log MR metadata](/images/blogimages/phabricator-features-inspired-gitlab/git_log_mr_merge_commit_metadata_link.png)
+MR metadata included in output from `git log` command.
+{: .note.text-center}
+
+### Code coverage in MRs
+
+Code coverage reports provide insight into how many lines of the source code are covered with unit tests. Reaching 100% test coverage is a developer myth - visualizing a decrease or increase can help monitor a trend in code quality. Phabricator implemented support for various languages with unit test engines and parsing the output, for example in [Golang](https://secure.phabricator.com/D12621).
+
+With many different languages and report output formats, integrating code coverage reports into GitLab MRs was challenging. [GitLab launched the first iteration of code coverage reports in 2016](/blog/2016/11/03/publish-code-coverage-report-with-gitlab-pages/), which generated the reports with CI/CD jobs and used GitLab pages to publish the HTML reports.
+
+In this first iteration, the test coverage is parsed with a regular expression from the CI/CD job output, specified in the project settings or with the [coverage](https://docs.gitlab.com/ee/ci/yaml/#coverage) keyword inside the CI/CD job configuration. We can see this in the job view inside the [MR widget](https://docs.gitlab.com/ee/ci/pipelines/settings.html#add-test-coverage-results-to-a-merge-request) and as a coverage badge for the project. See the test coverage history by navigating into `Analytics > Repository`.
+
+![Test coverage as project badge in GitLab](/images/blogimages/phabricator-features-inspired-gitlab/gitlab_project_badge_test_coverage.png)
+The test coverage badge in a GitLab project.
+{: .note.text-center}
+
+JUnit XML test reports were introduced as common format specification and added as an [MR widget in 2018](https://docs.gitlab.com/ee/ci/unit_test_reports.html). The test reports runs in the background, using CI/CD artifacts to upload the XML reports from the runner to the server, where the MR/pipeline view visualizes the coverage reports in a tab.
+
+The generic JUnit integration also helped with customization requests to unit tests, updated CLI commands, or changed coverage report outputs to parse. GitLab provides [CI/CD template examples](https://docs.gitlab.com/ee/ci/examples/)
+
+The missing piece for GitLab was having inline code coverage remarks inside MR diffs. It took about five years for [Sid's initial proposal for inline code coverage remarks](https://gitlab.com/gitlab-org/gitlab/-/issues/3708) to be implemented. In 2020, inline code coverage remarks were released in [GitLab 13.5](https://docs.gitlab.com/ee/user/project/merge_requests/test_coverage_visualization.html).
+
+![Test Coverage with Rust in GitLab](/images/blogimages/phabricator-features-inspired-gitlab/gitlab_mr_diff_inline_test_coverage.png)
+How inline code coverage works in GitLab.
+{: .note.text-center}
+
+Check out [this MR to practice verifying the test coverage](https://gitlab.com/everyonecancontribute/dev/rust-code-coverage-llvm/-/merge_requests/1/diffs?view=inline validating some Rust code). Make sure to select the inline diff view.
+
+### Automated workflows and integrated CI
+
+Phabricator provides [Herald](https://secure.phabricator.com/book/phabricator/article/herald/) as an automated task runner and rule engine to listen for changes. Herald can also be used to ensure [protected branches](https://docs.gitlab.com/ee/user/project/protected_branches.html) and [approval rules](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/rules.html#add-multiple-approval-rules) to enforce a strong permission model in development workflows. There are more examples in this [HackerNews post from 2016](https://news.ycombinator.com/item?id=12501025) and somehow, I feel like an explorer seeing many great GitLab features in similar ways. 🦊
+
+[GitLab CI/CD pipeline schedules](https://docs.gitlab.com/ee/ci/pipelines/schedules.html) remind me of the task runner, similarly to [webhooks](https://docs.gitlab.com/ee/user/project/integrations/webhooks.html) and the [REST API](https://docs.gitlab.com/ee/api/) being instrumented from CI/CD jobs. The pipeline schedules are also a great way to periodically regenerate caches and rebuild container images for cloud native deployments.
+
+[Harbormaster](https://secure.phabricator.com/book/phabricator/article/harbormaster/) is Phabricator's integration for CI. It's not built from multiple tools in the [DevOps](/topics/devops/) stack, but is instead fully integrated in the product.
+
+The first version of GitLab CI was created in [November 2012](/company/history/). In 2015, a GitLab team member came up with the idea of combining SCM with CI and [the all-in-one DevOps platform was born](/blog/2020/10/29/gitlab-hero-devops-platform/). Built-in CI/CD inspired for more features and fostered a better way to innovate together. The [new pipeline editor](/blog/2021/02/22/pipeline-editor-overview/) is just one example of a streamlined way to configure CI/CD pipelines in GitLab.
+
+Let's throwback to 2017 and watch as we demonstrate how to take an idea to production in GitLab, using GKE:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/39chczWRKws" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+<br>
+
+### Work boards for issue management
+
+Work needs to be organized. Phabricator led the way with a board which allowed users to filter tasks and provide a more detailed view into planning and project management.
+
+![Phabricator work boards](/images/blogimages/phabricator-features-inspired-gitlab/phabricator_work_boards.png)
+Inside Phabricator work boards.
+{: .note.text-center}
+
+GitLab users will recognize the similar look between Phabricator's work boards and GitLab [issue boards](https://docs.gitlab.com/ee/user/project/issue_board.html). In GitLab 14.1, we built on existing epic tracking and labeling to create [Epic boards](https://docs.gitlab.com/ee/user/group/epics/epic_boards.html) to keep teams organized and measure progress.
+
+In Phabricator, users can drag and drop between columns, which automatically changes the work status for a particular task. This feature inspired the boards in GitLab to automatically change the labels in a [defined workflow](/blog/2018/08/02/4-ways-to-use-gitlab-issue-boards/) by dragging and dropping between columns. Users can go a level deeper with scoped labels to switch between workflow states:
+
+* `workflow::design`
+* `workflow::planning breakdown`
+* `workflow::ready for development`
+* `workflow::in dev`
+* `workflow::verification`
+
+The [GitLab engineering handbook](/handbook/engineering/workflow/#basics) documents the different workflows.
+
+![Epic boards in GitLab](/images/blogimages/phabricator-features-inspired-gitlab/gitlab_epic_boards.png)
+Take a look at the Epic boards in GitLab.
+{: .note.text-center}
+
+### Put it all together
+
+In Phabricator, a diff task (in GitLab they're MRs) in the "review" state is linked to another task specifying the requirements. The UX needs to be clear so the relationship between the diffs can be accessed and understood. Unless necessary, the user shouldn't have to navigate manually. The context of the change review defines possible links to labels, states, dependent issues, diff tasks (MRs), and more.
+
+GitLab links [related issues](https://docs.gitlab.com/ee/user/project/issues/related_issues.html). If an issue is mentioned in a MR, or vice versa, [GitLab automatically links them](https://docs.gitlab.com/ee/user/project/issues/crosslinking_issues.html#from-merge-requests). The user also has the option to have the issue close automatically once a change is merged. Read a blog post from 2016 to learn more about [how issues and MRs can relate to each other in GitLab](/blog/2016/03/08/gitlab-tutorial-its-all-connected/).
+
+![Linked issues and MRs in GitLab](/images/blogimages/phabricator-features-inspired-gitlab/gitlab_linked_issues_mrs.png)
+Linked issues and related MRs in GitLab.
+{: .note.text-center}
+
+UX work is challenging, and we continue to iterate to improve workflows in GitLab. For example, in GitLab 13.8, we reduced the number of clicks it takes to [download a CI/CD job artifact from the MR](https://gitlab.com/gitlab-org/gitlab/-/issues/37346).
+
+
+### Did we miss a feature Phabricator inspired?
+
+While writing this blog post, my research revealed more gems. For example, I found a proposal to add [visual graphs for issue dependencies](https://gitlab.com/gitlab-org/gitlab/-/issues/273597) in the [HN thread](https://news.ycombinator.com/item?id=27336818).
+
+Which features from Phabricator are missing in GitLab? Let us know in the comments, create a new [feature proposal](https://gitlab.com/gitlab-org/gitlab/-/issues/new?issuable_template=Feature%20Proposal%20-%20lean) or start your [contribution journey](/community/contribute/) in a new MR right away! 
+
+Cover image by [Johannes Plenio](https://unsplash.com/photos/DKix6Un55mw) on [Unsplash](https://unsplash.com)
+{: .note}

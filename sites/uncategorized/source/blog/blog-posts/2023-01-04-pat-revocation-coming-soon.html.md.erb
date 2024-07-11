@@ -1,0 +1,94 @@
+---
+title: "Secret Detection update: Leaked Personal Access Tokens will soon be revoked"
+author: Connor Gilbert
+author_gitlab: connorgilbert
+author_twitter: connorgilbert
+categories: news
+image_title: '/images/blogimages/michael-dziedzic-1bjsASjhfkE-unsplash.jpg'
+description: "Learn about upcoming changes to better protect GitLab users and organizations."
+tags: security, news, features
+twitter_text: "GitLab will soon automatically revoke leaked Personal Access Tokens. Learn more about what's coming up."
+featured: yes
+postType: product
+related_posts:
+  - "/blog/2021/12/21/rule-pack-synthesis/"
+  - "/blog/2021/11/23/three-things-you-might-not-know-about-gitlab-security/"
+  - "/blog/2022/06/21/security-gitlab-15/"
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+GitLab will soon begin automatically revoking Personal Access Tokens ([PATs](https://docs.gitlab.com/ee/user/profile/personal_access_tokens/)) when GitLab [Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) finds them in public repositories, an update that will better protect GitLab users and organizations.
+
+Leaked PATs are a serious security risk – adversaries can and do search public repositories to find tokens and misuse them.
+However, it's easy to make a mistake and accidentally commit a token into your codebase, especially if you're committing to the main branch of your repository without [reviewing security findings first](https://docs.gitlab.com/ee/user/application_security/#view-security-scan-information-in-merge-requests).
+
+We're rolling out this feature over time and giving additional notice so you can prepare.
+We know that leaked PATs may also be used in automated systems and will need to be replaced.
+
+We've been [dogfooding](/handbook/product/product-processes/#dogfood-everything) this feature within GitLab and with customers who volunteered to join our [beta test](/releases/2022/11/22/gitlab-15-6-released/#beta-automatic-revocation-of-leaked-personal-access-tokens).
+Now, we're glad we can expand this protection to everyone.
+
+## When revocation happens
+
+This feature protects projects that:
+- are public. Private projects are unaffected by this change.
+- use [Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/). If you haven't enabled Secret Detection for a project, we currently won't search it for PATs to revoke.
+
+Tokens are revoked in those projects when they:
+- are committed on the default branch of the repository. Merge requests and other non-default branches currently don't trigger revocation.
+- include the `glpat-` prefix, which has been [added to PATs by default since release 14.5](https://docs.gitlab.com/ee/administration/settings/account_and_limit_settings.html#personal-access-token-prefix). Because prefixed tokens are easier to identify, we recommend replacing any un-prefixed tokens with new ones that include the `glpat-` prefix.
+
+Leaked tokens are processed on the same system where they're found: Tokens detected on GitLab.com stay on GitLab.com and tokens detected in Self-Managed instances stay on those instances.
+
+## How to get protected
+
+Automatic PAT revocation is available for projects that use GitLab Secret Detection.
+Secret Detection scanning is [available in all GitLab tiers](https://docs.gitlab.com/ee/user/application_security/secret_detection/#features-per-tier), but automatic PAT revocation is currently [only available in Ultimate projects](https://docs.gitlab.com/ee/user/application_security/secret_detection/post_processing.html#feature-availability).
+
+- To protect a project, [enable GitLab Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/#enable-secret-detection).
+- To protect your entire organization, consider [enforcing scan execution](https://docs.gitlab.com/ee/user/application_security/index.html#enforce-scan-execution) to run Secret Detection in all of your projects.
+
+## What happens when a PAT leak is discovered
+
+When GitLab finds and revokes a PAT, here's what happens:
+- The user whose PAT was leaked receives an email. The email reads: "We found your token in a public project and have automatically revoked it to protect your account."
+- If you use GitLab Ultimate, Secret Detection still reports the leaked token the same way as before. Leaked tokens are noted in the security widget on merge requests, and they're reported in the Vulnerability Report if they're merged to the default branch.
+
+This video shows how Secret Detection finds a leaked token and how users are notified:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/Z_msn_HwmVI" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+## What to do if your token is revoked
+
+If your PAT is automatically revoked, that's because it was exposed publicly.
+You should consider it to be compromised.
+
+You'll need to create a new one and use it in any CI/CD variables, configurations, or other places where the leaked token was used.
+We recommend using separate PATs for different use cases.
+For more recommendations, check our [token security guidance](https://docs.gitlab.com/ee/security/token_overview.html#security-considerations).
+
+## When changes take effect
+
+We're rolling out this feature in phases. We currently plan to:
+- Enable automatic PAT revocation on GitLab.com on or after **Jan. 23, 2023**.
+- Enable automatic PAT revocation by default for GitLab Self-Managed in the **GitLab 15.9** release, which we'll publish on **Feb. 22, 2023**.
+    - You can opt in early by [enabling](https://docs.gitlab.com/ee/administration/feature_flags.html) the [feature flag](https://gitlab.com/gitlab-org/gitlab/-/issues/382610) before this date. You need to be on GitLab 15.7 or higher to use the feature.
+    - You can choose not to enable this protection by disabling the feature flag.
+- Remove the feature flag so that this protection is always active for GitLab.com and GitLab Self-Managed in a **future release**.
+
+We don't currently plan to [add a configuration option](/handbook/product/product-principles/#convention-over-configuration) to disable this security feature. So, if you choose to disable it, please [tell us why in our feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/385690) so we can accommodate your use case.
+
+### What's next for Secret Detection
+
+We're excited to release this feature, and we'll keep [iterating](/handbook/values/#iteration) to continue to strengthen the level of protection GitLab Secret Detection provides.
+
+For more information about where we're taking Secret Detection, check [our public direction page](/direction/secure/static-analysis/secret-detection/).
+
+Disclaimer: This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab.
+{: .note}
+
+Cover image by [Michael Dziedzic](https://unsplash.com/@lazycreekimages) from [Unsplash.com](https://www.unsplash.com).
+{: .note}

@@ -1,0 +1,187 @@
+---
+title: "10 tips to make you a productive GitLab user"
+author: Michael Friedrich and Roman Kuba
+categories: engineering
+image_title: '/images/blogimages/improve-your-gitlab-productivity-10-tips/cover-image.jpg'
+description: "Learn how quick actions can make you a more efficient GitLab user."
+tags: workflow,collaboration,inside GitLab
+twitter_text: 'Improve your @GitLab productivity with these 10 tips by @dnsmichi and @codebryo #quickactions #workflows'
+featured: yes # reviewer should set
+postType: engineering
+merch_banner: merch_three
+---
+
+Most people know GitLab is a solid tool in today's DevOps workflows, with code reviews, CI/CD, and project management all available for users in a single application. But there are always ways to be more efficient. Since we use GitLab to develop GitLab, everyone has their own habits and hidden gems to speed things up.
+
+We chatted about GitLab efficiency tips after seeing new [quick actions releases in GitLab 13.8](/releases/2021/01/22/gitlab-13-8-released/#display-all-available-quick-actions-in-autocomplete), and decided to share some of our favorite tips with GitLab users. We share our typical day-to-day workflows as an engineering manager (Roman) and a developer (Michael) to show how quick actions make teams more productive and efficient.
+
+### Roman: Engineering manager starts planning
+
+I am an engineering manager on the [Create: Editor team](/handbook/product/categories/features/#createeditor-group){:target="_blank"} at GitLab. One of my responsibilities is capacity planning with product managers. Planning happens every month for the next [GitLab release](/releases/){:target="_blank"}. GitLab uses the [milestone feature](https://docs.gitlab.com/ee/user/project/milestones/) to keep everything organized for the release. As planning goes on, I need to create a new issue for a new feature in the Web IDE. The issue description uses a [description template](https://docs.gitlab.com/ee/user/project/description_templates.html){:target="_blank"} which gets filled with the right context.
+
+But instead of searching for the assignee in the dropdown, I just add a new line:
+
+```
+/assign @dnsmichi
+```
+
+All quick actions start with a `/` character and will be interpreted by GitLab when the issue gets created. In addition to an assignee, issue labels need to be applied as well.
+
+```
+/label ~"type::feature"
+```
+
+You can also assign multiple labels at once:
+
+```
+/label ~devops::create ~group::editor ~"Category::Web IDE"
+```
+
+![GitLab Quick Actions: Multiple labels](/images/blogimages/improve-your-gitlab-productivity-10-tips/quick_action_label_multiple.png){: .shadow.center}
+How to apply multiple labels using GitLab quick actions.
+{: .note.text-center}
+
+The issue needs to be assigned to the next milestone. This can be done with another quick action:
+
+```
+/milestone %13.10
+```
+
+Note that 13.9 release planning already happened last month. The [product kickoff](/direction/kickoff/){:target="_blank"} highlights the planned features.
+
+The keyboard shortcut `cmd + enter` now creates the issue without clicking a button.
+
+So far, we were able to complete a lot of the necessary workflows around issues in one go, and without ever leaving the text box.
+
+After reviewing the issue I created, I remembered that this issue should be assigned to the `FY22Q1 Performance OKRs` epic. Again, we can use a quick action. It’s important to note here that referencing an epic works with the `&` character. When we type this character, we can start to search for the epic by typing its name.
+
+```
+/epic & <search>
+```
+
+This will turn into something like this:
+
+```
+/epic &123
+```
+
+All quick actions can be used in a new comment and again using `cmd + enter` to save it.
+
+The `FY22Q1 Performance OKRs` epic still needs to be added to a parent engineering OKR epic. So I'll navigate to the now-linked epic and use another quick action to set the parent epic.
+
+```
+/parent_epic & <search>
+```
+
+When working with multiple levels of epics, remember to keep practicing quick actions to create visual epic trees quickly. That’s all for now from my manager's side.
+
+### Michael: A developer starts with code
+
+I work on the [Developer Evangelism team](/handbook/marketing/developer-relations/developer-evangelism/){:target="_blank"} at GitLab, and although I'm not technically a developer in the typical sense I still work with code on a daily basis. The average day starts with a new to-do. Today's to-do points me to the new issue that Roman created. After reviewing the issue requirements and defining the changes to be implemented, I start work: I'll clean up the work environment, pull the latest changes from the default branch (main/master), and create a new Git branch in my local terminal.
+
+After a few commits, my work day nears its end. I decide to publish the local Git branch and create a new Merge Request (MR). After creating the MR, the triage workflow kicks off. I mark the [MR as draft](https://docs.gitlab.com/ee/user/project/merge_requests/drafts.html){:target="_blank"} to prevent the workflow from starting before the MR is ready:
+
+```
+/draft
+```
+
+The next day, I continue working on the MR and finish everything that was planned, so I need to remove the draft designation. The `draft` quick action is a toggle, so I can use it to assign and remove the `Draft` marker.
+
+```
+/draft
+```
+
+The next step is to assign a reviewer for the MR. GitLab 13.7 added [merge request reviewers](/blog/2020/10/13/merge-request-reviewers/), which means we can leave the MR assignee untouched. I'll use the livesearch to assign the right reviewer with a leading `@` character.
+
+```
+/assign_reviewer @ <search>
+```
+
+![GitLab Quick Actions: Remove draft and assign reviewer](/images/blogimages/improve-your-gitlab-productivity-10-tips/quick_action_toggle_draft_assign_reviewer.png){: .shadow.center}
+How to remove the draft and add a reviewer using GitLab quick actions.
+{: .note.text-center}
+
+After the first round of review, I get feedback and items for follow-up. Since I am in the middle of a different tasks, I create a new to-do to remind myself of an open task to follow up on when I'm ready.
+
+```
+/todo
+```
+
+Since my work as a developer evanglist includes many topics and areas, I get distracted with other high priority tasks throughout the day. Later in the week, I'll come back to the MR. The review items have been addressed by team member suggestions and all threads are resolved now. The reviewer approves the MR with the quick action:
+
+```
+/approve
+```
+
+The review process took a little while to complete, and because GitLab is a fast-changing project, the Git branch is outdated. I need to rebase against the default branch.
+
+But since I am already working on something else, I do not want to stop what I am doing currently to rebase. Then I remember: GitLab 13.8 added the `/rebase` quick action. This schedules a new background job that attempts to rebase the branch, and stops operations if it fails.
+
+I open the MR and create a new comment. I start typing the rebase quick action, followed by `cmd+enter` to send it:
+
+```
+/rebase
+```
+
+![GitLab Quick Actions: Rebase](/images/blogimages/improve-your-gitlab-productivity-10-tips/quick_action_rebase.png){: .shadow.center}
+How to rebase with GitLab quick actions.
+{: .note.text-center}
+
+Phew. It worked. The CI/CD pipeline is running, and I believe that the rebase did not break anything. I go to click the "Merge after pipeline succeeds" button, and remember there's a quick action for that.
+
+```
+/merge
+```
+
+The quick action takes into account what is configured for the project: Either merge when the pipeline succeeds or add it to the [Merge Train](/blog/2020/12/14/merge-trains-explained/).
+
+Everything happens automatically and I can continue working on other tasks. The manager (in this case, Roman) sees the issue being closed automatically using the `Closes` keyword. That's all from my developer's side.
+
+Tip: [Automatically closing issues](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically) after the MR has been merged is an amazing workflow for everyone, assuming the manager has set the milestone accordingly.
+
+At GitLab, we have documented our [engineering workflows](/handbook/engineering/workflow/) which can be followed more efficiently with the quick actions shown in this blog post.
+
+### Quick actions + description templates = ❤️
+
+We demonstrated different ways quick actions can be used to complete common tasks more efficiently. But they do not always have to be applied manually. One shortcut is to just add them to [description templates](https://docs.gitlab.com/ee/user/project/description_templates.html) so you do not have to worry about remembering them all. This way, you can also automatically assign users, add labels, and much more based on the template you apply. Using description templates helps with project contributions and allows everyone to focus on the feature proposal or bug report.
+
+Let’s try it! Create a new project, navigate into "Issues > Labels" and generate a default set of labels. Next, open the Web IDE and add a new file in `.gitlab/issue_templates/bug.md`. Add the following content:
+
+```
+# Summary
+
+# Steps to reproduce
+
+1.
+1.
+1.
+
+<!-- Do not edit the section below -->
+/label ~"type::bug"
+/assign @YOURUSER
+```
+
+First, replace YOURUSER with your username (make sure you're logged in). Commit the new file to the default branch, and navigate into the issue list. Next, create a new issue and select `bug` from the dropdown. Add some content, and submit the issue. Finally, verify that the label and assignee are both set.
+
+Tip: This is not limited to issue templates, it also works with MRs and epics. At GitLab we also often use this function to dynamically assign people based on reports created automatically. There are many opportunities to use description templates.
+
+### More tips and insights
+
+We have not yet tried the following quick actions - can you help us out? :-)
+
+```
+/shrug
+/tableflip
+```
+
+There are more [quick actions](https://docs.gitlab.com/ee/user/project/quick_actions.html) and [keyboard shortcuts](https://docs.gitlab.com/ee/user/shortcuts.html) available. In fact, GitLab user [Gary Bell](https://gitlab.com/garybell) shared great insights on quick actions in his "Tanuki Tuesday" blog series:
+
+- [Quick Actions](https://www.garybell.co.uk/quick-actions-in-gitlab/)
+- [Keyboard Shortcuts](https://www.garybell.co.uk/using-keyboard-shortcuts-in-gitlab/)
+
+Let us know in the comments below which quick actions most helped your productivity and if you have other creative ways of using quick actions.
+
+PS: We also support shortcuts at GitLab, and the most loved shortcut is `cmd + k` for inserting a Markdown URL.
+
+Cover image by [Juan Gomez](https://unsplash.com/@nosoylasonia) on [Unsplash](https://unsplash.com/photos/kt-wA0GDFq8)
+{: .note}

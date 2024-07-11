@@ -1,0 +1,101 @@
+---
+title: "How our production team runs the weekly on-call handover"
+window_title: "How We Run On-Call Handoffs | GitLab"
+author: John Jarvis
+author_gitlab: jarv
+author_twitter: "__jarv__"
+categories: engineering
+image_title: '/images/blogimages/production-on-call-handover.jpg'
+description: "Senior Production Engineer John Jarvis explains our handover process for on-call incidents in a fully remote and distributed team."
+ee_cta: false
+tags: inside GitLab, production
+---
+
+How do you manage on-call incidents among a team of eight distributed across three time zones?
+Every week, production engineers are assigned to the role of handling on-call.
+With this, comes the [expectation][on-call-expectations] of being available to
+respond to any issue that results in a critical alert. Additionally,
+on-call individuals act as an umbrella for
+other members of the team by triaging and handling all issues
+related to GitLab.com infrastructure.
+
+<!-- more -->
+
+The production team structures on-call shifts so that they follow the sun, to
+avoid waking up members of the team in the middle of the night.
+This works well for GitLab's [remote-only culture](/company/culture/all-remote/) where there are engineers in multiple
+time zones. Occasionally, an on-call engineer will need to respond to an issue
+outside normal working hours; in these situations, GitLab encourages members to take
+[time off][on-call-time-off] after your shift to recover.
+
+## The on-call handover
+
+As the team members working on-call shifts are distributed and their working hours don't always overlap, you can see how it would be easy for things to slip through the cracks between one shift and the next. To prevent this happening, once a week, the production team holds a 30-minute meeting called the [on-call handover][on-call-handover].
+One of the key tenets of GitLab is that [everything starts with an issue][start-with-an-issue], and
+the on-call handover is no exception!
+From a generated report, the team reviews incidents that occurred during the
+last seven days and decide whether they need additional attention or escalation.
+
+After that, we check all GitLab issues with the on-call label to see if there are
+any that need to move from the current shift to the next one. At the end, there
+is a brief review of seven-day graphs. These help us keep an eye out for anything
+anomalous in our key metrics. If there is anything that seems
+out of the ordinary or warrants further investigation, the team will dig into them to see if we can
+identify the root cause. The production team at GitLab encourages leads of other
+groups to attend the review, as this helps bring to our attention any particular high-priority
+items specific to individual services.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+## Automating the on-call handover
+
+Drinking our own wine by using GitLab for on-call report generation has proven to
+be a good way to automate some of the more tedious work of the handover.
+To aid with this, the production team developed a program
+called the [on-call robot assistant][on-call-robot-assistant]. It pulls data
+from relevant sources such as PagerDuty, Grafana and GitLab itself to generate a
+report with a GitLab issue.
+
+The program automates the following tasks:
+
+* Pulling the last shift's incidents from PagerDuty
+* Generating issue stats from the [production backlog][production-backlog]
+* Display seven-day graphs for the key performance metrics that we are monitoring
+  that are sourced from [GitLab Prometheus][gitlab-prometheus] monitoring
+
+<center><img src="/images/blogimages/oncall-robot-tty.gif" alt="oncall-tty" class= "shadow" style="width: 600px;"/></center>
+
+*<small>Generating an on-call report in a GitLab issue</small>*
+
+These data sources are set in a [simple configuration file][ocr-config], making it
+easy to iterate as we add new metrics to monitor.
+At GitLab, most of what we do is out in the open so our on-call handover reports are
+available for anyone to check out. If you want to see previous reports from
+the on-call handovers [check them out in our issue tracker][on-call-reports].
+
+For example, here is one recent report that shows a report for a previous week:
+
+<center><img src="/images/blogimages/oncall-robot-report1.png" alt="oncall-report1" class= "shadow" style="width: 600px;"/></center>
+
+As well as some graphs for key metrics the production team is monitoring:
+
+<center><img src="/images/blogimages/oncall-robot-report2.png" alt="oncall-report2" class= "shadow" style="width: 600px;"/></center>
+
+When the team is finished reviewing the report, the current on-call engineer closes it
+and the shift officially ends.
+
+[Photo](https://unsplash.com/photos/ocs8x33bpMA?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) by Denny Müller on [Unsplash](https://unsplash.com/search/photos/telephone?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+<!-- identifiers -->
+
+[on-call-expectations]: /handbook/on-call/#expectations-for-on-call
+[on-call-time-off]: /handbook/paid-time-off/#a-gitlabbers-guide-to-time-off
+[start-with-an-issue]: /handbook/communication/#everything-starts-with-an-issue
+[on-call-robot-assistant]: https://gitlab.com/gl-infra/oncall-robot-assistant
+[production-backlog]: https://gitlab.com/gitlab-com/infrastructure/issues
+[gitLab-prometheus]: https://docs.gitlab.com/ee/administration/monitoring/prometheus/
+[ocr-config]: https://gitlab.com/gl-infra/oncall-robot-assistant/blob/master/oncall-settings-example.yaml
+[on-call-reports]: https://gitlab.com/gitlab-com/infrastructure/issues?scope=all&utf8=%E2%9C%93&state=closed&label_name[]=oncall%20report
+[on-call-report-example]: https://gitlab.com/gitlab-com/infrastructure/issues/3583
+[on-call-handover]: /handbook/engineering/infrastructure/team/reliability/on-call-handover/

@@ -1,0 +1,517 @@
+features:
+# TOP FEATURE
+  top:
+    - name: Instant SSL with Let's Encrypt for GitLab
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus/settings/ssl.html#let-39-s-encrypt-integration'
+      documentation_text: "Learn more about Let's Encrypt integration"
+      image_url: '/images/10_5/lets_encrypt.png'
+      reporter: joshlambert
+      issue_url: 'https://gitlab.com/gitlab-org/omnibus-gitlab/issues/2620'
+      description: |
+        GitLab often contains some of the most sensitive information within an organization, their source code, and protecting that IP is important. Utilizing [HTTPS](https://en.wikipedia.org/wiki/HTTPS) to encrypt sensitive data like credentials, as well as validating the identity of a site, is a fundamental first step in securing any internet service.
+
+        In the past, enabling HTTPS for GitLab has been a multiple-step process. An organization would have to generate a certificate request, pay a Certificate Authority, copy the files to the GitLab server, and finally configure GitLab to use them.
+
+        With 10.5 we have made this process significantly easier, by integrating with [Let's Encrypt](https://letsencrypt.org/). If your instance is reachable on the internet via HTTP today, simply set `letsencrypt['enable'] = true` in `gitlab.rb` and reconfigure. That's it, HTTPS will now be enabled for the main GitLab domain!
+
+        We will be enabling Let's Encrypt [by default](https://gitlab.com/gitlab-org/build/team-tasks/issues/96) as well as adding support for other GitLab features like the [Registry](https://docs.gitlab.com/ee/user/packages/container_registry/index.html), [Pages](https://docs.gitlab.com/ee/user/project/pages/), and [Mattermost](https://docs.gitlab.com/omnibus/gitlab-mattermost/), in a future release.
+
+# PRIMARY FEATURES
+  primary:
+    - name: Include external files in CI/CD pipeline definition
+      available_in: [premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/ci/yaml/#include'
+      documentation_text: "Read through the documentation on including external files"
+      image_url: '/images/10_5/cicd-include.png'
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/20868'
+      description: |
+        GitLab CI/CD pipelines are defined in a YML definition file that is stored in the
+        project's repository. Many times you are using the same job definitions for many
+        different projects, or just copying and pasting existing snippets from examples
+        and documentation.
+
+        With GitLab 10.5 you can now import other files into your main configuration using
+        the new `include` keyword. These files can be both local files on the same repository,
+        or remote files that are publicly accessible via HTTP/HTTPS. Security checks and
+        deployment configurations are common examples of jobs that can be reused and shared.
+
+    - name: Gemnasium dependency checks
+      available_in: [ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks'
+      documentation_text: "Read through the documentation on supported languages and tools for security checks"
+      image_url: '/images/10_5/gemnasium.png'
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/4682'
+      description: |
+        GitLab recently acquired Gemnasium and since then we have worked together to integrate this awesome technology into our security testing features.
+
+        Thanks to the advanced detection and the database of existing vulnerabilities, with GitLab 10.5 you can now receive
+        very accurate security reports for dependencies of your application for the following languages:
+
+          * Ruby
+          * Java (Maven)
+          * Javascript (NPM)
+          * Python
+          * PHP
+
+        If you are already using [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/), you don't need to change anything.
+        If you copied the job definition to your pipeline, you can update it to support the latest features. See the
+        [example](https://docs.gitlab.com/ee/user/application_security/sast/) page for more information.
+
+    - name: Track additional browser performance metrics
+      available_in: [premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/merge_requests/browser_performance_testing.html'
+      documentation_text: "Learn more about Browser Performance Testing"
+      image_url: '/images/10_5/browser_performance.png'
+      reporter: joshlambert
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/4370'
+      description: |
+        In GitLab 10.3, we added the ability to quickly determine the performance impact of merge request with [Browser Performance Testing](https://docs.gitlab.com/ee/user/project/merge_requests/browser_performance_testing.html). With this release we are analyzing three additional metrics for changes: [speed index](https://sites.google.com/a/webpagetest.org/docs/using-webpagetest/metrics/speed-index), transfer size, and number of requests.
+
+        We have also added the capability to persist the full [sitespeed.io](https://www.sitespeed.io) report as an artifact, allowing developers and reviewers easy access to a trove of performance and debugging information. If you are using [Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/#auto-browser-performance-testing), the report will be automatically saved for you.
+
+    - name: Git LFS 2 locking support
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/topics/git/lfs/index.html'
+      documentation_text: "Learn more on how to use Git LFS"
+      image_url: '/images/10_5/git_lfs_lock.png'
+      reporter: jramsay
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/35856'
+      description: |
+        [Git LFS 2.0.0](https://github.com/blog/2328-git-lfs-2-0-0-released)
+        added file locking support to Git LFS. It is now supported by GitLab,
+        allowing LFS files to be locked using the Git LFS client. Locked files
+        are easily identified by the lock icon.
+
+        Support for
+        [locking any file or directory](https://docs.gitlab.com/ee/user/project/file_lock.html)
+        was added to GitLab Premium 8.9, allowing files to be locked through the
+        GitLab interface. Git LFS locking has been
+        [integrated](https://gitlab.com/gitlab-org/gitlab-ee/issues/1830)
+        with GitLab file locking in GitLab Premium 10.5.
+
+# SECONDARY FEATURES
+  secondary:
+
+    - name: View Epics in roadmap
+      available_in: [ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/group/roadmap/'
+      documentation_text: "Read through the documentation on Roadmaps"
+      image_url: '/images/10_5/roadmap.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/3559'
+      description: |
+        The first iteration of roadmaps is now available in GitLab. Roadmaps allow you to view multiple epics in the same group
+        (and even epics in subgroups), all together in a time-based view. You can view when epics begin, and when they end together.
+
+        This helps users plan and track work across time, and also allows users to see how different work coincides with each other.
+        For example, if you plan to launch a new feature in your product in the second quarter of 2018, and you want to have a marketing campaign
+        to go along with it, you would create one epic for the product work, and another epic for the marketing work, and you would see them
+        both together in the roadmap view, to ensure that they start and end according to your plans.
+
+    - name: Epics search and filter bar
+      available_in: [ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/group/epics/'
+      documentation_text: "Read through the documentation on Epics"
+      image_url: '/images/10_5/epics-search-bar.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/4656'
+      description: |
+        In this release, we've added the GitLab search and filter bar to the Epics list page. It's the same search and filter
+        bar that exists throughout GitLab, for issues and merge requests. In this release, you are able
+        to filter by epic author, and search epic titles and descriptions. Additionally, ordering functionality is also available,
+        for ordering by when an epic was created, or last updated.
+
+        This brings the benefits of list organization that you already experience with issues and merge requests. You can easily manage
+        and narrow down to the epics that you care about by applying the search and filtering. In the future, we will bring additional
+        filters, most notably [labels](https://gitlab.com/gitlab-org/gitlab-ee/issues/4032).
+
+    - name: Dynamic management of secret variables
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/ci/variables/#secret-variables'
+      documentation_text: "Read through the documentation for secret variables"
+      image_url: '/images/10_5/secret-variables.png'
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/39118'
+      description: |
+        Secret variables are useful to customize your CI/CD pipelines without exposing sensitive
+        values to the world. Users with Master permissions can define them in the **CI/CD > Settings** menu,
+        but the process allowed just one insertion at a time, making bulk definitions really hard.
+
+        In GitLab 10.5 we have a new dynamic management for adding secret variables, supporting
+        multiple insertions at the same time and greatly improving the user experience.
+
+    - name: Persistent public projects deployments
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/topics/autodevops/'
+      documentation_text: "Read more about Auto DevOps (Beta)"
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/40428'
+      description: |
+        Auto DevOps (Beta) can deploy your application to a Kubernetes cluster automatically,
+        but this deployment may stop working in case the cluster needs to restart the pods,
+        for example if they are moved and the source image cannot be found in the cache.
+
+        With GitLab 10.5, public projects automatically set the cluster so it can access
+        the GitLab Container Registry even after the deployment pipeline ended, creating
+        a more stable environment for your applications.
+
+    - name: Instance level domain for Auto DevOps
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/topics/autodevops/index.html#auto-devops-base-domain'
+      documentation_text: "Read through the documentation on Auto DevOps base domain"
+      reporter: bikebilly
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/38175'
+      description: |
+        Auto DevOps can automatically deploy your application to a Kubernetes cluster,
+        but in order to access it you need to provide a domain name associated to the
+        public IP address of the cluster.
+
+        With GitLab 10.5, you can now specify this domain at instance level, so it can
+        be automatically used by any project that doesn't override this value with a
+        specific one, and share it across your entire organization.
+
+    - name: Allow developers to create projects in groups
+      available_in: [premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/group/index.html#default-project-creation-level'
+      documentation_text: "Read through the documentation on Groups"
+      image_url: '/images/10_5/allow_create_projects.png'
+      reporter: mydigitalself
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/2534'
+      description: |
+        As part of providing additional flexibility around our permission
+        model, this will allow group or server admins to set an option
+        that will give users with Developer role the ability to create
+        projects.
+
+    - name: Transfer groups
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/group/index.html#transfer-groups-to-another-group'
+      documentation_text: "Read through the documentation on Groups"
+      image_url: '/images/10_5/transfer_group.png'
+      reporter: mydigitalself
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/31885'
+      description: |
+        Making it easier to structure groups and subgroups, you can now take an entire
+        GitLab group and transfer it into another group.
+
+    - name: Seamless Prometheus integration on Kubernetes
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/integrations/prometheus.html'
+      documentation_text: "Learn more about monitoring applications with Prometheus"
+      reporter: joshlambert
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/28916'
+      description: |
+        In GitLab 10.4 we added the ability to [deploy Prometheus into a connected Kubernetes cluster](https://docs.gitlab.com/ee/user/project/clusters/index.html#installing-applications) with a single click. In this release we are making further improvements by automatically enabling the project's Prometheus integration.
+
+        GitLab utilizes the Kubernetes API to query the deployed Prometheus server without requiring it to be accessible outside of the cluster.
+
+    - name: Deployed Ingresses now configured for Prometheus metrics
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/clusters/index.html#installing-applications'
+      documentation_text: "Learn more about deploying Ingress on Kubernetes"
+      reporter: joshlambert
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/28916'
+      description: |
+        [Deployed Ingresses](https://docs.gitlab.com/ee/user/project/clusters/index.html#installing-applications) are now configured for Prometheus metrics, enabling easy application monitoring for response metrics: latency, throughput, and error rate.
+
+    - name: Global Search API
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/api/search.html'
+      documentation_text: "Read through the documentation on Global Search API"
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/41763'
+      description: |
+        We've added global search support for the GitLab API. This is taking our existing global search
+        capability used in the GitLab native web UI, and wrapping it in the API to allow
+        external systems to take advantage of the functionality.
+
+        This allows teams to create custom workflows, for example, searching for content
+        in files and reporting statistics on those results.
+
+        The API works regardless of whether you have Elasticsearch (available only for GitLab Starter or above) configured or not.
+
+    - name: Approve additionally in Merge Requests
+      available_in: [starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/merge_requests/approvals/'
+      documentation_text: "Read through the documentation on Merge Request Approvals"
+      image_url: '/images/10_5/approve-additionally.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ee/issues/4134'
+      description: |
+        We've streamlined and simplified the logic of merge request approvals, making it even
+        easier for users to configure and use approvals.
+
+        In particular, users can now approve a merge request even if the number of approvals have already been met.
+        This makes it easier for approvers to give their approval signals, and they do not have to wait or consider
+        other approvers when approving. It encourages more people to approve and participate in the overall code
+        review process.
+
+        However, if your workflow is more restrictive, you can set the number
+        of required approvals to exactly the eligible approvers you have selected.
+
+        Approvers can continue to remove their existing approval if they have already given one in the merge request.
+
+    - name: Labels list page redesign
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/labels.html'
+      documentation_text: "Read through the documentation on Issues"
+      image_url: '/images/10_5/label-list-redesign.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/39550'
+      description: |
+        We've cleaned up the labels list page design so you can more easily parse through labels and manage
+        them individually. The icons have also been refreshed per our new icon designs. Also, we've rearranged
+        the links to issues and merge requests (of a given label), to take up less horizontal space, making
+        the overall experience better.
+
+    - name: View all issues of all subgroups on group issues page
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/issues/'
+      documentation_text: "Read through the documentation on Issues"
+      image_url: '/images/10_5/issues-subgroups.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/30106'
+      description: |
+        You can now view all issues of all subgroups on the group issues page. This makes the group issues
+        page more powerful when you have a nested tree structure of groups several levels deep, and you
+        want to view all issues in that tree in one location. For example, this is useful for teams with
+        microservices that may be spread across multiple projects and groups, or for teams that have a
+        nested organization team structure.
+
+        The same change has been brought to the group merge requests page too.
+
+    - name: Navigate to related merge requests from commit page
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/merge_requests/#find-the-merge-request-that-introduced-a-change'
+      documentation_text: "Read through the documentation on Related Merge Requests in Commit"
+      image_url: '/images/10_5/commit-mr.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/2383'
+      description: |
+        Links to merge requests related to a commit now appear on the commit page itself. This is very useful
+        when you are reviewing the commit history of a repository, and want to know the greater business and technical
+        context of a commit. You can now easily navigate to the merge request that introduced the commit, from the commit
+        page itself. From the merge request, you can see all the previous technical conversations, and if the issue has been
+        linked (via the [issue closing mechanism](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically) for example),
+        then you can even navigate back to the issue to see the business context.
+
+        Thank you [@hiroponz](https://gitlab.com/hiroponz) for the contribution!
+
+    - name: Color chips in GitLab Flavored Markdown
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/markdown.html'
+      documentation_text: "Read through the documentation on GitLab Flavored Markdown"
+      image_url: '/images/10_5/gfm-colors.png'
+      reporter: victorwu
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/24167'
+      description: |
+        GitLab Flavored Markdown (GFM) now supports color chips. That means anywhere you can enter GFM
+        (such as issue and merge request descriptions and comments), you can type a color code, and GitLab
+        will render a helpful color chip next to it. This is especially useful for designers and frontend engineers
+        to collaborate on designs involving color details, within GitLab.
+
+        Thank you [@thetonyrom](https://gitlab.com/thetonyrom) and [@raviolicode](https://gitlab.com/raviolicode) for the contribution!
+
+    - name: Improved internationalization
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/development/i18n/index.html'
+      documentation_text: "Read through the documentation on translating GitLab"
+      reporter: jramsay
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/4012'
+      description: |
+        As part of our ongoing effort to internationalize GitLab, we have now
+        externalised strings in the Issues and Merge Request sidebars,
+        Repository Charts page, and Repository Graph page, allowing our translation community
+        to add more languages and strings to GitLab.
+
+        If you are interested in contributing to GitLab’s Internationalization
+        efforts, we welcome you to join our
+        [translation community](https://docs.gitlab.com/ee/development/i18n/index.html).
+
+    - name: Push to create a project
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/project/working_with_projects.html#push-to-create-a-new-project'
+      documentation_text: "Learn more on how to create projects"
+      reporter: jramsay
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/26388'
+      description: |
+        Pushing a repository to an unused project name in your personal
+        namespace now automatically creates a private project, so you can start
+        prototyping your next project even faster!
+
+    - name: Hashed storage is now Beta
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/repository_storage_types.html#hashed-storage'
+      documentation_text: "Read through the documentation on Hashed Storage."
+      reporter: jramsay
+      epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/21'
+      description: |
+        Hashed Storage is a new storage behavior introduced in 10.0. Instead of
+        coupling project URL and the folder structure where the repository will
+        be stored on disk, we are coupling a hash, based on the project's ID.
+        This makes the folder structure immutable, and therefore eliminates any
+        requirement to synchronize state from URLs to disk structure. This means
+        that renaming a group, user, or project will cost only the database
+        transaction, and will take effect immediately.
+
+    - name: Single secondary Disaster Recovery is now Generally Available
+      available_in: [premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/ee/administration/geo/disaster_recovery/index.html'
+      documentation_text: "Read through the documentation on Disaster Recovery."
+      reporter: jramsay
+      epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/17'
+      description: |
+        Disaster Recovery uses Geo replication to allow quick failover to a
+        different site with minimal effort in a disaster situation. Failover
+        to a secondary in configurations with a single secondary is now GA.
+
+    - name: Omnibus improvements
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus/README.html'
+      documentation_text: 'Read through the documentation on Omnibus GitLab'
+      reporter: joshlambert
+      description: |
+        * GitLab [Mattermost 4.6](https://about.mattermost.com/releases/mattermost-4-6/) includes faster channel load times and enhanced 508 compliance.
+        * Chef has been upgraded to 12.21.31
+        * Chef Omnibus has been updated to 5.6.3.
+        * SELinux rules have been added to allow [fast SSH key lookups](https://docs.gitlab.com/ee/administration/operations/fast_ssh_key_lookup.html).
+
+    - name: Performance improvements
+      available_in: [core, starter, premium, ultimate]
+      performance_url: https://gitlab.com/groups/gitlab-org/-/merge_requests?scope=all&utf8=%E2%9C%93&state=merged&label_name%5B%5D=performance&milestone_title=10.5
+      documentation_text:  See all the performance improvements in GitLab 10.5
+      reporter: various
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab-ce/issues/12345'
+      description: |
+        Some of the more noteworthy performance improvements in GitLab 10.5
+        include:
+
+        * [Global search results are restricted to 1,000 entries, to prevent database timeouts](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/16502)
+        * [Code search results no longer time out when the result includes a very long line](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/16462)
+        * [Faster updates for the merge request widget](https://gitlab.com/gitlab-org/gitlab-ce/issues/36876#note_55858076)
+        * [New option to exclude commit stats from commit API response, significantly increasing performance](https://gitlab.com/gitlab-org/gitlab-ce/issues/41681)
+
+    - name: GitLab Runner 10.5
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/runner'
+      documentation_text: "Read through the documentation on GitLab Runner"
+      reporter: bikebilly
+      description: |
+        We're also releasing GitLab Runner 10.5 today! GitLab Runner is the open source project
+        that is used to run your CI/CD jobs and send the results back to GitLab.
+
+        ##### Most interesting changes:
+
+        * [Fix Git 1.7.1 compatibility](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/791)
+        * [Always load OS certificate pool when evaluating TLS connections](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/804)
+        * [Do not add /cache volume if already provided by the user during gitlab-runner register](https://gitlab.com/gitlab-org/gitlab-runner/merge_requests/807)
+
+        List of all changes can be found in GitLab Runner's [CHANGELOG](https://gitlab.com/gitlab-org/gitlab-runner/blob/v10.5.0/CHANGELOG.md).
+
+# EXTRAS (Optional)
+# extras:
+#  - title: "Hello World"
+#    description: |
+#     Lorem ipsum dolor sit amet, consectetur adipisicing elit. Consequuntur, beatae!
+
+# MVP
+mvp:
+  fullname: Hiroyuki Sato
+  gitlab: hiroponz
+  description: |
+    Hiroyuki has been contributing to GitLab from the early days, and this is
+    the third time that his work is so appreciated that we want him as MVP
+    (the first time was in 5.1!). In GitLab 10.5 he added the ability to
+    [see the merge request that introduced a specific commit](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/13713).
+    This helps to track previous changes, speeding up the development.
+
+    Thanks a lot Hiroyuki, you did it again! We know that the [GitLab Hall of Fame](https://about.gitlab.com/community/mvp/)
+    page is the best prize ever, but we also sent Hiroyuki a handmade tanuki,
+    GitLab socks, and a GitLab shirt!
+
+# COVER IMAGE LICENCE
+cover_img:
+  image_url: 'https://unsplash.com/photos/r53rNKb_7s8'
+  licence: Unsplash free license
+  licence_url: 'https://unsplash.com/license'
+
+# CTA BUTTONS (optional)
+cta:
+  - title: "Join us for an upcoming event"
+    link: '/events/'
+  - title: Lorem ipsum amet
+    link:
+
+# UPGRADE BAROMETER
+barometer:
+  reporter: markglenfletcher
+  description: |
+    To upgrade to GitLab 10.5 from the latest 10.4 version, no downtime is required.
+
+    For this release we have migrations and post-deploy migrations.
+
+    GitLab.com migrations took approximately 35 minutes and post-deploy migrations amounted for a total of around 16 minutes.
+
+    GitLab Geo users, please consult the documentation on [upgrading Geo](https://docs.gitlab.com/ee/administration/geo/replication/configuration.html#upgrading-geo).
+
+    ### Bug in `git_data_dirs`
+
+    GitLab 10.5.0 Omnibus packages have a bug in the handling of the
+    `git_data_dirs`. If your section is formatted like:
+
+        git_data_dirs({
+          "default": {
+            "path": "/path/to/storage"
+          }
+        })
+    {:. language-ruby}
+
+    You will see an error on running `gitlab-ctl reconfigure`. As a workaround,
+    please use the following syntax instead:
+
+        git_data_dirs({
+          "default" => {
+            "path" => "path_to_storage"
+          }
+        })
+    {:. language-ruby}
+
+    We are [resolving this issue](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/3188) in 10.5.1 Omnibus packages.
+
+# DEPRECATIONS (optional)
+# include as many deprecation blocks as necessary
+deprecations:
+  - feature_name: Mattermost configuration changes
+    due: GitLab 11.0.
+    reporter: joshlambert
+    description: |
+      With the release of GitLab 11.0, the number of Mattermost configuration
+      options supported within `gitlab.rb` will be reduced. We will continue to
+      support the
+      [core configuration settings](http://docs.gitlab.com/omnibus/gitlab-mattermost/#upgrading-gitlab-mattermost-from-versions-prior-to-11-0)
+      necessary to run Mattermost, and set up the integration with GitLab.
+      Going forward, other configuration settings should be set directly within
+      the Mattermost console, or
+      [passed as environment variables](http://docs.gitlab.com/omnibus/gitlab-mattermost/#upgrading-gitlab-mattermost-from-versions-prior-to-11-0).
+
+      Presently with two applications attempting to write to the same config
+      file, changes can be lost.
+
+  - feature_name: 'The <code>gitlab</code> Helm chart'
+    due: March 22, 2018.
+    reporter: joshlambert
+    description: |
+      The [`gitlab` Helm chart](https://docs.gitlab.com/charts/)
+      is deprecated. For installations on Kubernetes today, we recommend the beta [`gitlab-omnibus` Helm chart](https://docs.gitlab.com/charts/).
+
+      A new [cloud native GitLab chart](https://docs.gitlab.com/charts/) is in development with increased scalability, resilience, and other benefits. This chart will replace both existing charts when available later this year.
+
+      For more information on GitLab Helm charts, please see [our documentation](https://docs.gitlab.com/charts/).

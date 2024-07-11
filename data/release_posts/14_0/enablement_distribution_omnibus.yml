@@ -1,0 +1,20 @@
+features:
+  secondary:
+  # Omnibus improvements
+    - name: "Omnibus improvements"
+      available_in: [core, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus'
+      reporter: dorrino
+      stage: systems
+      categories:
+      - 'Omnibus Package'
+      description: |
+        - GitLab 14.0 includes [Mattermost 5.35.3](https://mattermost.com/blog/mattermost-release-v5-35/), an [open source Slack alternative](https://mattermost.com/). Due to the introduction of backend database architecture required for upcoming new features, the performance of the migration process for the v5.35 release is noticeably affected. Depending on the size, type, and version of the database, you should expect longer than usual upgrade times. This can vary from a couple of minutes (average case) to hours (worst case, MySQL 5.x only). You should also expect a moderate to significant spike in database CPU usage during this process. [More details on the performance impact of the migration and possible mitigation strategies are provided in this post](https://gist.github.com/streamer45/9aee4906639a49ebde68b2f3c0f924c1).
+        v5.35.3 introduces a new feature to [search for files](https://mattermost.com/blog/file-search/) and some changes to password generation logic used during bulk user import. Admins should immediately reset the passwords for all users generated during the bulk import process, and whose password has not been changed even once.
+        v5.35.3 also contains a high level security fix, and upgrading is recommended.
+        - Previously, new GitLab instances would prompt users for the initial root password by default after installation, which meant an anonymous user could get there first to set a root password and take control. Now, an [initial root password will be randomly created](https://gitlab.com/gitlab-org/gitlab/-/issues/211328) if one isn't provided by the user. This improves the default security of newly deployed GitLab instances.
+        - [The Omnibus GitLab docker image now includes BusyBox](https://gitlab.com/gitlab-org/omnibus-gitlab/-/merge_requests/4142) but removes vim and nano as pre-installed editors. BusyBox brings together minimal versions of lots of other tools, and by making BusyBox our default editor, we get many other tools that are useful when debugging inside of a container.
+
+
+

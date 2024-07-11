@@ -1,0 +1,28 @@
+---
+features:
+  top:
+  - name: "Automatically resolve SAST findings when rules are disabled"
+    available_in: [ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/user/application_security/sast/#automatic-vulnerability-resolution'
+    reporter: connorgilbert
+    stage: secure
+    image_url: '/images/15_10/automatic-resolution.png'
+    categories:
+    - SAST
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/368284'
+    description: |
+      GitLab SAST now automatically [resolves](https://docs.gitlab.com/ee/user/application_security/vulnerabilities/#vulnerability-status-values) vulnerabilities from the [Semgrep](https://gitlab.com/gitlab-org/security-products/analyzers/semgrep)- and [KICS](https://gitlab.com/gitlab-org/security-products/analyzers/kics)-based analyzers when either:
+
+      - You [disable a predefined rule](https://docs.gitlab.com/ee/user/application_security/sast/customize_rulesets.html#disable-predefined-rules).
+      - We remove a rule from the default ruleset.
+
+      This change helps you focus on the vulnerabilities that are still relevant after the rule update.
+      Previously, when a rule was no longer scanned, its findings would be marked ["No longer detected"](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/#activity-filter) but you still had to take action to resolve them.
+      Now, the Vulnerability Management system automatically resolves those findings and leaves a comment explaining that the rule was removed, so you still have a historical record of the vulnerability.
+
+      This change will automatically resolve findings from a small number of rules that we've replaced or removed in recent releases.
+      In this release, we've also [removed a JavaScript SAST rule](https://gitlab.com/gitlab-org/gitlab/-/issues/373920) that created too many false-positive results.
+
+      This feature is enabled by default on GitLab.com and in GitLab 15.10.
+      On GitLab.com, [contact Support](/support/) if you need to disable the flag for your project.
+      On GitLab self-managed, you can [disable the project-level feature flag](https://docs.gitlab.com/ee/administration/feature_flags.html) named `sec_mark_dropped_findings_as_resolved`.

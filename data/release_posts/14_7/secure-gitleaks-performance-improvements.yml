@@ -1,0 +1,27 @@
+---
+features:
+  secondary:
+  - name: "Major Gitleaks performance improvements"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/user/application_security/sast/analyzers'
+    reporter: tmccaslin
+    stage: secure
+    categories:
+    - Secret Detection
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/345770'
+    description: |
+        Building on the [large rule expansion included in GitLab 14.5](/releases/2021/11/22/gitlab-14-5-released/#additional-secret-detection-pattern-support), we are updating our [GitLab Secret Detection analyzer](https://docs.gitlab.com/ee/user/application_security/secret_detection/), [Gitleaks](https://github.com/zricethezav/gitleaks), to the next major version 8. This new, major version includes massive performance updates and a [complete rewrite](https://github.com/zricethezav/gitleaks/releases/tag/v8.0.0) of its core detection engine. Secret Detection historical scans should now run much faster, with a large reduction in memory usage. This means both faster detection and shorter (and more efficient) pipelines. This change also sets us up to make more performance improvements that will improve all non-historical Secret Detection job runs in the future.
+
+        Here's some real world performance data showcasing the speed and memory decreases of v8:
+
+        - Large repo (~82K commits) <https://github.com/rails/rails>
+          - memory: 800 MB -> 120 MB (6.67x reduction)
+          - scan time: 28 minutes -> 1 minute 24 seconds (21x speedup)
+        - Medium Repo (~600 commits) <https://github.com/zricethezav/gitleaks>
+          - memory: 300 MB -> 30 MB (10x reduction)
+          - scan time: 27 seconds -> 8.9 seconds (3x speedup)
+        - Small Repo (~36 commits) - <https://gitlab.com/gitlab-org/security-products/tests/secrets>
+          - memory: 26 MB -> 8.4 MB (3x reduction)
+          - scan time: 315 ms -> 277 ms
+
+        We want to give [Zachary Rice](https://gitlab.com/zrice) a special shoutout, as not only is he a [member of the GitLab team](https://about.gitlab.com/company/team/#zrice), but he's the creator and maintainer of the [open source Gitleaks project](https://github.com/zricethezav/gitleaks), which has helped many organizations, both public and private, search their codebases for leaked secrets. We are thrilled to support his work with Gitleaks, as well as his contributions to the wider open source community.

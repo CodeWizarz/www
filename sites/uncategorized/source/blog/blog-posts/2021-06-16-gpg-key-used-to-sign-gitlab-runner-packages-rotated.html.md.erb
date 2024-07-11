@@ -1,0 +1,42 @@
+---
+title: "The GPG key used to sign GitLab Runner packages has been rotated"
+author: "Elliot Rushton"
+author_gitlab: erushton
+author_twitter: gitlab
+categories: news
+image_title: "/images/default-blog-image.png"
+description: "Out of an abundance of caution we’ve rotated the impacted keys and tokens."
+tags: security
+postType: product
+---
+
+GitLab uses a GPG key to sign official GitLab Runner packages. We recently became aware of an instance where this key and other tokens used to distribute official GitLab Runner packages and binaries were not secured according to GitLab’s security policies. 
+
+We have not found any evidence of unauthorized modification of the packages or access to the services storing them. Our team has audited and investigated integrity hashes, bucket logs and versioning, and pipeline history and concluded that the unauthorized modification of any packages is exceedingly unlikely.
+
+**Out of an abundance of caution, the GPG key used for release signing and verification has been rotated along with all other tokens that were improperly secured.**
+
+***If you use GitLab.com shared runners, this does not impact you.***
+
+As of **June 8, 2021** the old key used for the package signing, with the fingerprint `3018 3AC2 C4E2 3A40 9EFB  E705 9CE4 5ABC 8807 21D4`, has been revoked. The GPG fingerprint of the new key is `09E5 7083 F34C CA94 D541 BC58 A674 BF81 35DF A027`. Please check the [https://docs.gitlab.com/runner/install/linux-repository.html#gpg-signatures-for-package-installation](https://docs.gitlab.com/runner/install/linux-repository.html#gpg-signatures-for-package-installation) for more details on the key.
+
+**All unsecured keys and tokens have been revoked or retired and updated with new ones.**
+
+## How does this affect existing users and what action is needed?
+
+**Users that do not use package signature verification (which is the default setup in most DEB/RPM systems) will be not affected by this key rotation.**
+
+**Users who employ the package signature verification for either DEB or RPM packages should immediately update the key to download the revocation certificate.** Users can find configuration details and links to GPG keys at [https://docs.gitlab.com/runner/install/linux-repository.html#gpg-signatures-for-package-installation](https://docs.gitlab.com/runner/install/linux-repository.html#gpg-signatures-for-package-installation). All packages and `release.sha256` files starting from **June 13, 2021** will be signed with the new key.
+
+The old key should be treated as compromised. While existing signatures on GitLab Runner’s packages or `release.sha256` files will still be valid, it’s recommended to not trust them. We have updated the old packages and our [S3 releases](/blog/2020/12/15/deploy-aws/) by signing all required files with the new key, so that they can be trusted again.
+
+
+## What does this mean for *new* users?
+
+**This key rotation does not affect new users.**
+
+However, users who want to start using package signature verification should confirm that they have downloaded the new key. The verification key is available at [https://docs.gitlab.com/runner/install/linux-repository.html#gpg-signatures-for-package-installation](https://docs.gitlab.com/runner/install/linux-repository.html#gpg-signatures-for-package-installation). 
+
+## If you have questions
+
+If you have concerns regarding this incident that are not addressed via this communication, kindly reach out to the GitLab Support team via email at `incident-response@gitlab.com` with your questions or concerns.

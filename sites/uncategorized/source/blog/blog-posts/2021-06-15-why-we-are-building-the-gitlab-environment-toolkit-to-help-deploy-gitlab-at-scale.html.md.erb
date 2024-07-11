@@ -1,0 +1,301 @@
+---
+title: "The next step in performance testing? The GitLab Environment Toolkit"
+author: Grant Young
+author_gitlab: grantyoung
+author_twitter: gitlab
+categories: engineering
+image_title: '/images/blogimages/gitlab-environment-toolkit/gitlab_environment_toolkit_scale.jpeg'
+description: "Learn how we're building a new toolkit to help with performance testing and deploying GitLab at scale."
+tags: inside GitLab, performance
+twitter_text: "The new @GitLab Environment Toolkit helps with performance testing and deploying GitLab at scale"
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2020/02/18/how-were-building-up-performance-testing-of-gitlab/"
+  - "/blog/2019/07/01/using-ansible-and-gitlab-as-infrastructure-for-code/"
+  - "/blog/2019/07/24/three-new-support-tools/"
+merch_banner: merch_five
+---
+
+Last year I wrote about how the [Quality Engineering Enablement team](/handbook/engineering/quality/) was [building up the performance testing of GitLab](/blog/2020/02/18/how-were-building-up-performance-testing-of-gitlab/) with the [GitLab Performance Tool (GPT)](https://gitlab.com/gitlab-org/quality/performance). Last year, the biggest challenge with performance testing wasn't so much the testing but rather setting up the right large scale GitLab environments to test against.
+
+Like any server application, deploying at scale is challenging. That's why we built another toolkit that automates the deployment of GitLab at scale: The [GitLab Environment Toolkit (GET)](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit).
+
+![GitLab Environment Toolkit logo](/images/blogimages/gitlab-environment-toolkit/gitlab_environment_toolkit_logo.png){: .center}
+GitLab Environment Toolkit logo
+{: .note.text-center}
+
+Internally called the "Performance Environment Builder" (PEB), GET grew alongside GPT as we continued to expand our performance testing efforts. Over time we built a toolkit that was quite capable in its own right of deploying GitLab at scale, which is why it started to gain attention internally from other teams and then even from some customers. Soon we realized we built something worth sharing.
+
+The Quality Engineering Enablement team has been working hard over the last few months to polish the toolkit for broader use and we're happy to share that the first version of [GET v1.0.0](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/releases/v1.0.0) has been released!
+
+GET is a collection of well-known open source provisioning and configuration tools with a simple focused purpose - to deploy [GitLab Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab) and [GitLab Helm Charts](https://docs.gitlab.com/charts/) at scale, as defined by our [Reference Architectures](https://docs.gitlab.com/ee/administration/reference_architectures) and [Cloud Native Hybrid Reference Architectures](https://docs.gitlab.com/ee/administration/reference_architectures/10k_users.html#cloud-native-hybrid-reference-architecture-with-helm-charts-alternative). Built with Terraform and Ansible, GET supports the provisioning and configuring of machines and other related infrastructure and contains the following features:
+
+ - Support for deploying all GitLab Reference Architectures sizes dynamically from 1000 to 50,000
+ - Support for deploying Cloud Native Hybrid Reference Architectures (GCP only at this time)
+ - GCP, AWS, and Azure cloud provider support
+ - Upgrades
+ - Release and nightly Omnibus builds support
+ - Advanced search with Elasticsearch
+ - Geo support
+ - Zero Downtime Upgrades support
+ - Built-in load balancing via HAProxy and monitoring (Prometheus, Grafana) support
+
+We're just getting started with GET, and [continue to add more support for features and different environment setups](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/boards?group_by=epic). Now that GET [v1.0.0](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/releases/v1.0.0) has been released, we're at a good place for customers to start trialing and evaluating GET. We do ask that you take into consideration the continuing expansion of capabilities, as well as limitations of the current version.
+
+Read on to learn about the the philosophy of GET and how it works.
+
+## The design principals of GET
+
+Our team has past experience with provisioning and configuration tools, so we've learned what does and does not work, which is why we try to stick to the following goals:
+
+- GET is [boring](/handbook/values/#boring-solutions): The word boring may look funny here but it's actually a [GitLab value](/handbook/values/). A boring solution essentially means to keep it simple. Provisioning and configuration solutions can get complicated **fast** with many common pitfalls, such as trying to support complex setups that come with a heavy maintenance cost. From the very beginning we've tried to avoid this, so GET essentially uses a standard Terraform and Ansible config that doesn't try to do anything fancy or complicated.
+- GET is *not* a replacement for [GitLab Omnibus](https://gitlab.com/gitlab-org/omnibus-gitlab) or the [Helm Charts](https://docs.gitlab.com/charts/): Truly some of the greatest "magic" in setting up GitLab is how much easier it's made Omnibus and the Helm Charts. Thanks to the incredible work by our Distribution teams, both of these install methods do a lot under the hood, and GET is not trying to replace these. In the same [boring](/handbook/values/#boring-solutions) vein, GET's purpose is simply to set up GitLab environments at scale by installing Omnibus or Helm in the right places (along with any other needed infrastructure to support).
+- GET is one for all and designed to work for all our recommended [GitLab Reference Architectures](https://docs.gitlab.com/ee/administration/reference_architectures/). Everything we do with GET has to be considered against this goal. It means we may not be able to support niche or overly complex set ups as this will lead to complex code and heavy maintenance costs. We do aim to support recommended customizations where appropriate.
+
+Next we look at how GET works at a high level, starting with provisioning with Terraform.
+
+## Provisioning the environment with Terraform
+
+The first step to building an environment is to provision the machines and/or Kubernetes clusters that run GitLab. We undergo this process with the well-known provisioning tool, [Terraform](https://www.terraform.io/).
+
+Next, we've created multiple [Terraform modules](https://www.terraform.io/docs/language/modules/develop/index.html) in GET for each of the main big three cloud providers (GCP, AWS and Azure) that provision machines for you, according to the appropriate [reference architectures](https://docs.gitlab.com/ee/administration/reference_architectures/), along with the necessary supporting infrastructure, such as firewalls, load balancers, etc. We designed these modules to be as simple as possible and only require minimal configuration.
+
+For more information on the entire Terraform configuration, [check out our docs](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/blob/master/docs/environment_provision.md). An example of one of the main config files is `environment.tf`, which defines how each component's nodes should be setup. Below is an example of how it is configured with GCP for a [10k reference architecture](https://docs.gitlab.com/ee/administration/reference_architectures/10k_users.html) environment:
+
+```tf
+module "gitlab_ref_arch_gcp" {
+  source = "../../modules/gitlab_ref_arch_gcp"
+
+  prefix = var.prefix
+  project = var.project
+
+  object_storage_buckets = ["artifacts", "backups", "dependency-proxy", "lfs", "mr-diffs", "packages", "terraform-state", "uploads"]
+
+  # 10k
+  consul_node_count = 3
+  consul_machine_type = "n1-highcpu-2"
+
+  elastic_node_count = 3
+  elastic_machine_type = "n1-highcpu-16"
+
+  gitaly_node_count = 3
+  gitaly_machine_type = "n1-standard-16"
+
+  praefect_node_count = 3
+  praefect_machine_type = "n1-highcpu-2"
+
+  praefect_postgres_node_count = 1
+  praefect_postgres_machine_type = "n1-highcpu-2"
+
+  gitlab_nfs_node_count = 1
+  gitlab_nfs_machine_type = "n1-highcpu-4"
+
+  gitlab_rails_node_count = 3
+  gitlab_rails_machine_type = "n1-highcpu-32"
+
+  haproxy_external_node_count = 1
+  haproxy_external_machine_type = "n1-highcpu-2"
+  haproxy_external_external_ips = [var.external_ip]
+  haproxy_internal_node_count = 1
+  haproxy_internal_machine_type = "n1-highcpu-2"
+
+  monitor_node_count = 1
+  monitor_machine_type = "n1-highcpu-4"
+
+  pgbouncer_node_count = 3
+  pgbouncer_machine_type = "n1-highcpu-2"
+
+  postgres_node_count = 3
+  postgres_machine_type = "n1-standard-4"
+
+  redis_cache_node_count = 3
+  redis_cache_machine_type = "n1-standard-4"
+  redis_sentinel_cache_node_count = 3
+  redis_sentinel_cache_machine_type = "n1-standard-1"
+  redis_persistent_node_count = 3
+  redis_persistent_machine_type = "n1-standard-4"
+  redis_sentinel_persistent_node_count = 3
+  redis_sentinel_persistent_machine_type = "n1-standard-1"
+
+  sidekiq_node_count = 4
+  sidekiq_machine_type = "n1-standard-4"
+}
+
+output "gitlab_ref_arch_gcp" {
+  value = module.gitlab_ref_arch_gcp
+}
+````
+
+With this environment and [two other small config files in place](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/blob/master/docs/environment_provision.md#2-setup-the-environments-config) Terraform can be run normally and work its magic. Below is a snippet of the output you'll see with GCP:
+
+```
+[...]
+
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[2]: Creating...
+module.gitlab_ref_arch_gcp.module.pgbouncer.google_compute_instance.gitlab[2]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.pgbouncer.google_compute_instance.gitlab[0]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.consul.google_compute_instance.gitlab[1]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[1]: Creating...
+module.gitlab_ref_arch_gcp.module.gitlab_nfs.google_compute_instance.gitlab[0]: Creation complete after 25s
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[1]: Creating...
+module.gitlab_ref_arch_gcp.module.gitaly.google_compute_instance.gitlab[1]: Creation complete after 14s
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[2]: Creating...
+module.gitlab_ref_arch_gcp.module.gitaly.google_compute_instance.gitlab[0]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[0]: Creating...
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[0]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.pgbouncer.google_compute_instance.gitlab[1]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.pgbouncer.google_compute_instance.gitlab[2]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.pgbouncer.google_compute_instance.gitlab[0]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[0]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.gitaly.google_compute_instance.gitlab[2]: Still creating... [20s elapsed]
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[2]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[1]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[1]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[2]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[0]: Still creating... [10s elapsed]
+module.gitlab_ref_arch_gcp.module.gitaly.google_compute_instance.gitlab[2]: Creation complete after 25s
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[2]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_sentinel_cache.google_compute_instance.gitlab[1]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[1]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[0]: Creation complete after 15s
+module.gitlab_ref_arch_gcp.module.redis_persistent.google_compute_instance.gitlab[2]: Creation complete after 15s
+Releasing state lock. This may take a few moments...
+
+Apply complete! Resources: 90 added, 0 changed, 0 destroyed.
+```
+
+Once it's done, you should have a full set of machines for GitLab that can be configured with Ansible, which is what we'll look at next.
+
+## How to configure the environment with Ansible
+
+The next step for setting up the environment is configuring [Ansible](https://www.ansible.com/). In a nutshell, this tool connects to each machine via SSH and runs tasks to configure GitLab.
+
+Like with Terraform, [we've created multiple roles](https://docs.ansible.com/ansible/latest/user_guide/playbooks_reuse_roles.html) and [Playbooks](https://docs.ansible.com/ansible/latest/user_guide/playbooks_intro.html) in GET that are designed to configure each component on the intended machine. Through Terraform, we apply labels to each machine that Ansible then tracks using its [dynamic inventory](https://docs.ansible.com/ansible/latest/user_guide/intro_dynamic_inventory.html) to define the purpose of each machine.
+
+A detailed breakdown of the configuration process is available in the [GET for Ansible docs](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/blob/master/docs/environment_provision.md). But, an example one of the main config files is `environment.tf`, which defines how the nodes of each component should be setup. Below is an example of how it looks with GCP for a [10k user reference architecture](https://docs.gitlab.com/ee/administration/reference_architectures/10k_users.html) environment:
+
+Like we did before with Terraform, we'll highlight one of the main config files, but you can see the full process in the [docs](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/blob/master/docs/environment_configure.md). The file is `vars.yml`, an inventory variable file for your environment that contains various parts of the config Ansible needs to perform the setup, along with key GitLab config:
+
+```yml
+all:
+  vars:
+    # Ansible Settings
+    ansible_user: "<ssh_username>"
+    ansible_ssh_private_key_file: "<private_ssh_key_path>"
+
+    # Cloud Settings
+    cloud_provider: "gcp"
+    gcp_project: "<gcp_project_id>"
+    gcp_service_account_host_file: "<gcp_service_account_host_file_path>"
+
+    # General Settings
+    prefix: "<environment_prefix>"
+    external_url: "<external_url>"
+    gitlab_license_file: "<gitlab_license_file_path>"
+
+    # Object Storage Settings
+    gitlab_object_storage_artifacts_bucket: "{{ prefix }}-artifacts"
+    gitlab_object_storage_backups_bucket: "{{ prefix }}-backups"
+    gitlab_object_storage_dependency_proxy_bucket: "{{ prefix }}-dependency-proxy"
+    gitlab_object_storage_external_diffs_bucket: "{{ prefix }}-mr-diffs"
+    gitlab_object_storage_lfs_bucket: "{{ prefix }}-lfs"
+    gitlab_object_storage_packages_bucket: "{{ prefix }}-packages"
+    gitlab_object_storage_terraform_state_bucket: "{{ prefix }}-terraform-state"
+    gitlab_object_storage_uploads_bucket: "{{ prefix }}-uploads"
+
+    # Passwords / Secrets - Can also be set as Environment Variables via ansible.builtin.env
+    gitlab_root_password: "<gitlab_root_password>"
+    grafana_password: "<grafana_password>"
+    postgres_password: "<postgres_password>"
+    consul_database_password: "<consul_database_password>"
+    gitaly_token: "<gitaly_token>"
+    pgbouncer_password: "<pgbouncer_password>"
+    redis_password: "<redis_password>"
+    praefect_external_token: "<praefect_external_token>"
+    praefect_internal_token: "<praefect_internal_token>"
+    praefect_postgres_password: "<praefect_postgres_password>"
+```
+
+With the variable file and the [environment inventory configured](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/blob/master/docs/environment_configure.md#2-setup-the-environments-dynamic-inventory) Ansible can run normally. Here is a snippet of the output you'll see with GCP:
+
+```
+[...]
+
+TASK [gitlab-rails : Update Postgres primary IP and Port] **********************
+ok: [gitlab-qa-10k-gitlab-rails-1]
+TASK [gitlab-rails : Setup GitLab deploy node config file with DB Migrations] ***
+changed: [gitlab-qa-10k-gitlab-rails-1]
+TASK [gitlab-rails : Reconfigure GitLab deploy node] ***************************
+changed: [gitlab-qa-10k-gitlab-rails-1]
+TASK [gitlab-rails : Setup all GitLab Rails config files] **********************
+changed: [gitlab-qa-10k-gitlab-rails-1]
+ok: [gitlab-qa-10k-gitlab-rails-3]
+ok: [gitlab-qa-10k-gitlab-rails-2]
+TASK [gitlab-rails : Reconfigure all GitLab Rails] *****************************
+changed: [gitlab-qa-10k-gitlab-rails-1]
+changed: [gitlab-qa-10k-gitlab-rails-3]
+changed: [gitlab-qa-10k-gitlab-rails-2]
+TASK [gitlab-rails : Restart GitLab] *******************************************
+changed: [gitlab-qa-10k-gitlab-rails-3]
+changed: [gitlab-qa-10k-gitlab-rails-1]
+changed: [gitlab-qa-10k-gitlab-rails-2]
+
+[...]
+
+PLAY RECAP *********************************************************************
+gitlab-qa-10k-consul-1     : ok=29   changed=17   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-consul-2     : ok=28   changed=16   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-consul-3     : ok=28   changed=16   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-elastic-1    : ok=41   changed=9    unreachable=0    failed=0    skipped=61   rescued=0    ignored=0
+gitlab-qa-10k-elastic-2    : ok=37   changed=7    unreachable=0    failed=0    skipped=62   rescued=0    ignored=0
+gitlab-qa-10k-elastic-3    : ok=37   changed=7    unreachable=0    failed=0    skipped=62   rescued=0    ignored=0
+gitlab-qa-10k-gitaly-1     : ok=27   changed=15   unreachable=0    failed=0    skipped=30   rescued=0    ignored=0
+gitlab-qa-10k-gitaly-2     : ok=26   changed=14   unreachable=0    failed=0    skipped=30   rescued=0    ignored=0
+gitlab-qa-10k-gitaly-3     : ok=26   changed=14   unreachable=0    failed=0    skipped=30   rescued=0    ignored=0
+gitlab-qa-10k-gitlab-nfs-1 : ok=28   changed=7    unreachable=0    failed=0    skipped=55   rescued=0    ignored=0
+gitlab-qa-10k-gitlab-rails-1 : ok=41   changed=21   unreachable=0    failed=0    skipped=32   rescued=0    ignored=0
+gitlab-qa-10k-gitlab-rails-2 : ok=35   changed=16   unreachable=0    failed=0    skipped=33   rescued=0    ignored=0
+gitlab-qa-10k-gitlab-rails-3 : ok=35   changed=16   unreachable=0    failed=0    skipped=33   rescued=0    ignored=0
+gitlab-qa-10k-haproxy-external-1 : ok=40   changed=8    unreachable=0    failed=0    skipped=62   rescued=0    ignored=0
+gitlab-qa-10k-haproxy-internal-1 : ok=39   changed=8    unreachable=0    failed=0    skipped=60   rescued=0    ignored=0
+gitlab-qa-10k-monitor-1    : ok=43   changed=19   unreachable=0    failed=0    skipped=35   rescued=0    ignored=0
+gitlab-qa-10k-pgbouncer-1  : ok=30   changed=17   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-pgbouncer-2  : ok=29   changed=16   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-pgbouncer-3  : ok=29   changed=16   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-postgres-1   : ok=35   changed=16   unreachable=0    failed=0    skipped=36   rescued=0    ignored=0
+gitlab-qa-10k-postgres-2   : ok=34   changed=15   unreachable=0    failed=0    skipped=36   rescued=0    ignored=0
+gitlab-qa-10k-postgres-3   : ok=34   changed=15   unreachable=0    failed=0    skipped=36   rescued=0    ignored=0
+gitlab-qa-10k-praefect-1   : ok=29   changed=18   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-praefect-2   : ok=26   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-praefect-3   : ok=26   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-praefect-postgres-1 : ok=25   changed=14   unreachable=0    failed=0    skipped=29   rescued=0    ignored=0
+gitlab-qa-10k-redis-cache-1 : ok=26   changed=15   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-cache-2 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-cache-3 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-persistent-1 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-persistent-2 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-persistent-3 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-sentinel-cache-1 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-sentinel-cache-2 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-sentinel-cache-3 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-sentinel-persistent-1 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-sentinel-persistent-2 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-redis-sentinel-persistent-3 : ok=25   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-sidekiq-1    : ok=28   changed=15   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-sidekiq-2    : ok=27   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-sidekiq-3    : ok=27   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+gitlab-qa-10k-sidekiq-4    : ok=27   changed=14   unreachable=0    failed=0    skipped=28   rescued=0    ignored=0
+localhost                  : ok=18   changed=3    unreachable=0    failed=0    skipped=38   rescued=0    ignored=0
+```
+
+Once Ansible is done, you should have a fully running GitLab environment at scale!
+
+## What's next?
+
+We've got a bunch of things planned for GET so it can support more features when setting up GitLab, such as SSL support, [cloud native hybrid architectures](/blog/2019/11/13/cloud-native-architectures-made-easy/) on other cloud providers, object storage customization, and much more. We know deploying production-ready server applications is hard and has many potential requirements depending on the customer, and we hope to eventually support all recommended setups.
+
+Check out the [GET development board](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/boards?group_by=epic) and our [issue list](https://gitlab.com/gitlab-org/quality/gitlab-environment-toolkit/-/issues) to see what is in progress. Share feedback and suggestions by adding to our issue lists, we're keen to hear what's important to customers.
+
+[Cover image](https://unsplash.com/photos/icdVDptHxpM) by [Jean Vella](https://unsplash.com/@jean_vella?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText).
+{: .note}

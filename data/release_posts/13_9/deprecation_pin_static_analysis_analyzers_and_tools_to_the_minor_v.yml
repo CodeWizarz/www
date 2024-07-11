@@ -1,0 +1,10 @@
+---
+deprecations:
+- feature_name: "Pin Static Analysis analyzers and tools to minor versions"
+  reporter: tmccaslin
+  due: March 22, 2021
+  issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/232660'
+  description: |
+    With the maturity of GitLab Secure scanning tools, we've needed to add more granularity into the versioning of our SAST analyzers. This change will make it easier for customers to set specifically which version of analyzers they want to run, introducing more control into how customers choose to upgrade their SAST scanning.  Prior to 13.10, GitLab shared a major version number for [all our SAST analyzers and tools](https://docs.gitlab.com/ee/user/application_security/sast/#supported-languages-and-frameworks) and prevented the use of [semantic version numbering](https://semver.org/) for updates. 
+    
+    Beginning in 13.10 GitLab SAST and Secret Detection will start using `major.minor` version pinning in our `.gitlab-ci.yml` files and will ship `major.minor` tags on analyzer containers. We will also deprecate the `SAST_ANALYZER_IMAGE_TAG` variable in our managed SAST.gitlab-ci.yml CI template in favor of `major.minor` tags for each analyzer. If you override or maintain custom versions of `SAST.gitlab-ci.yml`, `Secret-Detection.gitlab-ci.yml` or rely on analyzer `x-y-stable` tags, you will want to update your CI templates. We strongly encourage [inheriting and overriding our managed CI templates](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) to future proof your CI templates. This change will allow you to instead override with a pinned major.minor version to gain more granular control of future feature updates. We will remove shared major version pinning and the `SAST_ANALYZER_IMAGE_TAG` variable in our managed `SAST.gitlab-ci.yml` with GitLab 14.0, releasing June 22, 2021. 

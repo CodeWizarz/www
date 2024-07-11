@@ -1,0 +1,84 @@
+---
+title: "A new era of Kubernetes integrations on GitLab.com"
+author: Viktor Nagy
+author_gitlab: nagyv-gitlab
+author_twitter: gitlab
+categories: news
+image_title: '/images/blogimages/library/kubernetes.png'
+description: "The GitLab Agent for Kubernetes enables secure deployments from GitLab SaaS to your Kubernetes cluster and provides deep integrations of your cluster to GitLab."
+tags: kubernetes, git, inside GitLab
+cta_button_text: 'Read the documentation to get started'
+cta_button_link: 'https://docs.gitlab.com/ee/user/clusters/agent/'
+featured: no
+postType: product
+merch_banner: merch_one
+---
+
+The GitLab Agent for Kubernetes ("Agent", for short) provides a secure connection between a GitLab instance and a Kubernetes cluster and allows pull-based deployments to receive alerts based on the network policies. We released the first version of the Agent back in September on self-managed GitLab instances. We are happy to announce that the Agent is available on GitLab SaaS, GitLab.com, and has many more features coming soon.
+
+If you run into any issues with the Agent or would like to provide feedback, please, [contribute in the Agent epic](https://gitlab.com/groups/gitlab-org/-/epics/3329).
+{: .alert .alert-warning}
+
+## Why a new era?
+
+Before, the recommended way to attach a cluster to GitLab was to provide the cluster certificates and to open up the Kube API to GitLab.com. To get the most out of the integrations, we recommended attaching the cluster with `cluster-admin` rights, so GitLab could provision new namespaces and create review apps. But many users found this to be overly risky and instead rolled out custom integrations that were often built around the GitLab Runner. We want to simplify and support security-minded users with the GitLab Agent for Kubernetes and provide them with a safe, reliable, and future-proof integration solution between GitLab and their clusters. The GitLab Agent provides a secure connection between the cluster and GitLab. Access rights can be controlled with the Agent more tightly by our users, and we consider it to be the basis for future Kubernetes integrations with GitLab.
+
+When Kubernetes was just starting to get popular, our initial approach served new Kubernetes users well. At the same time, providing `cluster-admin` rights is not an option for many current users with experienced Site Reliability Engineers (SREs) and Platform Engineers on board. In the past few years, thanks to the certificate-based integrations, we have learned a lot about the needs of GitLab users, and we are leveraging these learnings with the Agent.
+
+## How does the Agent work?
+
+The Agent provides a permanent connection using websockets or gRPC between a Kubernetes cluster and a GitLab instance. Since we want to keep the cluster-side component minimal and lightweight, we imagine multiple Agents being installed into the same cluster with different access levels. Still, this integration is complex. To understand how the Agent works, let me first introduce its major components. The whole Agent experience is made possible primarily by two components that we call `agentk` and `kas` (short for GitLab Agent Server). `agentk` is the cluster-side component that has to be deployed in the cluster, while `kas` is the GitLab server-side component that is managed alongside GitLab. Since we want to keep the cluster-side component as slim as possible, `kas` is responsible for much of the heavy lifting.
+
+The Agent is configured in code, then registered with GitLab through an access token. Once installed in the cluster, `agentk` receives the access token and the `kas` endpoint and authenticates itself with GitLab. Subsequently, it retrieves its own configuration from GitLab, and keeps a connection open between `kas` and the cluster. This way both the agent and GitLab can send messages and receive information from the other party through a secure connection. This approach also allows a Kubernetes cluster sitting behind a firewall to be securely integrated with GitLab.com.
+
+## Getting started
+
+### About the Agent's availability
+
+If you would like to try out the Agent on GitLab.com, `kas` is already installed and is managed by our SRE team. Before making the Agent generally available, we want to make sure that Agent-based workflows won't harm the performance of GitLab.com. This is why, at this time, `kas` is only available for select customers and projects. If you would like to try it out, [reach out to me](/company/team/#nagyv-gitlab) in e-mail or by mentioning me in an issue with your project ID, and we will authorize your project.
+
+GitLab's `kas` instance is available at `wss://kas.gitlab.com`. You will have to provide this value together with a registered agent access token when you deploy `agentk` to your cluster. You can [follow the installation instructions from our documentation](https://docs.gitlab.com/ee/user/clusters/agent/#define-a-configuration-repository) starting with defining a configuration repository.
+
+### How deployments work
+
+If you prefer a video walk-through, we demonstrate how pull-based deployments work with the Agent below.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/17O_ARVaRGo" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+For deployments, we share some codebase with ArgoCD since this part of the Agent is built on the [gitops-engine](https://github.com/argoproj/gitops-engine/). The `gitops-engine` provides a simple tool to keep git repositories synced with cluster resources. The Agent is configured in code. What we call the "agent configuration project" references the repositories containing the Kubernetes manifests which are the resource definitions describing the expected state of your cluster. Whenever these manifests change, the Agent automatically pulls the new configuration and applies it in the cluster.
+
+#### An example using Helm
+
+Today, the GitLab Agent for Kubernetes only supports pull-based deployments, but we are working on connecting it with GitLab CI to also provide push-based deployment support. So far, we have created a simple example repository that shows how someone might use the Agent together with Helm to install the GitLab Runner in their cluster.
+
+One critique of Helm is that you might get different deployments without changing anything in the code you manage. We want to make sure that your manifest projects reflect what is expected to be deployed in your cluster. This is why we recommend that you use GitLab CI to generate and commit the final Kubernetes manifests from your preferred templating tool, and let the Agent take care of deploying the rendered templates. We follow this pattern in the example repository too.
+
+### Kubernetes network security alerts
+
+In [GitLab 13.9](/releases/2021/02/22/gitlab-13-9-released/) we are [shipping an integration with Cilium built on top of the Agent](/releases/2021/02/22/gitlab-13-9-released/#configmap-support-for-kubernetes-agent-server). The integration provides a simple way to generate network policy-related alerts and to surface those alerts in GitLab. Watch the video below for a demo:
+
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/mFpXUvcAT1g" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+## Ongoing developments
+
+While we think that the Agent can already bring great value to Silver and Gold-level GitLab users, we are working constantly to build even more features on top of it.
+
+Our primary focus now is to make the Agent generally available on GitLab.com SaaS. We are also working on a set of features that allows a user to connect GitLab CI with clusters securely using the Agent. This allows existing push-based deployments to start easily using the Agent and the integrations coming with it.
+
+We are excited to see how you will benefit from the Agent and what amazing things you will build with it.
+
+## Read more on Kubernetes:
+
+- [How to install and use the GitLab Kubernetes Operator](/blog/2021/11/16/gko-on-ocp/)
+
+- [Threat modeling the Kubernetes Agent: from MVC to continuous improvement](/blog/2021/10/11/threat-modeling-kubernetes-agent/)
+
+- [How to deploy the Agent with limited permissions](/blog/2021/09/10/setting-up-the-k-agent/)
+
+- [Understand Kubernetes terminology from namespaces to pods](/blog/2020/07/30/kubernetes-terminology/)
+
+- [What we learned after a year of GitLab.com on Kubernetes](/blog/2020/09/16/year-of-kubernetes/)

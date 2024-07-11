@@ -1,0 +1,120 @@
+---
+title: "How to action security vulnerabilities in GitLab Premium"
+author: Sam Morris, Noah Ing
+author_gitlab:
+author_twitter:
+guest: true
+categories: security
+tags: security, devsecops, CI, CD, tutorial
+description: Learn step-by-step how to process detected vulnerabilities and spawn merge request approval rules from critical vulnerabilities.
+image_title: /images/blogimages/security-pipelines.jpg
+twitter_text:
+featured: yes
+---
+
+GitLab Premium features several security scanners you can leverage to detect vulnerabilities. However, when you incorporate the scanners into your project pipelines and the scanning job succeeds, you'll want feedback on whether you are introducing vulnerabilities into the codebase. This tutorial provides a mechanism to require a merge request approval if a scanner available on GitLab Premium finds a critical vulnerability.
+
+*While this tutorial shows how to add some process around actioning vulnerabilities, we have more robust, governed, and user-friendly functionality available in GitLab Ultimate called a [Scan Result Policy](https://docs.gitlab.com/ee/user/application_security/policies/scan-result-policies.html). The solution outlined here does not seek to replace that functionality, but rather augment the scan results available in GitLab Premium. If you are an Ultimate user or if you want to compare the two experiences, then you should check out [this video introduction](https://www.youtube.com/watch?v=w5I9gcUgr9U&ab_channel=GitLabUnfiltered) instead.*
+
+Learn how to do the following:
+
+1. Set up a .gitlab-ci.yml
+2. Add in a vulnerability processing script
+3. Require approval if vulnerabilities are found 
+
+### Prerequisites
+
+- A project with GitLab Premium
+- A gitlab-ci.yml
+- A project access token
+- Basic knowledge of Python
+- 5 minutes (or less)
+
+## Setup the gitlab-ci.yml 
+
+This is how the GitLab CI pipeline of our test project looks visually. Below we will break down the individual stages.
+
+Add the following to your .gitlab-ci.yml:
+
+```yaml
+secret_detection:
+  artifacts:
+    paths:
+      - gl-secret-detection-report.json
+
+process_secret_detection:
+   image: python:3.7-alpine3.9
+   stage: process_vulns
+   needs:
+    - job: secret_detection
+      artifacts: true
+   before_script:
+      pip install python-gitlab
+   script:
+     - python3 process_vulns.py gl-secret-detection-report.json $PROJECT_ACCESS_TOKEN $CI_PROJECT_ID $CI_COMMIT_SHA
+```
+
+A breakdown of what is going on above:
+- gl-secret-detection-report.json needs to be overriden so it’s being stored as an artifact in the secret_detection job.
+- The process_secret_detection job is dependent on secret_detection's artifact so we have added a needs keyword requiring successful completion of the secret_detection job.
+- pip installs the python-gitlab dependency so that the process_vulns.py can leverage GitLab API calls.
+- The process_vulns.py is taking in four arguments:
+   - gl-secret-detection-report.json is the JSON report produced from the secret_detection scanner. If you would like to take in another report this will need to be modified.
+   - $PROJECT_ACCESS_TOKEN needs to be added; review the instructions on creating a project access token in the next step.
+   - $CI_PROJECT_ID and $CI_COMMIT_SHA are both GitLab CI environment variables that will automatically be inferred.
+
+### Create a project access token
+
+To create a project access token:
+1. On the top bar, select Main menu > Projects and find your project.
+2. On the left sidebar, select Settings > Access Tokens.
+3. Enter a name. The token name is visible to any user with permissions to view the project.
+4. Optional. Enter an expiry date for the token. The token expires on that date at midnight UTC. An instance-wide maximum lifetime setting can limit the maximum allowable lifetime in self-managed instances.
+5. Select a role for the token.
+6. Select the desired scopes.
+7. Select Create project access token.
+8. Add this newly created project access token to your CI/CD variables in your project settings!
+
+## Add in the vulnerability processing script
+
+[The process_vulns.py script can be found here.]((https://gitlab.com/gl-demo-premium-smorris/secure-premium-app/-/blob/main/process_vulns.py) Copy that file into your project.
+
+The goal of this script is to require approval from an author (or group of authors) if a critical vulnerability is found.
+
+**Note:** You will need to [change the user ID in the process_vulns.py](https://gitlab.com/gl-demo-premium-smorris/secure-premium-app/-/blame/main/process_vulns.py#L40) to match the user ID of your designated Approver at your organization.
+
+The following is a breakdown of what the script is doing:
+
+- JSON security reports are loaded in, if there any vulnerabilities they are parsed.
+- An authentication with GitLab is run using the project access token to interact with the project.
+- If vulnerabilities are not found, then it will print to the GitLab CI Logs: “No vulnerabilities are found.”
+- If a critical vulnerability is found, then it will require an approval.
+
+Run the pipeline and voila! Your pipeline now requires approvers if a critical vulnerability is found!
+
+### Demo
+
+Watch a video demonstration of how to action security vulnerabilities in GitLab Premium, presented by Sam Morris:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/Cld36OZrLFo" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+
+#### Caveats
+- This is mimicking a Scan Result Policy; it is not a replacement.
+- This currently only requires approval for a critical vulnerability, and each new rule would have to be added to the script.
+- This script lives within the same location as your project, so there is no restriction on who can modify the script, breaking separation of duties at scale.
+- Approval rules are not removed once the vulnerability is fixed.
+- Approvers' IDs need to be hardcoded and maintained in the script file.
+- Since there is no vulnerability record generated, you cannot track the vulnerabilities over time in your application.
+- Vulnerabilities are not fed into a report or security dashboard, so this only reports merge request vulnerabilities.
+
+## References
+- [Create a project access token](https://docs.gitlab.com/ee/user/project/settings/project_access_tokens.html#create-a-project-access-token)
+- [Setting up CI/CD variables](https://docs.gitlab.com/ee/ci/variables/#define-a-cicd-variable-in-the-ui)
+- [Secure Premium app project](https://gitlab.com/gl-demo-premium-smorris/secure-premium-app/-/blob/main/process_vulns.py)
+
+## Related posts
+- [GitLab's commitment to enhanced application security in the modern DevOps world](/blog/2022/06/21/security-gitlab-15/)
+- [How to become more productive with Gitlab CI](/blog/2021/06/21/how-to-become-more-productive-with-gitlab-ci/)
+- [GitLab CI DRY Development](/blog/2023/01/03/keeping-your-development-dry/)
+
+_Cover image by [Christopher Burns](https://unsplash.com/@christopher__burns?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://www.unsplash.com)._

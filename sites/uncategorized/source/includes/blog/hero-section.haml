@@ -1,0 +1,55 @@
+- if (!articles.nil?)
+  .section-hero
+    .slp-container
+      - articles_clone = articles.clone
+      - first_article = articles_clone.keep_if{ |a| a.data.featured }.first(1)
+      - first_article.each do |firstarticle|
+
+        - image_title_first = firstarticle.data.image_title ? firstarticle.data.image_title : '/images/default-blog-image.png'
+        - category = firstarticle.data.categories ? firstarticle.data.categories : 'all'
+        - cat_url = category.parameterize(separator: '-')
+        - first_article_title = firstarticle.title
+
+        .hero-highlited{ href: firstarticle.url, :"data-ga-name" => "#{firstarticle.title}", :"data-ga-location" => "header" }
+          %h3.hero-highlighted-post-title
+            Featured Post
+          %a{ href: firstarticle.url, :"data-ga-name" => "#{firstarticle.title}", :"data-ga-location" => "header" }
+            .hero-highlighted-image{ style: "background-image: url(#{image_title_first}); background-position-x: center;" }
+            .hero-highlighted-title
+              %h3
+                - if firstarticle.data.release_number
+                  GitLab
+                  = firstarticle.data.release_number
+                  released
+                - else
+                  = firstarticle.title
+              %p
+                - if firstarticle.data.description
+                  = firstarticle.data.description
+                - else
+                  = firstarticle.summary
+
+        .hero-posts-wrapper
+          .hero-posts
+            - other_articles = articles.filter_map{|x| x if x.data.title != first_article_title}
+            - other_articles.take(3).each do |article|
+
+              - category_post = article.data.categories ? article.data.categories : 'all'
+              - cat_url = category_post.parameterize(separator: '-')
+
+              .post-wrapper
+                .post
+                  .hero-post-eyebrow
+                    %a{:href => category_post == 'releases' ? "/releases/categories/releases/" : "/blog/categories/#{cat_url}/" , :"data-ga-name" => "#{cat_url}", :"data-ga-location" => "header" }
+                      - if category_post == 'ai-ml'
+                        = "AI/ML"
+                      - else
+                        = category_post
+                  %a.hero-post-title{ href: article.url, :"data-ga-name" => "#{article.title}", :"data-ga-location" => "header" }
+                    %h3
+                      - if article.data.release_number
+                        GitLab
+                        = article.data.release_number
+                        released
+                      - else
+                        = article.title

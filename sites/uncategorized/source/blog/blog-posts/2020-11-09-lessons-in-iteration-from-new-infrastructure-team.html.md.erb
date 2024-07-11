@@ -1,0 +1,155 @@
+---
+title: "Lessons in iteration from a new team in infrastructure"
+author: Sean McGivern
+author_gitlab: smcgivern
+categories: engineering
+image_title: '/images/blogimages/skateboard-iteration.jpg'
+description: "A new, small team at GitLab discovered that minimum viable change applies to scaling problems too."
+tags: inside GitLab, performance, workflow
+twitter_text: "Lessons in iteration from a new team in infrastructure @gitlab"
+featured: no
+postType: content marketing
+merch_banner: merch_eight
+---
+
+The [Scalability Team][scalability] has the goal of understanding
+potential scaling bottlenecks in our application. We formed a year ago
+with one person, and as of early 2020, we are made up of three backend
+engineers, plus one site reliability engineer. We are a
+sort of [program team] so we have a wide remit, and there's only one
+similar team at GitLab: our sibling [Delivery Team][delivery]. All of
+the backend engineers in the team (including me) came from
+working on product development rather than infrastructure work.
+
+[scalability]: /handbook/engineering/infrastructure/team/scalability/
+[program team]: https://lethain.com/programs-owning-the-unownable/
+[delivery]: /handbook/engineering/infrastructure/team/delivery/
+
+We recently finished a project where we [investigated our use of
+Sidekiq][sidekiq] and made various improvements. We decided to continue
+the same approach of looking at services, and got started with our next
+target of Redis. Here are some lessons we took away:
+
+[sidekiq]:/blog/2020/06/24/scaling-our-use-of-sidekiq/
+
+## 1. Don't lose sight of what matters most: impact
+
+We chose to split our work on Redis into three phases:
+
+1. [Visibility][v]: increase visibility into the service.
+2. [Triage][t]: use our increased visibility to look for problems and
+   potential improvements, and triage those.
+3. [Knowledge sharing][ks]: share what we learned with the rest of the
+   Engineering department.
+
+[v]: https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/309
+[t]: https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/309
+[ks]: https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/265
+
+[Iteration] is crucial at GitLab, so much so that we have regular
+[Iteration Office Hours]. On the surface, you could say that we were
+iterating here: our issues were small and well-scoped and we were
+delivering code to production regularly.
+
+[Iteration]: /handbook/values/#iteration
+[Iteration Office Hours]: /handbook/ceo/#iteration-office-hours
+
+The problem, as it turned out, was that we were focused so heavily on
+understanding the service, that we lost track of the [results] we were
+trying to deliver. Our [values hierarchy] puts results at the top, but
+we hadn't given the results enough attention. We are a small team that
+needs to cover a wide area, and we need to deliver _impactful_ changes.
+
+[results]: /handbook/values/#results
+[values hierarchy]: /handbook/values/#hierarchy
+
+There are some [examples in our handbook][impact] – which we've added as
+a result of this project – but we define impact as either having a
+direct effect on the platform, our infrastructure, or our development
+teams. That was what was missing here, because the impact was loaded
+towards the very end of the project: largely in the knowledge sharing
+section.
+
+[impact]: /handbook/engineering/infrastructure/team/scalability/#impact
+
+We spent a long time (several months) improving our visibility, which
+definitely has a positive impact on our SREs who spend time
+investigating incidents. But we could have delivered this value and more
+in a shorter time period, if we had kept clear sights on the impact we
+wanted to have.
+
+## 2. Minimum viable change applies to scaling problems too
+
+With that framing in mind, it's quite clear that we weren't iterating in
+the best way. To use a famous example, it's like we'd started building a
+car by building the wheels, then the chassis, etc. That takes a long
+time to get something useful. We could have started by [building a
+skateboard]. We didn't have a good sense of what a [minimum viable change](/handbook/values/#minimal-viable-change-mvc)
+was for our team, so we got it wrong.
+
+[building a skateboard]: https://blog.crisp.se/2016/01/25/henrikkniberg/making-sense-of-mvp
+
+![Building a skateboard iteration](/images/blogimages/scalability-redis-efficiency-skateboard.png){: .medium.center}
+Illustration by [Henrik Kniberg](https://blog.crisp.se/2016/01/25/henrikkniberg/making-sense-of-mvp)
+{: .note.text-right}
+
+What would a minimum viable change look like? When we worked on this project, we
+covered several topics: adding Redis calls to our standard structured
+logs, exposing slow log information, and so on. With hindsight, the best
+way would probably be to slice the project differently. We could take
+the three steps above (visibility, triage, knowledge sharing), but
+consider them all to be necessary for a project on a single topic with a
+tangible goal.
+
+We did this, with all the impact at the end:
+
+![Working through the first step for all topics, the second step for all topics, and finally having impact in the third step](/images/blogimages/scalability-redis-efficiency-before.jpg)
+
+But traveling in the other direction would have been much more
+effective:
+
+![Working through all steps for the first topic, having impact, then starting again at the second topic](/images/blogimages/scalability-redis-efficiency-after.jpg)
+
+This leads to a state where:
+
+1. The impact we make is clearer.
+2. We start making an impact sooner.
+3. We can re-assess after every project, and stop early once we have
+   done enough.
+
+The sooner we have this impact, the sooner we can see the results of
+what we've done. It's also good for morale to see these results on a
+regular basis!
+
+## 3. Shape your projects to deliver impact throughout
+
+The way that we originally structured our work to improve Redis usage made it harder to see
+our impact than it should have been. For example, we [updated our
+development documentation][dev-docs-update] at the end of the project.
+This was useful, but it would have been much more useful to backend
+engineers if we'd updated the documentation along the way, so they always had the best information we could give them.
+
+[dev-docs-update]: https://gitlab.com/gitlab-org/gitlab/-/merge_requests/41889
+
+For a more positive example: in the visibility stage, we created
+a couple of issues directly for stage groups to address, rather than
+waiting for the triage or knowledge sharing stage to do so. One of those
+issues was about [large cache entries for merge request
+discussions][mr-cache]. By getting this in front of the relevant
+development team earlier, we were able to
+get the fix scheduled and completed sooner as well.
+
+[mr-cache]: https://gitlab.com/gitlab-org/gitlab/-/issues/225600
+
+Regularly delivering projects with clear impact means that we get
+feedback earlier (from engineers in Development and Infrastructure, or
+from the infrastructure itself), we can cover a wider area in less time,
+and we are happier about the work we're doing.
+
+As people who went from working directly on user-facing features to
+working on a property of the system as a whole, we learned that we can
+still set ourselves an MVC to keep us on the right path, as long as we
+think carefully about the results we want to achieve.
+
+[Cover image](https://unsplash.com/@viniciusamano?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText) by shawn henry on [Unsplash](https://unsplash.com/s/photos/skateboard?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText)
+{: .note}

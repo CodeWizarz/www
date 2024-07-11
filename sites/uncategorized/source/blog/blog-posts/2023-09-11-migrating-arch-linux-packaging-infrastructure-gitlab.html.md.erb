@@ -1,0 +1,123 @@
+---
+title: "Migrating Arch Linux's packaging infrastructure to GitLab"
+author: Levente Polyak
+author_gitlab: anthraxx
+author_twitter: anthraxx42
+categories: open source
+image_title: '/images/blogimages/tanukilifecycle.png'
+description: "Arch Linux developer Levente Polyak explains how the project recently migrated its packaging infrastructure to GitLab and what Arch Linux gained as a result."
+tags: open source, community, features
+guest: true
+twitter_text: "Since the Arch Linux community began migrating to GitLab in 2020, maintainers and contributors have enjoyed a significantly improved experience interacting with and contributing to the project."
+featured: yes
+postType: oss-program
+related_posts:
+  - "/blog/2023/08/29/why-manjaro-builds-with-gitlab/"
+  - "/blog/2023/08/24/coordinating-documentation-projects-gitlab/"
+  - "/blog/2023/07/11/building-new-fedora-project-website-with-gitlab/"
+---
+Three years ago, the Arch Linux community began a migration to the GitLab DevSecOps Platform to modernize our software development tooling and processes.
+We recently announced a major moment on that journey: [migrating our entire packaging toolchain to Git and GitLab](https://archlinux.org/news/git-migration-completed/).
+This move completely reshaped our packaging workflow, tooling, and storage — the very backbone of our package creation process.
+
+The move has been pivotal for our continued success as a project.
+Our [package repositories](https://archlinux.org/packages/) contain nearly 14,000 packages at the time of this writing, and [GitLab's collaborative features](/features/) empower our package maintainers to seamlessly collaborate, promoting efficient and effective teamwork.
+Using GitLab as a central platform also enhances visibility across the project.
+We can now effortlessly trace the history of changes, collaborate on enhancements and bugs, and follow the evolution of each package — all in a single place.
+
+> [Join GitLab at Open Source Summit Europe 2023](https://go.gitlab.com/dPQ92t) to learn more about our dedication to open source.
+
+I'm a devoted free open source software engineer and currently have the privilege of serving as the project leader of Arch Linux.
+In this article, I'll explain how and why we undertook this complex, but ultimately worthwhile, endeavor.
+
+## Understanding Arch Linux's infrastructure
+To understand the complexity of this migration, you'll first need to understand the history of Arch's infrastructure.
+
+Central to our distribution are our [PKGBUILD](https://wiki.archlinux.org/title/PKGBUILD) packaging sources, which are the essential blueprints that shape each package installable with [pacman](https://archlinux.org/pacman/) from our official repositories. Previously, our [packaging infrastructure](https://wiki.archlinux.org/title/Creating_packages) relied on [Subversion](https://subversion.apache.org/) for managing our packaging sources.
+
+For more than a decade of [Arch Linux's development](https://archlinux.org/releng/releases/), Subversion served as a reliable companion for working with our packaging source code. However, the open source software development landscape has transformed significantly since the advent of the Arch Linux project; technologies have advanced and collaboration dynamics have evolved (note, for example, the popularization of [DevOps](https://about.gitlab.com/topics/devops/) processes and practices).
+
+Recognizing the need to adapt and optimize, we started a journey that would shape the future of how members of the Arch Linux community work together. To enhance collaboration and pave the way for future improvements to Arch, we decided to undertake migration of our packaging sources to individual Git repositories, and we chose to host them with GitLab.
+
+## Migrating 14,000 Arch Linux packages
+This would be no small task.
+Currently, the Arch Linux community maintains 13,930 installable packages, all of which are now managed in 12,138 individual Git repositories.
+But we knew the benefits would be worth the effort involved in such an enormous migration.
+
+For example, one of the standout advantages of Git is its ability to empower packagers with a new level of insight into their work.
+The ease of inspecting local history would become a game-changer, especially as packaging evolved into a collective effort, with multiple maintainers collaborating to refine and enhance individual packages (Subversion requires a client-server connection to inspect the history).
+
+But the decision to migrate was not just about adopting Git.
+It also reflected our aspiration to provide our community with an environment that fosters extensive collaboration. Our history with Subversion had shown its limitations in this regard (more on that in a moment).
+The synergy between Git packaging repositories and the GitLab platform was evident; it opened doors to enhanced collaboration, offered powerful version control features, and laid the groundwork for more efficient packaging processes.
+
+The migration of Arch Linux's packaging infrastructure to GitLab was the pinnacle of several factors aligning perfectly.
+The need for a more robust collaboration platform, the growing prominence of Git, and the desire to utilize the benefits of modern version control converged to make this move a natural progression for Arch.
+
+We decided it was time to get it done.
+
+## Three years and a weekend
+Arch Linux has been gradually adopting and migrating operations to GitLab over the course of three years.
+Extending that migration to our packaging infrastructure was the next vital step of the process — and the pivotal moment of switching to GitLab hosting and workflow for packaging occurred within [the span of a single weekend](https://archlinux.org/news/git-migration-announcement/).
+
+A change of this magnitude touches the very core of our distribution, and it was only possible with thorough, meticulous preparation.
+For weeks, our migration team diligently crafted [a runbook](https://md.archlinux.org/utjjQ-bQTsipIKntPrpf8g#) that ensured every major aspect and change were considered, minimizing risk and boosting our confidence.
+
+When our concentrated migration effort began, the migration team focused entirely on this rollout, everyone collaborating in a [Jitsi](https://meet.jit.si/) video call with screen sharing.
+The strategic choice of a weekend for performing the migration aligned perfectly with our volunteer-driven community, offering sufficient time for a buffer and quick resolution to any unforeseen hiccups.
+
+The first challenge was transferring our extensive Subversion history to GitLab. For some time, we had been running `git-svn` with a timer to be able to provide some packaging history to another repository. 
+Our [custom tooling](https://gitlab.archlinux.org/archlinux/arch-svn-package-to-git/) made use of `git-svn` imports, which was a gigantic monorepo containing all packages as individual branches.
+
+Our migration solution was a carefully crafted script that used [git-filter-repo](https://github.com/newren/git-filter-repo), of which we could run several instances in parallel and which also supported the ability to convert only repositories that changed since the last run (determined by deltas).
+The script also filtered history, commit messages, rewrote author data to incorporate our GitLab user handles, filtered unwanted files, and more.
+Additionally, we tagged all previous releases where we could determine the origin of the exact commit.
+
+But the migration wasn't confined to a mere transfer of Subversion history to GitLab; it involved revisiting workflows, tools, and all software that interacted *with* the version control system.
+From redefining workflows to embracing new tools, every step was vital to ensuring that Arch Linux developed in a coherent way.
+
+We also wanted to seize the moment as an opportunity to reimagine and revamp package maintainer tooling.
+So we also created [pkgctl](https://man.archlinux.org/man/pkgctl.1.en), a modern interface that not only refreshed and streamlined our tooling but also enhanced user and contributor experience.
+
+Fortunately, the entire migration flowed seamlessly.
+By the end of the weekend, we had succeeded.
+
+## Benefits of a journey with GitLab
+Our packaging migration was the latest milestone in Arch Linux's overall journey with GitLab.
+Migrating our packaging infrastructure to GitLab allows us to maximize and enjoy those improvements even more.
+
+Since the Arch Linux community began [migrating to GitLab in 2020](https://gitlab.com/gitlab-com/marketing/developer-relations/open-source-program/gitlab-open-source-partners/community-support/-/issues/11), Arch maintainers and contributors have enjoyed a significantly improved experience interacting with and contributing to the project. 
+The advantages not only enhance our current workflows but also open up exciting possibilities for the future.
+
+Here's a rundown of the benefits we've seen from our overall migration so far.
+
+### Deeper collaboration
+Before the migration, for example, lack of a dedicated collaborative platform for our packaging sources posed challenges to both users and package maintainers. While [Flyspray](https://wiki.archlinux.org/title/Flyspray), our bug tracker, was valuable, its scope was limited to tracking issues rather than facilitating meaningful collaboration.
+Proposed changes were often submitted as patch files in attachments, resulting in a cumbersome experience for users suggesting improvements and maintainers reviewing these changes.
+
+The process of iterating through these patch files was tedious because we lacked the ability to comment on specific lines (not to mention the ability to discuss diverse sub-topics in individual threads).
+
+Today, GitLab's standard [merge request](https://docs.gitlab.com/ee/user/project/merge_requests/) feature has improved this process dramatically. It helps us collaborate smoothly, allowing [threaded discussions](https://docs.gitlab.com/ee/user/discussions/index.html), precise comments, and [code suggestions](https://docs.gitlab.com/ee/user/project/merge_requests/reviews/suggestions.html) on individual code segments. Although merge requests are a simple, staple feature, their impact on streamlining our processes is invaluable, serving as the bedrock of GitLab's collaborative strength.
+
+The ability to seamlessly integrate issue tracking and merge requests within the same platform fosters a more cohesive and efficient workflow for our entire community. We're looking forward to tracking and managing packaging-related issues, bugs, and enhancements directly within GitLab soon.
+
+### Better automation
+Our use of [GitLab CI/CD](https://docs.gitlab.com/ee/ci/) has played a crucial role in automating our development work across our software projects.
+
+We utilize CI/CD pipelines for everything from running tests to auditing dependencies—even publishing release artifacts, such as Rust crates, automatically using a tag pipeline. The efficiency we gain through this functionality is invaluable for ensuring the integrity and quality of our projects. We've realized some security improvements, too. Automating our usage of dependencies means we become aware of tracked security issues in our software projects used dependencies via commit pipelines, as well as scheduled pipelines (so we can bump and potentially deploy/release our software projects in case its necessary).
+
+### Stronger community
+Adopting GitLab has helped us better serve our community. The [Service Desk feature](https://docs.gitlab.com/ee/user/project/service_desk/) has emerged as a game-changer, offering a streamlined channel to manage specific user requests.
+This integration with GitLab enhances the workflow without sacrificing overview.
+
+And recently, we've significantly increased our use of [GitLab Pages](https://docs.gitlab.com/ee/user/project/pages/).
+We rely on Pages for publishing documentation, monthly reports, our Web Key Directory and static sites, and we're enthusiastic about expanding its application in the future.
+
+## More than new tools
+Arch Linux's migration wasn't just about adopting the latest tools. Our motivation for migrating — and the positive consequences of the upgrade — reflect the values of open source communities like ours, where working together is essential for moving forward.
+By adopting GitLab, Arch Linux is improving our project's overall atmosphere, creating a space where contributions are welcomed, reviewed, and integrated more easily, and in a way that conforms to contemporary best practices.
+
+We're proud to be [GitLab Open Source Partners](https://go.gitlab.com/BM5JwV), and we extend our gratitude to GitLab for providing a platform that seamlessly aligns with our vision.
+
+[Join GitLab at Open Source Summit Europe 2023](https://go.gitlab.com/dPQ92t) to learn more about our dedication to open source.
+{: .note}

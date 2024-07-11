@@ -1,0 +1,284 @@
+---
+title: "Testing ChatGPT: Can it solve a GitLab issue?"
+author: John Coghlan, Fatima Sarah Khalid
+categories: engineering
+tags: tutorial, community, contributors, DevOps
+description: We put ChatGPT to the test to see if it could contribute to GitLab.
+  Here's what we learned.
+guest: true
+featured: true
+postType: dev-evangelism
+image_title: /images/blogimages/akshay-nanavati-Zq6HerrBPEs-unsplash.jpg
+twitter_text: ChatGPT has everyone wondering what it can - and can't - do. We put
+  the technology to the test to determine if it can contribute to GitLab.
+---
+ChatGPT has taken the tech world by storm since its [launch on November 30](https://openai.com/blog/chatgpt/). Media coverage, front page posts on Hacker News, Twitter threads, and videos - everywhere you look, there is another story.
+
+The [GitLab Slack](/handbook/communication/#slack) was no different. In threads across Slack channels, including those for developer evangelism, UX, the CEO, random news, and every space in between, our team was chatting about this exciting new tool.
+
+As we got more familiar with the tool, we started to learn about numerous things it can do. Here are a few that we found:
+
+- It can write poetry about GitLab features. 
+- It can write blog posts.
+- It can write unit tests.
+- It gives advice on how to use certain features of GitLab.
+- It conducts competitive analysis.
+
+There’s quite a bit more out there, including [inventing a new language](https://maximumeffort.substack.com/p/i-taught-chatgpt-to-invent-a-language) and [building a virtual machine](https://www.engraved.blog/building-a-virtual-machine-inside/). We can’t recall any technology that has generated more excitement in such a short time.
+
+We acknowledge there are ethical and licensing concerns around using AI-generated code. For the purpose of this blog post, we will focus strictly on the capabilities of ChatGPT.
+
+## Testing ChatGPT
+
+As members of GitLab’s [Developer Relations team](/handbook/marketing/developer-relations/), where we’re focused on growing our community of contributors and evangelists, our first reaction was to think of how this tool can help our contributors. The responses to questions like “How can I get started contributing to GitLab?” were cool but didn’t move the needle. So then we asked ourselves: Can we use ChatGPT to make a contribution to GitLab?
+
+Having already been testing the tool, we knew we’d need to look for a very specific type of issue. We started to fine-tune our search. Here are the steps we took to find a potential issue:
+
+- Visited [https://gitlab.com/gitlab-org](https://gitlab.com/gitlab-org) and pulled up all the open issues by clicking on `Issues` in the left side nav.
+- Searched for all issues with the [“good for new contributors” label](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=updated_desc&state=opened&label_name%5B%5D=good%20for%20new%20contributors&first_page_size=20). This returned 482 issues at the time of writing.
+- Set [`“Assignee = None”`](https://gitlab.com/gitlab-org/gitlab/-/issues/?sort=updated_desc&state=opened&label_name%5B%5D=good%20for%20new%20contributors&assignee_id=None&first_page_size=20) to filter out issues that have already been assigned to someone. This trimmed things down even more.
+
+After poking through a few issues, this one caught our attention: an issue that is a request to [de-depulicate identical dropdown functionality from two Vue components into a shared component](https://gitlab.com/gitlab-org/gitlab/-/issues/221293).
+
+### Getting started
+
+We opened up a ChatGPT thread via [https://chat.openai.com/chat](https://chat.openai.com/chat). If you don’t already have an account, you’ll need to register with OpenAI.
+
+Then we started a thread with Assistant (that’s what is returned when you ask ChatGPT what is its name). We asked Assistant to create a shared Vue component called `SharedDropdownFilter` from the duplicate code in `GroupsDropdownFilter` and `ProjectsDropdownFilter` and passed the scripts of both components.
+
+ChatGPT replied with:
+
+>You can create a new `SharedDropdownFilter` component that contains the duplicate code and use it in both `GroupsDropdownFilter` and `ProjectsDropdownFilter`:
+
+and provided a template to describe the use. The template provided wasn’t quite what we were looking for.
+
+```vue
+<template>
+  <GlDropdown
+    :aria-label="label"
+    :class="{ disabled: loading }"
+    :disabled="loading"
+    :selected="selectedProjectsLabel"
+    :variant="multiSelect ? 'inline' : 'single-line'"
+  >
+    <template v-slot:menu>
+      <div class="py-4">
+        <GlSearchBoxByType
+          autofocus
+          class="search-box"
+          :placeholder="searchPlaceholder"
+          :type="searchType"
+          v-model="searchTerm"
+        />
+
+        <GlDropdownHeader
+          v-if="selectedProjects.length && multiSelect"
+          :class="{ 'd-none': !searchTerm }"
+          class="js-dropdown-header"
+        >
+          <span>
+            {{ selectedProjectsLabel }}
+          </span>
+
+          <button
+```
+
+So we tried again, this time being more specific and asking ChatGPT to “Create a shared Vue component that combines the two components `ProjectsDropdownFilter` and  `GroupsDropdownFilter`”. We passed in the full component files, including the templates.
+
+ChatGPT responded with instructions, a sample Vue component, and an explanation of the functionality:
+
+> Here is a sample implementation of a shared Vue component that combines the two components `ProjectsDropdownFilter` and `GroupsDropdownFilter`:
+
+```vue
+<template>
+  <div>
+    <ProjectsDropdownFilter
+      :groupId="groupId"
+      :multiSelect="multiSelect"
+      :label="label"
+      :queryParams="queryParams"
+      :defaultProjects="defaultProjects"
+      @selected="onProjectsSelected"
+    />
+    <GroupsDropdownFilter
+      :multiSelect="multiSelect"
+      :label="label"
+      :queryParams="queryParams"
+      :defaultGroups="defaultGroups"
+      @selected="onGroupsSelected"
+    />
+  </div>
+</template>
+
+<script>
+import { ProjectsDropdownFilter } from './ProjectsDropdownFilter.vue';
+import { GroupsDropdownFilter } from './GroupsDropdownFilter.vue';
+
+export default {
+  name: 'SharedDropdownFilter',
+  components: {
+    ProjectsDropdownFilter,
+    GroupsDropdownFilter,
+  },
+  props: {
+    groupId: {
+      type: Number,
+      required: true,
+    },
+    multiSelect: {
+      type: Boolean,
+      required: false,
+      default: false,
+    },
+    label: {
+      type: String,
+      required: false,
+      default: 'Dropdown filter',
+    },
+    queryParams: {
+      type: Object,
+      required: false,
+      default: () => ({}),
+    },
+    defaultProjects: {
+      type: Array,
+      required: false,
+      default: () => [],
+    },
+    defaultGroups: {
+      type: Array,
+      required: false,
+      default: () => [],
+    },
+  },
+  data() {
+    return {
+      selectedProjects: this.defaultProjects || [],
+      selectedGroups: this.defaultGroups || [],
+    };
+  },
+  methods: {
+    onProjectsSelected(selectedProjects) {
+      this.selectedProjects = selectedProjects;
+      this.$emit('selected', this.selectedProjects, this.selectedGroups);
+    },
+    onGroupsSelected(selectedGroups) {
+      this.selectedGroups = selectedGroups;
+      this.$emit('selected', this.selectedProjects, this.selectedGroups);
+    },
+  },
+};
+</script>
+```
+
+> In this implementation, the `SharedDropdownFilter` component is rendered as a container for the `ProjectsDropdownFilter` and` GroupsDropdownFilter` components. It passes down the `groupId`, `multiSelect`, `label`, `queryParams`, and `defaultProjects` props to the `ProjectsDropdownFilter` component, and the `multiSelect`, `label`, `queryParams`, and `defaultGroups` props to the `GroupsDropdownFilter` component. It also listens to the selected event emitted by the two components and updates its own `selectedProjects` and `selectedGroups` data accordingly. The `SharedDropdownFilter` component emits its own `selected` event with the updated `selectedProjects` and `selectedGroups` data when it receives the selected event from the `ProjectsDropdownFilter` and `GroupsDropdownFilter` components. This allows the parent component of the `SharedDropdownFilter` to be notified whenever the selected projects and groups are updated, so that it can take appropriate action, such as updating the data it displays.
+
+With ChatGPT’s shared Vue component, we could start an MR for the issue, but would need to manually review the code and run tests in order to make sure the deduplication was done correctly.
+
+### Adjusting the filters
+
+In hopes of finding an issue that ChatGPT could fully solve, this time we filtered using two labels (`good for new contributors` and `quick win`), Assignee = None, and added the keyword “refactor” to look for issues that required less net new code. At the time of writing, this [query](https://gitlab.com/gitlab-org/gitlab/-/issues/?search=refactor&sort=updated_asc&state=opened&label_name%5B%5D=quick%20win&label_name%5B%5D=good%20for%20new%20contributors&assignee_id=None&first_page_size=20) returned one issue: [a refactor for widget state tests](https://gitlab.com/gitlab-org/gitlab/-/issues/228611).
+
+After reviewing the issue, we opened the `/spec/frontend/vue_merge_request_widget/stores/get_state_key_spec.js` file mentioned in the issue description by navigating to that file on GitLab.com SaaS and opening the dropdown on the blue button at the top of the file frame, selecting “Open in Web IDE”, and then clicking the button to open the file in GitLab’s built-in Web IDE.
+
+We copied the code from the file and asked ChatGPT to refactor these tests into a table of `it.each`. It was interesting to watch the output as ChatGPT provided an example of how we could refactor the tests using `it.each`:
+
+```javascript
+import getStateKey from '~/vue_merge_request_widget/stores/get_state_key';
+
+describe('getStateKey', () => {
+  const context = {
+    mergeStatus: 'checked',
+    autoMergeEnabled: false,
+    canMerge: true,
+    onlyAllowMergeIfPipelineSucceeds: false,
+    isPipelineFailed: false,
+    hasMergeableDiscussionsState: false,
+    isPipelineBlocked: false,
+    canBeMerged: false,
+    projectArchived: false,
+    branchMissing: false,
+    commitsCount: 2,
+    hasConflicts: false,
+    draft: false,
+    detailedMergeStatus: null,
+  };
+
+  it.each([
+    [{}, null],
+    [{detailedMergeStatus: 'MERGEABLE'}, 'readyToMerge'],
+    [{detailedMergeStatus: 'DISCUSSIONS_NOT_RESOLVED'}, 'unresolvedDiscussions'],
+    [{detailedMergeStatus: 'DRAFT_STATUS'}, 'draft'],
+    [{detailedMergeStatus: 'CI_MUST_PASS'}, 'pipelineFailed'],
+    [{shouldBeRebased: true}, 'rebase'],
+    [{hasConflicts: true}, 'conflicts'],
+    [{detailedMergeStatus: 'CHECKING'}, 'checking'],
+    [{commitsCount: 0}, 'nothingToMerge'],
+    [{commitsCount: 1, branchMissing: true}, 'missingBranch'],
+    [{projectArchived: true}, 'archived'],
+  ])('should return "%s" when called with %p', (expected, input) => {
+    const bound = getStateKey.bind(Object.assign({}, context, input));
+    expect(bound()).toEqual(expected);
+  });
+
+  it('returns rebased state key', () => {
+    const context = {
+      mergeStatus: 'checked',
+      autoMergeEnabled: false,
+      canMerge: true,
+      onlyAllowMergeIfPipelineSucceeds: true,
+      isPipelineFailed: true,
+      hasMergeableDiscussionsState: false,
+      isPipelineBlocked: false,
+      canBeMerged: false,
+      shouldBeRebased: true,
+      projectArchived: false,
+      branchMissing: false,
+      commitsCount: 2,
+      hasConflicts: false,
+      draft: false,
+    };
+    const bound = getStateKey.bind(context);
+
+    expect(bound()).toEqual('rebase');
+  });
+});
+
+
+```
+
+Along with an explanation of `it.each`:
+
+> Note that `it.each` is a utility provided by Jest that allows you to write the same test with different inputs and expected results. This can make your tests more concise and easier to read.
+
+Our next steps were to:
+- Paste the output from ChatGPT into the Web IDE.
+- Click the blue “Commit” button to commit the code.
+- Name the branch.
+- Open a merge request.
+
+All of this can be done inside [GitLab’s Web IDE](https://docs.gitlab.com/ee/user/project/web_ide/) without leaving the browser.
+
+### Examining the results
+
+Once we opened the merge request, a CI/CD pipeline was created to test the change. Unfortunately, the pipeline jobs for the Jest tests failed because the tests were returning `null` for each case instead of the expected results. We went back to ChatGPT to see if it could help us understand why the test was returning null for all cases. ChatGPT suggested a few different implementations to check to make sure things are defined currently:
+
+> There are a few reasons why the tests in the `it.each` function might be returning null for every case. Here are a few possibilities:
+>
+> If the `getStateKey` function is not implemented correctly, it might always return null, regardless of the input.
+> If the `getStateKey` function relies on certain variables that are not defined in the test cases, it might return null because those variables are undefined.
+> If the context object passed to the `getStateKey` function is not being merged correctly with the input object in the test cases, the function might not have access to all of the necessary information, and it might return null.
+
+While ChatGPT couldn’t solve the issue with the returned value directly, it provided a lot of possibilities to look into and offered suggestions of what variables or functions to debug. The suggestions prompted us to add code changes that logged the variable values onto the [JavaScript debug console](https://www.w3schools.com/js/js_debugging.asp), find the implementation of the `getStateKey` function, and figure out why the return value was null. Whenever we came across something unfamiliar in the code, like syntax in the `it.each` that wasn’t familiar, we asked ChatGPT for clarification or a helpful example. Many times throughout this experiment, working with ChatGPT felt like “rubber duck debugging,” but with an AI with which you have to be very specific about your ask.
+
+## What we learned from ChatGPT
+
+In the end, we weren’t able to figure out why our tests were returning null, so we asked the front-end team if someone could review the code. Senior Frontend Engineer [Angelo Gulina](https://gitlab.com/agulina) reviewed the MR. He found that the solution was actually quite trivial: The order of parameters was inverted, resulting in a comparison that led to null! In his assessment, ChatGPT wasn’t able to provide a working solution, but would be able to provide solutions and ideas to an engineer with some experience with the codebase. It delivered a clean, organized solution and answered the task of combining the tests into an it.each table. It could not, however, catch the actual error (the inversion of parameters) or correctly guess why the tests were returning null.
+
+Let's circle back to the question that started this experiment: Can we use ChatGPT to contribute to GitLab? At this time, we’d say, "yes," and you will need some understanding of the code to complete your solution. Since ChatGPT is a language model trained by OpenAI, it can only answer questions and provide information addressed in the model, which means answers requiring contextual specificity may fall short of what is needed to resolve an issue. However, it’s a tool that can help you if you’re stuck, need more clarification on a code snippet, or are trying to refactor some code. It was fascinating for us to experiment with ChatGPT and we were excited to see what it was capable of. The code provided, however, lacked some of the valuable insight and industry experience that a community of contributors can provide.
+
+At GitLab, our [community and our open source stewardship](https://about.gitlab.com/company/strategy/#dual-flywheels) are part of our company strategy. Thousands of open source contributors worldwide have helped make GitLab what it is today. We see potential for ChatGPT and similar AI tools, not as a replacement for our community, but a way to make our community more efficient and enable more people to contribute GitLab.
+
+
+
+

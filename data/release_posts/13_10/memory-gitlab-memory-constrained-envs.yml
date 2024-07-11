@@ -1,0 +1,38 @@
+features:
+  secondary:
+  - name: "Run GitLab on small instances with 2GB RAM"
+    available_in: [core, premium, ultimate]
+    gitlab_com: false
+    documentation_link: 'https://docs.gitlab.com/omnibus/settings/memory_constrained_envs.html'
+    reporter: fzimmer
+    stage: data_stores
+    stage_url: '/handbook/engineering/development/enablement/'
+    categories:
+    - 'Memory'
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/289909'
+    epic_url: 'https://gitlab.com/groups/gitlab-org/-/epics/448'
+    description: |
+      GitLab can be deployed using one of the [reference
+      architectures](https://docs.gitlab.com/ee/administration/reference_architectures/)
+      supporting from a few hundred, to tens of thousands of users. However, many community members choose to
+      run GitLab only for personal use or for small teams. In those situations,
+      it may be desirable to run GitLab on a small cloud instance to save costs
+      or, for example, to use [a Raspberry PI 4 with 2GB
+      RAM](https://www.raspberrypi.org/products/raspberry-pi-4-model-b/). 
+
+      We've updated our documentation to include [detailed instructions on how
+      to run GitLab in a memory constrained
+      environment](https://docs.gitlab.com/omnibus/settings/memory_constrained_envs.html)
+      with a minimum of 2GB of RAM and 1GB of swap. This configuration makes a
+      few opinionated choices to reduce memory consumption, such as running
+      [Puma in single mode](https://docs.gitlab.com/omnibus/settings/puma.html#running-in-memory-constrained-environments)
+      (saves ~300-400MB) and disabling the monitoring stack (saves another
+      200MB). We've also tweaked a few other settings for Gitaly and how GitLab
+      handles memory allocation. 
+
+      This configuration allows GitLab to support up to 5 developers with
+      individual Git projects no larger than 100MB. For larger team sizes or if
+      these settings are not acceptable, we still recommend at least 4GB of RAM (for up to 500 users)
+      for best performance. Please see [the reference
+      architectures](https://docs.gitlab.com/ee/administration/reference_architectures/)
+      for further guidance.

@@ -1,0 +1,23 @@
+features:
+  secondary:
+    - name: "The npm project-level endpoint works with all npm commands"
+      available_in: [core, starter, premium, ultimate]
+      documentation_link: 'https://docs.gitlab.com/ee/user/packages/npm_registry/#project-level-npm-endpoint'
+      reporter: trizzi
+      stage: package
+      categories:
+        - 'Package Registry'
+      issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/220985'
+      description: |
+        When you use the Package Registry to publish and share Node packages, you can choose to use an instance or a project endpoint. The project endpoint is best when you have a few packages in the same group. The instance endpoint is best when you have many packages in different groups.
+
+        The problem has been that the project endpoint does not support many of the common npm commands, including `npm dist-tag`, `npm add`, and `npm view`. As a workaround, you had to specify a `publishConfig` in each `package.json`. While this was a viable workaround, it had a few downsides:
+
+        - It added friction to publishing packages, because each package had to be configured to publish to the project's registry.
+        - It made it harder to automate. For example, environment variables could be replaced inside a `.npmrc`, but it wasn't possible in `package.json`. Because of this, you had to hard-code the GitLab project ID in your `package.json`.
+        - It didn't match the expectations of developers who were not used to this workflow.
+
+        To fix these problems, we made all supported endpoints available for both the instance and project level endpoints. Now you can rely on your `.npmrc` to configure the registry. You are no longer required to add and maintain `publishConfig` in each `package.json`. The exceptions to this are:
+
+        - The upload endpoint must be at the project level. It can't be at the instance level, because the backend would receive an upload request without a group or project and not know where to store the package.
+        - The tarball endpoint remains at the project level. During `npm install`, npm inquires about the tarball URL. The Package Registry only needs to reply with the location, which can be anywhere. To keep things simple, we will keep it where it is now: at the project level.

@@ -1,0 +1,97 @@
+---
+title: "How GitLab is automating release generation in .gitlab-ci.yml"
+author: Jackie Meshell
+author_gitlab: jmeshell
+author_twitter: jrmeshell
+categories: unfiltered
+image_title: '/images/blogimages/generator.jpg'
+description: "Under the covers look at the tooling behind creating releases from `.gitlab-ci.yml` with a Go command line interface"
+tags: tag1, tag2, tag3
+cta_button_text: 'Watch a Demo of the release-cli in action' # optional
+cta_button_link: 'https://www.youtube.com/watch?v=nCtA0iomMpQ' # optional
+postType: product # i.e.: content marketing, product, corporate
+merch_banner: merch_one
+merch_sidebar: merch_one
+---
+
+{::options parse_block_html="true" /}
+
+
+
+## Why does release generation need to be automated?
+
+Release Management, a group within the [Release stage](https://about.gitlab.com/handbook/engineering/development/ops/release/), is about unblocking users as they continuously deliver value to their customers. A part of this can be seen in how users create Release tags to track production deployments and in that adoption of the Release features, users are deploying more with GitLab. We can also see a correlation between users adopting Releases to deploy with GitLab and leveraging more paid features. 
+
+We discovered the automation of creating these releases for our users was difficult and documented the needs for Release generation from the `.gitlab-ci.yml` file in our epic, [gitlab&2510](https://gitlab.com/groups/gitlab-org/-/epics/2510). The highlights of the user pains around the release process include a: 
+   1. desire to avoid leaving the CLI to complete release jobs or tasks 
+   1. need for the tag creation to be associated with a pipeline 
+   1. simpler way to include release creation within GitLab as a part of the CI/CD processes 
+
+Not only do users want to automatically create releases within their [CI/CD](/topics/ci-cd/), many of the other solutions such as [Azure Pipelines](https://docs.microsoft.com/en-us/azure/devops/pipelines/release/?view=azure-devops), [XebiaLabs](https://docs.xebialabs.com/v.9.5/xl-release/how-to/work-with-xl-yaml-format/), and [Cloudbees](https://www.jenkins.io/blog/2018/04/25/configuring-jenkins-pipeline-with-yaml-file/), all feature a way to deploy and create releases from the YAML. 
+
+## How did we discover that we needed a tool to create the release? 
+
+The Release Management team underwent a few calls with a GitLab Maintainer, [Kamil Trzciński](https://gitlab.com/ayufan), to help decide the correct path forward. There were several scenarios we considered. 
+
+| Option   | Pros| Cons  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Generate Release from Rails    | 1. Simple addition of token and yaml job                                                                                                                                                                                                       | 1. Rails would be too heavy<br> 2. High potential for errors and slowness<br> 3. Least performant option                                                                                                                                                           |
+| Create an independent CLI tool | 1. Independent and users can use it without downloading the whole Runner command<br> 2. Can be owned by the Release team<br> 3. The intention and domain of the CLI is very specific and users won't get confused.<br> 4. We can have the code in any repo | 1. Maybe some code duplication from gitlab-runner-helper command to auth with CI\_JOB\_TOKEN                                                                                                                                                                   |
+| Create a runner helper         | 1. Much quicker since it's just copy/pasting a file and changing the command name and URL                                                                                                                                                      | 1. The user have to download the gitlab-runner-helper binary<br> 2. Lots of actions for the user to take to use<br> 3. Not as discoverable<br> 4. Coupled and dependent on Runner team<br> 5. It would require to follow the same release version scheme as GitLab Runner does |
+
+We learned quickly that Rails was not the right place to generate a release as a result of performance and we also learned the logic was too much for the GitLab Runner to handle. This was discussed in a chat with [Steve Azzopardi](https://gitlab.com/steveazz-dr) from the Runner Team, [Sean Carroll](https://gitlab.com/sean_carroll) from Release Management, and of course the product teammates.
+
+<figure class="video_container">
+  <iframe src="https://youtube.com/embed/bfbnjEKZ9yw" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+The technical takeaways from this call included:  
+  - Runner was more fragile and likely would be taxed by the logic that creating a release from the yaml would cause 
+  - Rails would be slow and not as performant when creating a release 
+  - a command line tool would be extensible and allow the Release Management team to wholly own the product 
+
+Thus, the team moved forward with the independent CLI and began developing this tool. 
+
+## How does the release-cli work?
+
+The release-cli tool is written in Go and can be called directly to create a Release via the API, given the right `job token` and parameters are provided. The more likely way users will interact with this tool will be in the YAML file as a job: 
+
+```
+release_upload:
+  image: registry.gitlab.com/gitlab-org/release-cli:v0.1.0
+  script:
+    - gitlab-releaser create --name="My Release" --description="My Release description"
+```
+
+![Architecture of Release-cli](/images/blogimages/archdiagram.png "release-cli architecture"){: .shadow}
+
+### Steps for the release-cli 
+
+1. The release-cli will instruct the `release` node of `.gitlab-ci.yml`
+  - This will convert the actions of creating the release into commands and pass those to the Runner. 
+2. YAML exposed as Steps
+  - The release node of the `.gitlab-ci.yml` configuration file is converted into Steps and made available via API endpoint.
+3. Runner calls CLI on Job success
+  - The Runner executes the Job, and upon success calls the Release CLI. The evaluation of the Release must be created is made by the CLI, so this step implies the Runner always calls the Release CLI at the end of a successful Job.
+4. CLI retrieves Release Steps
+  - The Release CLI calls the Rails API to retrieve the release configuration (as Steps).
+5. CLI creates Release
+  - The Release CLI makes an API call to Rails to create the Release.
+
+## What is next for the release-cli? 
+
+We currently have the first iteration of the release-cli complete, which looks like: 
+
+![Architecture2 of Release-cli](/images/blogimages/current_cli.png "release-cli current architecture"){: .shadow}
+
+This MVC implemented via [gitlab#199253](https://gitlab.com/gitlab-org/gitlab/-/issues/199253), has enabled:  
+   - use of the [GitLab Release CLI docker image](https://gitlab.com/gitlab-org/release-cli)
+   - the `--name` and `--description` parameters for a Release
+   - calling the Releases API to create a Release with name and description
+   - access to all CI variables, including `$CI_JOB_TOKEN` for authentication to the GitLab Releases API and `$CI_PROJECT_ID` to create the Release
+
+The Release Management team will expand the tool to be able to manage many tasks for the Release generation. These features include:
+   1. Expose `:release` yaml as steps via [gitlab#199250](https://gitlab.com/gitlab-org/gitlab/-/issues/199250)
+   1. Support file uploads to Releases via [gitlab#17838](https://gitlab.com/gitlab-org/gitlab/-/issues/17838)
+   1. Support binary files in Releases via [gitlab#35893](https://gitlab.com/gitlab-org/gitlab/-/issues/35893)
+   1. Automatically create Release notes in Releases via [gitlab#15563](https://gitlab.com/gitlab-org/gitlab/-/issues/15563)

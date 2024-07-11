@@ -1,0 +1,92 @@
+---
+title: "How Weet integrates localization into the GitLab pipeline with Lokalise"
+author: Alexander Pereverzevs
+author_gitlab: lokalise_
+author_twitter: gitlab
+categories: ci
+image_title: '/images/blogimages/lokalise_cover.png'
+description: "Localization is an increasingly important option for users. Here's how to integrate localization in your GitLab pipeline."
+tags: collaboration, integrations, open source
+guest: true
+twitter_text: "How @beweet used @lokalise to integrate localization into the @gitlab pipeline."
+featured: no
+postType: content marketing
+---
+
+As a GitLab customer, Weet has fully invested in the premise of "Iterate faster, innovate together." Weet has a low tolerance for processes that don't keep pace with the way they develop and launch. One important process that was slowing the business down – localizing their app.
+
+Localization is a key way to drive growth and accelerate product adoption. When done poorly, localization or l10n, as it's commonly known, can slow down your development process, introduce bugs, and make it cumbersome to launch updates. When done right, teams can smooth out the process and [continuously localize](https://lokalise.com/features/localization-process-automation) their app. We unpack how Weet conquered its localization problems using GitLab and Lokalise.
+
+## What is Weet?
+
+[Weet](https://beeweet.com) is an asynchronous video communication tool designed to reduce the need for meetings. By combining video, audio, and screen sharing, it provides the nuance that written communication simply does not. For example, Weet's 10-person team, which is spread between France and the US, uses the product to speed through code reviews. The product has also been used for demos, design feedback, bug reports, QA reviews, and client presentations. At Lokalise, we use the tool to communicate with team members across time zones with ease and clarity.
+
+Weet started using GitLab five years ago and is using the latest version (13.11 as of this writing). For the runner they use 13.11 too, with an auto-scalable configuration (best feature ever!). The instance is self-managed on Google Cloud.
+
+Weet uses roughly 50 pipelines to manage processes such as: building the entire stack of the Weet application, checking the unit tests, deploying to a QA environment, deploying in production, launching the end-to-end tests, and more. The company currently has 17 projects set up, which are combined with GitLab CI/CD to deploy the Weet application.
+
+They are, in summary... GitLab fans.
+
+## The first l10n solution
+
+When Weet first started localizing their app the engineering team considered two options:
+
+1. Download CSV files of strings, email them to the translators, and then reintegrate the data after the translation work was complete
+2. Translate directly in the IDE
+
+Both options had their drawbacks. Downloading and uploading files takes developers out of the flow, but worse than that, the process can introduce l10n bugs that make the app look unreliable or amateurish. Also, these problems take time to resolve. It's not uncommon for version control to be an issue with this type of system.
+
+Weet chose the Web IDE option because it was easier to get started, but the process wasn't working at the pace they wanted.
+
+>> "Before we used the Lokalise integration, we had to validate the new wording before each code push. The process was time-consuming as approvers were spread across different time zones," - Geraud Bonou-Selegbe, Full-stack engineer at Weet.
+
+Hunting through the code to change all the instances of a word that needs to be replaced is not high on anyone's list of fun things to do.
+
+It wasn't long before Jeremy Rouet, the CTO and co-founder of Weet, started looking for new options. If they wanted to fulfill the CI/CD promise of GitLab, they needed a tool that would integrate cleanly into the pipeline. Jeremy began testing translation management systems (TMS) and settled on integrating [Lokalise with GitLab](https://docs.lokalise.com/en/articles/1789855-gitlab).
+
+## How to continuously localize your product
+
+Lokalise integrates into GitLab and allows a user (like Weet) to pull files into Lokalise, where translation tasks can be assigned and completed and then easily merged back.
+
+![Schema of how Lokalise works in GitLab](/images/blogimages/lokalize1.png){: .shadow.medium.center}
+A schema of how Lokalise works in GitLab.
+{: .note.text-center}
+
+Developers code as normal aiming to complete their work prior to each weekly release. Each push on master sends text strings automatically into Lokalise. Lokalise detects any changes to the text, so the developers don't have to remember what exactly they changed. Jeremy then uses the task features in Lokalise to assign the translation tasks to the Weet marketing team, who then go in and check all the new words.
+
+Once the translation team is done, they create a merge request, and the product is ready to launch.
+
+>> "Lokalise enabled us to bridge this gap by letting developers do what they do the best: coding. If my phrasing is not perfect, language experts can review it on Lokalise and then send a merge request with their updates. Now we've got the right expert in the right place for each milestone of our development process," says Geraud.
+
+![Lokalise Merge Request in GitLab](/images/blogimages/lokalize2.png){: .shadow.medium.center}
+What a merge request looks like using Lokalise and GitLab.
+{: .note.text-center}
+
+Gone are the days of manually updating translations in the IDE in order to fix phrasing. Now app localization is a seamless and reliable part of the development workflow of the CI/CD process that is built around GitLab.
+
+## Steps to set up the integration
+
+Full instructions are available here. With over 500 keys in the app, the Weet team created several internal processes to keep their work tidy.
+One move they made was to split their localization data into 5 projects/files. Each localization is a .json file. The separate files are:
+
+- emails
+- frontend
+- integration
+- server-side rendering
+- mobile – iOS/Android (WIP)
+
+Then to simplify key maintenance they used a naming pattern so that each component has its own keys. When they delete a component, they simply remove the main key from the localization file, which removes each label for this component. See below:
+
+![Deleting a component and removing main key from the localization file](/images/blogimages/lokalize3.png){: .shadow.medium.center}
+How to delete a component and remove the main key from the localization file.
+{: .note.text-center}
+
+Finally, they tackled conflicts. The developers are able to edit the localization files both in Lokalise and in their environment. Changes in multiple systems could clash. To solve this problem, they decided that developers can only use Lokalise to update labels and they can only add or remove keys in their local environment.
+
+## What localization delivers
+
+It took the Weet team some time and trial and error to smooth out the process.
+
+Now that the process is totally seamless, they can localize a new release in less than an hour with just a short quality check. That’s a big improvement from the days when they had to synchronize the dev, PO, and QA teams over a few days, to check and correct the new localization.
+
+With their ability to continuously localize their app, they can focus on developing and delivering the best product possible. And it seems to be working as they were recently voted the #2 (closed) product of the week on Product Hunt. Coming up on the roadmap – mobile apps and more languages.

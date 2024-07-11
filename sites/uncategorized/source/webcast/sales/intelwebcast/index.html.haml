@@ -1,0 +1,138 @@
+---
+layout: default
+title: GitLab for Intel - Get full  visibility into your SDLC with a single app for Source Code Management and Continuous Integration
+suppress_header: true
+noindex: true
+extra_css:
+  - styles-2018.css
+---
+
+.wrapper
+  .page-illustrated-header-container
+    = partial "includes/icons/gitlab-icon-pattern-header.svg"
+    .container
+      .header-container-content
+        %h1.page-headline GitLab for Intel
+        %h2.page-subtitle Get full  visibility into your SDLC with a single app for
+        %h2.page-subtitle source code management and continuous integration
+
+  .content-container
+    .wrapper.container{ role: "main" }
+      .row
+        .col-xs-12.col-md-6.col-md-offset-1
+          .content-section
+            %h3 July 9, 2020 - 10:30 am PT
+            %p Learn how GitLab helps you build and test faster at scale in this Intel-specific webinar.
+            
+            %p CI automates builds and tests, allowing developers to build big in small steps. With CI, developers get feedback on errors fast and early so you can release small batches of code frequently.
+            
+            %P By combining Source Code Management and CI in a single application, GitLab also eliminates the need to maintain complicated toolchains, so you can focus on building loveable features instead of maintenance.
+
+            %h3 Learn how GitLab:
+            %ul
+              %li Enables developers to build and test faster
+              %li Compares to other CI tools
+              %li Integrates with existing tools for a seamless SDLC workflow
+
+        .col-md-4.col-md-offset-1
+          %h3.margin-top0 Register for the webcast
+          .centered-form
+            %script{src: "//page.gitlab.com/js/forms2/js/forms2.min.js"}
+            - localvar_form_id = '1592'
+            - localvar_form_type = 'webcasts'
+            %form{id: "mktoForm_#{localvar_form_id}"}
+            :javascript
+              var consoleLogsEnable = new Boolean(false);
+              //
+              var gatedFormAfterSuccessDo = function(form)
+              {
+                  form.getFormElem().hide();
+                  $('.webcast-video-container').css('display', 'block');
+                  $('.confirmform').attr('style', 'visibility: visible');
+                  $('.confirmform').attr('style', 'height: initial');
+                  $('html, body').animate({scrollTop: parseInt($('.confirmform').offset().top-100)}, 500);
+              };
+              //
+              MktoForms2.setOptions(
+              {
+                formXDPath : "/rs/194-VVC-221/images/marketo-xdframe-relative.html"
+              });
+              MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", #{localvar_form_id}, function(form)
+              {
+                // Please include the email domains you would like to allow in this list
+                var validDomains = ["@intel."];
+                if(consoleLogsEnable == true)
+                {
+                  console.log(validDomains);
+                };
+                //
+                form.onSuccess(function()
+                {
+                  dataLayer.push(
+                  {
+                    'event' : '#{localvar_form_type}', 
+                    'mktoFormId' : form.getId(),
+                    'eventCallback' : function()
+                    {
+                      if(consoleLogsEnable == true)
+                      {
+                        console.log(form.getId());
+                      };
+                      form.getFormElem().hide();
+                      gatedFormAfterSuccessDo(form);
+                    }, 'eventTimeout' : 3000
+                  });
+                  return false;
+                });
+                //
+                form.onValidate(function()
+                {
+                  var email = form.vals().Email;
+                  if(consoleLogsEnable == true)
+                  {
+                    console.log(email);
+                  };
+                  if (email)
+                  {
+                    if (isEmailGood(email) == false)
+                    {
+                      form.submittable(false);
+                      var emailElem = form.getFormElem().find("#Email");
+                      emailErrorMessage = "Email address must contain " + validDomains;
+                      form.showErrorMessage(emailErrorMessage, emailElem);
+                    } else {
+                      form.submittable(true);
+                    }
+                  }
+                });
+                //
+                function isEmailGood(email)
+                {
+                  for(var i=0; i < validDomains.length; i++)
+                  {
+                    var domain = validDomains[i];
+                    if(consoleLogsEnable == true)
+                    {
+                      console.log(domain);
+                    };
+                    var doesItIncludeDomain = email.includes(domain);
+                    if(doesItIncludeDomain == true)
+                    {
+                      if(consoleLogsEnable == true)
+                      {
+                        console.log('isEmailGood: true (IS in valid domains list)');
+                      };
+                      return true;
+                    };
+                    if(consoleLogsEnable == true)
+                    {
+                      console.log('isEmailGood: false (NOT in valid domains list)');
+                    };
+                    return false;
+                  };
+                };
+              });
+            .confirmform{ style: "visibility:hidden;" }
+              .centered-form-info
+                %h3 Registration received!
+                %p Thank you for registering. You will receive an email with additional details.

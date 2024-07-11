@@ -1,0 +1,168 @@
+---
+title: "How to fuzz Rust code continuously"
+author: "Yevgeny Pats"
+author_gitlab: ypats
+author_twitter: yevgenypats
+categories: engineering
+image_title: '/images/blogimages/rust.jpg'
+tags: inside GitLab, security, fuzzing
+description: "Learn why you should always fuzz test your Rust code, and the code you'll need to do it."
+tags: open source, tutorial
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "See the code you need to use to fuzz Rust code using @GitLab CI/CD" # optional;  If no text is provided it will use post's title.
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2020/07/21/rust-programming-language/"
+  - "/blog/2020/03/31/conan-c-cpp-package-management-integration/"
+  - "/blog/2020/04/23/cobol-programmer-shortage/"
+merch_banner: merch_seven
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2020-12-17.
+{: .alert .alert-info .note}
+
+## What is fuzzing?
+
+Fuzzing, also called [fuzz testing](/topics/devsecops/what-is-fuzz-testing/), is an automated software technique that involves providing semi-random data as an input to the test program in order to uncover bugs and crashes.
+
+In this short tutorial we will discuss using `cargo-fuzz` for fuzzing Rust code.
+
+## Why fuzz Rust code?
+[Rust](https://www.rust-lang.org/) is a safe language (mostly) and memory corruption issues are a thing of the past so we don’t need to fuzz our code, right? Wrong!
+Any code, and especially where stability, quality, and coverage are important, is worth fuzzing.
+Fuzzing can uncover logical bugs and denial-of-service issues in critical components that can lead to security issues as well.
+
+As a reference to almost infinite amount of bugs found with cargo-fuzz (only the documented one) you can look at [the list of bugs found by fuzz-testing Rust codebases](https://github.com/rust-fuzz/trophy-case).
+
+## Cargo-fuzz
+
+cargo-fuzz is the current de-facto standard fuzzer for Rust and essentially it is a proxy layer to the well-tested [libFuzzer](https://llvm.org/docs/LibFuzzer.html) engine.
+This means the algorithm and the interface is all based on libFuzzer, which is a widely-used, coverage-guided fuzzer for C/C++ and some other languages that implemented a proxy layer – just like cargo-fuzz.
+
+libFuzzer (cargo-fuzz) and coverage-guided fuzzers in general have the following algorithm:
+
+```
+// pseudo code
+Instrument program for code coverage
+for {
+  Choose random input from corpus
+  Mutate input
+  Execute input and collect coverage
+  If new coverage/paths are hit add it to corpus (corpus - directory with test-cases)
+}
+```
+
+## Building and running the fuzzer
+
+If you are already familiar with this part you can skip to Continuous Fuzzing section.
+
+We will start with [rust-fuzzing-example](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/rust-fuzzing-example).
+
+For the sake of the example, we have a simple [function](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/rust-fuzzing-example/-/blob/master/src/lib.rs) with an off-by-one bug:
+
+```
+pub fn parse_complex(data: &[u8]) -> bool{
+	if data.len() == 5 {
+		if data[0] == b'F' && data[1] == b'U' && data[2] == b'Z' && data[3] == b'Z' && data[4] == b'I' && data[5] == b'T' {
+			return true
+		}
+	}
+    return true;
+}
+```
+
+Our fuzz [function](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/rust-fuzzing-example/-/blob/master/fuzz/fuzz_targets/fuzz_parse_complex.rs) will look like this and will be called by libFuzzer in an infinite loop with the generated data, according to the coverage-guided algorithm.
+
+```
+#![no_main]
+#[macro_use] extern crate libfuzzer_sys;
+extern crate example_rust;
+
+fuzz_target!(|data: &[u8]| {
+    let _ = example_rust::parse_complex(&data);
+});
+```
+
+To run the fuzzer we need to build an instrumented version of the code together with the fuzz function.
+cargo-fuzz is doing for us the heavy lifting so it can be done using the following simple steps:
+
+```
+# cargo-fuzz is available in rust nightly
+docker run -it rustlang/rust:nightly-stretch /bin/bash
+cargo install cargo-fuzz
+
+# Download the example repo, build, and run the fuzzer
+git clone https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/rust-fuzzing-example/-/blob/master/fuzz/fuzz_targets/fuzz_parse_complex.rs
+cd example-rust
+cargo fuzz run fuzz_parse_complex
+
+## The output should look like this:
+#524288 pulse  cov: 105 ft: 99 corp: 6/26b lim: 517 exec/s: 131072 rss: 93Mb
+#1048576        pulse  cov: 105 ft: 99 corp: 6/26b lim: 1040 exec/s: 116508 rss: 229Mb
+==2208== ERROR: libFuzzer: deadly signal
+    #0 0x5588b8234961  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x83961)
+    #1 0x5588b8262dc5  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xb1dc5)
+    #2 0x5588b8284734  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xd3734)
+    #3 0x5588b82845e9  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xd35e9)
+    #4 0x5588b826493a  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xb393a)
+    #5 0x7f93737e70df  (/lib/x86_64-linux-gnu/libpthread.so.0+0x110df)
+    #6 0x7f9373252ffe  (/lib/x86_64-linux-gnu/libc.so.6+0x32ffe)
+    #7 0x7f9373254429  (/lib/x86_64-linux-gnu/libc.so.6+0x34429)
+    #8 0x5588b82a4a06  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xf3a06)
+    #9 0x5588b82a1b75  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xf0b75)
+    #10 0x5588b824fa1b  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x9ea1b)
+    #11 0x5588b82a442b  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xf342b)
+    #12 0x5588b82a3ee1  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xf2ee1)
+    #13 0x5588b82a3dd5  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xf2dd5)
+    #14 0x5588b82b6cd9  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x105cd9)
+    #15 0x5588b82b6c94  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x105c94)
+    #16 0x5588b824edda  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x9ddda)
+    #17 0x5588b81c45b7  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x135b7)
+    #18 0x5588b824f7e4  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0x9e7e4)
+    #19 0x5588b827da53  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xcca53)
+    #20 0x5588b82a4a18  (/example-rust/fuzz/target/x86_64-unknown-linux-gnu/debug/fuzz_parse_complex+0xf3a18)
+
+NOTE: libFuzzer has rudimentary signal handlers.
+      Combine libFuzzer with AddressSanitizer or similar for better crash reports.
+SUMMARY: libFuzzer: deadly signal
+MS: 2 ShuffleBytes-ChangeByte-; base unit: 89b92cdd9bcb9b861c47c0179eff7b3a9baafcde
+0x46,0x55,0x5a,0x5a,0x49,
+FUZZI
+artifact_prefix='/example-rust/fuzz/artifacts/fuzz_parse_complex/'; Test unit written to /example-rust/fuzz/artifacts/fuzz_parse_complex/crash-df779ced6b712c5fca247e465de2de474d1d23b9
+Base64: RlVaWkk=
+```
+
+This find the bug in a few seconds, prints the “FUZZI” string that triggers the vulnerability and saves it to a file.
+
+## Running cargo-fuzz from CI
+
+The best way to integrate go-fuzz fuzzing with Gitlab CI/CD is by adding additional stage and step to your `.gitlab-ci.yml`. It is straightforward and [fully documented](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/#configuration).
+
+```
+include:
+  - template: Coverage-Fuzzing.gitlab-ci.yml
+
+my_fuzz_target:
+  extends: .fuzz_base
+  script:
+    - apt-get update -qq && apt-get install -y -qq git make clang cmake
+    - export CC=`which clang`
+    - export CXX=`which clang++`
+    - cargo install cargo-fuzz
+    - cargo fuzz run fuzz_parse_complex -- -runs=0
+    - ./gitlab-cov-fuzz run --regression=$REGRESSION -- ./fuzz/target/x86_64-unknown-linux-gnu/release/fuzz_parse_complex
+```
+
+For each fuzz target you will have to create a step which extends `.fuzz_base` that runs the following:
+
+- Builds the fuzz target.
+- Runs the fuzz target via gitlab-cov-fuzz CLI.
+- For `$CI_DEFAULT_BRANCH` (can be override by `$COV_FUZZING_BRANCH`) will run fully fledged fuzzing sessions. For everything else including MRs will run fuzzing regression with the accumulated corpus and fixed crashes.
+
+This will run your fuzz tests in a blocking manner inside your pipeline. There is also a possibility to run longer fuzz sessions asynchronously, as described in the [docs](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/#continuous-fuzzing-long-running-async-fuzzing-jobs).
+
+Check out our [full documentation](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/) and the [example repo](https://gitlab.com/gitlab-org/security-products/demos/coverage-fuzzing/rust-fuzzing-example) and try adding fuzz testing to your own repos!
+
+Cover image by [Zsolt Palatinus](https://unsplash.com/@sunitalap) on [Unsplash](https://unsplash.com/)

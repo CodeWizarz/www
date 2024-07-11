@@ -1,0 +1,175 @@
+---
+title: "How to stand-up a GitLab instance in AWS Marketplace"
+author: Itzik Gan-Baruch
+author_gitlab: iganbaruch
+categories: engineering
+tags: "collaboration, DevOps "
+description: This is a quick quide to help you provision a GitLab instance in the AWS Marketplace and setup a Runner.
+image_title: /images/blogimages/2021-aws-marketplace-blog/awsmp.png
+twitter_text: "How to stand-up GitLab instance in AWS Marketplace "
+---
+
+## In this guide we will learn how to spin up GitLab in the AWS Marketplace:
+
+### Pre requisites for this lab are having an account in AWS and an accessible and working VPC.
+
+### We will learn the following steps:
+
+1. Stand up a self-managed instance of GitLab.
+2. Install Runner and Docker Engine.
+
+
+## Step-by-step Instructions
+
+
+### Step 1 - Stand up GitLab instance in AWS
+
+
+- Open [GitLab Ultimate](https://aws.amazon.com/marketplace/pp/B07SJ817DX) in AWS Marketplace.
+- Click on **Continue to Subscribe**
+
+![aws-1](/images/blogimages/2021-aws-marketplace-blog/aws-1.png)
+
+- Sign in with your IAM user.
+
+![aws-2](/images/blogimages/2021-aws-marketplace-blog/aws-2.png)
+
+- Click on **Continue to Configuration**.
+
+![aws-3](/images/blogimages/2021-aws-marketplace-blog/aws-3.png)
+
+- Leave the default value for **Delivery Method**, select the latest version in **Software Version**, select your **Region**, click **Continue to Launch**.
+
+![aws-4](/images/blogimages/2021-aws-marketplace-blog/aws-4.png)
+
+- In Launch this software page, scroll down.
+
+![aws-5](/images/blogimages/2021-aws-marketplace-blog/aws-5.png)
+
+- Under **Security Group Settings** click **Create New Based On Seller Settings** .
+
+![aws-6](/images/blogimages/2021-aws-marketplace-blog/aws-6.png)
+
+- Name your security group, add a description, and save it.
+
+![aws-7](/images/blogimages/2021-aws-marketplace-blog/aws-7.png)
+
+- Select **Key Pair**. If you don't have key pair, create one. Leave other fields in this page with default values.  Click **Launch**.
+
+![aws-8](/images/blogimages/2021-aws-marketplace-blog/aws-8.png)
+
+- You will get Congratulations message confirming you launched the machine successfully. In this message click on **EC2 Console** link.
+
+![aws-9](/images/blogimages/2021-aws-marketplace-blog/aws-9.png)
+
+- Click on your instance ID link.
+
+![aws-10](/images/blogimages/2021-aws-marketplace-blog/aws-10.png)
+
+The provisioning takes a few minutes. Please wait before you start the next step.
+
+- Click "Open address" in order to open GitLab UI.
+
+ Copy the **private** or **public** IP to your browser , depending on your **VPC configuration**.
+
+
+![aws-10_5](/images/blogimages/2021-aws-marketplace-blog/aws-10_5.png)
+
+- It takes a few minutes to start the server, you may see this error, this is ok, wait 1 minute and refresh the page.
+
+![aws-11](/images/blogimages/2021-aws-marketplace-blog/aws-11.png)
+
+- You now should be able to access the GitLab login page; Username is **root**, password is your **instance ID**, click **Sign in**.
+
+![aws-13](/images/blogimages/2021-aws-marketplace-blog/aws-13.png)
+
+## Congratulations! you managed to start a GitLab instance and sign in to it.
+
+![aws-14](/images/blogimages/2021-aws-marketplace-blog/aws-14.png)
+
+
+
+
+### Step 2 - Install Runner and Docker Engine
+
+
+Runner machines are the build agents that run the CI/CD jobs.
+
+Requirements:
+
+- Jobs run inside the Docker images, therefore the runner machine requires Docker engine on the runner machine.
+
+
+### Connect to the machine with the **AWS console - Connect**
+
+In order to setup the Runners and Docker engine, we need to connect to the GitLab machine we are running. This can be done via **SSH** from any command line, or directly via the **AWS Console**, depending on how your **VPC** is set. In our example we will use the **AWS console - Connect** feature to SSH into the machines.
+
+**WARNING: It is not a recommended best practice to install Runners on the same machine where the server is installed for security and performance reasons, but only for the sake of simplicity, in this blog we will install it on the same machine.**
+
+  - Go to your Instance summary, and click **Connect** in order to open the console.
+
+  ![runner-1](/images/blogimages/2021-aws-marketplace-blog/runner-1.png)
+
+  - Click Connect again.
+
+  ![runner-2](/images/blogimages/2021-aws-marketplace-blog/runner-2.png)
+
+
+### Install Docker engine
+
+  - Install Container by running this command `curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh`
+
+
+### Setup Runners
+
+  - Download the binaries for Linux x86 `sudo curl -L --output /usr/local/bin/gitlab-runner "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-linux-386"`
+  - Give it permissions to execute: `sudo chmod +x /usr/local/bin/gitlab-runner`
+  - Create a GitLab CI user: `sudo useradd --comment 'GitLab Runner' --create-home gitlab-runner --shell /bin/bash`
+  - Install and run as service: `sudo gitlab-runner install --user=gitlab-runner --working-directory=/home/gitlab-runner
+sudo gitlab-runner start`
+
+
+### Register the Runner
+
+
+  - Run this command: `sudo gitlab-runner register`.
+  - You will be prompt to enter URL.
+  - Open your GitLab instance, under CI/CD settings:
+    - Click Settings, CI/CD.
+
+      ![runner-2](/images/blogimages/2021-aws-marketplace-blog/runner-3.png)
+
+    - Expand **Runners**.
+
+      ![runner-4](/images/blogimages/2021-aws-marketplace-blog/runner-4.png)
+
+    - Copy the URL to the clipboard under specific runner.
+
+    ![runner-5](/images/blogimages/2021-aws-marketplace-blog/runner-5.png)
+
+  - Paste the URL in the console.
+  - Enter.
+  - You will be prompt to enter registration token, copy it from the Runner settings.
+
+![runner-5](/images/blogimages/2021-aws-marketplace-blog/runner-6.png)
+
+  - Paste it in the console.
+  - Enter Description for the runner: type **GitLab workshop**.
+  - Add a tag to this runner, for example type **Linux**
+  - Enter executor, type **docker**.
+  - Enter the default Docker image, type **ruby:2.6**.
+  - You will get a message starting with **Runner registered successfully. Feel free to start it...**
+  - Refresh the Runner settings page in GitLab and you will see your runner under **Available specific runners**.
+  - Click edit.
+
+  ![runner-7.png](/images/blogimages/2021-aws-marketplace-blog/runner-7.png)
+
+  - Check the **Indicates whether this runner can pick jobs without tags** option, and click **Save changes**.
+
+  ![runner-7.png](/images/blogimages/2021-aws-marketplace-blog/runner-8.png)
+
+
+## Well done!! You installed and registered successfully GitLab Runner. Now you are ready to create a project and run your first CI/CD pipeline.
+
+In my next blog, I will show you how to create a project, configure the CI/CD, change your application code, and run a CI/CD pipeline.

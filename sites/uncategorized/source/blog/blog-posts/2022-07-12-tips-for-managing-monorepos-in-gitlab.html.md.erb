@@ -1,0 +1,59 @@
+---
+title: 5 Tips for managing monorepos in GitLab
+author: Sarah Waldner, Jackie Porter
+author_gitlab: sarahwaldner
+categories: engineering
+tags: DevOps, features, performance, product, workflow
+description: Learn the benefits of operating a monolothic repository and how to
+  get the most out of this structure.
+image_title: /images/blogimages/code-review-blog.jpg
+twitter_text: Monolithic repositories have a long way to go until they are as easy to manage as multi-repos in GitLab so check out these 5 tips to make this DevOps task easier.
+---
+GitLab was founded 10 years ago on Git because it is the market leading version control system. As [Marc Andressen pointed out in 2011](https://www.wsj.com/articles/SB10001424053111903480904576512250915629460), we see teams and code bases expanding at incredible rates, testing the limits of Git. Organizations are experiencing significant slowdowns in performance and added administration complexity working on enormous repositories or monolithic repositories. 
+
+## Why do organizations develop on monorepos? 
+
+Great question. While [some](https://www.infoworld.com/article/3638860/the-case-against-monorepos.html) might believe that monorepos are a no-no, there are valid reasons why companies, including  Google or GitLab (that’s right! We operate a monolithic repository), choose to do so. The main benefits are: 
+
+- Monorepos can reduce silos between teams, streamlining collaboration on design, development, and operation of different services because everything is within the same repository.
+- Monorepos help organizations standardize on tooling and processes. If a company is pursuing a [DevOps](https://about.gitlab.com/topics/devops/) transformation, a monorepo can help accelerate change management when it comes to new workflows or the rollout of new tools.
+- Monorepos simplify dependency management because all packages can be updated in a single commit.
+- Monorepos offer unified CI/CD and build processes. Having all services in a single repository means that you can set up one system of pipelines for everyone.
+
+While we still have a ways to go before monorepos or monolithic repositories are as easy to manage as multi-repos in GitLab, we put together five tips and tricks to maintain velocity while developing on a monorepo in GitLab.
+
+**1. Use CODEOWNERS to streamline merge request approvals**
+
+CODEOWNERS files live in the repository and assign an owner to a portion of the code, making it super efficient to process changes. Investing time in setting up a robust [CODEOWNERS file](https://docs.gitlab.com/ee/user/project/codeowners/) that you can then use to automate [merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/) from required people will save time down the road for developers. 
+
+You can then set your merge requests so they must be approved by Code Owners before merge. CODEOWNERS specified for the changed files in the merge request will be automatically notified.
+
+**2. Improve git operation performance with Git LFS**
+
+A universal truth of git is that managing large files is challenging. If you work in the gaming industry, I am sure you’ve been through the annoying process of trying to remove a binary file from the repository history after a well-meaning coworker committed it. This is where [Git LFS](https://docs.gitlab.com/ee/topics/git/lfs/#git-large-file-storage-lfs) comes in. Git LFS keeps all the big files in a different location so that they do not exponentially increase the size of a repository.
+
+The GitLab server communicates with the Git LFS client over HTTPS. You can enable Git LFS for a project by toggling it in [project settings](https://docs.gitlab.com/ee/user/project/settings/index.html#configure-project-visibility-features-and-permissions). All files in Git LFS can be tracked in the GitLab interface. GitLab indicates what files are stored there with the LFS icon.
+
+**3. Reduce download time with partial clone operations**
+
+[Partial clone](https://docs.gitlab.com/ee/topics/git/partial_clone.html#partial-clone) is a performance optimization that allows Git to function without having a complete copy of the repository. The goal of this work is to allow Git to better handle extremely large repositories.
+
+As we just talked about, storing large binary files in Git is normally discouraged, because every large file added is downloaded by everyone who clones or fetches changes thereafter. These downloads are slow and problematic, especially when working from a slow or unreliable internet connection.
+
+Using partial clone with a file size filter solves this problem, by excluding troublesome large files from clones and fetches. 
+
+**4. Take advantage of parent-child pipelines**
+
+[Parent-child pipelines](https://docs.gitlab.com/ee/ci/pipelines/parent_child_pipelines.html) are where one pipeline triggers a set of downstream pipelines in the same project. The downstream pipelines still execute in the same stages or sequence without waiting for other pipelines to finish. Additionally, child pipelines reduce the configuration to the child pipeline, making it easier to interpret and understand. For monorepos, using parent-child pipelines in conjunction with `rules:changes` will only run pipelines on specified files changes. This reduces wasted time running pipelines across the entire repository.  
+
+**5. Use incremental backups to eliminate downtime** 
+
+[Incremental backups](https://docs.gitlab.com/ee/raketasks/backup_restore.html#incremental-repository-backups) can be faster than full backups because they only pack changes since the last backup into the backup bundle for each repository. This is super useful when you are working on a large repository and only developing on certain parts of the code base at a time.
+
+## Where we are headed
+
+While these tips have helped many customers migrate from other version control systems to GitLab, we know there is still room for improvement. Over the next year, you will see us working on the following projects. We’d LOVE to hear from you, so share your thoughts, ideas, or simply 👍 on an issue to help prioritize things that will make your life easier.
+
+- [Git for enormous repositories](https://gitlab.com/groups/gitlab-org/-/epics/773)
+- [Expand SAST scanner support for monorepos](https://gitlab.com/groups/gitlab-org/-/epics/4895)
+- [Allow Reports to be Namespace to support monorepos](https://gitlab.com/gitlab-org/gitlab/-/issues/299490)

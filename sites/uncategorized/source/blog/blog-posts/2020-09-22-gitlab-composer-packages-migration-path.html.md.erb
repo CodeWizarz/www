@@ -1,0 +1,53 @@
+---
+title: "Migrate composer packages to GitLab"
+author: Jochen Roth
+author_gitlab: ochorocho
+author_twitter: ochorocho
+guest: true
+categories: unfiltered
+twitter_text: "Migrate composer packages to GitLab"
+image_title: '/images/blogimages/gitlab-composer-package-migration.jpg'
+description: "GitLab Packages now ships with a composer registry"
+tags: open source, workflow, integrations
+---
+
+{::options parse_block_html="true" /}
+
+
+
+## Manage Composer Packages in Gitlab
+
+With Gitlab 13.3, a repository for composer packages was introduced. This allows you to store and manage your private and public composer packages in your Gitlab instance.
+
+### Create Packages
+
+Creating packages is only a matter of adding the composer template to your `.gitlab-ci.yml`. Gitlab will automatically create a package when a git tag was created or a commit was pushed to a branch.
+
+[<img src="/images/blogimages/select-template.png" width="500" height="auto">](/images/blogimages/select-template.png)
+
+### Migrate your Packages to Gitlab
+
+You might wonder how to create packages for your existing tags of each repository.
+
+You have 2 options:
+
+1. Use curl to create packages manually e.g. ```curl --data tag=1.0.0 'https://__token__:<personal-access-token>@gitlab.com/api/v4/projects/<project_id>/packages/composer'```
+2. Use [this package](https://gitlab.com/ochorocho/gitlab-create-package-versions), which will create all packages and their versions for you using the Gitlab API.
+
+## Conclusion
+
+So far it is working pretty well. Publish and install packages works flawlessly. Managing permissions for a package is a breeze.
+
+Currently there is only a group endpoint. I could imagine others may require an instance endpoint to be able to access all packages of a Gitlab instance using a single endpoint/repository.
+For now you have to add multiple endpoints/repositories to your composer.json for each group.
+
+In my company, one group contains all shared projects and we were able circumvent adding multiple endpoints/repositories.
+
+There is always room for improvement. For example, the GUI should show more [details about the size of packages and how it was published (manually or via CI)](https://gitlab.com/gitlab-org/gitlab/-/issues/254385) and [semantic versioning is not fully supported](https://gitlab.com/gitlab-org/gitlab/-/issues/240887).
+If you are interested in GitLab or Composer, both issues are great ways to contribute, so that we can continue to improve this product together.
+
+## Resources
+
+* [GitLab Packages Docs](https://docs.gitlab.com/ee/user/packages/composer_repository/)
+* [Composer Docs](https://getcomposer.org/doc/)
+* [Migrate to Gitlab Packages](https://gitlab.com/ochorocho/gitlab-create-package-versions)

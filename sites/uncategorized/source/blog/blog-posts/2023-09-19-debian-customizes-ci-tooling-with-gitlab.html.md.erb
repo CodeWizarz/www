@@ -1,0 +1,77 @@
+---
+title: "Debian customizes CI tooling with GitLab"
+author: Santiago Ruano Rincón
+author_gitlab: topodelapradera
+author_twitter: gitlab
+categories: open source
+image_title: '/images/blogimages/tanukilifecycle.png'
+description: "Debian developer Santiago Ruano Rincón explains the Linux distribution's custom solution for improving and expediting the open source software packaging process."
+tags: open source, community, features
+guest: true
+twitter_text: "Learn how Debian's Salsa CI, built on GitLab, improves the work of packaging the Linux distribution's roughly 9,000 open source software packages."
+featured: no
+postType: oss-program
+related_posts:
+  - "/blog/2023/08/29/why-manjaro-builds-with-gitlab/"
+  - "/blog/2023/07/11/building-new-fedora-project-website-with-gitlab/"
+  - "/blog/2023/09/11/migrating-arch-linux-packaging-infrastructure-gitlab/"
+---
+I still remember the day I broke a widely used critical tool for open source developers around the world.
+As part of the [Debian Linux distribution project](https://www.debian.org/), I maintain [grep](https://tracker.debian.org/pkg/grep), the GNU/Linux application used to search for text patterns in files.
+I had just uploaded a new Debian release of grep to the Debian archive, when some hours later, a Debian friend called me to let me know other Debian developers were unable to boot their personal computers.
+
+That was late in 2005 – ever since then I'd wished for a way to prevent that scenario from happening again.
+
+Today, that solution exists.
+It's part of Salsa, Debian's GitLab implementation, which powers Debian development for more than 900 developers in the global Debian community.
+Thanks to GitLab's robust CI/CD functionality, those developers are able to test their packages *before* releasing them to the public Debian archive — saving them from causing the kind of turmoil I accidentally caused.
+
+> [Join us at Open Source Summit Europe 2023](https://go.gitlab.com/dPQ92t) to learn more about GitLab's dedication to open source.
+
+In this article, I'll explain how that tool, called [Salsa CI](https://salsa.debian.org/salsa-ci-team/pipeline/), helps Debian developers using GitLab streamline software development, accelerate package maintenance, and significantly reduce time-consuming re-work.
+
+## Debian with extra Salsa
+Salsa CI is one of the Debian community's custom-built continuous integration tools.
+It's part of the Debian GitLab instance ([Salsa](https://wiki.debian.org/Salsa)), and helps Debian maintainers manage roughly [9,000 projects](https://codesearch.debian.net/search?q=pipeline-jobs+path%3Adebian%2F.*.yml&literal=0&perpkg=1).
+
+### How Salsa CI works
+As a Linux distribution, Debian packages open source software from multiple upstream sources. 
+When new upstream source code is released, maintainers can test that code to ensure it will build and run reliably for Debian users as part of the Debian release cycle.
+* Packages appear first in [Debian Unstable](https://wiki.debian.org/DebianUnstable).
+* If those packages don't introduce regressions or serious bugs, they can migrate to [Debian Testing](https://wiki.debian.org/DebianTesting).
+* When a new Debian release is published, those packages move to [Debian Stable](https://wiki.debian.org/DebianStable).
+
+Salsa CI helps increase the probability that packages can pass from Unstable to Testing reliably, quickly, and without issue.
+In effect, it emulates the Debian build process, adding several quality checks to identify errors before they would affect Debian users. 
+When new source code triggers a Salsa CI pipeline, 17 different jobs run to build and test it automatically.
+Salsa CI checks to see whether the to-be-uploaded packages build on multiple architectures (at the moment, amd64 and i386, and optionally on Arm), runs [autopkgtest test suites](https://wiki.debian.org/ContinuousIntegration/autopkgtest) to try to identify potential regressions, and checks for common errors with our custom linter, [lintian](https://wiki.debian.org/Lintian), among other tests.
+You can view all the details at Debian's public GitLab instance (I maintain the `grep` package for Debian, so I'll offer that one as [an example of Salsa CI in action](https://salsa.debian.org/debian/grep/-/pipelines/576674)).
+
+![An overview of Salsa CI running on Debian's grep package](/images/blogimages/debian-grep-salsa-overview.png){: .shadow}
+
+## Life before Salsa CI
+Maintainers have been iterating on the Salsa CI pipeline for more than four years now. 
+But I have not forgotten what life as a package maintainer in the Debian community was like without it.
+
+Most of the work Salsa CI performs today is work that community members would otherwise need to perform manually. 
+So it proceeded slowly and was prone to more errors.
+While use of Salsa CI isn't compulsory for Debian maintainers, many choose to use it for their work because it saves them an incredible amount of time and effort — and because it leads to fewer breaking packages.
+Maintainers no longer need to run their own package tests locally; instead, Salsa performs this work remotely.
+
+And it works quickly.
+Identifying issues with [Debian's primary CI system](https://ci.debian.net) when testing packages might require several hours, days, or even a month. 
+Salsa CI reduces that time horizon to several *minutes* (or hours, in the worst cases), depending on the complexity of the package. For example:
+* Without Salsa CI, maintainers manually upload their packages and must wait for build results from the Debian build network (and they must do this for each architecture they wish to test). Usually, if a build fails, maintainers test on bespoke "[porterboxes](https://wiki.debian.org/PorterBoxHowToUse)" tailored to specific architectures. Using Salsa CI, however, maintainers can test x86 and Arm package builds easily — after a single `git push` command.
+
+* Running `autopkgtest` on [ci.debian.net](https://ci.debian.net/) (the official and central CI infrastructure for Debian) tests only the packages that have been built by the build servers and installed in the archive. `autopkgtest` is run for migration reference monthly. In Salsa CI, however, `autopkgtest` runs immediately after the amd64 build job has finished, decreasing review cycle times.
+
+## Salsa CI in the open source ecosystem
+Overall, the Debian community has been pleased with the progress Salsa CI maintainers have made since the tool's creation four years ago.
+Other open source communities are taking notice, too.
+For instance, Salsa CI has become the basis for even more complex CI pipelines in projects like [Kali Linux](https://go.gitlab.com/G1XROS).
+We're delighted to see that something we created to solve our own issues and improve our own work is making a positive impact on the open source ecosystem more broadly.
+
+*Editor's note: Debian developers [Alexander Wirt](https://gitlab.com/formorer) and [Otto Kekäläinen](https://gitlab.com/ottok) contributed to this article.*
+
+[Join us at Open Source Summit Europe 2023](https://go.gitlab.com/dPQ92t) to learn more about GitLab's dedication to open source.
+{: .note}

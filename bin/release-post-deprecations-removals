@@ -1,0 +1,15 @@
+#!/usr/bin/env ruby
+require_relative '../lib/release_posts'
+
+if $0 == __FILE__
+  begin
+    # NOTE(chaserx): Use DRYRUN=true command line option to avoid committing and pushing changes.
+    ReleasePosts::Deprecations.new.generate
+    ReleasePosts::Removals.new.generate
+  rescue ReleasePosts::Helpers::Abort => ex
+    puts ex.message
+    exit 1
+  rescue ReleasePosts::Helpers::Done
+    exit
+  end
+end

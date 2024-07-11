@@ -1,0 +1,322 @@
+---
+title: "GitLab Heroes Unmasked: How I am elevating my company using GitLab"
+author: Lee Tickett
+author_gitlab: leetickett
+author_twitter: gitlab
+guest: true 
+categories: devops platform
+tags: community, contributors, user stories
+description: Tickett Enterprises Limited Director Lee Tickett shares the details of his ongoing journey to use the DevOps platform to its fullest.
+image_title: '/images/blogimages/heroestickett.jpg'
+twitter text: "Tickett Enterprises Limited Director Lee Tickett shares the details of his ongoing journey to use the DevOps platform to its fullest."
+---
+
+_A key to GitLab’s success is our vast community of advocates. Here at GitLab, we call these active contributors ["GitLab Heroes"](/community/heroes/). Each hero contributes to GitLab in numerous ways, including elevating releases, sharing best practices, speaking at events, and more. The "GitLab Heroes Unmasked" series is dedicated to sharing their stories._
+
+Lee Tickett, director at IT development and support consultancy Tickett Enterprises Limited, is a GitLab hero and Core team member who continuously contributes to GitLab and provides exceptional feedback. In late 2020, he [wrote a blog](/blog/2020/11/13/lee-tickett-my-gitlab-journey/) about how he came upon GitLab and began to use it as his company's platform.
+
+At that point, his company was using GitLab in the following ways:
+
+- for version control
+- with a custom merge request approval process
+- as a custom UI for streamlined/standardized project creation
+- as an integration with our bespoke helpdesk platform
+- as a Windows runner with fairly basic CI
+
+This blog picks up where that blog left off and gives insight into how Tickett Enterprises is making the most of GitLab's One DevOps Platform for its helpdesk, CRM integration, CI/CD, and more.
+
+## Migrating the helpdesk
+
+Quite some time ago, I decided to migrate from the bespoke helpdesk platform and use GitLab for issue tracking. Here's [an epic](https://gitlab.com/groups/gitlab-org/-/epics/5323) I created just over two years ago to start discussing my plans.
+
+I built a bespoke migration tool using C#, which connects directly to the existing
+helpdesk database and pushes the data into GitLab using the API. This includes:
+
+- groups (each company in our helpdesk will become a group in GitLab with a single `Helpdesk` project)
+- issues (every ticket in our helpdesk will become an issue in GitLab, estimates will be included and quotes converted to weights)
+- notes
+- attachments
+- time logs
+- labels (type, class, department, and "status" will be migrated to labels)
+
+### Helpdesk workflow
+
+After discussing different approaches with the GitLab team and the community, we came up with the first iteration of our workflow process. The status of tickets in our helpdesk system becomes scoped labels in GitLab. It looks similar to the following:
+
+![Workflow Issue Board](/images/blogimages/workflow-issue-board.png)
+
+
+We have two relatively small teams so we can also leverage boards to distribute and manage
+work within the team:
+
+![Department Issue Board](/images/blogimages/department-issue-board.png)
+
+
+We will be leveraging the [GitLab Triage](https://gitlab.com/gitlab-org/ruby/gems/gitlab-triage)
+RubyGem and [Triage Ops](https://gitlab.com/gitlab-org/quality/triage-ops) project to handle
+reactive and scheduled automation, such as: 
+
+- opening pending issues once they reach their due date (this field has been slightly repurposed)
+- nudging users when issues have been pended, but no due date has been assigned
+- nudging the team when issues have not been triaged (labeled, estimates/quotes attached, etc.)
+
+GitLab triage will run as a scheduled pipeline from inside of GitLab, and Triage Ops (formerly known as Triage Serverless) will run as webhooks in AWS Lambda (triggered by webhooks). We may potentially transition some of our existing customizations from C# to GitLab Triage/Triage Ops, too. 
+
+## Building out CRM
+
+One of the biggest challenges moving our helpdesk over to GitLab was the inability to tie issues to Customers. So, roughly a year ago, I decided to start building out a [Customer Relations Management](https://docs.gitlab.com/ee/user/crm/) (CRM) feature. 
+
+You can see some of the work that has gone into the CRM so far: [CRM Merged MRs](https://gitlab.com/gitlab-org/gitlab/-/merge_requests?scope=all&state=merged&label_name[]=CRM).
+
+It’s surprising how much work is needed for what seems like a mostly simple feature. Despite careful planning, there were many surprises that caused significant headaches. I was hoping to formally release this in December 2021, but it looks like June 2022 is more feasible now.
+
+### Reporting
+
+Compared to our previous bespoke SQL Server Reporting Services (SSRS) report suite pulling directly from our helpdesk, reporting is very limited. We tried using SSRS with a SQL Server linked to our GitLab Postgres server, but kept hitting walls. We are now moving forward using Google Data Studio (with a direct database connection).
+
+Although we still have a way to go, we've managed to achieve some really great results.
+
+![Scheduled Pipelines Report](/images/blogimages/scheduled-pipelines-report.png)
+
+Here's an example of a report we've started to build to increase the visibility of our scheduled interfaces now that we're leveraging CI/CD more.
+
+### Challenges
+
+One obstacle we were faced with was the inability to achieve a lot of our goals at the instance level. Some GitLab functionality is at the project level, some at the group, and some at an instance. As a result, we had to create a temporary single root group and create all groups beneath it. 
+
+## Moving to Linux/Docker for CI/CD pipelines
+
+We have almost moved completely to Linux/Docker for our CI/CD pipelines, using several custom images:
+
+- our [custom .NET image](https://gitlab.com/tickett/dotnet.core.selenium) simply adds chromedriver to the default `mcr.microsoft.com/dotnet/core/sdk:latest` image to add Selenium support for UI testing
+- our [custom Android/Gradle image](https://gitlab.com/tickett/docker-android-gradle) provides a stable build environment for our Clover apps (which require v1 APK signing no longer supported in Android Studio).
+
+You can see sample `.gitlab-ci.yml` templates in the relevant projects.
+
+We now have our test summary and [coverage visualization](https://docs.gitlab.com/ee/user/project/merge_requests/test_coverage_visualization.html) displayed in merge requests, which is a total game changer! 
+
+## GitLab for intranet
+
+We've been using SharePoint for as long as I can remember, and I'm not a fan.
+
+As great as a WYSIWYG interface is, I believe it brings with it:
+
+- a lack of consistency
+- a pretty awful audit trail
+- no review/approval process
+
+So let's try and learn from the best. Can we use GitLab pages? Absolutely!
+
+We picked Hugo purely as it seems the most popular (most forked GitLab pages project template). Similarly, the [Relearn theme](https://themes.gohugo.io/themes/hugo-theme-relearn/) seems to be the most popular for docs. 
+
+It's still a work in progress, but we’re exploring a structure similar to:
+
+```text
+Clients
+-Client A
+--System A
+--System B
+-Client B
+--System C
+--System D
+Internal
+-Process A
+-Process B
+```
+
+Not too dissimilar to GitLab, but hugely amplified, we want to pull multiple projects, not just our Hugo repo.
+
+The following  is our `.gitlab-ci.yml`:
+
+```yaml
+image: registry.gitlab.com/pages/hugo:latest
+variables:
+ GIT_SUBMODULE_STRATEGY: recursive
+grab-docs:
+ tags:
+   - docker
+ image:
+   name: ruby:2.7.5-slim
+ script:
+   - cd ${CI_PROJECT_DIR}
+   - gem install gitlab
+   - ruby grab_docs.rb
+ artifacts:
+   untracked: true
+
+test:lint:
+ tags:
+   - docker
+ image:
+   entrypoint: [""]
+   name: davidanson/markdownlint-cli2
+ script:
+   - cp $MARKDOWN_LINT_CONFIG ./.markdownlint-cli2.jsonc
+   - markdownlint-cli2 "content/**/*.md"
+ needs:
+   - grab-docs
+
+test:
+ tags:
+   - docker
+ script:
+   - apk add --update --no-cache git
+   - hugo
+ except:
+   - master
+ needs:
+   - test:lint
+
+pages:
+ tags:
+   - docker
+ script:
+   - apk add --update --no-cache git
+   - hugo
+ artifacts:
+   paths:
+     - public
+ only:
+   - master
+ needs:
+   - grab-docs
+   - test:lint
+```
+
+The first `grab-docs` step runs a custom Ruby script to:
+
+- interrogate our GitLab instance, looping through all groups and projects
+- grab the `README.md` and `/doc` folder
+- add frontmatter for last update date and link to the repo 
+- update and fix all markdown paths
+
+```ruby
+#!/usr/bin/env ruby
+
+require 'fileutils'
+require 'gitlab'
+
+$api = Gitlab.client(endpoint: ENV['PRODUCTION_API_ENDPOINT'], private_token: ENV['GITLAB_API_TOKEN'].to_s)
+$projects = $api.projects(per_page: 50)
+
+def grab_files(project)
+ file = $api.file_contents(project.id, 'README.md')
+ return unless file&.start_with?('---')
+
+ puts "\n #{Time.now}: Found README.md for #{project.name}"
+ path = create_path(project)
+ file = inject_frontmatter(project, file, 'README.md')
+ File.write("#{path}/_index.md", file)
+
+ grab_other_files(project, path)
+rescue Gitlab::Error::NotFound
+ puts "\n #{Time.now}: Something went wrong with: #{project.name}"
+end
+
+def grab_other_files(project, path)
+ tree = $api.tree(project.id, { path: 'doc' })
+ tree.each do |item|
+   file = $api.file_contents(project.id, item.path)
+   file = inject_frontmatter(project, file, item.path) if item.name.end_with?('.md')
+   File.write("#{path}/#{item.name}", file)
+ end
+end
+
+def create_path(project)
+ client_path = "content/clients/#{project.namespace.path}"
+ path = "#{client_path}/#{project.path.gsub('_', '-')}"
+ FileUtils.mkdir_p path
+
+ client_index_path = "#{client_path}/_index.md"
+ File.write(client_index_path, "---\ntitle: #{project.namespace.path}\n---\n") unless File.exist?(client_index_path)
+
+ path
+end
+
+def inject_frontmatter(project, file, path)
+ file = file.gsub('.md)', ')')
+ file = if path.start_with?('doc/')
+          file.gsub('(./', '(../')
+        else
+          file.gsub('(./doc/', '(./')
+        end
+
+ lines = file.each_line.to_a
+ updated = get_updated_date(project.id, path)
+ lines.insert(2, "updated: #{updated}\n")
+ lines.insert(3, "edit: #{project.web_url}/-/blob/master/#{path}\n")
+ lines.join.gsub('(doc/', '(')
+end
+
+def get_updated_date(project_id, path)
+ blame = $api.get_file_blame(project_id, path, 'master')
+ blame[0]['commit']['authored_date'][0, 10]
+end
+
+loop do
+ $projects.each do |project|
+   print '.'
+   next if project.empty_repo
+
+   print ','
+   tree = $api.tree(project.id)
+   next if tree.select { |file| file.name == 'README.md' }.empty?
+
+   print '+'
+   grab_files(project)
+ end
+
+
+ break unless $projects.has_next_page?
+
+ puts "\n #{Time.now}: Next page"
+ $projects = $projects.next_page
+end
+```
+
+I then tweaked the Relearn header in `themes/relearn/layouts/partials/header.html`
+to show the last edited date instead of the "Edit this page" text.
+This works for both "local" docs (pulling directly from Git) and "grabbed" docs
+(pulling from the frontmatter).
+
+![Hugo ReLearn theme header patch](/images/blogimages/hugo-theme-header-patch.png)
+
+For this to work, I added the following line to Hugo's `config.toml`:
+
+```text
+enableGitInfo = true
+```
+
+And also added Git to the Hugo image- see [MR](https://gitlab.com/pages/hugo/-/merge_requests/158)
+
+Each project needs 2 docs steps to lint and trigger downstream pipeline for deployment:
+
+```yaml
+docs:lint:
+stage: test
+tags:
+ - docker
+image:
+ entrypoint: [""]
+ name: davidanson/markdownlint-cli2
+script:
+ - cp $MARKDOWN_LINT_CONFIG ./.markdownlint-cli2.jsonc
+ - markdownlint-cli2 README.md "doc/**/*.md"
+
+docs:deploy:
+stage: deploy
+trigger: tel/intranet
+only:
+ - master
+```
+
+## Next steps
+
+- Learn more about the [GitLab Heroes program](/community/heroes/). 
+- Participate in more contributions and pairing sessions: I have already taken part in several GitLab Team pairing sessions and at least one weekly community pairing session each week. I want to continue these, and hopefully share and invite more people to join.
+- Start to use issue templates: Things like leaver/starter process, new project guide, etc.
+- Start to use CI/CD templates/includes to reduce duplication and simplify maintenance.
+- Using Vue: We have built our first few projects using Vue, and hoping to use it more going forward.
+
+Cover image by [Marcus Spiske](https://unsplash.com/photos/vrbZVyX2k4I?utm_source=unsplash&utm_medium=referral&utm_content=creditShareLink) on Unsplash
+{: .note}

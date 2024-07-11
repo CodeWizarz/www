@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitLab data/features.yml",
+  "description": "Internal file that documents features and competitors",
+  "definitions": {
+    "_works_by_default_state": {
+      "type": ["string", "boolean"],
+      "enum": [true, false, "true", "false", "setup_required", "install_required", "setup_and_install_required", "not_applicable"]
+    },
+    "feature": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "category": {
+          "type": "array"
+        },
+        "works_by_default": {
+          "type": "object",
+          "properties": {
+            "all": { "$ref": "#/definitions/_works_by_default_state" },
+            "gitlab_com": { "$ref": "#/definitions/_works_by_default_state" },
+            "omnibus": { "$ref": "#/definitions/_works_by_default_state" },
+            "chart": { "$ref": "#/definitions/_works_by_default_state" },
+            "source": { "$ref": "#/definitions/_works_by_default_state" },
+            "gdk": { "$ref": "#/definitions/_works_by_default_state" },
+            "note": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": ["title", "description"]
+    }
+  },
+  "type": "object",
+  "properties": {
+    "features": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          { "$ref": "#/definitions/feature" }
+        ]
+      }
+    }
+  }
+}

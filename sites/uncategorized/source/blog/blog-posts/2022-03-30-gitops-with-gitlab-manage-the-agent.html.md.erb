@@ -1,0 +1,198 @@
+---
+title: "GitOps with GitLab: Turn a GitLab agent for Kubernetes installation to manage itself"
+author: Viktor Nagy 
+author_gitlab: nagyv-gitlab
+author_twitter: nagyviktor
+categories: engineering
+image_title: '/images/blogimages/GitLab-Ops.png'
+description: "This is the eighth and last article in a series of tutorials on how to do GitOps with GitLab."
+tags: gitops, kubernetes, tutorial
+twitter_text: "Check out this last installment in our series on how to do GitOps with GitLab. This tutorial walks you through how to turn a GitLab agent for Kubernetes installation to manage itself."
+featured: yes
+---
+
+_It is possible to use GitLab as a best-in-class GitOps tool, and this blog post series is going to show you how. These easy-to-follow tutorials will focus on different user problems, including provisioning, managing a base infrastructure, and deploying various third-party or custom applications on top of them. You can find the entire "Ultimate guide to GitOps with GitLab" tutorial series [here](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab/)._
+
+In this article, we will build upon the first few articles, and will turn a GitLab agent for Kubernetes installation to manage itself. This is highly recommended for production usage as it puts your `agentk` deployment under your GitOps project, and enables flawless and simple upgrades.
+
+## Prerequisites
+
+This article builds on a few previous articles from this series and makes the following assumptions:
+
+- You have [an agent connection set up using the `kpt` based method](/blog/2021/11/18/gitops-with-gitlab-connecting-the-cluster/).
+- You have [set up Bitnami's Sealed secrets](/blog/2021/12/02/gitops-with-gitlab-secrets-management/).
+- You understand [how to use `kustomize` with the agent](/blog/2022/03/21/gitops-with-gitlab/).
+
+## The goal
+
+The goal of this tutorial is to manage a GitLab agent for Kubernetes deployment using that given agent. This has several benefits, including: 
+
+- By turning the agent to manage itself, the agent configuration and deployment is managed in code. As a result, all the code-oriented tools, including Merge Requests, Approvals, and branching are there to support your processes and policies.
+- Managing a fleet of agent installations in code enables simple upgrades of the deployments.
+
+### Upgrading GitLab and the GitLab agent for Kubernetes
+
+A single GitLab instance might have dozens of agent connections. How should you upgrade all these deployments in a coordinated way? Turning everything into code simplifies the upgrade process a lot.
+
+We have the GitLab - Agent [version compatibility documented](https://docs.gitlab.com/ee/user/clusters/agent/install/index.html#upgrades-and-version-compatibility). The recommended approach is to first upgrade GitLab together with `KAS`, the GitLab-side component of the connection, and then upgrade all the `agentk` deployments. 
+
+If you manage the `agentk` deployments in code, the upgrade requires only bumping the version number in code and the `agentk` instances will take care of upgrading themselves.
+
+## Turning an agent installation to manage itself
+
+Let's do a quick recap and an overview how we wil use the tools.
+
+We use `kpt` to check out tagged `agentk` deployment manifests. As the manifests are a set of `kustomize` layers, we can extend them with our own overlays if needed, or just customize the setup per our requirements. The agent connection requires a token to authenticate with GitLab. We can use Bitnami's Sealed Secrets to store an encrypted sycret in the repo.
+
+All the above code can be put under version control safely. Moreover, we can use GitLab CI/CD to dehydrate the `kustomize` package into vanilla Kubernetes manifests that the agent can deal with.
+
+Let's see the above in action!
+
+### Kustomize layer with encrypted secret
+
+Based on the previous articles, we have the `kpt` package checked out under `packages/gitlab-agent`. We would like to store the vanilla Kubernetes manifests in the repository. We can run `kustomize build packages/gitlab-agent/cluster > kubernetes/gitlab-agent.yaml` to get the manifests, but this will include the unencrypted authentication token too.
+
+To never output the unencrypted token, we should turn it into a sealed secret.
+
+Navigate to the `gitlab-agent` Terraform project, and create a Kubernetes secret from the token `terraform output -raw token_secret | kubectl create secret generic gitlab-agent-token -n gitlab-agent --dry-run=client --type=Opaque --from-file=token=/dev/stdin -o yaml > ../../ignored/gitlab-agent-token.yaml`. If you followed the instructions in the previous articles, the files under the `ignored` directory are never committed to `git`.
+
+We will turn this unencrypted secret into a sealed secret. As the secret will already exist in the cluster, we should instruct the Bitnami Sealed Secret controller to pull it under its management. Moreover, as kustomize applies a random hash to every secret name, we should enable renaming the secret within the namespace. We can achieve these by adding two annotations to the unencrypted secrets object.
+
+Add the following annotations to `ignored/gitlab-agent-token.yaml`
+
+```
+annotations:
+  sealedsecrets.bitnami.com/managed: "true"
+  sealedsecrets.bitnami.com/namespace-wide: "true"
+```
+
+Next, we should create an encrypred secret from the ignored, unencrypted one running `bin/seal-secret ignored/gitlab-agent-token.yaml > packages/gitlab-agent/sealed-secret` in the root of our project. This creates the encrypted secret under `packages/gitlab-agent/sealed-secret/SealedSecret.gitlab-agent-token.yaml`. Now, we need a kustomize layer that will use this secret instead of the original one that came with `kpt`. Let's create the following files around the encrypted secret:
+
+- Create `packages/gitlab-agent/sealed-secret/kustomization.yaml` as:
+
+```yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- ../base
+- SealedSecret.gitlab-agent-token.yaml
+components:
+- ../cluster/components/gitops-read-all
+- ../cluster/components/gitops-write-all
+- ../cluster/components/cilium-alert-read
+configurations:
+- configuration/sealed-secret-config.yaml
+secretGenerator:
+- name: gitlab-agent-token
+  behavior: replace
+  type: Opaque
+  namespace: gitlab-agent
+  options:
+    annotations:
+      sealedsecrets.bitnami.com/managed: "true"
+      sealedsecrets.bitnami.com/namespace-wide: "true"
+```
+
+- Create `packages/gitlab-agent/sealed-secret/configuration/sealed-secret-config.yaml` as:
+
+```yaml
+nameReference:
+- kind: Secret
+  fieldSpecs:
+  - kind: SealedSecret
+    path: metadata/name
+  - kind: SealedSecret
+    path: spec/template/metadata/name
+```
+
+This configuration enables us to reference the name of the Sealed Secret in the `secretGenerator`.
+
+We created a new `kustomize` overlay that builds on the `base` and `cluster` layers, but will use the sealed secret. We can hydrate this into vanilla manifests using `kustomize build packages/gitlab-agent/sealed-secret > kubernetes/gitlab-agent.yaml`. This configuration does not include any unencrypted, sensitive data. As a result, we can commit it freely using `git commit`.
+
+### Adopt the agent by the agent
+
+Right now the agent configuration file looks similar to: 
+
+```yaml
+gitops:
+  # Manifest projects are watched by the agent. Whenever a project changes,
+  # GitLab deploys the changes using the agent.
+  manifest_projects:
+  - id: path/to/your/project
+    default_namespace: gitlab-agent
+    # Paths inside of the repository to scan for manifest files.
+    # Directories with names starting with a dot are ignored.
+    paths:
+    - glob: 'kubernetes/test_config.yaml'
+    - glob: 'kubernetes/**/*.yaml'
+```
+
+If we would push the previously hydrated manifests, `agentk` would fail applying them complaining about missing inventories. We can easily fix this by temporarily setting a looser inventory policy:
+
+```yaml
+gitops:
+  # Manifest projects are watched by the agent. Whenever a project changes,
+  # GitLab deploys the changes using the agent.
+  manifest_projects:
+  - id: path/to/your/project
+    default_namespace: gitlab-agent
+    inventory_policy: adopt_all
+    # Paths inside of the repository to scan for manifest files.
+    # Directories with names starting with a dot are ignored.
+    paths:
+    - glob: 'kubernetes/test_config.yaml'
+    - glob: 'kubernetes/**/*.yaml'
+```
+
+With the inventory policy configured, we can commit and push our changes to GitLab. The agent will see the new configuration and resources, and will apply them into the cluster. From now on, you can change the code in the repository, push it to git, and the changes will be automatically applied into your cluster.
+
+#### What are inventory policies?
+
+The GitLab agent for Kubernetes knows about the managed resources using so-called inventory objects. In technical terms, an inventory object is just a `ConfigMap` with a unique label. Whenever the agent sees an object that it should manage, it applies the same label. This way, every agent can easily find the resources that it manages.
+
+You can read more about the possible [inventory policy configurations in the documentation](https://docs.gitlab.com/ee/user/infrastructure/clusters/deploy/inventory_object.html).
+
+
+#### A word about RBAC
+
+Depending on the authorization rights given to the `agentk` deployment, not every change might be possible. For example, if you would like to create new `ClusterRole` and `ClusterRoleBinding` in a new `kustomize` overlay, and apply that with the Agent, that might fail. It will fail, if your current role-based access control (RBAC) does not allow your `agentk` deployment to create these resources. In this case, you should either provide higher rights to your `agentk` service account first or you should apply the changes manually from your command line.
+
+### Automatic hydration
+
+Now, if you want to change something in your agent deployment, you need to take two actions:
+
+- change the code in the `kpt` package
+- run `kustomize build` to hydrate the results
+
+Let's automate the second step so you can focus on your main job only. Following the setup of [a GitOps-style Auto DevOps pipeline](/blog/2022/03/21/gitops-with-gitlab/#hydrating-the-manifests), we need to extend the `hydrate-packages` job:
+
+
+```yaml
+hydrate-packages:
+      ...
+      script:
+      - mkdir -p new_manifests
+      ...
+      - kustomize build packages/gitlab-agent/sealed-secret > new_manifests/gitlab-agent.yaml
+```
+
+We can re-use all the other automation as presented in the previous articles.
+
+## How to upgrade `agentk`?
+
+Just to provide a practical example, let's see how we can use the above setup to easily upgrade an `agentk` deployment to a newer version.
+
+By running `kustomize cfg set packages/gitlab-agent agent-version v14.9.1` we set the intended `agentk` version to be version `14.9.1`. You can commit and push this change to git, and lay back in your chair to see how the changes are being rolled out across your clusters. You can point several agent configurations at the same `kubernetes/gitlab-agent.yaml` manifest, and upgrade all of them at once.
+
+## Recap
+
+In this article we have seen:
+
+- how to turn an Agent deployment to manage itself
+- how to extend the default `kpt` project with a custom `kustomize` overlay to customize the `agentk` deployment
+- how to easily upgrade a set of `agentk` deployments
+- how to pull already existing objects to be managed by the Agent using inventory policies
+
+_Note: This is the final installment in this series of [how to do GitOps with GitLab](/blog/2022/04/07/the-ultimate-guide-to-gitops-with-gitlab)._
+
+

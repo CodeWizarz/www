@@ -1,0 +1,48 @@
+---
+title: "4 approaches to GitLab integrations"
+author: Kurt Dusek
+author_gitlab: kdusek
+categories: devops platform
+image_title: /images/blogimages/4-facets-of-gitlab-integration.png
+tags: integrations, partners, devops
+description: "Learn about use cases that help extract even more value from a DevSecOps platform."
+twitter_text: 'Learn four approaches to GitLab integrations and their common use cases.'
+featured: no
+---
+
+The benefit of a DevSecOps platform is to create a foundation upon which an organization can build its entire development process. Rather than having to log onto several different systems to manage, observe, and advance through the software development lifecycle, DevSecOps teams have one application to serve as their system of record. To augment the platform and create even more business value, organizations can create integrations with third-party software and systems, while still maintaining a unified experience for stakeholders, developers, and operators.
+
+Let's look at what integrations are possible and the use cases that drive them.
+
+## What can be integrated with GitLab
+
+As a senior solutions architect for Alliances here at GitLab, I often get asked, "How can I integrate GitLab with X?" My response: That depends on what's being integrated. X could be a cloud provider, point tool, legacy application or web service that might be used in the development cycle. 
+
+## How to integrate with GitLab
+
+There are four approaches to GitLab integrations:
+
+1. Use GitLab to deploy client applications to X / Host GitLab runners on X
+2. Host GitLab Server on X
+3. Integrate with the development cycle
+4. Deep GitLab application integration
+
+Let's dig deeper into each one.
+
+### 1. Use GitLab to deploy client applications to `X` or Host GitLab runners on `X`
+A very common use case and typically the easiest to achieve. For instance, platform providers, who want to make it easy for their users to run apps built with GitLab on their infrastructure or application server, are often asked for this option. The path is to have GitLab Server be able to authenticate to the hosting platform, and deploy the (ideally containerized) application to the platform.
+
+A close cousin of this is the need to deploy [GitLab runners](https://docs.gitlab.com/runner/) to the infrastructure and register them with a GitLab instance, be it GitLab.com or a self-managed instance. Runners are easy to setup and register, and can be [configured and scaled in many different ways](https://docs.gitlab.com/runner/fleet_scaling/). 
+
+### 2. Host GitLab Server on `X`
+Platform providers are also asked to host GitLab Server on their infrastructure. What makes this easy is GitLab runs almost anywhere; if you've got Linux, you can run GitLab Server (even on a Raspberry Pi). The work has already been done for the major cloud providers, including [GCP](https://docs.gitlab.com/ee/install/google_cloud_platform/), [AWS](https://docs.gitlab.com/ee/install/aws/), [Azure](https://docs.gitlab.com/ee/install/azure/), and [Oracle Cloud](https://docs.oracle.com/en/solutions/deploy-gitlab-ci-cd-oci/index.html). If you want to run on your own infrastructure, the [Omnibus](https://docs.gitlab.com/omnibus/) installer does most of the heavy lifting for you; it's the easiest way to self-host GitLab.  
+
+### 3. Integrate with the development cycle
+Here's where it starts to get a bit more involved. The good news is that GitLab has extensive [APIs](https://docs.gitlab.com/ee/api/) and [webhooks](https://docs.gitlab.com/ee/user/project/integrations/webhooks.html) that allow for listening for events and pushing and pulling data.
+
+If the goal is to integrate with the [CI/CD pipeline](https://docs.gitlab.com/ee/ci/index.html), this can be done by creating a container image that encapsulates the application or scripts necessary and defining a job within the pipeline that uses this image to run the integration. It's likely the integrated app produces some output that **someone** needs to review. Displaying this output directly within the Merge Request elevates third-party data rather than something that has to be searched for in another system.  Depending on the nature of the tool being integrated, it's possible to show results and a [security report](https://docs.gitlab.com/ee/development/integrations/secure.html#report), [metrics report](https://docs.gitlab.com/ee/ci/testing/metrics_reports.html), or [artifact](https://docs.gitlab.com/ee/ci/pipelines/job_artifacts.html#expose-job-artifacts-in-the-merge-request-ui) that can contain almost any type of data.
+
+### 4. Deep GitLab application integration
+This is the most complex since it requires an understanding of the [architecture of the GitLab application](https://docs.gitlab.com/ee/development/architecture.html#simplified-component-overview), and how an outside service will interact with and support this architecture. An example of this would be a managed PostgresSQL or Redis service. There's a potential risk of downtime if this type of integration goes wrong, so it's important to test thoroughly in a production-like environment before considering it production-ready. Fortunately GitLab publishes several tools to do this. [GitLab Performance Tool (GPT)](/handbook/support/workflows/gpt_quick_start.html) provides an excellent way to measure and report on the performance of a GitLab instance under various usage scenarios. Its counterpart [GitLab Browser Performance Tool](https://gitlab.com/gitlab-org/quality/performance-sitespeed) tests the browser performance of various GitLab pages.  
+
+Read more on [Kurt Dusek's blog](https://blog.scientifik.org/).

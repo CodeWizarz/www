@@ -1,0 +1,365 @@
+---
+title: "We need to talk: Can we standardize NO_PROXY?"
+author: Stan Hu
+author_gitlab: stanhu
+author_twitter: stanhu
+categories: engineering
+image_title: '/images/blogimages/question-mark-pile.jpg'
+description: "Subtle differences in proxy setting implementations led to surprising problems for a GitLab customer. Here's how we got to the root of it."
+tags: community, proxy servers, Web servers, standards
+install_cta: false # required only if you do not want to display the "Install GitLab" banner
+featured: yes
+ee_cta: false
+install_cta: false
+merch_banner: merch_eight
+postType: content marketing
+---
+
+If you've used a Web proxy server before, you're probably familiar with
+the environment variables `http_proxy` or `HTTP_PROXY`. You may be less
+familiar with `no_proxy`, which provides a way to exclude traffic
+destined to certain hosts from using the proxy. While HTTP is a
+well-defined standard, no standard exists for how clients should handle
+these variables. As a result, Web clients support these variables in
+subtly different ways. For one GitLab customer, these differences led
+to a weekend of troubleshooting that uncovered why certain services
+stopped communicating.
+
+### Background
+
+Today, most Web clients support connection to proxy servers via
+environment variables:
+
+- `http_proxy` / `HTTP_PROXY`
+- `https_proxy` / `HTTPS_PROXY`
+- `no_proxy` / `NO_PROXY`
+
+These variables tell the client what URL should be used to access the
+proxy servers and which exceptions should be made. For example, if you
+had a proxy server listening on `http://alice.example.com:8080`, you
+might use it via:
+
+```sh
+export http_proxy=http://alice.example.com:8080
+```
+
+Which proxy server gets used if troublesome Bob also defines the
+all-caps version, `HTTP_PROXY`?
+
+```sh
+export HTTP_PROXY=http://bob.example.com:8080
+```
+
+The answer surprised us: it depends. In some cases, the Alice proxy
+wins, and in other cases Bob wins. We'll discuss the details later.
+
+What happens if you want to make exceptions? For example, suppose you
+want to use a proxy server for everything but `internal.example.com` and
+`internal2.example.com`. That's where the `no_proxy` variable comes into
+play. Then you would define `no_proxy` as follows:
+
+```sh
+export no_proxy=internal.example.com,internal2.example.com
+```
+
+What if you want to exclude IP addresses? Can you use asterisks or
+wildcards? Can you use CIDR blocks (e.g. `192.168.1.1/32`)? The answer
+again: it depends.
+
+### How did we get here?
+
+In 1994, most Web clients used CERN's `libwww`, which [supported `http_proxy` and the `no_proxy` environment variables](https://courses.cs.vt.edu/~cs4244/spring.09/documents/Proxies.pdf).
+`libwww` only used the lowercase form of `http_proxy`, and the [`no_proxy` syntax was
+simple](https://github.com/w3c/libwww/blob/8678b3dcb4191065ca39caea54bb1beba809a617/Library/src/HTAccess.c#L234-L239):
+
+```
+no_proxy is a comma- or space-separated list of machine
+or domain names, with optional :port part.  If no :port
+part is present, it applies to all ports on that domain.
+
+Example:
+		no_proxy="cern.ch,some.domain:8001"
+```
+
+New clients emerged that added their own HTTP implementations without
+linking `libwww`. In January 1996, Hrvoje Niksic released
+`geturl`, the predecessor of what is now `wget`.  A month later,
+`geturl`, [added support for `http_proxy` in v1.1](https://ftp.sunet.se/mirror/archive/ftp.sunet.se/pub/www/utilities/wget/old-versions/).
+In May 1996, `geturl` v1.3 added support for `no_proxy`. Just as with
+`libwww`, `geturl` only supported the lowercase form.
+
+In January 1998, Daniel Stenberg released `curl` v5.1, which [supported the `http_proxy` and `no_proxy` variables](https://github.com/curl/curl/blob/ae1912cb0d494b48d514d937826c9fe83ec96c4d/CHANGES#L929-L944).
+In addition, `curl` allowed the uppercase forms, `HTTP_PROXY` and `NO_PROXY`.
+
+Plot twist: in March 2009, [curl v7.19.4](https://github.com/curl/curl/releases/tag/curl-7_19_4) dropped support for the
+uppercase form of `HTTP_PROXY` [due to security concerns](https://github.com/curl/curl/blob/30e7641d7d2eb46c0b67c0c495a0ea7e52333ee2/lib/url.c#L2250-L2261). However, while `curl` ignores `HTTP_PROXY`, `HTTPS_PROXY` still works today.
+
+### State of the variables today
+
+Fast forward to today. As my [colleague Nourdin el Bacha researched](https://gitlab.com/gitlab-com/support/support-team-meta/-/issues/2991),
+we can see that how these proxy server variables are handled varies, depending
+on what language or tool you are using.
+
+#### http_proxy and https_proxy
+
+In the following table, each row represents a supported behavior, while
+each column holds the tool (e.g. `curl`) or language (e.g. `Ruby`) to
+which it applies:
+
+|                 | curl      | wget           | Ruby          | Python    | Go        |
+|-----------------|-----------|----------------|---------------|-----------|-----------|
+| `http_proxy`    | Yes       | Yes            | Yes           | Yes       | Yes       |
+| `HTTP_PROXY`    | No        | No             | Yes ([warning](https://github.com/ruby/ruby/blob/0ed71b37fa9af134fdd5a7fd1cebd171eba83541/lib/uri/generic.rb#L1519)) | Yes (if `REQUEST_METHOD` not in env)       | Yes       |
+| `https_proxy`   | Yes       | Yes            | Yes           | Yes       | Yes       |
+| `HTTPS_PROXY`   | Yes       | No             | Yes           | Yes       | Yes       |
+| Case precedence | lowercase | lowercase only | lowercase     | lowercase | Uppercase |
+| Reference       | [source](https://github.com/curl/curl/blob/30e7641d7d2eb46c0b67c0c495a0ea7e52333ee2/lib/url.c#L2250-L2266) | [source](https://github.com/jay/wget/blob/099d8ee3da3a6eea5635581ae517035165f400a5/src/retr.c#L1222-L1239) | [source](https://github.com/ruby/ruby/blob/0ed71b37fa9af134fdd5a7fd1cebd171eba83541/lib/uri/generic.rb#L1474-L1543) | [source](https://github.com/python/cpython/blob/030a713183084594659aefd77b76fe30178e23c8/Lib/urllib/request.py#L2488-L2517) | [source](https://github.com/golang/go/blob/682a1d2176b02337460aeede0ff9e49429525195/src/vendor/golang.org/x/net/http/httpproxy/proxy.go#L82-L97) |
+
+Note that `http_proxy` and `https_proxy` are always supported across the
+board, while `HTTP_PROXY` is not always supported. Python (via `urllib`) complicates
+the picture even more: `HTTP_PROXY` can be used [as long as
+`REQUEST_METHOD` is not defined in the environment](https://github.com/python/cpython/blob/030a713183084594659aefd77b76fe30178e23c8/Lib/urllib/request.py#L2504-L2508).
+
+While you might expect environment variables to be all-caps,
+`http_proxy` came first, so that's the de facto standard. When in doubt,
+go with the lowercase form because that's universally supported.
+
+Unlike most implementations, Go tries the uppercase version before
+falling back to the lowercase version. We will see later why that caused
+issues for one GitLab customer.
+
+#### no_proxy
+
+Some users have [discussed the lack of the `no_proxy` specification in this issue](https://github.com/curl/curl/issues/1208). As
+`no_proxy` specifies an exclusion list, many questions arise about
+how it behaves. For example, suppose your `no_proxy` configuration is defined:
+
+```sh
+export no_proxy=example.com
+```
+
+Does this mean that the domain must be an exact match, or will
+`subdomain.example.com` also match against this configuration? The
+following table shows the state of various implementations. It turns out
+all implementations will match suffixes properly, as shown in the
+`Matches suffixes?` row:
+
+|                       | curl      | wget           | Ruby      | Python    | Go        |
+|-----------------------|-----------|----------------|-----------|-----------|-----------|
+| `no_proxy`            | Yes       | Yes            | Yes       | Yes       | Yes       |
+| `NO_PROXY`            | Yes       | No             | Yes       | Yes       | Yes       |
+| Case precedence       | lowercase | lowercase only | lowercase | lowercase | Uppercase |
+| Matches suffixes?     | Yes       | Yes            | Yes       | Yes       | Yes       |
+| Strips leading `.`?   | Yes       | No             | Yes       | Yes       | No        |
+| `*` matches all hosts?| Yes       | No             | No        | Yes       | Yes       |
+| Supports regexes?     | No        | No             | No        | No        | No        |
+| Supports CIDR blocks? | No        | No             | Yes       | No        | Yes       |
+| Detects loopback IPs? | No        | No             | No        | No        | Yes       |
+| Reference             | [source](https://github.com/curl/curl/blob/30e7641d7d2eb46c0b67c0c495a0ea7e52333ee2/lib/url.c#L2152-L2206) | [source](https://github.com/jay/wget/blob/099d8ee3da3a6eea5635581ae517035165f400a5/src/retr.c#L1266-L1274) | [source](https://github.com/ruby/ruby/blob/0ed71b37fa9af134fdd5a7fd1cebd171eba83541/lib/uri/generic.rb#L1545-L1554) | [source](https://github.com/python/cpython/blob/030a713183084594659aefd77b76fe30178e23c8/Lib/urllib/request.py#L2519-L2551)| [source](https://github.com/golang/go/blob/682a1d2176b02337460aeede0ff9e49429525195/src/vendor/golang.org/x/net/http/httpproxy/proxy.go#L170-L206) |
+
+However, if there is a leading `.` in the `no_proxy` setting, the
+behavior varies. For example, `curl` and `wget` behave
+differently. `curl` will always strip the leading `.` and match against
+a domain suffix. This call bypasses the proxy:
+
+```sh
+$ env https_proxy=http://non.existent/ no_proxy=.gitlab.com curl https://gitlab.com
+<html><body>You are being <a href="https://about.gitlab.com/">redirected</a>.</body></html>
+```
+
+However, `wget` does not strip the leading `.` and performs an exact
+string match against a hostname. As a result, `wget` attempts to use a
+proxy if a top-level domain is used:
+
+```sh
+$ env https_proxy=http://non.existent/ no_proxy=.gitlab.com wget https://gitlab.com
+Resolving non.existent (non.existent)... failed: Name or service not known.
+wget: unable to resolve host address 'non.existent'
+```
+
+In all implementations, regular expressions are never supported. I
+suspect using regexes complicates matters further, because regexes have
+their own flavors (e.g. PCRE, POSIX, etc.). Using regexes also
+introduces potential performance and security issues.
+
+In some cases, setting `no_proxy` to `*` effectively disables proxies
+altogether, but this is not a universal rule.
+
+No implementation performs a DNS lookup to resolve a hostname to an IP
+address when deciding if a proxy should be used. Do not specify IP
+addresses in `no_proxy` variable unless you expect that the IPs are
+explictly used by the client.
+
+The same holds true for CIDR blocks, such as `18.240.0.1/24`. CIDR
+blocks only work when the request is directly made to an IP
+address. Only Go and Ruby allow CIDR blocks. Unlike other
+implementations, Go even automatically disables the use of a proxy if it
+detects a loopback IP addresses.
+
+### Why does this matter?
+
+If you have an application written in multiple languages that needs to
+work behind a corporate firewall with a proxy server, you may need to
+pay attention to these differences. For example, GitLab is composed of a
+few services written in Ruby and Go. One customer set its proxy
+configuration to something like the following:
+
+```yaml
+HTTP_PROXY: http://proxy.company.com
+HTTPS_PROXY: http://proxy.company.com
+NO_PROXY: .correct-company.com
+```
+
+The customer reported the following issue with GitLab:
+
+1. A `git push` from the command line worked
+1. Git changes made via the Web UI failed
+
+Our support engineers discovered that due to a Kubernetes configuration
+issue, a few stale values lingered. The pod actually had an environment
+that looked something like:
+
+```yaml
+HTTP_PROXY: http://proxy.company.com
+HTTPS_PROXY: http://proxy.company.com
+NO_PROXY: .correct-company.com
+no_proxy: .wrong-company.com
+```
+
+The inconsistent definitions in `no_proxy` and `NO_PROXY` set off red
+flags, and we could have resolved the issue by making them consistent or
+removing the incorrect entry. But let's drill into what happened.
+Remember from above that:
+
+1. Ruby tries the lowercase form first
+1. Go tries the uppercase form first
+
+As a result, services written in Go, such as GitLab Workhorse, had the
+correct proxy configuration. A `git push` from the command line worked
+fine because the Go services primarily handled this activity:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant W as Workhorse
+    participant G as Gitaly
+    C->>W: git push
+    W->>G: gRPC: PostReceivePack
+    G->>W: OK
+    W->>C: OK
+```
+
+The gRPC call in step 2 never attempted to use the proxy because
+`no_proxy` was configured properly to connect directly to Gitaly.
+
+However, when a user makes a change in the UI, Gitaly forwards the
+request to a `gitaly-ruby` service, which is written in
+Ruby. `gitaly-ruby` makes changes to the repository and [reports back
+via a gRPC call back to its parent process](https://gitlab.com/gitlab-org/gitaly/-/issues/3189).  However,
+as seen in step 4 below, the reporting step didn't happen:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant R as Rails
+    participant G as Gitaly
+    participant GR as gitaly-ruby
+    participant P as Proxy
+    C->>R: Change file in UI
+    R->>G: gRPC: UserCommitFiles
+    G->>GR: gRPC: UserCommitFiles
+    GR->>P: CONNECT
+    P->>GR: FAIL
+```
+
+Since gRPC uses HTTP/2 as the underlying transport, `gitaly-ruby`
+attempted a CONNECT to the proxy since it was configured with the wrong
+`no_proxy` setting. The proxy immediately rejected this HTTP request,
+causing the failure in the Web UI push case.
+
+Once we eliminated the lowercase `no_proxy` from the environment, pushes
+from the UI worked as expected, and `gitaly-ruby` connected directly to
+the parent Gitaly process. Step 4 worked properly in the diagram below:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Client
+    participant R as Rails
+    participant G as Gitaly
+    participant GR as gitaly-ruby
+    participant P as Proxy
+    C->>R: Change file in UI
+    R->>G: gRPC: UserCommitFiles
+    G->>GR: gRPC: UserCommitFiles
+    GR->>G: OK
+    G->>R: OK
+    R->>C: OK
+```
+
+#### A surprising discovery with gRPC
+
+Note that the customer set `HTTPS_PROXY` to an unencrypted HTTP proxy;
+notice that `http://` is used instead of `https://`. While this isn't
+ideal from a security standpoint, some people do this to avoid the
+hassle of clients failing due to TLS certificate verification issues.
+
+Ironically, if an HTTPS proxy were specified, we would not have seen
+this problem. If an HTTPS proxy is used, gRPC will ignore this setting
+since [HTTPS proxies are not supported](https://github.com/grpc/grpc/issues/20939).
+
+### The lowest common denominator
+
+I think we can all agree that one should never define inconsistent
+values with lowercase and uppercase proxy settings. However, if you ever
+have to manage a stack written in multiple languages, you might need to
+consider setting HTTP proxy configurations to the lowest common
+denominator:
+
+#### `http_proxy` and `https_proxy`
+
+* Use lowercase form. `HTTP_PROXY` is not always supported or recommended.
+    * If you _absolutely must_ use the uppercase form as well, be **sure** they share the same value.
+
+#### `no_proxy`
+
+1. Use lowercase form.
+1. Use comma-separated `hostname:port` values.
+1. IP addresses are okay, but hostnames are never resolved.
+1. Suffixes are always matched (e.g. `example.com` will match `test.example.com`).
+1. If top-level domains need to be matched, avoid using a leading dot (`.`).
+1. Avoid using CIDR matching since only Go and Ruby support that.
+
+### Standardizing `no_proxy`
+
+Knowing the least common denominator can help avoid issues if these
+definitions are copied for different Web clients. But should `no_proxy`
+and the other proxy settings have a documented standard rather than an
+ad hoc convention? The list below may serve as a starting point for a
+proposal:
+
+1. Prefer lowercase forms over uppercase variables (e.g. `http_proxy` should be searched before `HTTP_PROXY`).
+1. Use comma-separated `hostname:port` values.
+    * Each value may include optional whitespace.
+1. Never perform DNS lookups or use regular expressions.
+1. Use `*` to match **all** hosts.
+1. Strip leading dots (`.`) and match against domain suffixes.
+1. Support CIDR block matching.
+1. Never make assumptions about special IP addresses (e.g. loopback addresses in `no_proxy`).
+
+#### Conclusion
+
+It's been over 25 years since the first Web proxy was released. While
+the basic mechanics of configuring a Web client via environment
+variables have not changed much, a number of subtleties have emerged
+across different implementations. We saw for one customer, erroneously
+defining conflicting `no_proxy` and `NO_PROXY` variables led to hours of
+troubleshooting due to the differences with which Ruby and Go parse
+these settings. We hope highlighting these differences will avoid future
+issues in your production stack, and we hope that Web client maintainers
+will standardize the behavior to avoid such issues in the first place.
+
+Cover image on [PixaBay](https://pixabay.com/illustrations/question-mark-pile-questions-symbol-2492009)
+{: .note}

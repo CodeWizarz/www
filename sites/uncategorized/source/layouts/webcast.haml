@@ -1,0 +1,51 @@
+!!! 5
+%html{lang: "en"}
+  %head
+    - current_page.data.description = webcast.description
+    - if webcast.twitter_image
+      - current_page.data.twitter_image = webcast.twitter_image
+    - if webcast.canonical_path
+      - current_page.data.canonical_path = webcast.canonical_path
+    = partial "includes/layout/head"
+  %body
+    = partial "includes/google/gtm"
+    = partial "includes/layout/header"
+    = partial "includes/layout/headline"
+    .webcast-header
+      - if webcast.image
+        = image_tag "#{webcast.image}", alt: "#{webcast.title} image png"
+      .webcast-info
+        %h1= webcast.title
+        %p= webcast.subtitle
+    .gitlab-content-container
+      .webcast-content
+        .share-container
+          %p Share:
+          %a{href: "https://www.facebook.com/sharer/sharer.php?u=https://about.gitlab.com#{current_page.url}", target: "_blank"}
+            %i.fab.fa-facebook
+          %a{href: "https://twitter.com/intent/tweet?url=https%3A%2F%2Fabout.gitlab.com#{current_page.url}&via=gitlab&text=Check%20out%20GitLab%27s%20webcast%3A%20#{webcast.title}%20&hashtags=gitlab%2Cwebcast%2Cwebinar", target: "_blank"}
+            %i.fab.fa-twitter
+          %a{href: "https://www.linkedin.com/shareArticle?url=https://about.gitlab.com#{current_page.url}=#{webcast.title}"}
+            %i.fab.fa-linkedin
+          %a{href: "http://www.reddit.com/submit?url=https://about.gitlab.com#{current_page.url}=Post%20to%20Reddit%20via%20URL", target: "_blank"}
+            %i.fab.fa-reddit
+        .webcast-content-section
+          - if webcast.date != "on-demand"
+            %h3= webcast.date
+          = kramdown(webcast.content)
+        - if webcast.speakers?
+          .webcast-content-section.margin-top50
+            - if webcast.speakers_heading
+              %h3= webcast.speakers_heading
+            - else
+              %h3 Speakers:
+            - webcast.speakers.each do |speaker|
+              .speaker-container
+                .speaker-headshot{style: "background:url('#{speaker.image}') center center no-repeat; background-size: cover;"}
+                .speaker-info
+                  %p.speaker-name= speaker.name
+                  %p.speaker-title= speaker.title
+                %p.speaker-description.margin-top10= speaker.about
+      .webcast-outer-wrapper
+        = partial "includes/form-to-resource", locals: { parameter_form_id: webcast.form_id_watch || webcast.form }
+    = partial "includes/layout/footer"

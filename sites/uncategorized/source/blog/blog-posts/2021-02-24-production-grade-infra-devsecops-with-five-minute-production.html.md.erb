@@ -1,0 +1,147 @@
+---
+title: "Production-grade infrastructure, GitOps convergence, and DevSecOps in under 5 minutes"
+author: Sri Rangan
+author_gitlab: sri19
+author_twitter: srirangan
+categories: engineering
+image_title: "/images/blogimages/library/devops.png"
+description: "Unlock production-grade infrastructure and development workflows in under five minutes with Five Minute Production App: a blend of solutions offered by AWS, Hashicorp Terraform, and GitLab."
+tags: CI, CD, DevOps, cloud native, GitOps, production
+merch_banner: merch_five
+postType: content marketing
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2021-03-10.
+{: .note .alert-info .text-center}
+
+This is a story about achieving production-grade infrastructure in under five minutes.\\
+This is a story about achieving production-grade DevSecOps in under five minutes.\\
+This is a story about achieving total convergence of GitOps in under five minutes.
+
+My name is Sri and over the last three months and I worked closely with GitLab co-founder [DZ](/company/team/#dzaporozhets) in building "Five Minute Production App."
+
+The app blends solutions offered by AWS, Hashicorp Terraform, and GitLab, and offers production-grade infrastructure and development workflows in under five minutes.
+
+![Five Minute Production App Diagram](/images/blogimages/five-min-prod-01-complete-flow.png){: .shadow.medium.center}
+
+Apart from the efficiencies gained from using Five Minute Production App, you benefit by achieving stateful, production-ready infrastructure on the AWS hypercloud.
+
+We started with AWS first, as it is the hypercoud leader today. Support for Azure and Google Cloud is on the roadmap.
+
+Our vision and design decisions are explained in the [README](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template#quickly) and [category direction](https://about.gitlab.com/direction/5-min-production/).
+
+## Quickstart 
+
+We start with your GitLab project which has the source code of your web application. Regardless of which language or framework you use, your web application is packaged as a container image and stored within your GitLab project's Container Registry.
+This is the Build stage.
+
+This is followed by the Provision stage where Terraform scripts connect to AWS and create a secure environment for your web application.
+The environments provisioned relate to your Git branching workflow.
+Long-lived Git branches create long-lived environments, and short-lived Git branches correspond to short-lived environments.
+
+Resources provisioned include an Ubuntu VM, scalable PostgreSQL database, a Redis cluster, and S3 object storage.
+We consider these elements as the building blocks for majority of web applications, and many of these fall under AWS free tier.
+
+The infra state and credentials are stored within your GitLab project's managed Terraform state.
+
+Finally, we reach the Deploy stage which:
+1. Retrieves the deployable image from the GitLab Container Registry
+1. Retrieves the infrastructure credentials from the Gitlab Managed Terraform State, and
+1. Proceeds to deploy your web application
+
+Everything is achieved by including these two lines in your `.gitlab-ci.yml` file.
+
+```yaml
+include:
+  remote: https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/raw/stable/deploy.yml
+```
+
+Let's look at the complete process in more detail.
+
+![Three stages of Five Minute Production App](/images/blogimages/five-min-prod-02-pipeline.png){: .shadow.medium.center}
+The three stages of Five Minute Production App
+{: .note.text-center}
+
+## Build and package
+
+The Build stage is where it all begins. Five Minute Production App reuses the [Auto Build stage](https://docs.gitlab.com/ee/topics/autodevops/stages.html#auto-build) from the GitLab Auto DevOps pipeline.
+
+Auto Build builds and packages web applications that are:
+1. Containerized with a Dockerfile, or
+2. Compatible with the Cloud Native buildpack, or
+3. Compatible with the Heroku buildpack
+
+Thus, web applications across multitudes of technologies are supported, including web frameworks such as Rails, Django, Express, Next.js, Spring, etc.
+and programming languages including Python, Java, Node.js, Ruby, Clojure, etc.
+
+Once the Auto Build job has finished execution, the newly created container image is stored as an artifact in your GitLab project's Container Registry.
+
+## Provision the infrastructure
+
+The next step, Provision, prepares infrastructure resources in AWS.
+The first requirement here is the presence of AWS credentials stored as CI/CD variables at the project or group level.
+Once valid AWS credentials are found, a Terraform script is executed to generate resources in AWS.
+
+These resources include:
+1. EC2 VM based on Ubuntu 20.04 LTS
+2. PostgreSQL database managed by AWS RDS
+3. Redis cluster managed by AWS ElastiCache
+4. S3 bucket for file storage
+5. Email Service credentials managed by AWS SES
+
+The most critical resource is the PostgreSQL service which has daily backups enabled.
+PostgreSQL data is snapshotted if the infrastructure resource is "destroyed" through a manual user action via the Five Minute Production App pipeline.
+
+The EC2 VM is the only service accessible publicly. Ports 22, 80 and 443 are exposed.
+Every other resource described above is part of a secure, private network, hidden from the public web, accessible ony via the EC2 instance and your web applicable deployed there.
+
+The stateful services and environments are tied to your Git branches.\\
+This means every Git branch creates a new environment with these resource sets.\\
+We don't have a preference on your Git branching and environments lifecycle.\\
+Use long-lived or short-lived branches as you see fit, just keep in mind that long-lived branches leads to long-lived environments and short-lived branches leads to short-lived environments.
+
+![Infrastructure resources provisioned on AWS](/images/blogimages/five-min-prod-03-infra-resources.png){: .shadow.medium.center}
+Infrastructure resources provisioned on AWS
+{: .note.text-center}
+
+## Deploy your web application
+
+Finally comes the Deploy stage.
+
+This is where the deploy script retrieves your web application package (container image) from the GitLab Container Registry, then retrieves the EC2 instance
+credentials from the GitLab Managed Terraform State, and proceeds to deploy the relevant version of your web application in its environment.
+
+Modern web applications might require additional commands being executed after each deployment or after the initial deployment,
+and these commands can be defined as variables in your `.gitlab-ci.yml` file.
+
+Finally, with the help of Certbot from Letsencrypt, SSL certificates are generated and configured for your web application.
+If you have defined the `CERT_DOMAIN` CI/CD variable the SSL certificate will be generated for your custom domain name.
+Otherwise the generated SSL certificate uses a dynamic URL that Five Minute Production App prepares for you.
+
+## Conclusion
+
+There we have it. A simple yet production-ready setup for your web application. If you are looking for an AWS-based setup, this is ready for usage.
+
+If you are looking for something similar but not quite Five Minute Production App, this serves as an example of how to converge infrastructure-as-code with software development and provide seamless continuous deployment workflows.
+
+In my personal experience, this is one of the most complete examples of GitOps:
+
+1. Your application source code lives in your GitLab project
+2. Your infrastructure defined as code lives in your GitLab project
+3. Your CI/CD pipeline lives in your GitLab project
+4. Your infrastructure state lives in your GitLab project
+5. Your infrastructure secrets and credentials live in your GitLab project
+6. Your environments configuration lives in your GitLab project
+
+This complete GitOps convergence is not specifically configured for one project. It can be included as a template from multiple projects.
+There is no reason why the GitLab project in your organization cannot be the single source of truth for everything.
+
+### Links
+
+- [Five Minute Production App](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/blob/master/README.md)
+- [Reference Examples](https://gitlab.com/gitlab-org/5-minute-production-app/examples)
+
+### About the author
+
+[Sri Rangan](mailto:sri@gitlab.com), an Enterprise Solutions Architect with GitLab, is a core-contributor and maintainer
+of [Five Minute Production App](https://gitlab.com/gitlab-org/5-minute-production-app/deploy-template/-/blob/master/README.md).

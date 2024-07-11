@@ -1,0 +1,56 @@
+---
+title: "Mobile DevOps with GitLab, Part 1 - Code signing with Project-level Secure Files"
+author: Darby Frey
+author_gitlab: darbyfrey
+author_twitter: gitlab
+categories: devops
+tags: mobile, DevOps, CI/CD
+description: "An introduction to mobile code signing with the new Project-level Secure Files feature."
+image_title: '/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-1-introducing-project-level-secure-files/refargotohp-mzZp_9QpYLc-unsplash.jpg'
+twitter_text: "Want to use GitLab to do mobile DevOps and mobile code signing? Our tutorial series gets you started with the new Project-level Secure Files feature."
+---
+
+Mobile teams face some unique challenges when it comes to establishing DevOps practices. Build tools are different, release and approval cycles with app stores can be slower and introduce more risk, and some applications require specialized runners. At GitLab, we are focused on finding solutions to these challenges to make it easier for [everyone to contribute](/company/mission/#everyone-can-contribute)! Starting with mobile code signing.
+
+This post is the first in a series on mobile DevOps and it shows how GitLab makes code signing easier using a new feature called Project-level Secure Files.
+
+## A brief introduction to mobile code signing
+
+Android and iOS projects require special configuration files for secure application code signing to ensure an application on a user's device hasn't been tampered with. These configuration files can be challenging to manage in a [CI environment](/topics/ci-cd/benefits-continuous-integration/). Keystores, signing certificates, and provisioning profiles shouldn't be stored in version control because they contain sensitive information. These files are also binary (not text), so they can't easily be stored as CI variables.
+
+To make this process easier, [we've introduced a feature in GitLab 15.0 called Project-level Secure Files](/releases/2022/05/22/gitlab-15-0-released/#project-level-secure-files-in-open-beta). This feature allows these files to be stored securely as part of a GitLab project but outside version control. Secure Files can then easily be loaded into a CI job when it's time to execute the code signing process.
+
+Get started by adding a secure file to a project:
+
+1. On the top bar, select **Menu > Projects** and find your project.
+2. On the left sidebar, select **Settings > CI/CD**.
+3. In the **Secure Files** section, select **Expand**.
+4. Select **Upload File**.
+5. Find the file to upload, select **Open**, and the file upload begins immediately. The file shows up in the list when the upload is complete.
+
+![Upload Secure File](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-1-introducing-project-level-secure-files/upload-secure-file.png)
+
+![List Secure Files](/images/blogimages/2022-09-19-mobile-devops-with-gitlab-part-1-introducing-project-level-secure-files/list-secure-files.png)
+
+With the files securely stored with the project, the next step is to load them into a [CI/CD](/topics/ci-cd/) job. To use your secure files in a CI/CD job, you must use the [download-secure-files](https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files) tool to download the files in the job. After downloading them, these files can be used in any CI job.
+
+Add a command in the script section of your job to download the download-secure-files tool and execute it. It's also important to specify the download location for the secure files by setting the desired path in the `SECURE_FILES_DOWNLOAD_PATH` [CI/CD variable](https://docs.gitlab.com/ee/ci/variables/index.html).
+
+For example:
+
+```
+test:
+  variables:
+    SECURE_FILES_DOWNLOAD_PATH: './where/files/should/go/'
+  script:
+    - curl --silent "https://gitlab.com/gitlab-org/incubation-engineering/mobile-devops/download-secure-files/-/raw/main/installer" | bash
+```
+
+Now, when the CI job runs, all of the secure files will be available in the location specified. They can then be passed into a build script or loaded into the Apple keychain. 
+
+That's it! Give it a try, and let us know what you think in the [feedback issue](https://gitlab.com/gitlab-org/gitlab/-/issues/362407).
+
+Next time we will walk through [how to set up code signing for an Android app](/blog/2022/09/28/mobile-devops-with-gitlab-part-2/).
+
+Cover image by <a href="https://unsplash.com/@refargotohp?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">refargotohp</a> on <a href="https://unsplash.com/s/photos/mobile-app-building?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>.
+  

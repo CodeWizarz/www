@@ -1,0 +1,84 @@
+<% 
+current_page.data.canonical_path = current_article.data.canonical_path if current_article.data.canonical_path
+author = author_data(author: current_article.data.author)
+%>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <%= partial "includes/layout/head" %>
+    <% if current_page.data.postType %>
+      <script>
+        dataLayer.push({'postType': '<%= current_page.data.postType %>'});
+      </script>
+    <% end %>
+    <% if current_page.data.tags %>
+      <script>
+        dataLayer.push({'tags': '<%= current_page.data.tags.split(", ") %>'});
+      </script>
+    <% end %>
+    <% if current_page.data.categories %>
+      <script>
+        dataLayer.push({'category': '<%= current_page.data.categories %>'});
+      </script>
+    <% end %>
+    <link href="/stylesheets/2020blogposts.css" rel=stylesheet />
+    <link href="/stylesheets/navigation-helpers.css" rel=stylesheet />
+    <link href="/stylesheets/2022-blog-refresh.css" rel="stylesheet">
+  </head>
+  <body data-spy="scroll" data-target=".qnav" style="background: #ffffff;" id="blog-post">
+    <%= partial "includes/google/gtm" %>
+    <%= partial "includes/layout/header" %>
+      <main class="slpBlog slp-grid slp-mx-auto slp-bg-white" id="blog-post">
+        <%= partial "includes/cms/blog_post/slp-blog-header", locals: { author: author } %>
+        <article class="slpBlog__article slp-z-0">
+          <% if current_page.data.image_title %>
+            <img alt="" src="<%= current_page.data.image_title %>" class="slp-mb-32" width="100%"/>
+          <% end %>
+          <% if current_page.data.categories == 'unfiltered' %>
+            <%= partial "includes/cms/blog_post/slp-badge" %>
+          <% end %>
+          <%= yield %>
+          <% if current_page.data.twitter_text %>
+            <%= partial "includes/cms/blog_post/slp-click-to-tweet" %>
+          <% end %>
+          <% if current_page.data.merch_banner %>
+            <%= partial "includes/cms/blog_post/slp-merch-banner" %>
+          <% end %>
+          <div class="slpBlog__social">
+            <%= partial "includes/blog/share" %>
+          </div>
+        </article>
+        <aside class="slpBlog__aside slp-flex slp-flex-col slp-justify-start slp-pt-6">
+          <%= partial "includes/cms/blog_post/slp-social-follow" %>
+          <%= partial "includes/newsletter-signup.html" %>
+          <% if current_page.data.merch_sidebar %>
+            <%= partial "includes/cms/blog_post/slp-merch-sidebar" %>
+          <% end %>
+        </aside>
+        <footer class="slpBlog__footer">
+          <hr class="slp-border-t slp-border-grayscale-c3 slp-mb-20" />
+          <% if current_article.tags != nil %>
+            <%= partial "includes/cms/blog_post/slp-tags", locals: { label_enabled: true } %>
+          <% end %>
+          <%= partial "includes/cms/blog_post/slp-related-content" %>
+          <% if ci_environment? && current_page.data.comments != false %>
+            <%= partial "includes/blog/comments", locals: { article: current_page.data } %>
+          <% end %>
+          <% unless current_page.data.install_cta == false %>
+            <%= partial "includes/blog/try" %>
+          <% end %>
+        </footer>
+      </main>
+      
+    <%= partial "includes/layout/footer" %>
+    <% unless current_article.data.ee_cta == false %>
+
+    <% end %>
+    <script type="application/ld+json">
+      <%= generate_blog_post_schema(current_article.data, current_article, current_page) %>
+    </script>
+    <script src="/javascripts/libs/mermaid.min.js" type="text/javascript"></script>
+    <script src="/javascripts/generate-navigation-helpers-blog.js" type="text/javascript"></script>
+    <script src="/javascripts/pathfactory-navigation-hide.js" type="text/javascript"></script>
+  </body>
+</html>

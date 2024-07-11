@@ -1,0 +1,121 @@
+---
+title: "GitLab CI/CD on Google Kubernetes Engine in 15 minutes or less"
+author: Elliot Rushton
+author_gitlab: erushton
+author_twitter: gitlab
+categories: engineering
+image_title: "/images/blogimages/ci-gke-in-15/gke_in_15_cover_2.jpg"
+description: "Install GitLab's Runner on GKE in a few simple steps and get started with GitLab CI/CD pipelines."
+tags: integrations, kubernetes, cloud native, CI/CD, GKE, google
+ee_cta: false #
+install_cta: false #
+merch_banner: merch_two
+twitter_text: "Set up @gitlab CI/CDß on Google Kubernetes Engine in minutes"
+featured: yes #
+postType: product
+cta_button_text: 'Master your CI/CD'
+cta_button_link: '/competition/github/'
+related_posts:
+  - "/blog/2020/12/17/gitlab-for-cicd-agile-gitops-cloudnative/"
+  - "/blog/2018/04/24/getting-started-gitlab-ci-gcp/"
+  - "/blog/2019/09/26/building-a-cicd-pipeline-in-20-mins/"
+---
+
+If you use [GitLab Self-Managed](/pricing/#self-managed), then getting started with GitLab CI using [GitLab's integration with Google Kubernetes Engine (GKE)](/partners/technology-partners/google-cloud-platform/) can be accomplished in a few simple steps. We have several blog posts and documentation that provide detailed [setup instructions for working with Kubernetes clusters](#other-resources). In this post, we highlight the essential steps so that you can get going with GitLab CI/CD in less than 15 minutes.
+
+By using the GitLab and GKE integration, with one click, you install GitLab Runners on GKE and immediately start running your CI pipelines. Runners are the lightweight agents that execute the CI jobs in your [GitLab CI/CD](/topics/ci-cd/) pipeline.
+
+## Prerequisites:
+
+The following pre-requisities will need to have been configured in order for you to use the built in GitLab GKE integration:
+- GitLab instance installed and configured with user credentials
+- [Google OAuth2 OmniAuth Provider](https://docs.gitlab.com/ee/integration/google.html) installed and configured on your GitLab instance
+- A Google Cloud project with the following [APIs enabled](https://docs.gitlab.com/ee/integration/google.html#enabling-google-oauth):
+  - Google Kubernetes Engine API
+  - Cloud Resource Manager API
+  - Cloud Billing API
+
+## Get started
+
+![Setup pipeline](/images/blogimages/ci-gke-in-15/gke_in_15_pipeline.png){: .shadow.medium.center}
+
+### Step 1
+
+We’re going to add a shared runner at the instance level. First, as an administrator, click the “Admin Area” icon
+
+![Runner setup step 1](/images/blogimages/ci-gke-in-15/ci_gke_in_15_001.png){: .shadow.medium.center}
+
+Then on the left menu, select “Kubernetes”
+
+![Runner setup step 2](/images/blogimages/ci-gke-in-15/ci_gke_in_15_002.png){: .shadow.medium.center}
+
+### Step 2
+
+Click the green “Add Kubernetes cluster” button.
+
+![Runner setup step 3](/images/blogimages/ci-gke-in-15/ci_gke_in_15_003.png){: .shadow.medium.center}
+
+### Step 3
+
+The screen to “Add a Kubernetes cluster integration” should come up. Click on the “Google GKE” icon on the right.
+
+![Runner setup step 4](/images/blogimages/ci-gke-in-15/ci_gke_in_15_004.png){: .shadow.medium.center}
+
+### Step 4
+
+Give your cluster a name, and select a “Google Cloud Platform project” from your linked GCP account. If no projects are populated in the menu then either your Google OAUTH2 integration isn’t configured correctly or your project is missing the needed permissions. Check that these are set up and that the [APIs mentioned in the prerequisites above](#prerequisites) are enabled.
+
+Choose a zone in which to run your cluster. For the purposes of running CI, the number of nodes in your cluster is going to be how many simultaneous jobs you can run at given time. As we are using the built-in GitLab Google Kubernetes integration, you can set a maximum of four nodes.
+Here we set that to three.
+
+Click “Create Kubernetes Cluster”
+
+![Runner setup step 5](/images/blogimages/ci-gke-in-15/ci_gke_in_15_005.png){: .shadow.medium.center}
+
+It takes a few minutes for the cluster to be created. While it’s happening you should see a screen like this. You can leave this screen and come back (by going to “Admin Area> Kubernetes > [your cluster name]”)
+
+![Runner setup step 6](/images/blogimages/ci-gke-in-15/ci_gke_in_15_006.png){: .shadow.medium.center}
+
+### Step 5
+
+Once the cluster has been created, we need to install two applications. First, install “Helm Tiller” by clicking on the “Install” button next to it.
+
+![Runner setup step 7](/images/blogimages/ci-gke-in-15/ci_gke_in_15_007.png){: .shadow.medium.center}
+
+This takes a moment, but should be much quicker than creating the cluster initially was.
+
+![Runner setup step 8](/images/blogimages/ci-gke-in-15/ci_gke_in_15_008.png){: .shadow.medium.center}
+
+### Step 6
+
+Now that Helm Tiller is installed, more applications can be installed. For this tutorial we only need to install the “GitLab Runner” application. Click the install button next to GitLab Runner.
+
+![Runner setup step 9](/images/blogimages/ci-gke-in-15/ci_gke_in_15_009.png){: .shadow.medium.center}
+
+Again, this should go pretty quickly.
+
+![Runner setup step 10](/images/blogimages/ci-gke-in-15/ci_gke_in_15_010.png){: .shadow.medium.center}
+
+Once done, the button will change to an “Uninstall” button. You’re now set up with shared runners on your GitLab instance and can run your first CI pipeline!
+
+![Runner setup step 11](/images/blogimages/ci-gke-in-15/ci_gke_in_15_011.png){: .shadow.medium.center}
+
+### Next steps
+
+Now that you are up and running with GitLab CI/CD on GKE, you can build and run your first GitLab CI/CD pipeline. Here are links to a few resources to get you started.
+
+- [Getting Started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
+- [How to build a CI/CD pipeline in 20 minutes or less](/blog/2019/09/26/building-a-cicd-pipeline-in-20-mins/)
+- [Getting started with Auto DevOps](https://docs.gitlab.com/ee/topics/autodevops/quick_start_guide.html#getting-started-with-auto-devops)
+
+If you are planning to manage your own fleet of GitLab Runners, then you may also be thinking about how best to set up autoscaling of GitLab Runners. As we have just set up your first Runner on GKE, then you can review the [GitLab Runner Kubernetes Executor docs](https://docs.gitlab.com/runner/executors/kubernetes.html) for additional details as to how the GitLab Runner uses Kubernetes to run builds on a Kubernetes cluster.
+
+### Other resources
+
+- [Scalable app depoyment webcast](https://about.gitlab.com/webcast/scalable-app-deploy/)
+- [Install GitLab on a cloud native environment](https://docs.gitlab.com/charts/)
+- [Adding and removing Kubernetes clusters](https://docs.gitlab.com/ee/user/project/clusters/add_remove_clusters.html)
+- [Deploy production-ready GitLab on Google Kubernetes Engine](https://cloud.google.com/solutions/deploying-production-ready-gitlab-on-gke)
+
+Cover image by [Agê Barros](https://unsplash.com/photos/rBPOfVqROzY) on [Unsplash](https://www.unsplash.com)
+{: .note}

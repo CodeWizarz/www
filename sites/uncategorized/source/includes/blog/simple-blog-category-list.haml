@@ -1,0 +1,23 @@
+%a.category-card-image{ href: articles.first.url, :"data-ga-name" => "#{articles.first.title}", :"data-ga-location" => "body" }
+  %div.card-image-wrapper
+    - if articles.first && articles.first.data.image_title
+      = image_tag articles.first.data.image_title, alt: articles.first.title
+    - else
+      = image_tag image, alt: alt
+
+%ul.category-card-post-list
+  - articles.each.with_index do |article, index|
+    %li
+      %a{ href: article.url, :"data-ga-name" => "#{article.title}", :"data-ga-location" => "body" }
+        - if article.data.release_number
+          GitLab
+          = article.data.release_number
+          released
+        - else
+          = article.title
+      - if 0 == index && article.data.description
+        %a.description{ href: article.url, :"data-ga-name" => "#{article.title}", :"data-ga-location" => "body" }
+          %span
+            = article.data.description.split[0...11].join(' ')
+            - if 11 < article.data.description.split.size
+              [...]

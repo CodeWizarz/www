@@ -1,0 +1,102 @@
+---
+title: "Meet the GitLab Web IDE"
+author: Dimitrie Hoekstra
+author_gitlab: dimitrieh
+author_twitter: dimitrieh
+categories: engineering
+image_title: '/images/blogimages/webide/web-ide-cover.jpg'
+description: "Here's how we went from a proof of concept to a new feature that makes it even easier for everyone to edit inside of GitLab."
+ee_cta: false
+extra_css:
+ - introducing-web-ide.css
+tags: inside GitLab, frontend, UX
+twitter_text: 'Meet the @gitlab Web IDE'
+related_posts:
+  - "/blog/2021/01/07/top-engineering-stories-gitlab/"
+  - "/blog/2020/05/28/using-gitlab-web-ide-gitlab-ci-cd/"
+  - "/blog/2018/10/29/why-we-use-rails-to-build-gitlab/"
+---
+
+GitLab has been doing much more for the application development workflow than just source code management and versioning for a while – now spanning everything from [portfolio management](https://docs.gitlab.com/ee/user/group/epics/index.html#epics) to the [entire DevOps lifecycle](/blog/2017/10/11/from-dev-to-devops/). Having everyone work from and be familiar with the same interface has many advantages.
+
+All that code that gets automatically tested and deployed to production has a human at its source though. With the speed of innovation in today’s web development, we saw a chance to help out both new as well as seasoned developers with writing, reviewing, and committing that code with more confidence. In [GitLab 10.7](/releases/2018/04/22/gitlab-10-7-released/) we released the first iteration of our Web IDE – here's how it happened.
+
+## From experiment towards product
+
+The original idea came from staff developer [Jacob Schatz](/company/team/#jakecodes), who observed how non-developers were having a hard time editing multiple files and getting those changes committed.
+
+Although having discussed implementing an Integrated Development Environment (IDE) into GitLab with our CEO [Sid](/company/team/#sytses) and VP of Product [Job](/company/team/#Jobvo) before, it was never clear how to do that and what exact problems it would solve.
+
+At some point, it dawned on us that the repository view might be the right vessel. Jacob set up a proof of concept where he made our file viewer work in the context of a file editor. It removed the page refresh when switching between files and it approached editing from a branch perspective instead of per file. The result was the beginning of the [Web IDE](https://docs.gitlab.com/ee/user/project/web_ide/), although it was called the "repo editor" at that time.
+
+![Proof of concept multi-file editor](/images/blogimages/webide/multifileeditor.png){: .shadow.medium.center}
+
+Setting up that proof of concept was a [tremendous amount of work](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/12198) and was time-boxed to one month. Jacob also had other responsibilities, and there was still a long way to go from concept to minimal viable product (MVP).
+
+Product, UX, and other developers got involved to see if this could be pushed towards production. The concept solved a problem, but did it align with our vision? How could we holistically integrate this and make it a great experience? How could we get it to perform well for many different users?
+
+## The next phase
+
+It took some time, but it was clear that we were aiming for a real integrated development experience, accessible for everyone right within the GitLab UI, without anything to install. The idea grew from the "Repo editor" into that of the "Web IDE."
+
+GitLab itself is open source (or rather [open core](/blog/2016/07/20/gitlab-is-open-core-github-is-closed-source/)) and relies on many open source projects for its development. Jacob had already decided that the [Monaco editor](https://microsoft.github.io/monaco-editor/) was the perfect code editor to integrate. It had already proven itself within different contexts, was great for performance, and so could be considered a [boring solution](/handbook/values/#efficiency).
+
+Our UX manager [Sarrah Vesselov](/company/team/#SVesselov) did the initial design for the concept after which it got passed on to me. It was up to our platform product manager [James Ramsay](/company/team/#jamesramsay), our frontend engineering manager [Tim Zallman](/company/team/#tpmtim), senior frontend engineer [Phil Hughes](/company/team/#iamphill), and I as the UX Designer to redefine the prototype "multi-file editor" into the foundation capable of supporting our vision of an Integrated Development Environment with live previews and web terminals, that enables anyone to contribute.
+
+## Iterating on user experience
+
+### An integrated editor
+
+The original "multi-file editor" was about committing multiple changes at once because this was annoying when updating the handbook or docs. Often those changes touched multiple files. It was a prototype that made it easier for people to contribute.
+
+The more we thought about this idea, the greater the possibilities became. One of GitLab's unique advantages is being an integrated product. Building an editor that was integrated with GitLab and made it easier for anyone to contribute is a natural fit. However, the starting point of a prototype in the file list and blob editor wouldn't have been enough to handle this. Decoupling this was the first actionable item.
+
+>One of GitLab's unique advantages is being an integrated product. Building an editor that was integrated with GitLab and made it easier for anyone to contribute is a natural fit.
+
+This change, which required a lot of discussion and a considerable amount of engineering work by our developers Phil and Tim, was where the project pivoted towards its new direction. The Web IDE got a lot more screen real estate as it no longer had to make room for the project sidebar and other page elements. We decided that the Web IDE would edit one branch at a time only and conceptualized the initial Git flow into the editor. Based on existing UI paradigms and inspired by other code editors like [VSCode](https://code.visualstudio.com/) and [Atom](https://atom.io/), we arrived at the well-known, three-pane layout.
+
+<div class="compare-images-2">
+  <img src="/images/blogimages/webide/web-ide-iteration-0-concept.png" class="compare-image-top shadow" alt="multi file editor concept">
+  <img src="/images/blogimages/webide/web-ide-iteration-1-concept.png" class="compare-image-bottom shadow" alt="web ide file editor concept">
+</div>
+
+Even seasoned developers were once beginners, and getting new people accustomed to the Git workflow continues to be notoriously hard to tackle. We decided therefore that the core of the Web IDE experience should be stable before we can venture into more advanced concepts. We set out to make the "editing to committing" experience as good as possible and to create a foundation on which we can expand.
+
+Even while having [these discussions](https://gitlab.com/gitlab-org/gitlab-ce/issues/44316), development never stood still. We quickly had a working version of the Web IDE that relied on the Monaco editor. Our immediate efforts pushed towards getting that to a functional, viable state.
+
+### A review state
+
+Due to the potency of the Monaco editor, it became clear we had many options to choose from as to what to develop next. A review state was high up on that list, as it should be obvious what you are going to commit. Not only that, it introduced the possibility of being able to have an integrated merge request review experience in the context of the editing experience – something that has not been possible before.
+
+This introduced the problem of managing states. After much discussion, we decided to go for editor states instead of file-specific states. Both the user perspective as well as the technical implementation benefited from this as it reduced complexity. It meant you were either editing your files or reviewing your changes across the files you had opened.
+
+![Web IDE edit and review states](/images/blogimages/webide/web-ide-states.png){: .shadow.medium.center}
+
+At this point, we are nearing the current state of the Web IDE, though in GitLab 10.8 we could finally [realize the "editing to committing" experience](https://gitlab.com/gitlab-org/gitlab-ce/issues/44846) that we talked about before and which was conceptualized and [prototyped](https://framer.cloud/Cojmw/index.html) while developing GitLab 10.7. This was made possible as development reached a more stable state.
+
+### Deciding on hierarchy
+
+The new experience had several objectives. It needed to introduce a more logical hierarchy for the panes to operate in. Based on that we could decide which panes would potentially show what information and where we could fit in any future more advanced features.
+
+The second objective was to guide the user more intuitively from editing to committing. The editing and reviewing experience up until then showed its shortcomings as it was hard to switch modes and unclear when you were doing a good job. If even seasoned developers had a hard time using it, how could people just starting out ever hope to successfully contribute making use of it?
+James and I went through many concepts and discussed both flow and hierarchy before getting into detailed mockups. Through the iterations, it became apparent we preferred our hierarchy to act from left to right. We decided we needed a similar paradigm as the activity bar shown in VSCode. The editor became far more usable as state changes were just one click away, regardless of which state you were already using. As committing was now a separate state as well, it brought a linearity to the entire flow as seen from the activity bar.
+
+The last significant detail, which came out of a discarded design iteration, was a button to guide the user towards committing their changes. It introduced a little section at the bottom of each state with a blue commit button and a counter so you can see how many changes you have made – essential as we repurposed the right sidebar.
+
+<div class="compare-images-3">
+  <img src="/images/blogimages/webide/web-ide-left-1.png" class="compare-image-top shadow" alt="web ide revised concept edit mode">
+  <img src="/images/blogimages/webide/web-ide-left-2.png" class="compare-image-middle shadow" alt="web ide revised concept review mode">
+  <img src="/images/blogimages/webide/web-ide-left-3.png" class="compare-image-bottom shadow" alt="web ide revised concept commit mode">
+</div>
+
+*Interested to see all iterations the concepts have gone through? Check out my [Web IDE directory](https://gitlab.com/gitlab-org/gitlab-design/tree/master/progress/dimitrie/web-ide) in GitLab's open source design library where we contribute all our design files!*
+
+## Just the beginning
+
+The current state of the Web IDE is still only the beginning. We are planning for an even better experience in the future: one where we can integrate and support more advanced features, such as a live environment to test your code against and code review discussions which are directly resolvable.
+
+In GitLab 11.0, shipping next Friday, we will already have the following improvements: you will be able to view the latest pipeline status and the job logs directly in context, and you will be able to quickly switch between both assigned and authored merge requests without leaving the Web IDE!
+
+This and more will inevitably lead towards more interesting design decisions to be made. Some of these concepts are uncharted territory and are sure to be valuable to further speed up development and give developers more confidence. Our hope is that this is a valuable contribution to both the open source community as well as GitLab itself.
+
+Do you have great ideas to push this effort forwards or want to contribute yourself? Check out the [issue tracker](https://gitlab.com/groups/gitlab-org/-/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=web%20ide)!

@@ -1,0 +1,112 @@
+---
+title: Quickstart guide for GitLab Remote Development workspaces 
+author: Itzik Gan-Baruch
+author_gitlab: iganbaruch
+author_twitter: itzikgb
+categories: engineering
+image_title: '/images/blogimages/2023-06-22-quickstart-workspaces-cover-image2.png'
+description: "Learn how to create a workspace from your GitLab account and work directly from the remote development environment."
+tags: tutorial, DevOps, CI/CD
+postType: dev-evangelism
+featured: yes
+twitter_text: "GitLab 16.0 introduced Remote Development workspaces. This guide will provide you with a detailed, step-by-step walkthrough on how to run your first workspace."
+---
+
+GitLab 16.0 introduced [Remote Development workspaces (beta)](https://about.gitlab.com/releases/2023/05/22/gitlab-16-0-released/#remote-development-workspaces-available-in-beta-for-public-projects), an exciting addition to the GitLab platform that empowers teams to build and deliver software more efficiently.
+
+This guide provides step-by-step instructions on how to create a workspace directly from your GitLab account and work directly from the remote development environment. You will work in the Web IDE, a Visual Studio Code browser version, seamlessly integrated into the workspace. 
+
+From this quick start, you will learn how to create a workspace, use the Web IDE Terminal to install dependencies or start your server, and view your running application. 
+
+To learn more about Remote Development in GitLab, we recommend reading this informative blog post, "[A first look at workspaces](https://about.gitlab.com/blog/2023/05/23/introducing-workspaces-beta/)," and the [workspaces docs](https://docs.gitlab.com/ee/user/workspace/).
+
+## Prerequisites 
+Prior to enabling developers to create workspaces, there are a few prerequisites such as bring your own Kubernetes cluster, and install and configure the GitLab agent for Kubernetes on it. Additionally, certain configuration steps must be completed on the cluster. You can find detailed instructions for all these steps in [our workspaces prequisites documentation](https://docs.gitlab.com/ee/user/workspace/#prerequisites). Once the prerequisites are properly configured, developers who hold Developer role or above within the root group will gain the ability to create workspaces.
+
+## DevFile 
+A [devfile](https://devfile.io/docs/2.2.0/devfile-ecosystem) is a declarative configuration file, in YAML syntax, used to define and describe the development environment for a software project. It provides a standardized way to specify the necessary tools, languages, runtimes, and other components required for developing an application.
+
+To initiate a workspace, it is necessary to have a devfile located at the root of the repository. In this blog post, we will utilize a project that contains a devfile, accessible [here](https://gitlab.com/gitlab-de/use-cases/remote-development/example-nodejs-express-app/-/raw/main/.devfile.yaml). 
+
+```yaml
+schemaVersion: 2.2.0
+components:
+  - name: tooling-container
+    attributes:
+      gl/inject-editor: true
+    container:
+      # NOTE: THIS IMAGE EXISTS ONLY FOR DEMO PURPOSES AND WILL NOT BE MAINTAINED
+      image: registry.gitlab.com/gitlab-org/remote-development/gitlab-remote-development-docs/debian-bullseye-ruby-3.2-node-18.12:rubygems-3.4-git-2.33-lfs-2.9-yarn-1.22-graphicsmagick-1.3.36-gitlab-workspaces
+      memoryRequest: 1024M
+      memoryLimit: 2048M
+      cpuRequest: 500m
+      cpuLimit: 1000m
+      endpoints:
+      - name: http-3000
+        targetPort: 3000
+```
+For more information, see the [GitLab documentation](https://docs.gitlab.com/ee/user/workspace/#devfile) and [devfile documentation](https://devfile.io/docs/2.2.0/devfile-schema).
+
+## Creating your workspace 
+1. Make sure you have a [Developer role or above](https://docs.gitlab.com/ee/user/permissions.html) in the root group, and the above prerequisites configured properly.
+2. Fork [this project](https://gitlab.com/gitlab-de/use-cases/remote-development/example-nodejs-express-app) to the GitLab group for which you have a Developer role or above. 
+3. Switch contexts and select `Your work`.
+![Your work](/images/blogimages/2023-07-10-your-work.png){: .shadow}
+4. Select `Workspaces`.
+5. Select `New workspace`.
+6. Select the project you forked or another project that has a `.devfile.yaml` file at the root of the repository. 
+7. Select the [cluster agent](https://docs.gitlab.com/ee/user/workspace/#prerequisites) owned by the group the project belongs to.
+8. In `Time before automatic termination`, enter the number of hours until the workspace automatically terminates. This timeout is a safety measure to prevent a workspace from consuming excessive resources or running indefinitely. 
+9. Select `Create workspace`. 
+
+![create ws](/images/blogimages/create_workspace.png){: .shadow}
+
+The workspace will be deployed to the cluster and might take a few minutes to start. To access the workspace, under Preview, select the workspace link.
+
+![ws list](/images/blogimages/workspaces_list.png){: .shadow}
+  
+## Installing dependencies and previewing your application in the workspace
+After creating your workspace, the [Web IDE using VS Code](https://docs.gitlab.com/ee/user/workspace/#web-ide) is injected into it, and the repository is cloned to the image. Consequently, you gain immediate access to your code and can commence working on it right away.
+
+You can now open the terminal, install any missing dependencies, and start the application.
+
+![Terminal](/images/blogimages/ws-terminal.png){: .shadow}
+
+1. To open the terminal, from the left menu, select `Terminal`, `New Terminal`. 
+2. Type `npm install` to install the dependencies listed in the [package.json](https://gitlab.com/gitlab-de/use-cases/remote-development/example-nodejs-express-app/-/blob/main/package.json) file.
+3. Type `npm start` to start the application.
+
+The log will indicate that the application has started on port 3000.
+
+![log](/images/blogimages/server_log.png){: .shadow}
+
+You can now access your application by opening the browser and using the same URL as your workspace, but with the port changed to 3000.
+
+## Making changes to the application and previewing the updated version
+In the Web IDE, navigate to the `server.js` file, modify the text in line 9. 
+
+Afterward, refresh the browser where your application is opened to see the applied changes. 
+
+## Commit the change 
+1. In the Web IDE click on the merge icon in the activity bar.
+2. Click the line with the `server.js` to view your change side by side.
+3. To stage your change, click the plus icon next to `server.js`.
+4. Type a commit message describing your change.
+5. Click Commit. 
+6. Click Sync changes to push the commit to the GitLab server.
+
+  ![commit](/images/blogimages/commit-stage.png){: .shadow}
+
+
+## Demo 
+Explore further with this [click-through demo of workspaces](https://go.gitlab.com/qtu66q).
+
+## Try out workspaces
+Remote Development workspaces offer a convenient and efficient way to work on projects without the need for local development setups. They provide a streamlined workflow and enable developers to focus on writing code rather than dealing with complex environment setups.
+
+By adopting workspaces, developers can collaborate effectively, improve productivity, and simplify the development process. 
+
+Give workspaces a try and revolutionize your remote development experience today!
+
+Cover image by <a href="https://unsplash.com/@pankajpatel?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Pankaj Patel</a> on <a href="https://unsplash.com/photos/_SgRNwAVNKw?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>
+{: .note}

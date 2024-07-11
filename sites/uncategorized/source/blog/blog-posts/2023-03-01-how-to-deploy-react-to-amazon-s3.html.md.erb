@@ -1,0 +1,389 @@
+---
+title: "How to deploy a React application to Amazon S3 using GitLab CI/CD"
+author: Jeremy Wagner
+author_gitlab: jeremywagner
+categories: engineering
+tags: DevOps, CI/CD
+description: Follow this guide to use OpenID Connect to connect to AWS and deploy a React application to Amazon S3.
+image_title: /images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/cover1.jpg
+twitter_text: Learn how to use OpenID Connect to connect to AWS and deploy your React application to Amazon S3.
+---
+
+Amazon S3 has a Static Website Hosting feature which allows you to host a static website directly from an S3 bucket. When you 
+host your website on S3, your website content is stored in the S3 bucket and served directly to your users, without the need 
+for additional resources. Combine this with Amazon CloudFront and you will have a cost-effective and scalable solution for 
+hosting static websites – making it a popular choice for single-page applications.
+
+In this post, I will walk you through setting up your Amazon S3 bucket, setting up OpenID Connect ([OIDC](https://openid.net/connect/)) in AWS, and deploying your application 
+to your Amazon S3 bucket using a GitLab [CI/CD](/topics/ci-cd/) pipeline.
+
+By the end of this post, you will have a [CI/CD pipeline](/blog/2022/02/03/how-to-keep-up-with-ci-cd-best-practices/) built in GitLab that automatically deploys to your Amazon S3 bucket. Let's dive in.
+
+## Prerequisites
+
+For this guide you will need the following:
+
+- [Node.js](https://nodejs.org/en/) >= 14.0.0 and npm >= 5.6 installed on your system
+- [Git](https://git-scm.com/) installed on your system
+- A [GitLab](https://gitlab.com/-/trial_registrations/new) account
+- An [AWS](https://aws.amazon.com/free/) account
+
+[A previous tutorial](/blog/2022/11/01/how-to-automate-testing-for-a-react-application-with-gitlab/) demonstrated how to create a new React 
+application, run unit tests as part of the CI process in GitLab, and output the test results and code coverage into the pipeline. This post continues where that project left off, so to follow along you can fork [this project](https://gitlab.com/guided-explorations/engineering-tutorials/react-unit-testing) or complete the guide in the linked post.
+
+## Configure your Amazon S3 bucket
+
+You'll need to configure your Amazon S3 bucket so let's do that first.
+
+### Create your bucket
+
+After you log in to your AWS account, search for S3 using the search bar and select the S3 service. This will open the S3 service home page.
+
+Right away, you should see the option to create a bucket. The bucket is where you are going to store your built React application. Click the **Create bucket** button to continue.
+
+![Create S3 bucket](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/create_bucket.png){: .shadow}
+
+Give your bucket a name, select your region, leave the rest of the settings as default (we’ll come back to these later), and continue by 
+clicking the **Create bucket** button. When naming your bucket, it’s important to remember that your bucket name must be unique and follow the 
+bucket naming rules. I named mine `jw-gl-react`.
+
+After creating your bucket, you should be taken to a list of your buckets as shown below.
+
+![S3 bucket list](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/bucket_list.png){: .shadow}
+
+### Configure static website hosting
+
+The next step is to configure static website hosting. Open your S3 bucket by clicking into the bucket name. Select the **Properties** tab and 
+scroll to the bottom to find the static website hosting option.
+
+![static hosting button](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/static_hosting_1.png){: .shadow}
+
+Click **Edit** and then enable static website hosting. For the **Index** and **Error** document, enter `index.html` and then click **Save changes**.
+
+![edit static hosting](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/static_hosting_2.png){: .shadow}
+
+### Set up permissions
+
+Now that you have enabled static website hosting, you need to update your permissions so the public can visit your website. Return to your bucket and select the **Permissions** tab.
+
+Under **Block public access (bucket settings)**, click **Edit** and uncheck **Block all public access** and continue to **Save changes**.
+
+![block public access](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/block_access_1.png){: .shadow}
+
+Your page should now look this this:
+
+![saved blocked public access](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/block_access_2.png){: .shadow}
+
+Now, you need to edit the Bucket Policy. Click the **Edit** button in the **Bucket Policy** section. Paste the following code into your new policy:
+
+```javascript
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::jw-gl-react/*"
+        }
+    ]
+}
+```
+
+Replace `jw-gl-react` on the resource property with the name of your bucket and **Save changes**.
+
+Your bucket should now look like this:
+
+![publicly accessible bucket](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/block_access_3.png){: .shadow}
+
+## Manually upload your React application
+
+Now, let’s build your React application and manually publish it to your S3 bucket. 
+
+To build the application, make sure your project is cloned to your local machine and run the following command in your terminal inside of your 
+repository directory:
+
+```
+npm run build
+```
+
+This will create a build folder inside of your repository directory.
+
+Inside of your bucket, click the **Upload** button.
+
+![manual bucket upload](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/upload_1.png){: .shadow}
+
+Drag the contents of your newly created build folder (not the folder itself) into the upload area. This will 
+upload the contents of your application into your S3 bucket. Make sure to click **Upload** at the bottom of the page to start the upload.
+
+Now return to your bucket **Properties** tab and scroll to the bottom to find the URL of your static website.
+
+![static website url](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/upload_2.png){: .shadow}
+
+Click the link and you should see your built React application open in your browser.
+
+![deployed app](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/manual_deploy.png){: .shadow}
+
+## Set up OpenID Connect in AWS
+
+To deploy to your S3 Bucket from GitLab, we’re going to use a GitLab CI/CD job to receive temporary credentials 
+from AWS without needing to store secrets. To do this, we’re going to configure OIDC for ID federation 
+between GitLab and AWS. We’ll be following the [related GitLab documentation](https://docs.gitlab.com/ee/ci/cloud_services/aws/).
+
+### Add the identity provider
+
+The first step is going to be adding GitLab as an identity and access management (IAM) OIDC provider in AWS. AWS has instructions located [here](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_create_oidc.html), 
+but I will walk through it step by step.
+
+Open the IAM console inside of AWS.
+
+![iam search](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/iam_1.png){: .shadow}
+
+On the left navigation pane, under **Access management** choose **Identity providers** and then choose **Add provider**. 
+For provider type, select **OpenID Connect**.
+
+For **Provider URL**, enter the address of your GitLab instance, such as `https://gitlab.com` or `https://gitlab.example.com`.
+
+For **Audience**, enter something that is generic and specific to your application. In my case, I'm going to 
+enter `react_s3_gl`. To prevent confused deputy attacks, it's best to make this something that is not easy to guess. Take a note of 
+this value, you will use it to set the `ID_TOKEN` in your `.gitlab-ci.yml` file.
+
+After entering the **Provider URL**, click **Get thumbprint** to verify the server certificate of your IdP. After this, go 
+ahead and choose **Add provider** to finish up.
+
+### Create the permissions policy
+
+After you create the identity provider, you need to create a permissions policy.
+
+From the IAM dashboard, under **Access management** select **Policies** and then **Create policy**. 
+Select the JSON tab and paste the following policy replacing `jw-gl-react` on the resource line with your bucket name.
+
+```javascript
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::jw-gl-react"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": ["arn:aws:s3:::jw-gl-react/*"]
+    }
+  ]
+}
+```
+
+Select the **Next: Tags** button, add any tags you want, and then select the **Next: Review** button. 
+Enter a name for your policy and finish up by creating the policy. 
+
+### Configure the role
+
+Now it’s time to add the role. From the IAM dashboard, under **Access management** select **Roles** 
+and then select **Create role**. Select **Web identity**.
+
+In the **Web identity** section, select the identity provider you created earlier. For the 
+**Audience**, select the audience you created earlier. Select the **Next** button to continue.
+
+If you wanted to limit authorization to a specific group, project, branch, or tag, you could create a **Custom trust policy** 
+instead of a **Web identity**. Since I will be deleting these resources after the tutorial, I'm going to keep it simple. For a 
+full list of supported filterting types, see the [GitLab documentation](https://docs.gitlab.com/ee/ci/cloud_services/index.html#configure-a-conditional-role-with-oidc-claims).
+
+![web identity](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/iam_2.png){: .shadow}
+
+During the **Add permissions** step, select the policy you created and select **Next** to continue. Give your role a name and click **Create role**.
+
+Open the Role you just created. In the summary section, find the Amazon Resource Name (ARN) and save it somewhere secure. You will use this in your pipeline.
+
+![role](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/iam_3.png){: .shadow}
+
+## Deploy to your Amazon S3 bucket using a GitLab CI/CD pipeline
+
+Inside of your project, create two [CI/CD variables](https://docs.gitlab.com/ee/ci/variables/#define-a-cicd-variable-in-the-ui). The first variable should be named `ROLE_ARN`. For the value, paste the ARN of the 
+role you just created. The second variable should be named `S3_BUCKET`. For the value, paste the name of the S3 bucket you created 
+earlier in this post.
+
+I have chosen to mask my variables for an extra layer of security.
+
+### Retrieve your temporary credentials
+
+Inside of your `.gitlab-ci.yml` file, paste the following code:
+
+```
+.assume_role: &assume_role
+    - >
+      STS=($(aws sts assume-role-with-web-identity
+      --role-arn ${ROLE_ARN}
+      --role-session-name "GitLabRunner-${CI_PROJECT_ID}-${CI_PIPELINE_ID}"
+      --web-identity-token $ID_TOKEN
+      --duration-seconds 3600
+      --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]'
+      --output text))
+    - export AWS_ACCESS_KEY_ID="${STS[0]}"
+    - export AWS_SECRET_ACCESS_KEY="${STS[1]}"
+    - export AWS_SESSION_TOKEN="${STS[2]}"
+```
+
+This is going to use the the AWS Security Token Service to generate temporary (_3,600 seconds_) credentials utilizing the OIDC role you created earlier.
+
+### Create the deploy job
+
+Now, let's add a build and deploy job to build your application and deploy it to your S3 bucket.
+
+First, update the stages in your `.gitlab-ci.yml` file to include a `build` and `deploy` stage as shown below:
+
+```
+stages:
+  - build
+  - test
+  - deploy
+```
+
+Next, let's add a job to build your application. Paste the following code in your `.gitlab-ci.yml` file:
+
+```
+build artifact:
+  stage: build
+  image: node:latest
+  before_script:
+    - npm install
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    when: always
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+      when: always
+```
+
+This is going to run `npm run build` if the change occurs on the `main` branch and upload the build directory as an 
+artifact to be used during the next step.
+
+Next, let's add a job to actually deploy to your S3 bucket. Paste the following code in your `.gitlab-ci.yml` file:
+
+```
+deploy s3:
+  stage: deploy
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: 
+      - '/usr/bin/env'
+  id_tokens:
+      ID_TOKEN:
+        aud: react_s3_gl
+  script:
+    - *assume_role
+    - aws s3 sync build/ s3://$S3_BUCKET
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+      when: always
+```
+
+This uses [YAML anchors](https://docs.gitlab.com/ee/ci/yaml/yaml_optimization.html#yaml-anchors-for-scripts) to run the `assume_role` script, 
+and then uses the `aws cli` to upload your build artifact to the bucket you defined as a variable. This job also only runs if the change occurs 
+on the `main` branch.
+
+Make sure the `aud` value matches the value you entered for your audience when you setup the identity provider. In my case, I entered `react-s3_gl`.
+
+Your complete `.gitlab-ci.yml` file should look like this:
+
+```
+stages:
+  - build
+  - test
+  - deploy
+
+.assume_role: &assume_role
+    - >
+      STS=($(aws sts assume-role-with-web-identity
+      --role-arn ${ROLE_ARN}
+      --role-session-name "GitLabRunner-${CI_PROJECT_ID}-${CI_PIPELINE_ID}"
+      --web-identity-token $ID_TOKEN
+      --duration-seconds 3600
+      --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]'
+      --output text))
+    - export AWS_ACCESS_KEY_ID="${STS[0]}"
+    - export AWS_SECRET_ACCESS_KEY="${STS[1]}"
+    - export AWS_SESSION_TOKEN="${STS[2]}"
+  
+unit test:
+  image: node:latest
+  stage: test
+  before_script:
+    - npm install
+  script:
+    - npm run test:ci
+  coverage: /All files[^|]*\|[^|]*\s+([\d\.]+)/
+  artifacts:
+    paths:
+      - coverage/
+    when: always
+    reports:
+      junit:
+        - junit.xml
+
+build artifact:
+  stage: build
+  image: node:latest
+  before_script:
+    - npm install
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+    when: always
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+      when: always
+
+
+deploy s3:
+  stage: deploy
+  image:
+    name: amazon/aws-cli:latest
+    entrypoint: 
+      - '/usr/bin/env'
+  id_tokens:
+      ID_TOKEN:
+        aud: react_s3_gl
+  script:
+    - *assume_role
+    - aws s3 sync build/ s3://$S3_BUCKET
+  rules:
+    - if: '$CI_COMMIT_REF_NAME == "main"'
+      when: always
+```
+
+### Make a change and test your pipeline
+
+To test your pipeline, inside of `App.js`, change this line `Edit <code>src/App.js</code> and save to reload.` to 
+`This was deployed from GitLab!` and commit your changes to the `main` branch. The pipeline should kick off and when 
+it finishes successfully you should see your updated application at the URL of your static website.
+
+![updated app](/images/blogimages/2023-02-10-how-to-deploy-react-to-amazon-s3/auto_deploy.png){: .shadow}
+
+You now have a CI/CD pipeline built in GitLab that receives temporary credentials from AWS using OIDC and 
+automatically deploys to your Amazon S3 bucket. To take it a step further, you can [secure your application](https://docs.gitlab.com/ee/user/application_security/secure_your_application.html) 
+with GitLab's built-in security tools.
+
+All code for this project can be found [here](https://gitlab.com/guided-explorations/engineering-tutorials/react-s3).
+
+Cover image by [Lucas van Oor](https://unsplash.com/@switch_dtp_fotografie?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/bucket?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+## Related posts and documentation
+- [How to automate testing for a React application with GitLab](/blog/2022/11/01/how-to-automate-testing-for-a-react-application-with-gitlab/)
+- [How to deploy AWS with GitLab](/blog/2020/12/15/deploy-aws/)
+- [Deploy to AWS from GitLab CI/CD](https://docs.gitlab.com/ee/ci/cloud_deployment/)
+- [Configure OpenID Connect in AWS to retrieve temporary credentials](https://docs.gitlab.com/ee/ci/cloud_services/aws/)
+- [Secure GitLab CI/CD workflows using OIDC JWT on a DevSecOps platform](https://about.gitlab.com/blog/2023/02/28/oidc/)

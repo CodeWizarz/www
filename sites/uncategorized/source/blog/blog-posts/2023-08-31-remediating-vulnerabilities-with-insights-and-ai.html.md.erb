@@ -1,0 +1,289 @@
+---
+title: "Remediating vulnerabilities with GitLab's security insights and AI"
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: ai-ml
+featured: no
+image_title: '/images/blogimages/security-cover-new.png'
+description: "Learn how to leverage vulnerability insights and the Explain this Vulnerability AI feature to
+not only resolve a vulnerability, but also understand it."
+tags: AI/ML, security, tutorial
+twitter_text: 'Learn how to remediate a SQL-injection vulnerability using @gitlab security insights and AI'
+postType: dev-evangelism
+---
+We recently introduced [GitLab Duo](https://about.gitlab.com/gitlab-duo/), a complete suite of AI capabilities to power your DevSecOps workflows. GitLab Duo's AI features not only enable you to write secure code faster, but also enhance productivity by providing helpful explanations and insights into your code. For instance, you can harness the power of AI to prevent security breaches. In this tutorial, we will go over the Explain this Vulnerability AI feature, which is in beta, and how it can be used with vulnerability insights to remediate vulnerabilities.
+
+You will learn the following:
+* How the Explain this Vulnerability AI feature works
+* Prerequisites for Explain this Vulnerability and other GitLab AI features
+* How GitLab Vulnerability Insights assists in remediation
+* How to remediate a SQL-injection vulnerability using GitLab's vulnerability insights and Explain this Vulnerability
+* Additional GitLab AI capabilities (GitLab Duo currently requires connectivity to access Google large language models (LLMs), however, there are plans to expand these features to limited-connectivity environments)
+
+See the following video for a quick overview of Vulnerability Insights + AI "Explain this Vulnerability". 
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/1UagZx_CUks" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+You can also see a detailed walkthrough of [Leveraging GitLab Vulnerability Insights + AI to Remediate a SQL-Injection](https://youtu.be/EJXAIzXNAWQ?feature=shared) in the [Solving a SQL injection using vulnerability insights and AI](#solving-a-sql-injection-using-vulnerability-insights-and-ai) section below.
+
+## What is the Explain this Vulnerability AI feature?
+The [Explain this Vulnerability](https://docs.gitlab.com/ee/user/ai_features.html#explain-this-vulnerability-in-the-web-ui) feature
+leverages an LLM powered by Google AI to assist you in securing your application by:
+* Summarizing detected vulnerabilities
+* Helping developers and security analysts understand the vulnerability and its implications
+* Showing how a vulnerability can be exploited with detailed example code
+* Providing in-depth solutions to the vulnerability
+* Providing suggested mitigation along with sample code tuned toward your project's programming language
+
+To begin using Explain this Vulnerability, you must have the following prerequisites configured:
+
+* [GitLab Ultimate](https://about.gitlab.com/pricing/ultimate/) SaaS subscription
+* [Experiment features enabled](https://docs.gitlab.com/ee/user/group/manage.html#enable-experiment-features)
+* [Third-party AI features enabled](https://docs.gitlab.com/ee/user/group/manage.html#enable-third-party-ai-features)
+* Static application security testing ([SAST](https://docs.gitlab.com/ee/user/application_security/sast/)) vulnerability finding in the default branch of a project
+* [Maintainer](https://docs.gitlab.com/ee/user/permissions.html) or greater role in the vulnerable project 
+* [SAST scanner](https://docs.gitlab.com/ee/user/application_security/sast/) enabled in the vulnerable project
+* An active internet connection
+
+Once the prerequisites have been configured, to begin using Explain this Vulnerability, perform the following steps:  
+
+1) Navigate to the [Vulnerability Report](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/).  
+2) Find a SAST vulnerability finding.  
+3) Scroll to the bottom of the [vulnerability page](https://docs.gitlab.com/ee/user/application_security/vulnerabilities/).  
+4) Press the **Try it out** button in "Explain this Vulnerability and how to mitigate it with AI" section.  
+
+![View of the "Try it out" button at bottom of screen](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/ai_explain_this_vulnerability_try_it_out_dialog.png)
+
+Once you click the button, GitLab will begin to generate the following:
+* **What is the vulnerability?**: Details on the vulnerability and how it may affect your application
+* **How can an attacker take advantage of the vulnerability?**: Commands that a malicious actor can use to exploit the vulnerability
+* **How can the vulnerability be fixed?**: Details on how the vulnerability can be remediated
+* **Example of vulnerable code**: The actual vulnerable code in the language of your application
+* **Example of fixed code**: Code showing a fix that should be applied to remediate the vulnerability in the language of your application
+* **References**: Links providing details relevant to the vulnerability
+* **User rating request**: Allows for user input, which is used to improve the model
+
+![AI response depicting the above list](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/ai_explain_this_vulnerability_results.png)
+
+This information can be used together with vulnerability insights to resolve the vulnerability. Now let's discuss vulnerability insights.
+
+## Vulnerability insights
+Vulnerability insights provide detailed information on a vulnerability and how to resolve it. This detailed information
+includes:
+
+* **Description**: A detailed description of the vulnerability and its implications
+* **Severity**: The severity of the vulnerability based on the [CVSS rating](https://nvd.nist.gov/vuln-metrics/cvss)
+* **Project**: The project where the vulnerability was found
+* **Tool**: The type of scanner that found the vulnerability
+* **Scanner**: The specific name of the scanner that found the vulnerability
+* **Location**: The line of code where the vulnerability is present
+* **Identifiers**: Links that identify and provide additional information on the vulnerability such as the CVE/CWE page
+* **Training**: Security training available from our partners to educate developers on the vulnerability
+* **Solution**: Information on how to remediate the vulnerability
+* **Method**: The [REST API method](https://www.w3schools.in/restful-web-services/rest-methods) used to exploit the vulnerability (dynamic scanners only)
+* **URL**: The URL in which the vulnerability was detected (dynamic scanners only)
+* **Request/response**: The request sent and response received when exploiting the vulnerability (dynamic scanners only)
+
+**Note**: Results may vary depending on the scanner used.
+
+Having all this information not only allows you to resolve a vulnerability with ease but also enhances your security
+knowledge. All these insights are provided as a single source of truth that both developer and security teams can view and
+take action on asynchronously.
+
+Developers can leverage insights within a merge request (MR). The MR insights show the vulnerabilities in the diff
+between a feature branch and the branch you are merging into. This allows you to continuously iterate until you have resolved
+a vulnerability and then alert security engineers when approval is required, giving developers the power to resolve
+vulnerabilities themselves.
+
+![MR insights sample](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/vulnerability_insights_mr_view.png)
+
+The security team can leverage insights via the [vulnerability report](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/). The vulnerability report shows vulnerabilities present in the `default` branch, which is typically linked to production. From here, the security team can collaborate on a resolution as well as triage and manage vulnerabilities.
+
+![Vulnerability report sample](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/vulnerability_insights_vulnerability_report.png)
+
+**Note**: Currently, the Explain this Vulnerability feature can only be seen in the Vulnerability Report view. It is currently
+being considered for the MR view, see [future iterations under consideration](https://gitlab.com/groups/gitlab-org/-/epics/10284#future-iterations-under-consideration) for more information.
+
+## Solving a SQL injection using vulnerability insights and AI
+By leveraging both vulnerability insights and Explain this Vulnerability, we have all the resources necessary to
+not only resolve a vulnerability but also understand it. Let's see how we can use these features to [solve a SQL injection](https://gitlab-de.gitlab.io/tutorials/security-and-governance/devsecops/simply-vulnerable-notes/documentation/anatomy_of_a_vulnerability/). 
+
+Now let's go over the steps to remediate a SQL injection. You can follow along with the video:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/EJXAIzXNAWQ" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+**Privacy notice**: Explain this Vulnerability only uses `public repos` to train the LLM. Code in private repositories
+is not transferred to the LLM.
+
+I will be using the [Simple Notes project](https://gitlab.com/gitlab-de/tutorials/security-and-governance/devsecops/simply-vulnerable-notes) to showcase this. You can set up DevSecOps within GitLab yourself by going over the following [tutorial](https://gitlab-de.gitlab.io/tutorials/security-and-governance/devsecops/simply-vulnerable-notes/). After you have done so, you can run through the following:
+
+1) Navigate to **Secure > Vulnerability Report**.
+
+2) Sort by **SAST** under **Scanner**.
+
+3) Find and select a SQL injection vulnerability. a SQL injection will be titled something like
+`Improper Neutralization of Special Elements used in an SQL Command ('SQL Injection')`.
+
+4) Examine the vulnerability insights.
+
+* **Description**: Detected possible formatted SQL query.
+* **Location**: File: [notes/db.py:100](https://gitlab.com/gitlab-de/tutorials/security-and-governance/devsecops/simply-vulnerable-notes/-/blob/24ff1847aa70c4d51482fe28f019e3724b399aaf/notes/db.py#L100)
+* **Identifier**: [bandit.B608](https://semgrep.dev/r/gitlab.bandit.B608), [CWE-89](https://cwe.mitre.org/data/definitions/89.html)
+* **Solution**: Use parameterized queries instead=
+* **Training**: [Secure Code Warrior](https://portal.securecodewarrior.com/?utm_source=partner-integration:gitlab&partner_id=gitlab#/contextual-microlearning/web/injection/sql/python/vanilla), [SecureFlag](https://knowledge-base.secureflag.com/vulnerabilities/sql_injection/sql_injection_python.html), and [Kontra](https://application.security/gitlab/free-application-security-training/owasp-top-10-sql-injection)
+
+![SQL Injection Walkthrough - Insights](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/vulnerability_insights_vulnerability_report.png)
+
+5) Scroll down to the "Explain this vulnerability and how to mitigate it with AI** section and click the **Try it out** button.
+
+**Privacy notice**: If the **Send code to prompt** radio button is selected, response quality is improved. However, the actual code is
+used in a query to the LLM (even in private repositories).
+
+![SQL Injection Walkthrough - AI "Try it out" button](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/ai_explain_this_vulnerability_try_it_out_dialog.png)
+
+6) Examine the provided AI solutions.
+
+![SQL Injection Walkthrough - AI response](/images/blogimages/2023-08-31-solving-vulnerabilities-with-insights-and-ai/ai_explain_this_vulnerability_results.png)
+
+7) Exploit the vulnerability
+We can use the information provided in the **AI response**, the samples in the **vulnerability insight CWE identifier**,
+and the applications [API guide](https://gitlab-de.gitlab.io/tutorials/security-and-governance/devsecops/simply-vulnerable-notes/documentation/api_guide/) to generate a malicious curl command as follows:
+
+```bash
+# A REGULAR API-CALL
+$ curl http://{LOAD_BALANCER_IP}/{APPLICATION_PATH}/api
+
+{"Note":"[(1, 'cat'), (2, 'dog'), (3, 'frog'), (4, 'hog')]"}
+
+# API CALL PASSING '1 or 1=1' AS SHOWN IN AI RESPONSE AND DETAILED IN IDENTIFIERS
+# NOTE: `1%20or%201%3D1` IS URL ENCODED '1 or 1=1'
+$ curl http://{LOAD_BALANCER_IP}/{APPLICATION_PATH}/api\?id\=1%20or%201%3D1
+
+{"Note":"[(1, 'cat'), (2, 'dog'), (3, 'frog'), (4, 'hog'), (5, 'meow'), (6, 'bark'), (7, 'ribbit'), (8, 'grunt')]"}
+```
+
+This shows us that we can exploit the SQL injection since we exposed data we should not have access to.
+Exploiting a vulnerability is not always as simple, so it is important to combine resources as noted above
+to figure out exploitability.
+
+8) Determine a fix.
+
+Now that we know this is a problem within our system, we can use the provided information to create an merge request (MR) to resolve
+and then test the MR in a non-production environment. Reviewing the vulnerability insights and AI response, we know we can solve this
+in a variety of ways. For example, we can:
+  
+* Use parameterized queries rather than directly calling the query
+* Sanitize the input before passing it to the `execute()` method
+
+To enhance our knowledge, we should read [CWE-89](https://cwe.mitre.org/data/definitions/89.html) provided in the Identifiers.
+
+9) Open the [GitLab WebIDE](https://docs.gitlab.com/ee/user/project/web_ide/) or editor of your choice.
+
+10) Open the vulnerable file and scroll to the affected line of code. We found this using the information provided in the insights.
+
+11) Apply the suggested change by reviewing the vulnerability insights and AI response. I changed the following:
+
+```python
+try:
+  query = "SELECT id, data FROM notes WHERE (secret IS FALSE AND id = %s)" % id
+  if admin:
+    query ="SELECT id, data, secret FROM notes WHERE (id = %s)" % id
+  # NOT USING A PARAMETERIZED QUERY - SQL INJECTION CAN BE PASSED IN (,id)
+  cur.execute(query)
+except Exception as e:
+  note.logger.error("Error: cannot select note by id - %s" % e)
+```
+
+to 
+
+```python
+try:
+  query = "SELECT id, data FROM notes WHERE (secret IS FALSE AND id = %s)"
+  if admin:
+    query ="SELECT id, data, secret FROM notes WHERE (id = %s)"
+  # USING A PARAMETERIZED QUERY - SQL INJECTION CANNOT BE PASSED IN (,id)
+  cur.execute(query, (id,))
+except Exception as e:
+  note.logger.error("Error: cannot select note by id - %s" % e)
+```
+
+We know this is the solution because parameterized queries as explained do not allow actual SQL
+commands to be run. Therefore, a SQL injection cannot be passed as the `id`. Adding a parameterized
+query is easy since it is built into the Python db library we are using.
+
+There may be multiple solutions to a vulnerability. It is up to the user to decide what is best
+for their application and workflow. The AI response provides a typical solution, but more can be
+examined and applied. For example, the AI response said we can add the following:
+
+```python
+cur.execute(query.replace("'", "''"))
+```
+
+This would escape the single quotes in the input, making it safe to pass to the `execute()` method.
+It is a valid solution with less code required. However, I wanted to restructure my code, so I applied
+another solution found in the vulnerability insights.
+
+12) Create an MR with the fix. In my environment, feature branches are automatically deployed
+to a new environment independent from production so we can test our features before merging them
+to production.
+
+13) Test the change in a non-production environment.
+
+Once we push the MR, we can see if the vulnerability has been resolved and we can test in a non-production
+environment:
+
+```bash
+# A REGULAR API-CALL
+$ curl http://{LOAD_BALANCER_IP}/{NEW_BRANCH_FIXED_APPLICATION_PATH}/api
+
+{"Note":"[(1, 'cat'), (2, 'dog'), (3, 'frog'), (4, 'hog')]"}
+
+# API CALL PASSING '1 or 1=1' AS SHOWN IN AI RESPONSE AND DETAILED IN IDENTIFIERS
+# NOTE: `1%20or%201%3D1` IS URL ENCODED '1 or 1=1'
+$ curl http://{LOAD_BALANCER_IP}/{NEW_BRANCH_FIXED_APPLICATION_PATH}/api\?id\=1%20or%201%3D1
+
+{"Note":"[(1, 'cat')]"}
+```
+
+We can see that now the additional query parameters `or 1=1` are ignored and only the first element
+is returned, meaning only the `1` was passed. We can further test if we can get item `5` which we should
+not have access to:
+
+```bash
+# API CALL PASSING '5 or 1=1' AS SHOWN IN AI RESPONSE AND DETAILED IN IDENTIFIERS
+# NOTE: `5%20or%201%3D1` IS URL ENCODED '5 or 1=1'
+$ curl http://{LOAD_BALANCER_IP}/{NEW_BRANCH_FIXED_APPLICATION_PATH}/api\?id\=5%20or%201%3D1
+{"Note":"[]"}
+```
+
+Success, the SQL injection is no longer present!
+
+14) Merge into production.
+
+Now that we know the vulnerability has been resolved we can go ahead and merge our fix! This is how you can use vulnerability insights
+to help resolve your vulnerabilities. If you wish to test all this for yourself, check out the complete [GitLab DevSecOps tutorial](https://gitlab-de.gitlab.io/tutorials/security-and-governance/devsecops/simply-vulnerable-notes/).
+
+## Additional GitLab AI features
+As we have seen above, Explain this Vulnerability assists you in remediating the vulnerabilities within your
+default branch, but that's not the only AI feature GitLab has available! Other AI features to enhance your productivity include:
+
+* [Code Suggestions](https://docs.gitlab.com/ee/user/project/repository/code_suggestions.html): Enables you to write code more efficiently by viewing code suggestions as you type
+* [Suggested Reviewers](https://docs.gitlab.com/ee/user/project/merge_requests/reviews/#suggested-reviewers): Helps you receive faster and higher-quality reviews by automatically finding the right people to review a merge request
+* [Value Stream Forecasting](https://docs.gitlab.com/ee/user/analytics/value_streams_dashboard.html): Predicts productivity metrics and identifies anomalies across your software development lifecycle
+* [Summarize Issue Comments](https://docs.gitlab.com/ee/user/ai_features.html#summarize-issue-discussions): Quickly gets everyone up to speed on lengthy conversations to ensure you are all on the same page
+* [Summarize Proposed Merge Request Changes](https://docs.gitlab.com/ee/user/ai_features.html#summarize-my-merge-request-review): Helps merge request authors drive alignment and action by efficiently communicating the impact of their changes
+* [Summarize Merge Request Review](https://docs.gitlab.com/ee/user/ai_features.html#summarize-merge-request-changes): Enables better handoffs between authors and reviewers and helps reviewers efficiently understand merge request suggestions
+* [Generate Tests in Merge Requests](https://docs.gitlab.com/ee/user/ai_features.html#generate-suggested-tests-in-merge-requests): Automates repetitive tasks and helps you catch bugs early
+* [GitLab Chat](https://docs.gitlab.com/ee/user/ai_features.html#gitlab-duo-chat): Helps you quickly identify useful information in large volumes of text, such as documentation
+* [Explain this Code](https://docs.gitlab.com/ee/user/ai_features.html#explain-selected-code-in-the-web-ui): Allows you to get up to speed quickly by explaining source code
+
+Visit our [GitLab Duo site](https://about.gitlab.com/gitlab-duo/) to learn more about these features, GitLab's mission around AI, and our partnership with Google.

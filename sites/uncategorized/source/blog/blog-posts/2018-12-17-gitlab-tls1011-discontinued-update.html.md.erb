@@ -1,0 +1,46 @@
+---
+title: "Support for TLS 1.0 and 1.1 discontinued on GitLab.com and GitLab API on 2018-12-15"
+categories: company
+author: Melissa Farber
+author_gitlab: mfarber
+author_twitter: gitlab
+image_title: /images/blogimages/security-cover.png
+description: "TLS 1.2 is now required for all clients that connect to GitLab.com and our GitLab API."
+tags: releases, security
+postType: product
+ee_cta: false
+---
+
+Our commitment to providing our users with an increasingly secure platform, supported by the [PCI Security Standards Council](https://blog.pcisecuritystandards.org/are-you-ready-for-30-june-2018-sayin-goodbye-to-ssl-early-tls) mandate, required us to discontinue support of TLS 1.0 and 1.1 on GitLab.com and in our GitLab API on Dec. 15, 2018.
+
+TLS 1.2 is now required for all clients that connect to GitLab.com and our GitLab API.
+
+As we announced in our [October](/blog/2018/10/15/gitlab-to-deprecate-older-tls/) and [November](/blog/2018/11/15/gitlab-tls-support-discontinue-update/) blog posts about this initiative, we are always working to evolve our security posture and part of that evolution was the discontinuation of support for these older versions of TLS, which have been rendered outdated or proven to be prone to attacks. The migration away from these weaker cryptographic standards was key to GitLab's compliance with the Payment Card Industry (PCI) DSS 3.1 mandate, which required the deprecation of Secure Sockets Layer (SSL) 3.0, TLS 1.0, and some ciphers supported by TLS 1.1 from protocols supporting strong cryptography.
+
+### The discontinuation of support for TLS 1.0 and 1.1 is only for GitLab.com and our GitLab API
+
+The changes required to discontinue TLS 1.0 and 1.1 support for self-managed installations are being tracked in [this public issue in the Omnibus project](https://gitlab.com/gitlab-org/omnibus-gitlab/issues/3875). These updates are currently being scheduled for major release 12.0, slated for Mar. 22, 2019.
+
+If you have experienced any disruptions of service due to the discontinuation of support for TLS versions 1.0 and 1.1, please do not hesitate to reach out to [GitLab support](/support/#contact-support).
+
+## Identified client incompatibilities
+
+The majority of traffic should be unaffected by the discontinuation of support for TLS versions 1.0 and 1.1. Currently, the vast majority of requests to GitLab.com are using up-to-date clients with support for TLS 1.2. While there are a few remaining clients that we believe will be affected (see below), most of these can be updated to work with TLS 1.2.
+
+### Git-Credential-Manager-for-Windows prior to 1.14.0
+
+Versions prior to 1.14.0 of Git-Credential-Manager-for-Windows do not support TLSv1.2. This can be addressed by updating to v1.14.0.
+
+### Git on Red Hat 5, < 6.8, and < 7.2
+
+Users running Red Hat 5 are advised to upgrade to a newer version of the operating system as Red Hat does not have a point release planned for 5 that supports TLS 1.2. Git clients shipped with Red Hat 6 and 7 did not support TLSv1.2, which can be remediated by updating to versions 6.8 and 7.2 respectively.
+
+### JGit/Java releases < JDK 8
+
+Versions of the JDK 6 and prior do not support TLSv1.2. We advise users of JDK <= 6 to upgrade to a newer version of the JDK.
+
+### Visual Studio
+
+The latest version of Visual Studio 2017 supports TLSv1.2. Users not running the latest version are advised to upgrade.
+
+If you have any questions, please reach out to the Security team by emailing security@gitlab.com.

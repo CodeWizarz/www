@@ -1,0 +1,74 @@
+---
+title: "Why we created a Memory team at GitLab"
+author: Sara Kassabian
+author_gitlab: skassabian
+author_twitter: sarakassabian
+categories: engineering
+image_title: '/images/blogimages/memory_team_arie-wubben.jpg'
+description: "GitLab has a memory problem, so we created a specialized team to fix it."
+tags: inside GitLab, performance, production
+twitter_text: ".@gitlab has a memory problem, so we created a specialized team to fix it"
+postType: content marketing
+ee_cta: false
+---
+
+GitLab is an [all-in-one DevOps solution](/topics/devops/) with a growing feature set. But as more features are added to the application, more memory is required. Some users have reportedly elected to migrate to other tools because the memory footprint required to run a minimum GitLab instance was exorbitant:
+
+> “GitLab is great and I have used it for years but I recently switched to Gogs for self-hosted repositories because it is much faster, easier to set up, and walk in a park to maintain. It doesn't have all the features (bloat) that GitLab has but it can probably satisfy >95% of Git users.” – [Jnr on HackerNews](https://news.ycombinator.com/item?id=19227935)
+
+> “If GitLab grows any more features I'll be moving away simply to ensure confidence that I understand my own infrastructure in the limited time I have to maintain it. It's the weirdest kind of success problem to have, but the truth is if it wasn't such a pain to make the move, I'd have transitioned away from GitLab six months ago.” – [Sir_Substance on HackerNews](https://news.ycombinator.com/item?id=19230557)
+
+## Step 1: Establish priorities to solve our memory problem
+
+We created the [GitLab Memory team](/handbook/engineering/development/enablement/data_stores/application_performance/) to tackle this performance challenge. The aim of the Memory team is to [reduce the minimum instance for GitLab from 8GB](https://gitlab.com/gitlab-org/gitlab-ce/commit/0cd5d968038d6d64d95add0bbe3d63d8fcfdc23b) to 1GB of RAM. By reducing the memory required to run GitLab to 1GB, [our application can run anywhere](https://gitlab.com/groups/gitlab-org/-/epics/448), even on inexpensive commodity computers like an unaltered [Raspberry Pi 3 Model B+](https://www.raspberrypi.org/products/raspberry-pi-3-model-b-plus/).
+
+
+
+There is no quick fix for reducing GitLab’s memory footprint, but the team has started by investigating memory and performance bottlenecks, gathering data, and prioritizing activities for the next three to four months based on these results.
+
+“We know we have memory issues to address, but we need more data to determine the source, the impact and how to best approach the problem,” says [Craig Gomes](/company/team/#craiggomes), memory engineering manager.
+
+[Kamil Trzciński](/company/team/#ayufanpl), distinguished engineer and memory specialist at GitLab, says the top three priorities for the Memory team fall into three distinct buckets:
+
+1. [Moving over to Puma](https://gitlab.com/groups/gitlab-org/-/epics/954)
+1. [Perform the low-level exercise by optimizing endpoints](https://gitlab.com/groups/gitlab-org/-/epics/448)
+1. [Improving our development practices](https://gitlab.com/groups/gitlab-org/-/epics/1415)
+
+### Migrating from Unicorn to Puma
+
+Preliminary research shows that the bulk of GitLab’s memory usage comes from running web application processes on Unicorn.
+
+“Each Web application process (Unicorn) can take 500 MB of RAM, and it can handle a single request at a time. The more users and traffic we need to support, the more processes and hence RAM we need,” says [Stan Hu](/company/team/#stanhu), engineering fellow at GitLab.
+
+One of the first projects the Memory team is tackling is testing to see if migrating from Unicorn to Puma will reduce GitLab’s memory footprint. Both Unicorn and Puma are multi-threaded HTTP web servers that run on Rails, but unlike Unicorn, Puma is threaded and does not require as much memory.
+
+The Memory team has successfully [configured Puma to work on dev.gitlab.com](https://gitlab.com/groups/gitlab-com/gl-infra/-/epics/82) to test its functionality and measure its memory reduction. The next big project in this domain is to [enable Puma on GitLab.com](https://gitlab.com/groups/gitlab-org/-/epics/954).
+
+### Dig deeper into what's causing memory issues for GitLab.com
+
+Before GitLab is able to run on less memory, the team needs to fix the memory problems we know about already on GitLab.com. One of these problems is the memory killer on open source background processor, Sidekiq.
+
+"If a Sidekiq job runs, takes too much memory, and then gets killed, jobs in the queue will be retried indefinitely," says Stan. The team is working to fix this, along with other priority one problems with memory usage in [project import](https://gitlab.com/gitlab-org/gitlab-ce/issues/59754) and [exports](https://gitlab.com/gitlab-org/gitlab-ce/issues/35389) in the 12.3 release.
+
+### Improve development practices around memory usage
+
+The Memory team created a massive epic that aims to capture related [development work focusing on making improvements to internal dev practices around code complexity and memory usage](https://gitlab.com/groups/gitlab-org/-/epics/1415).
+
+"The reason behind that is to enable everyone during development to understand the impact of introducing new changes to the application," says Kamil in the [epic](https://gitlab.com/groups/gitlab-org/-/epics/1415). Some of the projects they are working on for the 12.3 release include [testing more endpoints using typical GitLab user scenarios (e.g. commenting on a MR)](https://gitlab.com/gitlab-org/quality/performance/issues/34) and set up a [performance monitoring solution across different environments](https://gitlab.com/gitlab-org/quality/performance/issues/37).
+
+## Step 2: Create a team to fix the memory problem
+
+We need a specialized engineering team to assess the scope of the problem and identify solutions to reduce GitLab’s memory requirements.
+
+“Right now we have a very small team with two brand new team members,” says Craig. “The team is getting up to speed quickly and there is a lot of excitement about the potential of the team that more work keeps coming our way. It's a great challenge to have, and having more experienced engineers on the team will help us to achieve our goals.”
+
+The current memory team is small but mighty. We have [Craig](/company/team/#craiggomes), the engineering manager, and three engineers on the permanent memory team: [Kamil](/company/team/#ayufanpl), [Qingyu Zhao](/company/team/#qzhaogitlab), and [Aleksei Lipniagov](/company/team/#alipniagov). The team works closely with senior product manager for distribution and memory, [Larissa Lane](/company/team/#ljlane). [We’re looking for more qualified people to join our team](https://handbook.gitlab.com/job-families/engineering/backend-engineer/#memory).
+
+The Memory team is actively hiring engineers to help us enhance GitLab’s performance, but we have a high rejection rate because we require a specific, hard-to-find skill set. A [top priority for the Memory team is hiring at least one senior engineer in FY20-Q3](https://gitlab.com/gitlab-com/www-gitlab-com/issues/4885), which will allow us to take on a bigger workload as we move toward our goal of getting GitLab running on less than 1GB.
+
+Follow along with the Memory team by [subscribing to their channel on GitLab Unfiltered](https://www.youtube.com/playlist?list=PL05JrBw4t0Kq_5ZWIHYfbcAYjtXYcEZA3).
+
+Cover photo by [Arie Wubben](https://unsplash.com/@condorito1953?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/airplane?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+<%= partial "includes/blog/blog-merch-banner" %>

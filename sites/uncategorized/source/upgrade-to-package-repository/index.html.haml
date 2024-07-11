@@ -1,0 +1,130 @@
+---
+layout: default
+title: Upgrade to the package repository
+description: "Here you can find information on upgrading to the package repository on GitLab. Learn more here!"
+canonical_path: "/upgrade-to-package-repository/"
+extra_css:
+  - update.css
+---
+.wrapper.container
+  .content-wrap
+    .panel.panel-info
+      .panel-heading
+        %h2.panel-title
+          About the package repository
+      .panel-body
+        With GitLab 7.10 we have introduced package repositories for GitLab,
+        that allow you to install GitLab with a simple 'apt-get' command.
+        %br/
+        %br/
+        If you are coming from a manually downloaded Omnibus package,
+        you can quickly and easily upgrade. Find the instructions for
+        %a{href: "#debian"}
+          Debian /
+          Ubuntu here
+        and the instructions for
+        = succeed "." do
+          = link_to "CentOS here", "#centos"
+        %br/
+        %br/
+        These instructions will install the GitLab EE package, which is
+        = succeed "." do 
+          %a{href: "https://about.gitlab.com/install/ce-or-ee/"} our recommended edition
+        if you would like to install the CE package just replace 
+        %code `gitlab-ee`
+        with 
+        = succeed "." do
+          %code `gitlab-ce`
+        If you are on CE, upgrading to EE is as easy as
+        = succeed "." do
+          %a{href: "https://about.gitlab.com/upgrade/"} installing the EE package
+    #debian.panel.panel-success
+      .panel-heading
+        %h2.panel-title
+          Ubuntu / Debian: Upgrading from manually downloaded Omnibus package
+      .panel-body
+        To upgrade you will need to add the package repository to your
+        system first.
+        %br/
+        %br/
+        Call the following script for easy installation:
+        %br/
+        %pre
+          :preserve
+            curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.deb.sh | sudo bash
+        If you are not comfortable installing the repository through a
+        piped script, you can find the
+        = succeed "." do
+          %a{href: "https://packages.gitlab.com/gitlab/gitlab-ee/install"} entire script here
+        %br/
+        Now you will be able to install / upgrade GitLab to the latest version
+        using the package repository. When running the command below,
+        GitLab will detect a conflict and remove
+        %code gitlab
+        in favor
+        of
+        = succeed "." do
+          %code gitlab-ee
+        %br/
+        %br/
+        To upgrade, run:
+        %pre sudo apt-get install gitlab-ee
+        %br/
+        You are now ready to use GitLab again!
+    #centos.panel.panel-warning
+      .panel-heading
+        %h2.panel-title
+          CentOS: Upgrading from manually downloaded Omnibus package
+      .panel-body
+        To upgrade you will need to add the package repository to your
+        system first.
+        %br/
+        %br/
+        Use the following:
+        %pre curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ee/script.rpm.sh | sudo bash
+        If you are not comfortable installing the repository through a
+        piped script, you can find the
+        = succeed "." do
+          %a{href: "https://packages.gitlab.com/gitlab/gitlab-ee/install"} entire script here
+        %br/
+        %br/
+        Now you will be able to install / upgrade GitLab to the latest version
+        using the package repository. When running the command below,
+        GitLab will detect a conflict and remove
+        %code gitlab
+        in favor
+        of
+        = succeed "." do
+          %code gitlab-ee
+        %br/
+        %br/
+        To upgrade, run:
+        %pre sudo yum install gitlab-ee
+        %br/
+        Due to the order in which RPM post-removal and post-installations scripts run,
+        the change from
+        %code gitlab
+        to
+        %code gitlab-ee
+        removes
+        %code /user/bin/gitlab-ctl
+        and related commands. This does not affect
+        Debian-based systems (Debian, Ubuntu).
+        %br/
+        %br/
+        As a workaround on RPM-based systems, please run the following command
+        %i after
+        upgrading to the package repository, the first time:
+        %br/
+        %pre
+          :preserve
+            sudo ln -sf                       \
+              /opt/gitlab/bin/gitlab-ctl      \
+              /opt/gitlab/bin/gitlab-rake     \
+              /opt/gitlab/bin/gitlab-rails    \
+              /opt/gitlab/bin/gitlab-ci-rake  \
+              /opt/gitlab/bin/gitlab-ci-rails \
+              /usr/bin/        Note that the post-install message of the package will also tell you to make this change.
+        %br/
+        %br/
+        Now you're ready to use GitLab again!

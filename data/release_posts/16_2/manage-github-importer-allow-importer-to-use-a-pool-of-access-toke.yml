@@ -1,0 +1,24 @@
+---
+features:
+  secondary:
+  - name: "Speed up imports from GitHub using multiple access tokens"
+    available_in: [core, premium, ultimate]
+    gitlab_com: true
+    documentation_link: 'https://docs.gitlab.com/ee/api/import.html#import-repository-from-github'
+    reporter: m_frankiewicz
+    stage: manage
+    categories:
+    - Importers
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/337232'
+    description: | 
+      By default, the GitHub importer uses a single access token when importing projects from GitHub to GitLab. An access token for a user account is typically rate limited to
+      5000 requests per hour. This can significantly reduce the speed of the importer when:
+        
+      - Importing multiple small to medium sized projects.
+      - Importing a single massive project with a lot of data.
+      
+      With this release, you can pass a list of access tokens to the GitHub importer API so that the API can rotate through them when rate limited.
+      When using multiple access tokens:
+
+      - The tokens cannot be from the same account because they would all share one rate limit.
+      - Tokens must have the same permissions and sufficient privileges to the repositories to import.

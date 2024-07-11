@@ -1,0 +1,28 @@
+deprecations:
+  - feature_name: "Auto DevOps and Secure Configuration templates are changing to `rules` instead of `only/except`"
+    due: May 22, 2020
+    reporter: tmccaslin
+    description: |
+      The use of [`only` and `except`](https://docs.gitlab.com/ee/ci/yaml/#only--except) is discouraged in favor of [`rules`](https://docs.gitlab.com/ee/ci/yaml/#rules) in Auto DevOps and Secure Configuration templates. The `rules` parameter provides more verbose and expressive job execution logic that is simpler to evaluate and easier to understand. 
+
+      Auto DevOps and Secure [configuration templates](https://docs.gitlab.com/ee/ci/yaml/#includetemplate) that use `only` and `except` will transition to `rules`, starting in GitLab 13.0. We strongly encourage customers who have customized job templates to transition because the `only/except` and `rules` syntax cannot be used together. For help migrating your templates, see [Transition your `only/except` syntax to `rules`](https://docs.gitlab.com/ee/user/application_security/#transitioning-your-onlyexcept-syntax-to-rules).
+      
+      This change will affect the following job configuration templates: 
+
+      - Build.gitlab-ci.yml
+      - Test.gitlab-ci.yml
+      - Deploy.gitlab-ci.yml
+      - [Secure vendored .gitlab-ci.yml templates](https://gitlab.com/groups/gitlab-org/-/epics/2300):
+        - Container-scanning.gitlab-ci.yml
+        - DAST.gitlab-ci.yml
+        - Dependency-Scanning.gitlab-ci.yml
+        - License-Management.gitlab-ci.yml
+        - License-Scanning.gitlab-ci.yml
+        - SAST.gitlab-ci.yml
+      
+      Any customization to Auto DevOps and Secure Configuration templates using `only` and `except` should be transitioned to the [`rules`](https://docs.gitlab.com/ee/ci/yaml/#rules) syntax. There are occasional cases where the existing `only` and `except` syntax cannot be easily matched with `rules`. We would love to hear more about these cases on [this `rules` improvement issue](https://gitlab.com/groups/gitlab-org/-/epics/2783).
+      
+      Relevant issues:
+
+      - [Moving Auto DevOps jobs syntax to `rules`](https://gitlab.com/gitlab-org/gitlab/-/issues/213336)
+      - [Transition to rules syntax for Secure's vendored templates](https://gitlab.com/groups/gitlab-org/-/epics/2300)

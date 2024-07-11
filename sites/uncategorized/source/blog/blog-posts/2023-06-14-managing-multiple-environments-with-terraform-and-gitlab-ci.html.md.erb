@@ -1,0 +1,212 @@
+---
+title: "Managing multiple environments with Terraform and GitLab CI"
+author: Noah Ing, Sophia Manicor
+guest: true
+author_gitlab:
+author_twitter:
+categories: security
+tags: DevOps, security, DevSecOps, CI
+description: This tutorial shows how to set up and manage three different environments in one project using GitLab CI and Terraform.
+image_title: /images/blogimages/cicd-2018_blogimage.jpg
+twitter_text: "Learn how to set up and manage three different environments in one project using GitLab CI and Terraform."
+featured: yes
+related_posts:
+  - "/blog/2022/06/20/gitlab-value-stream-management-and-dora/"
+  - "/solutions/value-stream-management/dora/"
+---
+
+Using multiple environments ensures that your infrastructure as code (IaC) is rigorously tested before it is deployed. This tutorial will show a setup of how to manage **three different environments in one project** using GitLab CI and Terraform.
+
+## Prerequisites
+- Working knowledge of [GitLab CI/CD](https://docs.gitlab.com/ee/ci/introduction/index.html#continuous-integration)
+- An AWS / GCP account (where you will deploy to)
+- Working knowledge of Terraform
+- 5 minutes
+
+## Multiple environments
+In this tutorial, we have three environments set up: dev, staging, and production.
+- Dev: This should be where all the experimental changes go. This environment is intended to develop new features and/or test out new changes.
+- Staging: After you have confirmed your changes in dev, this environment should have parity with the production environment.
+- Production: This environment has the latest versions of infrastructure and applications are live.
+
+## File structure
+For each environment we set up a corresponding folder at the root level: folders are named dev, staging, and production respectively. Each folder stores all the Terraform infrastructure configuration for the corresponding environment. Within each of these folders, we created a CI file for that environment. 
+
+## .gitlab-ci.yml
+
+### Environment-specific .gitlab-ci.yml
+The file below is for the dev environment and is in the dev folder. Note that there is a rule with each job that only allows the jobs to run when a file in the dev folder is changed. There is a corresponding file in the staging and production folders that has the same rules to only allow jobs when those specific folders are changed. To keep each CI file running the same jobs we have made use of a helper file. 
+
+[Environment-specific GitLab CI](https://gitlab.com/demos/infrastructure/terraform-multi-env/-/blob/main/dev/.gitlab-ci.yml)
+
+```yaml
+include:
+  - 'helper.yml'
+
+variables:
+  TF_ROOT: ./dev  # The relative path to the root directory of the Terraform project
+  TF_STATE_NAME: default      # The name of the state file used by the GitLab-managed Terraform state backend
+  SECURE_ANALYZERS_PREFIX: "$CI_TEMPLATE_REGISTRY_HOST/security-products"
+  SAST_IMAGE_SUFFIX: ""
+  SAST_EXCLUDED_PATHS: "spec, test, tests, tmp"
+  PLAN: plan.cache
+  PLAN_JSON: plan.json
+
+
+cache:
+  key: "${TF_ROOT}"
+  paths:
+    - ${TF_ROOT}/.terraform/
+
+fmt-dev:
+  extends: .fmt
+  rules:
+      - changes:
+          - dev/**/*
+
+validate-dev:
+  extends: .validate
+  rules:
+      - changes:
+          - dev/**/*
+
+build-dev:
+  extends: .build
+  rules:
+      - changes:
+          - dev/**/*
+
+kics-iac-sast-dev:
+  extends: .kics-iac-sast
+  rules:
+      - changes:
+          - dev/**/*
+
+deploy-dev:
+  extends: .deploy
+  rules:
+      - changes:
+          - dev/**/*
+
+destroy-dev:
+  extends: .destroy
+  rules:
+      - changes:
+          - dev/**/*
+
+```
+
+### helper.yml
+This helper file was created at the root level so that it could be referenced by all of the environment-specific files. The [helper.yml](https://gitlab.com/demos/infrastructure/terraform-multi-env/-/blob/main/helper.yml) is where all the heavy lifting is happening. This will make sure that all the jobs throughout the environment-specific file's configuration stays up to date and consistent. In the environment-specific files we 'included' the helper file and extended the jobs outlined below.
+
+```yaml
+
+.fmt:
+  stage: validate
+  script:
+    - cd "${TF_ROOT}"
+    - gitlab-terraform fmt
+  allow_failure: true
+
+
+.validate:
+  stage: validate
+  script:
+    - cd "${TF_ROOT}"
+    - gitlab-terraform validate
+
+
+.build:
+  stage: build
+  before_script:
+    - apk --no-cache add jq
+    - alias convert_report="jq -r '([.resource_changes[]?.change.actions?]|flatten)|{\"create\":(map(select(.==\"create\"))|length),\"update\":(map(select(.==\"update\"))|length),\"delete\":(map(select(.==\"delete\"))|length)}'"
+  script:
+    - cd "${TF_ROOT}"
+    - gitlab-terraform plan -out=$PLAN
+    - gitlab-terraform plan-json | convert_report > $PLAN_JSON
+  resource_group: ${TF_STATE_NAME}
+  artifacts:
+    paths:
+      - ${TF_ROOT}/plan.cache
+    reports:
+      terraform: ${TF_ROOT}/$PLAN_JSON
+
+.kics-iac-sast:
+  stage: test
+  artifacts:
+    reports:
+      sast: gl-sast-report.json
+  image:
+    name: "$SAST_ANALYZER_IMAGE"
+  variables:
+    SEARCH_MAX_DEPTH: 4
+    SAST_ANALYZER_IMAGE_TAG: 3
+    SAST_ANALYZER_IMAGE: "$SECURE_ANALYZERS_PREFIX/kics:$SAST_ANALYZER_IMAGE_TAG$SAST_IMAGE_SUFFIX"
+  allow_failure: true
+  script:
+    - /analyzer run
+
+
+.deploy:
+  stage: deploy
+  script:
+    - cd "${TF_ROOT}"
+    - gitlab-terraform apply
+  resource_group: ${TF_STATE_NAME}
+  when: manual
+  rules:
+      - changes:
+          - ${TF_ENVIRONMENT}/**/*
+
+.destroy:
+  stage: cleanup
+  script:
+    - cd "${TF_ROOT}"
+    - gitlab-terraform destroy
+  resource_group: ${TF_STATE_NAME}
+  when: manual
+
+```
+
+### Root-level .gitlab-ci.yml
+[Root-level GitLab CI](https://gitlab.com/demos/infrastructure/terraform-multi-env/-/blob/main/.gitlab-ci.yml)
+
+The file that brings everything above together is the root-level CI file. This will be what the pipeline initially references when run. The [root-level GitLab CI](https://gitlab.com/demos/infrastructure/terraform-multi-env/-/blob/main/.gitlab-ci.yml) is where all of the stages and container images are defined. Note that they are inheriting `.gitlab-ci.yml` from each of the individual folders themselves.
+
+```yaml
+include:
+  - 'dev/.gitlab-ci.yml'
+  - 'staging/.gitlab-ci.yml'
+  - 'production/.gitlab-ci.yml'
+  
+image:
+  name: "$CI_TEMPLATE_REGISTRY_HOST/gitlab-org/terraform-images/releases/1.1:v0.43.0"
+
+stages:          
+  - validate
+  - build
+  - test
+  - deploy
+  - cleanup
+
+variables:
+  # If not using GitLab's HTTP backend, remove this line and specify TF_HTTP_* variables
+  TF_STATE_NAME: default
+  TF_CACHE_KEY: default
+
+```
+
+## Merge request + promotion through environments
+With the project set up and GitLab CI’s triggering only based off changes to the individual environment folders, you can now safely promote changes using merge requests. When you want to make a change:
+1. First create a merge request in the dev environment with your *.tf files.
+2. Review the [Terraform integration in merge requests](https://docs.gitlab.com/ee/user/infrastructure/iac/mr_integration.html) to see X changes, X to Add, and X to Remove.
+3. If your changes are as expected, request your team members to review the changes and Terraform code.
+4. Apply the changes to your dev environment and merge in the merge request.
+5. If everything worked as intended, then make the same merge up into the staging environment.
+6. If the staging environment remains stable, make a merge request up into the production environment.
+
+
+## Results
+Voila, and there you have it! **A single project to manage three different infrastructure environments** in a safe way to ensure that your changes to production are tested, reviewed, and approved by the rest of your team members.
+

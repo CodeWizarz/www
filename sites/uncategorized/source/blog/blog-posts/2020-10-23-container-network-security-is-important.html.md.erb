@@ -1,0 +1,128 @@
+---
+title: "How to secure your Kubernetes pods using GitLab Container Network Security"
+window_title: "Securing Kubernetes Clusters With Container Security Policies | GitLab"
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: security
+image_title: '/images/blogimages/container-network-security/diane-helentjaris-TYk0YQbog9g-unsplash.jpg'
+description: "We help you get started with securing your Kubernetes cluster using Cilium, a GitLab-managed application."
+tags: security, containers, kubernetes, cncf, networking
+twitter_text: "Secure your #Kubernetes pods using @gitlab Container Network Security"
+merch_banner: six
+featured: no
+---
+
+{::options parse_block_html="true" /}
+
+Kubernetes does not come secure out of the box. There is a lot of configuration needed
+to achieve a secure cluster. One important security configuration to consider is how pods
+communicate with each other. This is where Network Policies come into play, making sure that
+your pods are not exchanging data with unknown or malicious sources, which can compromise
+your cluster.
+
+[Network Policies](https://kubernetes.io/docs/concepts/services-networking/network-policies/) are rules on how pods can communicate
+with other pods as well as endpoints. They are pretty much a firewall for your internal cluster network.
+
+GitLab provides Container Network Security using [Cilium](https://cilium.io/) as a [GitLab-managed application](https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-cicd).
+Cilium is a CNI [network plugin](https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/) for Kubernetes that can be used to implement support for Network Policies.
+
+The video below provides an introduction on how to easily implement Network Policies from GitLab,
+as well as a demo on testing Network Policies:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/45Q__T42ZMA" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Network Policies in action
+
+There are many different ways of configuring Network Policies within your Kubernetes cluster. You can configure
+the `ingress from` as well as the `egress to` traffic. There are four kinds of selectors
+which can be used to configure traffic between pods:
+
+- podSelector: Selects provided pods in the same namespace
+- namespaceSelector: Selects all pods on given namespace
+- podSelector & namespaceSelector: Selects provided pods in given namespace
+- ipBlock: Blocks external [IP CIDR](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) ranges provided
+
+More information on the behavior of "to" and "from" selectors can be found in the [Kubernetes documentation](https://kubernetes.io/docs/concepts/services-networking/network-policies/#behavior-of-to-and-from-selectors).
+
+Below is an example of a Network Policy that only allows ingress traffic
+to pod with label `app: "notes"` from pods with label `access: "true"`.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: access-notes
+spec:
+  podSelector:
+    matchLabels:
+      app: "notes"
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          access: "true"
+```
+
+## Installing Cilium as a GitLab-managed application
+
+Cilium is provided by GitLab as a managed application, meaning
+that GitLab installs and upgrades Cilium for you. There is no need
+to worry about how to get Cilium up and running. Cilium as well as your Network
+Policies can be configured as needed.
+
+In order to install and configure Cilium as a GitLab managed application, you can follow the steps provided in
+the [GitLab cluster applications documentation](https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-cicd).
+This sample project [Simply Simple Notes](https://gitlab.com/gitlab-examples/security/simply-simple-notes), is configured to use Cilium. It will install Cilium on the Kubernetes cluster associated with the project.
+
+[This guide](https://kubernetes.io/docs/tasks/administer-cluster/declare-network-policy/) can be used to test your Network Policies once Cilium has been installed.
+
+## Threat monitoring dashboard
+
+By default Cilium installs with Hubble, a monitoring daemon which collects packet flow metrics per namespace. These
+metrics are sent to the GitLab [Threat Monitoring dashboard](https://docs.gitlab.com/ee/user/application_security/threat_monitoring/).
+
+![threat monitoring packet metrics](/images/blogimages/container-network-security/packet-metrics.png)
+Packet Metrics displayed in the Threat Management dashboard
+{: .note.text-center}
+
+The packet flow metrics collected are:
+- The total number of inbound and outbound packets for the given time period
+- The proportion of packets dropped according to the configured policies
+- The average rate per-second of forwarded and dropped packets for the requested time interval
+
+Within the Threat Monitoring dashboard, you can also view and configure the Network Policies in your project. This makes it easy to navigate
+your container network configuration in one interface.
+
+![threat monitoring Network Policies](/images/blogimages/container-network-security/network-policy.png)
+Network Policies displayed in the Threat Management dashboard
+{: .note.text-center}
+
+Network Policies can also be created and edited through an intuitive UI. You can just select the network rules you wish to use and the YAML will be automatically created and applied to your cluster. This eliminates the need to edit the complicated YAML structure for Network Policies directly, and allows you to make sure the correct rules are being applied without confusion.
+
+Network Rules can be created using the following rule types:
+- Labels
+- Entities
+- IP/CIDR
+- DNS
+- Level 4
+
+![threat monitoring policy creation](/images/blogimages/container-network-security/policy-creation.png)
+Policy being created in the Threat Management dashboard
+{: .note.text-center}
+
+## Learn more about GitLab Security
+
+I hope this blog can help get you started with Network Policies in Kubernetes. Check out some other
+ways GitLab can help with security.
+
+- [How application security engineers can use GitLab to secure their projects](/blog/2020/07/07/secure-stage-for-appsec/)
+- [How to capitalize on GitLab Security tools with external CI](https://docs.gitlab.com/ee/integration/jenkins.html)
+- [What you need to know about Kubernetes RBAC](/blog/2018/08/07/understanding-kubernestes-rbac/)
+
+Cover image by [Diane Helentjaris](https://unsplash.com/@dhelentjaris) on [Unsplash](https://unsplash.com/photos/TYk0YQbog9g)
+{: .note}

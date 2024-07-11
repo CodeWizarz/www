@@ -1,0 +1,12 @@
+removals:
+  - feature_name: "Removal of SAST support for Python 2"
+    date_of_removal: Dec 9, 2020
+    reporter: tmccaslin
+    description: |
+      [Python 2 has been End of Life (EoL) since January 1, 2020](https://www.python.org/doc/sunset-python-2/). As part of maintaining and updating our underlying SAST analyzers, we have updated Bandit which [dropped support for Python 2 rules](https://github.com/PyCQA/bandit/releases/tag/1.6.3). Should you still need to support Python 2 applications, you can [override the GitLab SAST CI template](https://docs.gitlab.com/ee/user/application_security/sast/#overriding-sast-jobs) to pin to the previous version of Bandit which supports Python 2. By pinning to a previous version you will not receive the latest updates to our Python SAST analyzer. Below is the override code snippet you can drop into your [SAST.gitlab-ci.yml template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Security/SAST.gitlab-ci.yml#L43):
+
+          include:
+            - template: Security/SAST.gitlab-ci.yml
+          bandit-sast:
+            variables:
+              SAST_ANALYZER_IMAGE: "$SECURE_ANALYZERS_PREFIX/bandit:2.10.0"

@@ -1,0 +1,196 @@
+---
+title: How to automate software delivery using Quarkus and GitLab
+author: Cesar Saavedra
+author_gitlab: c_saavedra1
+author_twitter: cesar_saavedr
+categories: devops platform
+tags: DevOps, CI/CD, community
+description: Here's a step-by-step guide to automated software delivery using
+  Supersonic Subatomic Java (Quarkus) and GitLab.
+image_title: /images/blogimages/autodevops.jpg
+---
+
+In this day and age, organizations need to deliver innovative solutions faster than ever to their customers to stay competitive. This is why solutions that speed up software development and delivery, such as Quarkus and GitLab, are being adopted by teams across the world.
+
+[Quarkus](https://quarkus.io/), also known as the Supersonic Subatomic Java, is an open source Kubernetes-native Java stack tailored for OpenJDK HotSpot and GraalVM, crafted from respected Java libraries and standards. Quarkus has been steadily growing in popularity and use because of the benefits that it delivers: cost savings, faster time to market/value, and reliability. Quarkus offers two modes: Java and native. Its Java mode builds your application using the JDK and its native mode compiles your Java code into a native executable.
+
+GitLab, the One DevOps Platform, includes capabilities for all DevOps stages, from planning to production, all with a single model and user interface to help you ship secure code faster to any cloud and drive business results. Besides [DevOps](https://about.gitlab.com/topics/devops/) support, GitLab also offers GitOps support.
+
+The combination of Quarkus and GitLab can empower your developers and operations teams to collaborate better, spend more time innovating to deliver business value and differentiating capabilities to end users.
+
+In this article, we show how to automate the software delivery of a generated Quarkus application in Java mode using GitLab Auto DevOps. Below we list the steps how to accomplish this.
+
+## Prerequisite
+
+The prerequisite for the subsequent instructions is to have a K8s cluster up and running and associated to a group in your GitLab account. For an example on how to do this, please watch this [video](https://youtu.be/QRR3WuwnxXE).
+
+## Generate your Quarkus project using the generator and upload to GitLab
+
+- From a browser window, point to the Quarkus generator site, https://code.quarkus.io, and click on the button **Generate your application**.
+
+![Generate Quarkus app](/images/blogimages/quarkusone.png){:small.center.}
+
+Generate a sample Quarkus application using the generator
+{: .note.text-center}
+
+- On the popup window, click on the button **DOWNLOAD THE ZIP**, to download a sample Quarkus application in a ZIP file to your local machine. The downloaded file is named `code-with-quarkus.zip`.
+
+- Unzip the file on your local machine in a directory of your choice. This will create a new directory called `code-with-quarkus` with all the files for the sample Quarkus application.
+
+- From a browser window, open https://gitlab.com, and log in using your GitLab credentials.
+
+- Head over to the GitLab group to which you associated your K8s cluster and create a blank project named `code-with-quarkus`.
+
+![Create project code-with-quarkus](/images/blogimages/quarkustwo.png){: .shadow.small.center.wrap-text}
+Create project code-with-quarkus
+{: .note.text-center}
+
+- From a Terminal window on your local machine, change directory to the newly unzipped directory `code-with-quarkus` and execute the command `rm .dockerignore` to delete the `.dockerignore` file that came with the sample Quarkus application. After removing this file, execute the following commands to populate your newly create Git project `code-with-quarkus` with the contents of this directory:
+
+**NOTE:** Depending on your version of git installed on your local machine, the commands below may vary. Keep in mind that the goal of the steps below is to upload the project on your local machine to your newly created GitLab project.
+
+```
+git init
+git remote add origin https://gitlab.com/[REPLACE WITH PATH TO YOUR GROUP]/code-with-quarkus.git
+git add .
+git commit -m "Initial commit"
+git push --set-upstream origin master
+```
+
+At this point, you should have your sample Quarkus application in your GitLab project `code-with-quarkus`.
+
+## Modify the generated Dockerfile.jvm file and indicate its location
+
+Since the location of the Dockerfile is not at the root level of the project, we need to create a project variable DOCKERFILE_PATH and set it to `src/main/docker/Dockerfile.jvm` to indicate to the Auto Build job where to find the Dockerfile to build the container image.
+
+- From your `code-with-quarkus` GitLab project window, select **Settings > CI/CD** from the left vertical navigation menu.
+
+- Scroll to the **Variables** section on the screen and click on the **Expand** button on the right hand side of the section.
+
+- Click on the **Add Variable** button and enter the following values for the fields in the popup:
+
+```
+Key = DOCKERFILE_PATH
+Value = src/main/docker/Dockerfile.jvm
+Type = Variable
+Environment scope = All (default)
+Protect variable Flag = ensure this flag is unchecked
+Mask variable Flag = ensure this flag is unchecked
+```
+
+The variable definition should look as follows:
+
+![Add var dockerfilepath](/images/blogimages/quarkusthree.png){: .shadow.small.center.wrap-text}
+Add DOCKERFILE_PATH variable to the your code-with-quarkus project
+{: .note.text-center}
+
+- Click on the **Add variable** button to complete adding this variable to your project
+
+In order for Auto Build to work, we need to make some minor modifications to the generated Dockerfile.jvm in the sample Quarkus application.
+
+- From your `code-with-quarkus` GitLab project window, navigate to the directory `src/main/docker` and click on the file `Dockerfile.jvm`. Click on the **Edit** button to start making changes to this file.
+
+- At the top of the file, you will see about 77 lines of comments. Replace all the lines following the comments with the following code segment:
+
+```
+####
+FROM openjdk:11 as builder
+RUN mkdir /build
+ADD . /build/
+
+WORKDIR /build
+RUN ./mvnw package
+
+FROM registry.access.redhat.com/ubi8/openjdk-11:1.11
+
+ENV LANG='en_US.UTF-8' LANGUAGE='en_US:en'
+
+# We make four distinct layers so if there are application changes the library layers can be re-used
+COPY --from=builder --chown=185 /build/target/quarkus-app/lib/ /deployments/lib/
+COPY --from=builder --chown=185 /build/target/quarkus-app/*.jar /deployments/
+COPY --from=builder --chown=185 /build/target/quarkus-app/app/ /deployments/app/
+COPY --from=builder --chown=185 /build/target/quarkus-app/quarkus/ /deployments/quarkus/
+
+EXPOSE 8080
+USER 185
+ENV AB_JOLOKIA_OFF=""
+ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
+ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
+```
+
+The lines above add a build stage called`builder` to do the Java build using the openjdk:11 image and adds a `build` working directory to the process. The rest of the lines are effectively the same as the original except that we have updated the paths of the `COPY` commands to find the appropriate files under the `build` working directory.
+
+- Click on the **Commit changes** button at the bottom of the **New file** window to create the new file.
+
+## Update the application port number
+
+The Auto Deploy job of Auto DevOps defaults to port 5000 for applications but the sample Quarkus application uses port 8080. So, we need to override this value in the helm chart for the Auto Deploy job. This is how you do it:
+
+- From your `code-with-quarkus` GitLab project window, click on **New File** from the pop-down menu next to project root name directory as shown below:
+
+![Select new file](/images/blogimages/quarkusfour.png){: .shadow.small.center.wrap-text}
+Select New file from your code-with-quarkus project top-level directory
+{: .note.text-center}
+
+- On the **New file** window, enter `.gitlab/auto-deploy-values.yaml` for the name of the new file and paste the following two lines as the content of the file:
+
+```
+service:
+  internalPort: 8080
+```
+
+Your window should look as follows:
+
+![Update application port number for Auto Deploy](/images/blogimages/quarkusfive.png){: .shadow.small.center.wrap-text}
+Update the application port number in the helm chart for Auto Deploy
+{: .note.text-center}
+
+- Click on the **Commit changes** button at the bottom of the **New file** window to create the new file.
+
+## Update the version of the JDK
+
+The sample Quarkus application includes a unit test that is automatically run by the Auto Test job, which uses a Java version not compatible with Quarkus resulting in “java.lang.UnsupportedClassVersionError” exceptions. To solve this, we need to adjust the Java runtime version to 11 since this is the lowest version of the JRE supported by Quarkus. Let’s do this:
+
+- From your `code-with-quarkus` GitLab project window, click on **New File** from the pop-down menu next to project root name directory and name the new file `system.properties`. As its contents, paste the following line into it:
+
+```
+java.runtime.version=11
+```
+
+- Click on the **Commit changes** button at the bottom of the **New file** window to create the new file.
+
+## Enable Auto DevOps
+
+Lastly, we need to enable Auto DevOps for your `code-with-quarkus` GitLab project.
+
+- From your `code-with-quarkus` GitLab project window, select **Settings > CI/CD** from the left vertical navigation menu.
+
+- Scroll to the **Auto DevOps** section on the screen and click on the **Expand** button on the right hand side of the section.
+
+- In the section, check the **Default to Auto DevOps pipeline** checkbox. Then, for Deployment strategy, select on the radio button **Automatic deployment to staging, manual deployment to production**. Finally, click on the **Save changes** button. Here’s an example screenshot:
+
+![Enable Auto DevOps](/images/blogimages/quarkussix.png){: .shadow.small.center.wrap-text}
+Enable Auto DevOps for your sample Quarkus project
+{: .note.text-center}
+
+This will launch an Auto DevOps pipeline that will build, test and deploy your application first to the staging environment and then give you the option to manually deploy to 100% of the production environment. The completed Auto DevOps pipeline should look like this:
+
+![Completed pipeline](/images/blogimages/completed-pipe.png){: .shadow}
+Completed Auto DevOps pipeline for a sample Quarkus application in Java mode
+{: .note.text-center}
+
+## Conclusion
+
+The combination of Quarkus and GitLab can empower your developers and operations teams to collaborate better, spend more time innovating to deliver business value and differentiating capabilities to end users.
+
+In this article, we showed how to automate the software delivery of a generated Quarkus application in Java mode using GitLab Auto DevOps. Here is [a working sample project](https://gitlab.com/tech-marketing/sandbox/hn/code-with-quarkus) of this Quarkus application, whose delivery has been automated by GitLab Auto DevOps.
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,43 @@
+.panel-body.newsletter-cta
+  - form_id = 1546
+  - if variant && variant == 'b'
+    - form_id = 1547
+
+  .newsletter-form
+
+    %form.notdefined{id: "mktoForm_#{form_id}"}
+      %script{src:"//page.gitlab.com/js/forms2/js/forms2.min.js"}
+      %script{:type=>"text/javascript"}
+        :plain
+          MktoForms2.setOptions(
+          {
+            formXDPath : "/rs/194-VVC-221/images/marketo-xdframe-relative.html"
+          });
+          MktoForms2.loadForm("//page.gitlab.com", "194-VVC-221", #{form_id}, function(form) {
+            form.onSuccess(function(values, followUpUrl) {
+
+              dataLayer.push(
+              {
+                'event' : 'mktoLead', 
+                'mktoFormId' : form.getId(),
+                'eventCallback' : function()
+                {
+                  form.getFormElem().hide();
+                  document.getElementById('above-cta-form').style.display = 'none';
+                  document.getElementById('confirm-cta-form').style.display = 'block';
+                }, 'eventTimeout' : 3000
+              });
+              return false;
+            });
+            function getgacid() {
+              try {
+                var tracker = ga.getAll()[0];
+                return tracker.get('clientId');
+              } catch (e) {
+                return 'n/a';
+              }
+            }
+            form.vals({
+              'gacid': getgacid()
+            });
+          });

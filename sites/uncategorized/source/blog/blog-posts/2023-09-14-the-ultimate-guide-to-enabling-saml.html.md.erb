@@ -1,0 +1,225 @@
+---
+title: "The ultimate guide to enabling SAML and SSO on GitLab.com"
+author: Bradley Lee
+author_gitlab: bradleylee
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/2023-09-14-ultimate-guide-to-enabling-saml/cover-1800x945.png'
+description: "Learn how to make full use of SAML and SSO security features on the GitLab DevSecOps platform."
+tags: security, tutorial, DevSecOps platform
+twitter_text: "Learn how to make full use of SAML and SSO security features on GitLab.com."
+featured: yes
+postType: product
+guest: false
+---
+As a follow-on to the recent blog, [The ultimate guide to securing your code on
+GitLab.com](https://about.gitlab.com/blog/2023/05/31/securing-your-code-on-gitlab/),
+we recommended enabling SAML (Security Assertion Markup Language) and SSO (single
+sign-on) to enable tighter control over code access. Let’s take a deep dive into
+how to enable SAML and SSO on GitLab.com.
+
+## What are SAML and SSO?
+SAML is an open standard, which service providers (like GitLab.com) and
+identity providers (commonly referred to as IdPs) use to communicate
+authentication data. SSO is provided by IdPs, such as Okta and Entra ID
+(formerly Azure AD), and enables users to log into multiple systems or service
+providers through a single interface with a single set of credentials.
+
+As with any configuration, there should be thoughtful and careful planning when
+enabling SSO.
+
+### What are the benefits of SSO?
+In general, enabling SSO streamlines the user experience by unifying the login
+process and reducing the account and password bloat required for multiple
+enterprise applications. Enabling SSO also adds an extra layer of security and
+management efficiency for identity management teams by providing a single
+source of truth for authentication. Below, you’ll learn how SAML SSO applies
+specifically to GitLab.com.
+
+## Configuring SSO and SAML for GitLab.com
+Premium and Ultimate tiers can enable SSO in the settings available at the
+namespace or top level group.
+
+### Enabling SSO at the group level
+Before getting started, you’ll need a few key
+pieces of information from your chosen IdP:
+- The IdP SSO URL
+- The certificate fingerprint provided by the IdP application
+
+Once these key pieces are entered, check the “Enable SAML
+authentication for this group” box. 
+
+### How user accounts are linked
+Before we proceed further into configuration, let’s take a look at how GitLab
+authenticates against the IdP.
+
+For GitLab.com, each user who requires access to
+the system must have an account on GitLab.com. By default, when a user first
+attempts logging into GitLab via SSO, GitLab will receive the SAML assertion
+and validate if the identity (specifically the email address) is linked to a
+GitLab.com account. If not, GitLab will request the user either login to an
+existing account or create a new account. In most instances, this may not be
+desired behavior; however, we will address this later in the process. We’ve
+provided a flowchart below to help you navigate the provisioning flow.
+
+![image of saml group links](/images/blogimages/2023-09-14-ultimate-guide-to-enabling-saml/saml-provisioning.png)
+
+### Enforcing SSO
+To further increase security, there are two options available for enforcing
+SSO. Assuming neither are checked, users with access to the namespace can log
+in with either the SSO credentials or the GitLab.com credentials.
+
+Here is a working example that we can use to follow along as we discuss how the
+configuration options affect our baseline. Let’s consider a user in the IdP
+where the username is `idpusername` and contains a super secret password:
+`idppassword` (apologies, security professionals). Taking into account the
+information we just learned about account linking, let us also assume our demo
+user created a new account following the prompt from an SSO login with a
+username of `gitlabusername` and `gitlabpassword` as an even more secure
+password.
+
+#### Enforcing SSO only for web
+When enabling the “Enforce SSO-only authentication for web activity for this
+group” setting, all members must now access all groups and projects under the
+hierarchy using the configured SSO login regardless of whether they have an
+existing SAML identity. As we mentioned prior, with this flag disabled, our
+`idpusername` user will be able to log into the GitLab namespace with either
+the `idpusername` or `gitlabusername` credential sets. When we enable this
+setting for web-based activity ([further details in
+docs](https://docs.gitlab.com/ee/user/group/saml_sso/#sso-only-for-web-activity-enforcement)),
+our group is now only accessible by the `idpusername` credential set.
+
+#### Enforcing SSO only for Git proxy
+Very similar to enforcing SSO for web, when the “Enforce SSO-only
+authentication for Git and Dependency Proxy” activity for this group option is
+enabled, a few things happen:
+- Calling an API endpoint that involves Git activity requires SSO.
+- For Git activity over SSH and HTTPS, users must have at least one active session signed-in through SSO before they can push to or pull.
+
+There is a strong recommendation to enable both of these settings to take full
+advantage of the benefits of SSO for users and administrators through
+centralized authentication.
+
+### Enterprise user support
+Now that we know how some of the configuration options can help secure access,
+let’s take a deeper dive into user management. Consider the following scenario:
+Our `idpusername` user has decided to pursue another opportunity outside of the
+domain. Based on what we have configured now, once the account has been
+deprovisioned from the IdP, it should no longer have access to anything secured
+behind it on GitLab.com. However, while the user will not have access, the
+associated user ID and roles still remain until manually removed. This is where
+Enterprise users come in.
+
+#### What are Enterprise users in GitLab?
+If you look closely, any user that has a linked SSO account will carry a `SAML`
+badge in the member list. GitLab also has an associated `Enterprise` badge
+that grants additional management functionality through SSO. For a user to
+carry the `Enterprise` badge, the user must either have the initial GitLab.com account creation initiated by a SAML SSO login or have the initial GitLab.com account created by SCIM.
+
+#### What is SCIM?
+SCIM, or System for Cross-domain Identity Management, is another standard
+used in conjunction with SAML, primarily for provisioning and deprovisioning
+across multiple systems. By enabling SCIM for your GitLab.com group (which is
+currently supported with Entra ID and Okta), you can enable automatic
+provisioning and deprovisioning of accounts.
+
+If we look back at some of our scenarios, without SCIM, our `idpusername` user
+was prompted to create or link a GitLab.com account on first login. With SCIM
+enabled, this process is handled automatically based on information provided
+and managed by the IdP and is completely transparent to the end user. The
+second half of our scenario, where our `idpusername` user is deprovisioned from
+the IdP, also is solved with automation via SCIM. In this instance, when the
+user is removed on the IdP side, SCIM automatically disconnects the SAML
+identity from the GitLab.com account and removes the user from the GitLab.com
+group.
+
+#### Protecting your intellectual property
+Another important feature of Enterprise users is the ability to control two
+very important user settings that are not accessible to group administrators on
+GitLab.com. Since all users require an account on GitLab.com, they are also
+granted access to a personal user namespace. For example, our `idpusername` will have access to our Acme Corp. group at `.com/acmecorp`, and will also have
+access to their own personal space at `.com/idpusername`. One common concern with this is the ability for users to take code out of the organization
+namespace and commit to their own personal namespace.
+
+With Enterprise users, we have two settings that we can control based on attributes received in the SAML
+response. These keys are `projects_limit` and `can_create_groups`. The
+`projects_limit` is an integer value that sets the amount of projects a user
+can create in their personal namespace. When set to `0`, this effectively
+disables project creation in that space. Similarly, `can_create_group` is a
+boolean `true` or `false` value that indicates whether a user can create new
+groups.
+
+### Managing roles with SAML
+Now that we know the ins and outs of creating and removing users with SAML and
+SCIM, how can we leverage our work to help manage our active users? In this
+final section, we’ll take a look at why we recommend setting default membership
+to "Minimal Access" and how to leverage group memberships in the IdP.
+
+#### Why Minimal Access?
+In the [Ultimate guide to securing your code on GitLab](https://about.gitlab.com/blog/2023/05/31/securing-your-code-on-gitlab/),
+we recommend setting the default membership role to Minimal Access, and
+operating with the concept of least privilege. Roles can be elevated as needed
+in subgroups or individual projects while preventing visibility to projects or
+subgroups where the user is not explicitly granted another role. By default,
+this option is set to Guest, which will allow all provisioned users guest
+access to the repositories. Default membership controls are available at the
+top-level group, along with the SAML and SSO settings. For automation at the
+subgroup level, we can leverage SAML Group Sync.
+
+#### Configuring SAML Group Sync with SAML Group Links
+Before we dive into the configuration, there is one very important step we need
+to take. The configured SAML assertion that is sent MUST include an attribute
+named `Groups` or `groups`. If SAML Group Links are present without the
+attribute in the assertion, users may be removed from the group or reverted to
+Minimal Access.
+
+After we ensure our assertions contain the necessary information, we can start
+using SAML Group Links to automatically assign membership roles to GitLab
+groups based on group membership in the IdP. Let’s build on our demo user
+`idpusername` by considering the following:
+- `idpusername` is a maintainer on the acme-web project.
+- The `acme-web` project exists under the `acme-corp` namespace, under subgroup `acme-com`.
+- The full path to the project would be `.com/acme-corp/acme-com/acme-web`.
+- `idpusername` should also be granted developer access for the `acme-db` project, which is also under the `acme-com` group.
+- In our IdP, `idpusername` is a member of the IdP group `idp-acme-com`.
+
+SAML group links allow us to map IdP group memberships to role assignments at
+the GitLab group level. In this scenario, we can create a group link at the
+`acme-com` group in GitLab that maps the IdP group `idp-acme-com` to the
+developer role to the `acme-com` group.
+
+Due to inheritance, our `idpusername`
+user will be granted developer access and associated visibility to every
+project and group that falls under the GitLab `acme-com` group automatically by
+virtue of the IdP group membership, because we’re working under the concept of
+least privilege for the `acme-web` project.
+
+The `idpusername` user’s role can
+be elevated to maintainer directly in the project. From a user perspective,
+`idpusername` would still carry the Minimal Access role at the `acme-corp`
+group as well. This allows a separation of access management between
+engineering and identity management teams and allows role management to be
+flexible with guardrails.
+
+![image of saml group links](/images/blogimages/2023-09-14-ultimate-guide-to-enabling-saml/saml-group-links.png)
+
+With this approach, it’s important to find that balance between what is managed
+in the IdP and what is managed in GitLab. It’s possible to have hundreds of
+group mappings to roles in the IdP and almost completely remove role management
+within GitLab and vice versa. The flexibility that GitLab allows enables you to
+find the best solution that works for you. Building on our example, if we hire
+another engineer for the `acme-com` project, they can be added to the GitLab
+application in the IdP, and added to the `idp-acme-com` group. This
+automatically assigns them the developer role at the `acme-com` group and for
+all projects under it, while limiting access to any other groups outside of
+`acme-com` in the namespace.
+
+## Learn more
+We’ve covered how to get started with enabling SAML and SSO on your GitLab.com
+group, along with how to leverage the features to programmatically manage users
+and roles with real examples. For more information, see the full [SAML SSO for
+GitLab.com groups](https://docs.gitlab.com/ee/user/group/saml_sso/)
+documentation.
+
+Cover image by [Towfiqu barbhuiya](https://unsplash.com/photos/FnA5pAzqhMM) on [Unsplash](https://unsplash.com)
+{: .note}

@@ -1,0 +1,63 @@
+.member-header
+  = image_tag "/images/heroes/#{member.picture}", alt: member.name, width: 120, height: 120, class: 'member-id', loading: 'lazy'
+  .info
+    %h3
+      = member.name
+
+    - if member.role
+      %h4.role
+        = member.role
+
+    - if member.locality || member.country
+      - location = [member.locality, member.country].compact.join(", ")
+      %h5.additional-info
+        Lives in
+        = link_to "https://maps.google.com?q=#{location}" do
+          = location
+
+    - if member.pronouns
+      %h5.additional-info
+        %a{href: 'http://pronoun.is/', target: '_blank'} Pronouns:
+        = link_to member.pronouns, "http://pronoun.is/#{member.pronouns}"
+
+    - if member.domains
+      %h5.additional-info
+        %span.title
+          Domains:
+        = Array(member.domains).join(", ")
+
+    - if member.interests
+      %h5.additional-info
+        %span.title
+          Interested in:
+        = Array(member.interests).join(", ")
+
+    - if member.gitlab
+      %h5.additional-info
+        %span.title
+          GitLab handle:
+        = link_to member.gitlab, "https://gitlab.com/#{member.gitlab}"
+
+    - if member.available_for_reviews
+      %h5.additional-info
+        Available for reviews
+
+.social
+  - if member.linkedin
+    %a{href: "https://www.linkedin.com/in/#{member.linkedin}"}
+      %span.sr-only
+        LinkedIn
+      %i.fab.fa-linkedin
+  - if member.twitter
+    %a{href: "https://twitter.com/#{member.twitter}"}
+      %span.sr-only
+        Twitter
+      %i.fab.fa-twitter
+  - if member.gitlab
+    %a.gitlab-logo{href: "https://gitlab.com/#{member.gitlab}"}
+      %img{ src: "/images/icons/logos/slp-icon.svg", alt: "GitLab" }
+.bio
+  %p
+    = member.story
+
+%a.close-modal.fas.fa-times{ href: "#close-modal" }

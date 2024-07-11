@@ -1,0 +1,18 @@
+# Omnibus and performance (required)
+features:
+  secondary:
+    - name: "Omnibus improvements"
+      available_in: [core, starter, premium, ultimate]
+      gitlab_com: false
+      documentation_link: 'https://docs.gitlab.com/omnibus'
+      reporter: ljlane
+      stage: systems
+      categories:
+        - "Omnibus Package"
+      description: |
+        - Upgrading PostgreSQL on Geo secondaries just got easier. `pg-upgrade` [now supports upgrading PostgreSQL on Geo tracking database nodes](https://docs.gitlab.com/omnibus/settings/database.html#upgrading-a-geo-instance). Previously, upgrading the Geo tracking database required the `postgresql['enable']` setting to be temporarily set to `true` in the`gitlab.rb` file. Now, simply run the `pg-upgrade` command on the tracking database node.
+        - It is now possible to provide a default statement timeout when using an external PostgreSQL database. Previously this could only be set when using the bundled PostgreSQL database. The statement timeout is used to automatically kill queries that run for longer than the specified time. For details on configuring the timeout, see [the database settings page](https://docs.gitlab.com/omnibus/settings/database.html#application-settings-for-the-database)
+        - GitLab 12.9 includes [Mattermost 5.20](https://mattermost.com/blog/mattermost-5-20-new-mobile-editor-desktop-dark-theme/), an [open source Slack-alternative](https://mattermost.com/) whose newest release includes a new mobile editor, desktop dark theme, and much more. This version also includes [security updates](https://mattermost.com/security-updates/). Upgrading from earlier versions is recommended.
+
+        We detected an issue where some additional changes need to be made to the configuration of the Geo tracking database after running `pg-upgrade`. [A fix is planned for 12.10](https://gitlab.com/gitlab-org/omnibus-gitlab/-/issues/5242). For 12.9, we recommend using the old method of changing the `gitlab.rb` file.
+        {: .alert .alert-info}

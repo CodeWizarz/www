@@ -1,0 +1,143 @@
+---
+title: "Introducing GitLab browser-based active checks in DAST"
+author: Cameron Swords
+author_gitlab: cam_swords
+author_twitter: gitlab
+categories: security
+image_title: "/images/blogimages/applicationsecurity.png"
+description: "As of GitLab 16.4, or DAST 4.0.9, browser-based DAST active scans will search for path traversal vulnerabilities using the GitLab check 22.1 instead of the ZAP alert 6."
+tags: DevSecOps, product, testing, features, security
+guest: no
+twitter_text: "Learn why active checks are important in application security and how to use them in browser-based DAST."
+featured: no
+postType: product
+related_posts:
+  - "/blog/2022/10/19/browser-based-dast-feature-announcement/"
+---
+GitLab's [DAST](/direction/secure/dynamic-analysis/dast/) and [Vulnerability Research](/handbook/engineering/development/sec/secure/vulnerability-research/) teams released the first GitLab active check in browser-based dynamic application security testing. This continues our work to integrate passive checks into browser-based DAST. As of GitLab 16.4, or DAST 4.0.9, browser-based DAST active scans will search for path traversal vulnerabilities using the GitLab check [22.1](https://docs.gitlab.com/ee/user/application_security/dast/checks/22.1.html) instead of the ZAP alert [6](https://www.zaproxy.org/docs/alerts/6/).
+
+Replacing ZAP alerts with GitLab active checks enables developers and security teams to detect vulnerabilities in modern-day web applications more effectively. Going forward, we anticipate replacing more ZAP alerts with GitLab active checks. If you are interested in using the browser-based DAST analyzer, please see: [How to configure a browser-based DAST scan documentation](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html).
+
+Below is an explanation of how active checks work, different types of attacks, and worked examples of browser-based attacks.
+
+## How to use GitLab active checks
+Customers who run active scans (full scans) will automatically run GitLab active checks as they are tested and released by the DAST team. Each corresponding ZAP alert will be turned off at this time.
+
+Customers can opt out of these changes, disabling the GitLab active checks and re-enabling the ZAP alerts by adding the CI/CD variable `DAST_FF_BROWSER_BASED_ACTIVE_ATTACK: "false"`.
+
+## What is an active check?
+An active check defines a series of attacks that, when run against the target web application, identify susceptibility to specific kinds of weakness ([CWE](https://cwe.mitre.org/)). Active checks are run during the [active scan](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html#active-scans) (full scan) phase of a DAST scan.
+
+## What does an active check attack do?
+[In-scope](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html#managing-scope) HTTP requests recorded during the crawl phase of the DAST scan are searched for injection locations, places in the request where an attack payload can be injected. Example injection locations include cookie values, request paths, query parameters, headers, JSON string values, XML, and inputs submitted with a form.
+
+Each attack defines payloads, which are text or binary content to inject into an HTTP request. Payloads can have prefixes (e.g. `c:\`) or affixes (e.g. `.exe`). Payloads can be an extension of the value originally submitted with the HTTP request.
+
+Every active check attack will be run against every crawled HTTP request's injection locations. Each injection location may have multiple attack payloads injected into it by each attack. Each unique payload injected into an injection location becomes a new HTTP request to send to the target web application. HTTP responses to these requests are used to determine if the attack succeeded.
+
+## Types of attacks
+Different types of attacks are necessary to detect different kinds of weaknesses.
+
+### Match response attacks
+Match response attacks send an attack payload with the HTTP request and search the HTTP response body for unintentionally exposed content. For example, a path traversal attack that uses a payload of `/etc/passwd` might look for evidence of that file in the HTTP response body.
+
+Most attacks are match response attacks.
+
+### Timing attacks
+Timing attacks are useful for blind injection payloads where the success of the attack is determined by how long the target web application took to return the HTTP response. For example, a SQL injection attack might use a payload containing `sleep(15)` to ask the database to pause for 15 seconds and determine attack success if the target web application took longer than 15 seconds to return the HTTP response.
+
+Naive timing attacks are prone to false positives due to unpredictable timing delays introduced by factors such as variable internet speeds and cached content. To mitigate this, each DAST timing attack uses multiple payloads with individual success conditions, and each timing attack must succeed three times in a row to register as a weakness. Timing attacks run one at a time to prevent one attack from skewing the results of other attacks.
+
+### Callback attacks
+Callback attacks are useful to determine if the target web application unintentionally allows data to be exposed to an external entity. For example, a URL in a website query parameter could be injected with the callback server `https://site.com/login?redirect-to=https://callback-server.dast/123456789`. DAST determines if the target web application unintentionally made an HTTP request to an untrusted source by asking the callback server if it received a request with ID `123456789`.
+
+The initial priority for DAST browser-based attacks is on match response and timing attacks. For callback attacks, see [Breach and Attack Simulation](https://docs.gitlab.com/ee/user/application_security/breach_and_attack_simulation/).
+
+## How are attacks defined?
+The [Vulnerability Research team](/handbook/engineering/development/sec/secure/vulnerability-research/) writes active checks in YAML to minimize the time required to update or add new checks. A simplified example of the 22.1 path traversal attack looks as follows:
+
+```yaml
+active_check:
+  attacks:
+    - id: 2
+      type: "match_response"
+      description: "Inject /etc/passwd, report as vulnerable if the response body matches /etc/passwd file contents."
+      target_tech: ["os:unix"]
+      injection_locations_policy:
+        default:
+          locations:
+            - "cookie_value"
+            - "request_parameter_value"
+            - "request_body_parameter_value"
+            - "json_value"
+            - "xml_value"
+            - "multipart_form_data_filename"
+            - "multipart_form_data_value"
+      match_response_attack:
+        payloads: ["/etc/passwd"]
+        injections:
+          - template: "{payload}"
+          - template: "{prefix}{payload}{suffix}"
+            affixes:           
+              - prefix: "/../../../../../../../../../../../.."
+                suffix: ""
+        matchers:
+          - description: "Check the HTTP response body to see if it contains the /etc/passwd file contents"
+            severity: "High"
+            match:
+              location: "response_body"
+              expression: "root:.:0:0:"
+```
+
+## Worked example
+During the DAST crawl phase, DAST submits a form with an input field named `file_name` (headers simplified for brevity).
+
+```
+POST /read-file HTTP/1.1
+Accept: text/html
+Content-Length: 20
+Content-Type: application/x-www-form-urlencoded
+Host: site.com
+
+file_name=browserker
+```
+
+During the active scan phase, DAST creates attacks from crawled HTTP requests. From the above request, injection locations are found for each of the four header values, the request path `/read-file` and the form input value `browserker`. For a path traversal attack with payload `/etc/passwd`, six attack HTTP requests will be made to the target web application, each with the payload injected into the according injection location.
+
+The attack on the form input value injection location HTTP would be:
+
+```
+POST /read-file HTTP/1.1
+Accept: text/html
+Content-Length: 20
+Content-Type: application/x-www-form-urlencoded
+Host: site.com
+
+file_name=/etc/passwd
+```
+
+Assuming the target web application is vulnerable to a path traversal in the form input, it might read the contents of `/etc/passwd` and return it in the HTTP response, such as:
+
+```
+HTTP/1.1 200 OK
+Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
+Content-Length: 229
+Content-Type: text/html; charset=utf-8
+Date: Mon, 25 Sep 2023 14:55:20 GMT
+
+<html>
+<body>
+  <div id="content">
+    root:x:0:0:root:/root:/bin/bash
+    daemon:x:1:1:daemon:/usr/sbin:/usr/sbin/nologin
+    bin:x:2:2:bin:/bin:/usr/sbin/nologin
+    sys:x:3:3:sys:/dev:/usr/sbin/nologin
+  </div>
+</body>
+</html>
+```
+
+The DAST path traversal attack regular expression `root:.:0:0:` matches against the HTTP response body, so the attack is successful and a new finding is created.
+
+[Try GitLab's browser-based DAST scanning](https://docs.gitlab.com/ee/user/application_security/dast/browser_based.html).
+

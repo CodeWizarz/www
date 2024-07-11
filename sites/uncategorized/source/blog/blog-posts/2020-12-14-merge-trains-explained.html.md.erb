@@ -1,0 +1,65 @@
+---
+title: "How to use merge train pipelines with GitLab"
+author: Veethika Mishra
+author_gitlab: veethika
+author_twitter: veethikaa
+categories: engineering
+image_title: '/images/blogimages/merge-train-explained-banner.jpg'
+description: "Read here an introduction on what merge trains are, how to use them and how to incorporate them to your GitLab project."
+tags: CI, CD, features, DevOps, inside GitLab
+related_posts:
+  - "/blog/2020/01/30/all-aboard-merge-trains/"
+  - "/blog/2021/01/20/using-run-parallel-jobs/"
+postType: content marketing
+merch_banner: merch_seven
+---
+
+This blog post was originally published on the [GitLab Unfiltered blog](/blog/categories/unfiltered/). It was reviewed and republished on 2021-01-20.
+{: .alert .alert-info .note}
+
+[Merge trains](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/) is a powerful GitLab feature that empowers users to harness the potential of [pipelines for merge results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results) to the fullest and also automatically merge a series of (queued) merge requests (MRs) without breaking the target branch. However, due to the structural complexity of the concept, users are often unable to use it effectively for their projects and play it safe by restricting their usage to MRs that pose minimum or no conflict with the target branch.
+
+As a [senior product designer for Continuous Integration (CI)](/company/team/#veethikaa), I often deconstruct certain concepts and logic for features related to CI so that I have a strong foundation of understanding when making design proposals. Recently, I had a chance to hold a discussion around a very interesting feature - merge trains — with the team. This post unpacks the concept of merge trains by explaining the difference between merge trains, pipelines for MRs, and pipelines for merge results.
+
+## Pipelines for merge requests
+
+Generally, when a new merge request is created, a pipeline runs to check if the new changes are eligible to be merged to the target branch. This is called the pipeline for merge requests (MRs). A good practice is to only keep the necessary jobs for validating the changes at this step, so the pipeline doesn’t take a long time to complete and CI minutes are not overused. GitLab allows users to [configure the pipeline for MRs](https://docs.gitlab.com/ee/ci/merge_request_pipelines/index.html#configuring-pipelines-for-merge-requests) by adding `rules:if: $CI_MERGE_REQUEST_IID` to the jobs they wish to run for MRs.
+
+![Pipeline for merge request](/images/blogimages/merge-train-explained-pipeline-for-merge-requests.jpg)
+
+### Pipelines for merge results
+
+Merge request pipelines verify the branch in isolation. The target branch may change several times during the lifetime of the MR, and these changes are not taken into consideration. In the time during which the pipeline for the MR runs (and succeeds), if the target branch progresses in the background and a user merges the changes to the target branch, they might eventually end up with a broken target.
+
+When a [pipeline for merge results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html#pipelines-for-merged-results) runs, GitLab CI performs a _pretend_ merge against the updated target branch by creating a commit on an internal ref from the source branch, and then runs a pipeline against it. This pipeline validates the result prior to merging, therefore increasing the chances of keeping the target branch green.
+
+![Pipeline for merge results](/images/blogimages/merge-train-explained-pipeline-for-merge-results.jpg)
+
+We should keep in mind that this pipeline does not run automatically with every update to the target branch. To learn more about this feature in detail and understand the process of enabling it in your GitLab instance, you can refer to the [official documentation on merge results](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/index.html#pipelines-for-merged-results).
+
+However, if a long time has passed since the last successful pipeline ran, by the time the MR is ready to be merged, the target branch may have already changed and advanced. If we go ahead and merge your MR without re-running the pipeline for MRs, we could end up with a broken target branch. Merge trains can prevent this from happening.
+
+### About merge trains
+
+Pipeline for merge results is an extremely useful feature in itself, but tracking the right slot to merge the feature branch into the target and remembering to run the pipeline manually before doing so is a lot to expect from a developer buried in tasks that involve deep logical thinking.
+
+To tackle this complexity in workflow, GitLab introduced [the merge trains feature](https://docs.gitlab.com/ee/ci/merge_request_pipelines/pipelines_for_merged_results/merge_trains/) in [GitLab Premium 12.0](/releases/2019/06/22/gitlab-12-0-released/#sequential-merge-trains). Merge trains allow users to capitalize on the capabilities of pipelines for merge results to automate the process of merging to the target branch with minimum chances of breaking it.
+
+With merge trains enabled, a merge request can be added to the train, which takes care of it until merged.
+A merge train can be imagined as a queue of MRs that is automatically managed for you.
+
+#### How do merge trains work?
+
+When users queue up their MRs in a merge train, GitLab performs a pretend merge for each source branch on top of the previous branch in the queue, where the first branch on the train is merged against the target branch.
+By creating a temporary commit for each of these merges, GitLab can run merged result pipelines.
+The first MR in the queue, after having a successful pipeline run for MRs, gets merged to the target branch.
+
+Every time a merge request is merged into the target branch, the pipelines for the newly added MRs in the train would run against the target branch and the newly added changes from the recently merged MR and changes that are from MRs already in the train.
+
+![Pipeline for merge results](/images/blogimages/merge-train-explained-working.gif)
+
+Merge trains carry an immense possibility for innovation with GitLab as a toolchain. But to be able to build upon the concept, it is imperative to have a holistic understanding of the same at the system level.
+
+Hopefully, this post does the job of breaking down the concept into layman's terms, thereby opening doors for future collaboration within [stage groups](/handbook/product/categories/) at GitLab.
+
+Have suggestions around improving merge trains? please leave your thoughts on this [epic](https://gitlab.com/groups/gitlab-org/-/epics/5122).

@@ -1,0 +1,387 @@
+---
+title: "Better Code Reviews GitLab Style"
+author: David O'Regan
+author_gitlab: oregand
+author_twitter:
+categories: unfiltered
+image_title: '/images/blogimages/paperclips.jpg'
+description: "Better Code Reviews - A selection of tools for your tool-belt when it comes to code reviews."
+tags: Code Reviews, Merge Requests, GitLab Values
+guest: false
+ee_cta: true
+install_cta: true
+twitter_text: "Better Code Reviews GitLab Style"
+featured:
+---
+
+{::options parse_block_html="true" /}
+
+
+
+> A love letter to anyone that's ever reviewed or been reviewed.
+
+This blog post originally started as a thank-you message inside the GitLab slack channel `#thanks`, however, the scope of the message grew to such a degree that I wanted to take it a step further and see if I could not only thank the amazing people this post is dedicated to, but also hopefully share some of the amazing things they taught me to help *you*, dear reader.
+
+I have always been rather passionate about feedback. For as long as I can remember, I have always sought feedback on everything I was interested in. It's as true for me in software as it is for my non computer related hobbies like bodybuilding or grammar.....**cough cough**. Feedback is so important for every aspect of life, and in software it is no different. Feedback matters and in GitLab, we deliver most if not all of our feedback to one another via the code review.
+
+This post is designed to deliver a selection of the most fantastic things I have seen in code reviews here at GitLab, with two goals:
+
+1. Acknowledge the people who work hard to ensure the feedback cycle they provide is as good as it can be, because at GitLab we like to [say thanks](/handbook/values/#say-thanks).
+1. Offer you, the reader, a selection of tools for your toolbelt when it comes to code reviews.
+
+Enter - **Better Code Reviews**.
+
+## Self Reviews - Details Matter
+
+> Before assigning MRs to the reviewer I practice a self-review to help the reviewer and the maintainer understand quirks and caveats of the MR. I am trying to anticipate their concerns/questions. As a maintainer I find it also very valuable. - Peter Leitzen ([@splattael](https://gitlab.com/splattael))
+
+We often take for granted that details are hard. Moreover, we often take for granted that details in software are even harder. The majority of software consists of layers upon layers of deep abstractions and obscure logic that can be difficult, if not impossible, to really understand without spending a significant amount of time parsing it line by line.
+
+This process is made even harder when the details or context are incorrect. Though it's natural for this to happen, humans are not spell checkers, nor do the majority of us like to revisit a piece of work a fourth or fifth time to ensure it's as correct as it can be. If we all did this, nothing would ever be delivered.
+
+But - there is a sweet spot to be found for this dilemma in software where we can keep the velocity of delivery high, and also reduce the feedback cycle time through a small amount of dedicated effort to the details. We talk about some of the details [here in the responsibility of the merge request author](https://docs.gitlab.com/ee/development/code_review.html#the-responsibility-of-the-merge-request-author).
+
+For the merge request author, step through a checklist. Here is mine. If you can't read my chicken-scratch handwriting, I'll type it out too:
+
+![merge-checklist](/images/blogimages/merge-checklist.png)
+
+Before every feedback cycle:
+
+- Re-read every line
+- Test your code locally
+- Write a test for every change (or as many as you can)
+- Write a clear description and update it after each feedback cycle
+- Include at least one screenshot per change. More is better
+- Check, re-check and re-check your labels
+- Consider using a `~"workflow::refinement"` label for issues ahead of time like we do in the Monitor:Health team
+- Review the code as if you were the reviewer. Be proactive, answer the likely questions, and open followup issues ahead of time
+
+If you want to see the last and most important part in action, check out one of our frontend maintainers Natalia Tepluhina([@ntepluhina](https://gitlab.com/ntepluhina)) pre-answer a question she knew would be asked in [one of her merge requests](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/33587#note_353564612).
+
+## Conventional Comments - Communicate Intent
+
+>  **Shaming** This is horrible code. How about re-writing all of it so that it stops being that bad? - Frédéric Caplette ([@f_caplette](https://gitlab.com/f_caplette))
+
+One of the hardest parts of getting a code review right is communicating the human touch. When we offer feedback and receive feedback, human habit creates cognitive distortion by defaulting to the most negative aspects of that feedback. At GitLab, we try to highlight that in our [value system](/handbook/values/#assume-positive-intent).
+
+In the world of psychology, this is called **mental filtering**, and it's something that all humans have a tendency to do. Though in software this affliction can be more common, as working in software goes hand-in-hand with valuing yourself based on how intelligent others think you are.
+
+Enter [conventional comments](https://conventionalcomments.org/) by Paul Slaughter ([@pslaughter](https://gitlab.com/pslaughter)) - a well thought-out system for leaving comments in a useful way for both the reviewer and author of the merge request. It's so popular one amazing person made a [browser extension (chrome, firefox)](https://gitlab.com/conventionalcomments/conventional-comments-button) for it!
+
+So why does adding a single bolded word to the top of a comment help with the human touch? Well, it's all about intent.
+
+When you start the comment with an eye-catching single word that defines the intent and tone for the comment, it gives the reader a chance to understand where your comment is coming from.
+
+Let's try an experiment. If you had submitted code for review, which comment would you prefer to read?
+
+Option one:
+
+```bash
+What do you think about X instead?
+```
+
+or option two:
+
+```bash
+**suggestion (non-blocking)**
+
+What do you think about X instead?
+```
+
+Now if you're anything like me, you took a preference to option two. It had context, communicated empathy, and was an invitation to try something different rather than a command.
+
+The magic part of this comment is the first line `**suggestion (non-blocking)**`. Straightaway, before you even read the comment, you know the two most important things about it:
+
+1. It's a suggestion from the reviewer
+1. It's non-blocking, communicating it's more of a friendly suggestion then a hard change that's needed
+
+Another massive advantage this style of commenting has: it allows merge request authors to understand the reviewer is neither trying to block nor act as a gatekeeper for their work. By highlighting what counts as a blocking and a non-blocking comment, merge authors get the full context of what the reviewer is trying to communicate.
+
+To demonstrate this, let's try another thought experiment! You have submitted a merge request for review and your review comes back with eight comments.
+
+- **Scenario A: No context in comments.** All comments are treated equally because they lack context for what counts as a blocker and what doesn't.
+- **Scenario B:** Context added via conventional comments system.
+
+The comments can be treated via priority:
+
+1. Blockers => What's needed to get the merge over the line.
+1. Non-blockers => What can be a separate merge or perhaps a discussion.
+
+Next time you're reviewing code, try using conventional comments and watch how it affects not only the way the merge request author feels about the review, but the way **you**, the reviewer, feel leaving the review. My guess is you'll feel a lot better.
+
+We're currently looking at [integrating this feature directly into GitLab](https://gitlab.com/gitlab-org/gitlab/-/issues/26891) because we believe in making GitLab the best possible place for code reviews, and want you to have the best experience possible.
+
+If you want to see a real-life example of some of Paul Slaughter's ([@pslaughter](https://gitlab.com/pslaughter)) awesome work using conventional comments, check out [his reviews of my community contributions](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/24897) here at GitLab. That empathy shines through.
+
+## The Patch File
+
+> Here's a patch file to better explain - Denys Mishunov ([@dmishunov](https://gitlab.com/dmishunov))
+
+Wanna know a `git` secret? Patch files are the stuff of magic. If you want to read about them, [check the Git documentation for patches](https://git-scm.com/docs/git-format-patch).
+
+### How To Make A Patch File
+
+You can make a patch file via your editor, or via the command line.
+
+#### Via The Editor
+
+Rocking a nice fancy IDE or text editor? Most of them support patch files via plugins, or out of the box!
+
+- [VSCode](https://github.com/paragdiwan/vscode-git-patch)
+- [Webstorm](https://www.jetbrains.com/help/webstorm/using-patches.html)
+- [Atom](https://atom.io/packages/git-plus)
+- [Vim](https://vim.fandom.com/wiki/How_to_make_and_submit_a_patch) …life is what happens when you're trying to exit `vim`?
+
+#### Via The CLI
+
+Okay, you’ve made some commits, here’s your `git log`:
+
+```plaintext
+git log --pretty=oneline -3
+* da33d1k - (feature_branch) Reviewer Commit 1 (7 minutes ago)
+* 66a84ah - (feature_branch) Developer 1 Commit (12 minutes ago)
+* adsc8cd - (REL-0.5.0, origin/master, origin/HEAD, master) Release 13.0 (2 weeks ago)
+```
+
+This command creates a new file, `reviewer_commit.patch`, with all changes from the reviewer's latest commit against the feature branch:
+
+```plaintext
+git format-patch HEAD~1 --stdout > reviewer_commit.patch
+```
+
+### Apply The Patch
+
+First, take a look at what changes are in the patch. You can do this easily with `git apply`:
+
+```plaintext
+git apply --stat reviewer_commit.patch
+```
+
+Just a heads up! Despite the name, this command won't actually apply the patch. It will just show the statistics about what the patch will do.
+
+So now that we've had a look, let's test it first, because not all patches are created equal:
+
+```plaintext
+git apply --check reviewer_commit.patch
+```
+
+No errors? Awesome! We can apply this patch without worry.
+
+To apply the patch, you should use `git am` instead of `git apply`. The reason: `git am` allows you to sign off an applied patch with the reviewer's stamp.
+
+```plaintext
+git am --signoff < reviewer_commit.patch
+Applying: Reviewer Commit 1
+```
+
+Now run `git log` and you can see the `Signed-off-by` tag in the commit message. This tag makes it very easy to understand how this commit ended up in the code base.
+
+### Why to use them in code reviews
+
+So now that you know how to make a shiny patch file, why would you use patch files as part of a code review process? There are a few reasons you might consider offering a patch file for a change you feel strongly about:
+
+1. It communicates you have invested a large amount of effort into understanding the author's solution and reasoning
+1. It demonstrates passion for reaching the best solution through teamwork
+1. It offers a willingness on the reviewer's part to accept responsibility for this merge past the point of just reading the code
+
+Some people might argue patch files are a cheeky way for a reviewer to force a change they would rather see make it into the code base, but I argue that anyone who has taken the time to check out a branch, run the project, implement a change, and then submit that change back for a discussion is embodying the value of collaboration to the fullest.
+
+Want to see a awesome example of a patch file in action? Check out one of our frontend maintainers Denys Mishunov ([@dmishunov](https://gitlab.com/dmishunov)) in action using a [patch file to its maximum potential](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/31686#note_341534370)!
+
+We believe so much in creating the best code review experience here at GitLab, we're looking into how can we make this system a [seamless part of the merge request and code review flow](https://gitlab.com/gitlab-org/gitlab/-/issues/220044).
+
+## Fairness
+
+> Fairness is a person's ability to rise above their own prejudice.
+
+Fairness is a odd word. Chris Voss, a former FBI negotiator, said in his book [Never Split The Difference](https://www.goodreads.com/book/show/26156469-never-split-the-difference) that:
+
+> “Fair”—the most powerful word in any negotiation scenario. To become a great negotiator, you must earn the reputation of being a fair one.
+
+Code reviews can be viewed as a negotiation. It's you and another human being having a negotiation, based upon the idea that at the end, the result of this negotiation should be a selection of code that is both of value and of a high standard. While you might think that FBI negotiations and code reviews have little to do with one another, the concept being a fair negotiator often can be the most useful tool in your toolbox as both an author and reviewer.
+
+You can actually see it mentioned twice in the [permissions to play in points 2 and 7](/handbook/values/#permission-to-play) guidelines here at GitLab:
+
+- "Be dependable, reliable, fair, and respectful."
+- "Seek out ways to be fair to everyone."
+
+### Author Fairness
+
+Being fair as an author is the easier of the two. When you think of being fair as an author you need to adhere to a few simple Do's and Don'ts:
+
+Do:
+- Write a proper description with screenshots (can't stress this one enough)
+- Understand a reviewers point of view when they make suggestions
+- Pre-address strange parts of your merge (we all have them)
+- Be open to [collaboration](/handbook/values/#collaboration) on your work
+
+Don't:
+- "plz merge"
+- Forget to write a description with screenshots
+- Be closed off or take offense to suggestions
+- Forget to include any steps needed to get the build running or in other words(reduce burden where possible!)
+
+Honestly, it's pretty simple to be a fair author of a merge request if you use a small amount of empathy and remember that the person reviewing your code **gets nothing extra** for their time spend reviewing their code. They just want to help take your merge to the next level.
+
+### Reviewer Fairness
+
+Being fair as a reviewers is a tad harder than being fair as an author. But why, I hear you ask? The issue is something called "bias" - or [unconscious-bias](/handbook/values/#unconscious-bias), as the handbook defines it.
+
+Bias is, for better or for worse, something we all deal with when it comes to how we *want* things to be. We all have our own styles, preferences, and ideas on how software should be written:
+
+> Eslint be damned I want you to use double quotes!
+
+This creates issues when it comes to code reviews, because it's normal for a lot of your own bias to bleed into a comment. You begin thinking in absolutes and the unresolved discussion count rises.
+
+Let me ask you something. Have you ever reviewed a merge request and found yourself saying things like:
+
+- "It should be written like this?"
+- "Why would they do it like that?"
+- "I would have done it *this* way."
+- "That's not how that should be done!"
+
+Well, my friends, welcome to another common cognitive distortion called "Should/must statements". Do you want to be a better code reviewer? The next time you write a comment and it includes the word "should" or "must", pause right there and really think about why you felt the need to use that word. Sometimes it will be fair and warranted - such as if your company follows a set of coding conventions like we do at GitLab - but stay vigilant for when those statements are a thin veil for a personal preference. Ask yourself if you're being fair with your review. As a reviewer, if you find yourself in need of using a should/must statement, be sure to supply a reference to supporting documentation that is driving your statement.
+
+One lesson I have learned through my own experience is that there is almost always a reason for something to be done the way it is. The fair response to something you don't agree with is to ask *why* it's being done like that, not saying it *must* be another way. That is how you become a fair and great negotiator.
+
+## The Follow Up
+
+> I feel like the follow up issue should become a first class citizen. - Sarah Yasonik ([@syasonik](https://gitlab.com/syasonik))
+
+Long merges suck. They just do. And while the concept of "big doesn't always mean good" might have started with food, it bleeds into the world of software development through merge requests that are too big. They also directly conflict one of our [main values](/handbook/values/#make-small-merge-requests) of iteration. In GitLab, we take this so seriously that [Danger Bot](https://docs.gitlab.com/ee/development/dangerbot.html) will ask you to break down merges that are over a certain size, helping developers champion the [value of iteration](https://about.gitlab.com/handbook/values/#iteration).
+
+Large merge requests create huge amounts of complexity, they're hard to test, they're hard to reason about, they hard to maintain or extend.....and that's just for the author!
+
+So what's worse than a large merge request? Reviewing a large merge request. If you've ever been pinged to review a merge request that was longer than 1000 lines, you understand what I am talking about. If it hasn't happened to you yet, count your lucky stars that your teammates live and breathe some good habits like simple solutions and iteration, and value a lack of complexity.
+
+This creates a bigger problem than a complex reading exercise for the reviewer: it creates a context block. When a review grows past a certain amount of lines, it simply becomes too difficult to reason about without checking out the branch, booting the project and smoke testing. While smoke testing complex reviews are a great idea, it should **not** become the default ideal for reviewing.
+
+If the merge request is too long, the code review is too complex / too long. The code rots, your merge conflicts grow, you can't iterate, you're constantly addressing breaking conflicts … and you're stuck for days, maybe weeks, maybe forever.
+
+So how do we fix this? In the Monitor:Health team's iteration retrospective, my teammate Sarah Yasonik ([@syasonik](https://gitlab.com/syasonik)) raised a point where she suggested the follow up issue / merge become a first class citizen. I thought she was onto something amazing. If your merge is too long, or your reviews are taking too long, break your merge down, keep the reviews small, and offer follow-ups.
+
+Treat the follow-up merge as a first-class citizen. Do it right there *while reading the reviewer's feedback* instead of adding more code to a already too big merge! Do **not** make a already bloated merge even worse by adding more scope. Divide and conquer where possible.
+
+I think a lot of developers and reviewers find this process difficult because it's a contract of faith: 
+
+- I, the author, promise to deliver a follow-up.
+- I, the reviewer, put myself on the line by taking your word that you will in fact fix this issue later.
+
+It's scary, and lacks polish. I get it, but you should never let tomorrow's perfect stop today's progress because - spoiler alert - tomorrow isn't here, and we really only have today.
+
+### The Author Follow Up
+
+If you offer a follow up, deliver it. It's your only rule but you cannot break it. Your credit for wilding the follow up resides solely in your consistent ability to deliver on your promises over time. As a author you should also work with your PMs and EMs to help prioritize the follow up as part of a wider team effort.
+
+### The Reviewer Follow Up
+
+- If you are offered a follow up, accept it with grace and trust the developer to make good on their promise.
+- Be open to suggesting follow ups as part of your review.
+- Be patient with people.
+- Allow for wiggle room, but know when to say no. (A follow-up for a non-critical issue is fine, but not a blatant break that won't add more lines or context.)
+
+## The Art Of The GIF
+
+>  If a Picture Speaks 1,000 Words a animated GIF Speaks 100,000.
+
+While this is the least technical aspect of the entire post it is perhaps the most interesting and the easiest to implement.
+
+Did you know that 93% of communication is nonverbal? I didn't, until I started seeing GIFs in code reviews. When I began to see them pop up in reviews, they deeply caught my attention, and I began to wonder why they had such a lasting impression on me as a developer.
+
+Words are powerful, but images are particularly powerful because of their ties to our emotions. Images have the potential to create powerful emotional responses, and when you see something that sparks a sense of positivity, it sets the tone for the entire review. You **understand fully** that the reviewer really cares and wants to communicate that care non-verbally.
+
+So how do you use GIFs in your merge requests and code reviews? Well, you could [start with our handbook instructions](/handbook/product/making-gifs/), but the short and sweet version:
+
+1. Use a screen recorder to capture the video you want to show as a GIF.
+2. Grab yourself a copy of [gifify](https://github.com/vvo/gifify).
+3. GIF all day long!
+
+### GIFs That Show You Care
+
+I won't ever forget the first time I saw a [funny GIF in a code review](https://gitlab.com/gitlab-org/gitlab-ui/-/merge_requests/1193#note_307290889). I never even made it to reading the comment, because all I could comprehend was this animated GIF of a thumbs-up and I remember thinking: *This merge would pass review. It would all be okay.* The sheer childlike giddy nature of seeing this image in action made me smile ear-to-ear. Every other comment could have been a rant about how awful my code was, but I wouldn't have cared.
+
+If I can give you one piece of advice for your code reviews as a reviewer, use GIFs in a light-hearted way, because they are:
+
+- empathy-laden
+- soften the blow of a hard topic
+- foster positivity
+- make code reviews fun!
+
+![teamwork](https://media.giphy.com/media/vcHTRiZOglHNu/giphy.gif)
+
+We're currently looking at making [Giphy a integrated feature here at GitLab](https://gitlab.com/gitlab-org/gitlab/-/issues/17379), making your code reviews even easier and more fun!
+
+## Tactical code reviews through the value of iteration
+
+> Can we make this smaller? - Clement Ho([@ClemMakesApps](https://gitlab.com/ClemMakesApps))
+
+One thing I have noticed that help time and time again for better code reviews is the idea of breaking down a merge request into the smallest piece possible. A few people in my time here at GitLab have really put this across as a valuable way of working, but it was my frontend engineering manager Clement Ho([@ClemMakesApps](https://gitlab.com/ClemMakesApps)) that I really took notice championing this ideal. Given that I started paying close attention to this idea and began to notice benefits almost immediately when implementing the idea.
+
+If we look at the GitLab value handbook's [suggestions iteration competency](/handbook/values/#iteration-competency) you can see that the value in small, digestible merge requests which translates into smaller code reviews:
+
+| Level | Demonstrates Iteration Competency by… |
+|---|---|
+| Staff/Manager | Is able to take long term goals and turn them into **small actionable steps** that can be implemented in an iterative way. Identifies and prevents decisions that are not “two-way door decisions”. Ships. All the time. Sounds like a broken record in discussions with more junior members of the team; **always asking if we can make something smaller**. |
+
+In a [public AMA as part of GitLab unfiltered](https://www.youtube.com/channel/UCMtZ0sc1HHNtGGWZFDRTh5A) with our [CEO - Sid Sijbrandij](/handbook/ceo/), someone asked him what he thought of Elon Musk and for me, what our CEO with his recounting of a Elon Quote touched on was the root of being successful with software delivery:
+
+> If your process is too long, your design is broken.
+
+This concept bleeds into the idea of always finding ways to break down tasks into smaller chunks where possible, create roads for iteration and reducing burden on each member involved with the cycle. Spoiler: Less code means less burden for *everyone* involved with a merge request, not just the author.
+
+It's happened to all of us. Really. You've been assigned a merge request to review, you sip your coffee and open it up to recoil in horror seeing a merge request that changes 1000+ lines......or worse more than 10 files.........strap yourself in for a long review.
+
+The issues with this **should** be obvious if you're practicing self reviews but can often go under the radar. If we ignore the sheer amount of time it takes to orientate to the context of the merge request you also loose on the following fronts:
+
+1. Longer merges just have more lines to read
+2. Chances of brittle connections are larger
+3. It becomes harder to follow the path of the solution / feature
+4. Screenshots cannot account for the volume of change usually
+5. It becomes so much easier to miss bugs due to the volume to read
+6. It can be very demotivating for an author to end up with 20+ comments, even if they are written from a place of love
+
+It's a simple concept but a rather undervalued one - keep your merges as small as possible.
+
+- Less lines to read
+- Creates a clear separation of concerns
+- Helps a reviewer gain easy context
+- Easier to follow the path for the feature
+- Less review comments === Less chance of author loosing motivation
+
+In an ideal world your merge would only ever deal with a single concept within a single technology, making it easy to understand the context and give the merge request the review it deserves. I am aware this isn't always possible but you should strike for this kind of merge request for both your sake and the reviewers sake.
+
+## TL;DR
+
+So what am I trying to get at with this post? Well, hopefully, after you read this, you come away with some amazing ideas and tools to help you deliver more effective results in your code reviews!
+
+The real reason I write this, and the real take away: I want it  known that amazing work, empathy and a desire to help does not go unnoticed. Striving to be better for yourself is wonderful, but striving to be better to lift those around you up is a level above that.
+
+Since joining GitLab, this is a value I have seen and felt championed to the point of being excited to review code! We review code not because we want to punish other for their mistakes, we review code because we are a team and want to ensure that every release adds value to a customer's life.
+
+So if nothing else, I hope that the how and why of this post left you with something to think about. Specifically, I hope it's left you with a set of tools used by wonderful people here at GitLab that I know have made my own life better.
+
+Cover Image by [Jackson Simmer](https://unsplash.com/@simmerdownjpg) on [Unsplash](https://unsplash.com/photos/Vqg809B-SrE)
+{: .note}
+
+## A special thanks to
+
+- Paul Slaughter
+- Denys Mishunov
+- Clement Ho
+- Natalia Tepluhina
+- Peter Leitzen
+- Sarah Yasonik
+- Amy Qualls
+- Amelia Bauerly
+- Sean Arnold
+- Olena Horal-Koretska
+- Tristan Read
+- Enrique Alcantara
+- Jeremy Elder
+- Ezekiel Kigbo
+- And all the other amazing people in GitLab that have shown me the joys of better code reviews.
+
+[Join us](/jobs/) at GitLab! Or consider [trying us out](/free-trial/) for free.
+
+<%= partial "includes/blog/blog-merch-banner" %>
+

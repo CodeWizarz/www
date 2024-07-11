@@ -1,0 +1,286 @@
+---
+title: "GitLab.com is moving to 14.0 with a few breaking changes"
+author: Orit Golowinski
+author_gitlab: ogolowinski
+author_twitter: GO_Orit
+categories: company
+image_title: '/images/blogimages/14_0_breaking_changes.jpg'
+description: "These are the features that will be deprecated in GitLab 14.0."
+tags: news, releases, production
+twitter_text: "Learn more about the features that will be deprecated in @GitLab 14.0"
+featured: yes
+postType: product
+merch_banner: merch_three
+related_posts:
+  - "/blog/2021/06/01/gitlab-is-setting-standard-for-devsecops/"
+  - "/blog/2021/05/19/agile-planning-with-a-devops-platform/"
+  - "/blog/2021/03/31/3-debugging-tips-we-learned-from-you/"
+---
+
+## GitLab 14.0: Our annual major release
+
+GitLab 14.0 is coming to GitLab.com. Along with the [exciting new features](https://www.youtube.com/embed/Z1FqGH0pNvo), it also includes [planned deprecations](/releases/2021/05/22/gitlab-13-12-released/#release-deprecations) because it is the major version release for 2021. We try to minimize breaking changes, but some changes are needed to improve workflows, performance, scalability, and more.
+
+These changes will go live on GitLab.com sometime between May 23 – June 22, through our [daily deployments](/handbook/engineering/infrastructure/library/scheduled-daily-deployments/), leading up to the official release of 14.0 on June 22. Keep reading to learn more about these important changes.
+
+GitLab 14.0 for self-managed users will also be released on June 22, [read on for more information about deprecations and removals for self-managed instances](/releases/2021/05/22/gitlab-13-12-released/#release-deprecations).
+
+## Plan
+
+### Removed deprecated GraphQL fields
+
+In accordance with our [GraphQL deprecation process](https://docs.gitlab.com/ee/api/graphql/#deprecation-process), the following fields, enum names, and mutation aliases that were deprecated on or before GitLab version 13.6 are [permanently removed from our GraphQL API in 14.0](https://gitlab.com/gitlab-org/gitlab/-/issues/267966).
+
+Fields:
+
+- `Mutations::Todos::MarkAllDone` - `updated_ids`
+- `Mutations::Todos::RestoreMany` - `updated_ids`
+- `Mutations::DastScannerProfiles::Create` - `global_id`
+- `TimeFrameArguments (concern*)` - `start_date`
+- `TimeFrameArguments (concern*)` - `end_date`
+- `Types::SnippetType` - `blob`
+- `Types::DastScannerProfileType` - `global_id`
+- `EE::Types::GroupType` - `vulnerabilities_count_by_day_and_severity`
+- `EE::Types::QueryType` - `vulnerabilities_count_by_day_and_severity`
+
+Enums (each replaced by the upper-case version, such as `updated_desc` -> `UPDATED_DESC`):
+
+- `Types::SortEnum` - `updated_desc`
+- `Types::SortEnum` - `updated_asc`
+- `Types::SortEnum` - `created_desc`
+- `Types::SortEnum` - `updated_asc`
+
+Mutation aliases:
+
+- `DeprecatedMutations (concern**)` - `AddAwardEmoji`
+- `DeprecatedMutations (concern**)` - `RemoveAwardEmoji`
+- `DeprecatedMutations (concern**)` - `ToggleAwardEmoji`
+- `EE::Types::DeprecatedMutations (concern***)` - `Mutations::Pipelines::RunDastScan`
+- `EE::Types::DeprecatedMutations (concern***)` - `Mutations::Vulnerabilities::Dismiss`
+- `EE::Types::DeprecatedMutations (concern***)` - `Mutations::Vulnerabilities::RevertToDetected`
+
+For mutation aliases, the concern name isn't as important as the name of the mutation itself. While you can't use **this particular name** anymore, we provide alternatives in our GraphQL documentation.
+
+## Create
+
+### Name change of default branch in Git
+
+Every Git repository has an initial branch, which is the first branch that is automatically generated when you create a new repository. By default, this initial branch is named `master`. In Git version 2.31.0 – released [March 15th, 2021](https://www.google.com/calendar/event?eid=NG03dTF0YWU4cnMyMmc5bzJoMjVyYTZwcXEgamZnYmwybXJsaXBwNHBiNmllaWgwcXIzc29AZw&ctz=America/Los_Angeles) – the default Git branch name changed to `main`. In coordination with the Git project and the broader community, GitLab is changing the default branch name for new projects on both our [SaaS](/pricing/feature-comparison/) (GitLab.com) and self-managed offerings, starting with GitLab 14.0.
+
+For more information, see the related [epic](https://gitlab.com/groups/gitlab-org/-/epics/3600), [documentation](https://docs.gitlab.com/ee/user/project/repository/branches/default.html), and the Git [mailing list discussion](https://lore.kernel.org/git/xmqqa6vf437i.fsf@gitster.c.googlers.com/T/#t).
+
+### Deprecated legacy Gitaly cluster primary electors
+
+Now that Praefect supports a [`per_repository` primary election strategy](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#repository-specific-primary-nodes), GitLab 14.0 removes the legacy strategies deprecated in GitLab 13.12:
+
+- The `local` elector is not supported in production, and should not affect production instances.
+- The `sql` elector is incompatible with the [variable replication factor](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#configure-replication-factor) feature.
+
+If you use the `local` or `sql` primary electors, we recommend you update to the `per_repository` election strategy as soon as possible. Read the [migration documentation](https://docs.gitlab.com/ee/administration/gitaly/praefect.html#migrate-to-repository-specific-primary-gitaly-nodes) to learn more.
+
+### WIP merge requests renamed "draft merge requests"
+
+[WIP (work in progress) status](/blog/2016/01/08/feature-highlight-wip/) for merge requests provide a clear signal to reviewers that the merge request in question is not ready to be merged. The WIP feature for merge requests has been renamed to "Draft", a more inclusive and self-explanatory term. "Draft" clearly communicates the merge request in question isn't ready for review, and makes no assumptions about the progress being made toward it. "Draft" also reduces the cognitive load for new users, non-English speakers, and anyone unfamiliar with the WIP acronym.
+
+WIP merge requests were deprecated in favor of **draft** merge requests, and are [removed entirely](https://gitlab.com/gitlab-org/gitlab/-/issues/228685) in GitLab 14.0.
+
+## Manage
+
+### Deprecated GitLab OAuth implicit grants
+
+GitLab 14.0 deprecates the [OAuth 2 implicit grant flow](https://docs.gitlab.com/ee/api/oauth2.html#implicit-grant-flow), as it has been removed for [OAuth 2.1](https://oauth.net/2.1/).
+
+Beginning in GitLab 14.0, you can't create new applications with the OAuth 2 implicit grant flow. Existing OAuth implicit grant flows will become unsupported in GitLab 14.4. Migrate existing applications to other supported [OAuth2 flows](https://docs.gitlab.com/ee/api/oauth2.html#supported-oauth2-flows) before GitLab 14.4.
+
+### Removed `CI_PROJECT_CONFIG_PATH` predefined project variable
+
+The `CI_PROJECT_CONFIG_PATH` predefined project variable is removed in favor of the `CI_CONFIG_PATH` variable, which is functionally the same. If you are using `CI_PROJECT_CONFIG_PATH` in your pipeline configurations update to use `CI_CONFIG_PATH` instead.
+
+### Expired SSH keys disabled by default
+
+Starting in GitLab 14.0, expired [SSH keys added to GitLab](https://docs.gitlab.com/ee/ssh/#add-an-ssh-key-to-your-gitlab-account) are disabled by default. This changes the current behavior, which allows expired SSH keys to be used unless explicitly disabled by an administrator. Administrators can still allow the use of expired keys in the same way as they can [override expiration settings](https://docs.gitlab.com/ee/administration/settings/account_and_limit_settings.html#optional-non-enforcement-of-personal-access-token-expiration) for personal access tokens.
+
+## Verify
+
+### Changes to Code Quality Rubocop support
+
+Currently, by default, the Code Quality feature doesn't provide support for Ruby 2.6+ if you're using the Code Quality template.
+
+To better support the latest versions of Ruby, we are changing the default Rubocop version to add support for Ruby 2.4 through 3.0. Support for Ruby 2.1, 2.2, and 2.3 is dropped as a result of this change. To enable support for older versions, [customize your configuration](https://docs.gitlab.com/ee/user/project/merge_requests/code_quality.html#rubocop-errors). Read the relevant issue ["Default `codeclimate-rubocop` engine does not support Ruby 2.6+""](https://gitlab.com/gitlab-org/ci-cd/codequality/-/issues/28) to learn more about this change.
+
+### Renamed default Browser Performance Testing job
+
+Browser Performance Testing currently runs in a job named `performance` by default. This name can be confused with [Load Performance Testing](https://docs.gitlab.com/ee/user/project/merge_requests/load_performance_testing.html), introduced in GitLab 13.2. To make clear which job is running Browser Performance Testing, GitLab 14.0 renames the default job name from `performance` to `browser_performance` in the template. Read the relevant issue ["Rename default Browser Performance Testing job"](https://gitlab.com/gitlab-org/gitlab/-/issues/225914) to learn more about this change.
+
+### Ruby version changing in `Ruby.gitlab-ci.yml`
+
+The `Ruby.gitlab-ci.yml` template contains changes to better support new versions of Ruby. Previously, the `Ruby.gitlab-ci.yml` file included Ruby 2.5. To better support the latest versions of Ruby, the template now uses `ruby:latest`, which is currently Ruby 3.0. Read the [ruby-lang.org release announcement](https://www.ruby-lang.org/en/news/2020/12/25/ruby-3-0-0-released/) to learn more about the changes to Ruby, and explore our relevant issue, ["Updates Ruby version 2.5 to 3.0"](https://gitlab.com/gitlab-org/gitlab/-/issues/329160) to learn more about the change.
+
+### GitLab Runner: Package installation ignores `skel` directory during installation
+
+In GitLab Runner 14.0, the installation process ignores the `skel` directory by default when creating the user's home directory. For more details about this breaking change, read the [deprecation issue](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/4845).
+
+### GitLab Runner: PowerShell Core as default shell for newly registered Runners on Windows
+
+Beginning in GitLab Runner 14.0, newly registered Windows Runners default to adding PowerShell Core (`pwsh`) as the default shell in the `config.toml` file, instead of the legacy Windows PowerShell (`powershell`).
+
+### GitLab Runner: Remove support for Windows Server 1909 image
+
+Microsoft ended support for Windows Server version 1909 on May 11, 2021. In keeping with our [support policy](https://docs.gitlab.com/runner/install/windows.html) for Windows Server, GitLab 14.0 removes Windows 1909 support from GitLab Runner. If you are still using Windows Server 1909, then `docker-windows` on GitLab Runner 14.0 or higher will no longer work. For additional details regarding this breaking change, read the [deprecation issue](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/27899).
+
+## Release
+
+### Renewed template for Auto DevOps: Stable Auto Deploy
+
+GitLab 14.0 renews the [Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/stages.html#auto-deploy) CI template to the latest version. This includes new features, bug fixes, and performance improvements with a dependency on the `v2` [auto-deploy-image](https://gitlab.com/gitlab-org/cluster-integration/auto-deploy-image). This latest template is opt-in, meaning, unless you specifically customize Auto DevOps in your project, it uses the stable template with a dependency on the `v1` auto-deploy-image.
+
+The `v1` and `v2` versions are not backward compatible, so your project might encounter an unexpected failure if you already have a deployed application. Please follow the [upgrade guide](https://docs.gitlab.com/ee/topics/autodevops/upgrading_auto_deploy_dependencies.html#upgrade-guide) to upgrade your environments. You can also start using the latest template today by following the [early adoption guide](https://docs.gitlab.com/ee/topics/autodevops/upgrading_auto_deploy_dependencies.html#early-adopters).
+
+### Deprecated release description in the Tags API
+
+GitLab 14.0 removes support for the release description in the Tags API. You can no longer add a release description when [creating a new tag](https://docs.gitlab.com/ee/api/tags.html#create-a-new-tag). You also can't [create](https://docs.gitlab.com/ee/api/tags.html#create-a-new-release) or [update](https://docs.gitlab.com/ee/api/tags.html#update-a-release) a release through the Tags API. You should migrate to the [Releases API](https://docs.gitlab.com/ee/api/releases/#create-a-release) instead.
+
+### Deprecated `disk` source configuration for GitLab Pages
+
+GitLab Pages [API-based configuration](https://docs.gitlab.com/ee/administration/pages/#gitlab-api-based-configuration) has been available since GitLab 13.0, and will replace the `disk` source configuration which GitLab 14.0 removes. We recommend that you stop using `disk` source configuration, since it is no longer supported and cannot be selected. Use `gitlab` for an API-based configuration instead. To migrate away from the `disk` source configuration, set `gitlab_pages['domain_config_source'] = "gitlab"` in your `gitlab.rb/etc/gitlab/gitlab.rb` file. We recommend that you do this before GitLab 14.0 so you can find and troubleshoot any potential problems ahead of time.
+
+### Deprecated legacy feature flags
+
+Legacy feature flags became read-only in GitLab 13.4, and GitLab 14.0 removes support for them. You must [migrate your legacy feature flags](https://docs.gitlab.com/ee/operations/feature_flags.html#legacy-feature-flag-migration) to the new version, as described in the [documentation](https://docs.gitlab.com/ee/operations/feature_flags.html). Watch the video tutorial below for help with the migration:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/CAJY2IGep7Y" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+## Package
+
+### Empty container registries will have the cleanup policies turned off
+
+The [cleanup policy](https://docs.gitlab.com/ee/user/packages/container_registry/#cleanup-policy) is a scheduled job you can use to remove or preserve tags from the Container Registry. In GitLab 14.0, we will make an update that will turn the cleanup policy feature off for projects that have no container images in their registry. Moving forward, a recurring job will regularly run to ensure that projects with no container images do not have the cleanup policy feature turned on.
+
+This change significantly improves the performance and reliability of the feature and allows us to prioritize exciting usability features like a preview-run, as proposed in the issue, ["Expiration policy dry-run and forced run"](https://gitlab.com/gitlab-org/gitlab/-/issues/223732).
+
+If this change affects you, you can easily [enable the feature again](https://docs.gitlab.com/ee/user/packages/container_registry/#create-a-cleanup-policy) by following the steps in the documentation.
+
+## Configure
+
+### Removed one-click GitLab Managed Apps
+
+GitLab 13.7 deprecated the one-click install of GitLab Managed Apps, and GitLab 14.0 removes them entirely. Although GitLab Managed Apps made it easy to start deploying to Kubernetes from GitLab, feedback from the community was that they were not flexible or customizable enough for real-world Kubernetes applications. Our new direction focuses on [installing apps on Kubernetes with GitLab CI/CD](https://docs.gitlab.com/ee/user/clusters/applications.html#install-using-gitlab-cicd-alpha) to provide a better balance between ease-of-use and extensive customization.
+
+This removal does not affect how existing managed applications run inside your cluster. However, you no longer can update or modify those applications in the GitLab UI.
+
+We recommend cluster administrators to [migrate any existing managed applications to the project template](https://docs.gitlab.com/ee/user/clusters/migrating_from_gma_to_project_template.html).
+
+### New Terraform template version
+
+As we continuously develop GitLab's Terraform integrations, to minimize customer disruption, we maintain two GitLab CI/CD templates for Terraform:
+
+- The ["latest version" template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Terraform.latest.gitlab-ci.yml), which is updated frequently between minor releases of GitLab (such as 13.10, 13.11, etc).
+- The ["major version" template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Terraform.gitlab-ci.yml), which is updated only at major releases (such as 13.0, 14.0, etc).([View the new "major version" template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Terraform.gitlab-ci.yml).)
+
+At every major release of GitLab, the "latest version" template becomes the "major version" template, inheriting the "latest template" setup. As we have added many new features to the Terraform integration, the new setup for the "major version" template can be considered a breaking change.
+
+The latest template supports the [Terraform Merge Request widget](https://docs.gitlab.com/ee/user/infrastructure/mr_integration.html) and doesn't need additional setup to work with the [GitLab managed Terraform state](https://docs.gitlab.com/ee/user/infrastructure/terraform_state.html).
+
+### Renewed template for Terraform
+
+GitLab 14.0 renews the Terraform CI/CD template to the latest version. The new template is set up for the GitLab Managed Terraform state. It includes a dependency on the GitLab `terraform-images` image to improve the user experience with GitLab's [Infrastructure as Code](https://docs.gitlab.com/ee/user/infrastructure/#quick-start) features.
+
+Since the current stable and latest templates are incompatible, and the latest template becomes the stable template GitLab 14.0, your Terraform pipeline might encounter an unexpected failure if you run a custom `init` job.
+
+### Auto Build uses Cloud Native Buildpacks by default
+
+In GitLab 14.0, Auto Build now defaults to Cloud Native Buildpacks instead of Herokuish when no `Dockerfile` is present. Users depending on the `/bin/herokuish` binary provided by Herokuish should either change their deployments to use `/cnb/lifecycle/launcher` instead of `/bin/herokuish exec`, or opt-out of using Cloud Native Buildpacks, by setting the CI variable `AUTO_BUILD_IMAGE_CNB_ENABLED` to `false`.
+
+## Secure
+
+### Removals for SAST and Secret Detection
+
+This release removes or migrates several variables:
+
+- [Removes the SAST Analyzer variable](/releases/2021/04/22/gitlab-13-11-released/#remove-sast-analyzer-sast_gosec_config-variable-in-favor-of-custom-rulesets) `SAST_GOSEC_CONFIG` in favor of custom rulesets for expanded configuration and consistency.
+- [Removes the global variable](/releases/2021/04/22/gitlab-13-11-released/#deprecating-global-%60sast_analyzer_image_tag%60-in-sast-ci-template) `SAST_ANALYZER_IMAGE_TAG` in favor of analyzer-specific variables to provide more granular control of versioning analyzers.
+- [Migrates the variable](/releases/2021/04/22/gitlab-13-11-released/#migrate-from-sast_default_analyzers-to-sast_excluded_analyzers) `SAST_DEFAULT_ANALYZERS` to `SAST_EXCLUDED_ANALYZERS` for better forward compatibility.
+
+This release also removes the `secret_detection_default_branch` job in our managed `Secret-Detection.gitlab-ci.yml` template to reduce CI complexity.
+
+If you override or maintain custom versions of `SAST.gitlab-ci.yml` or `Secret-Detection.gitlab-ci.yml`, update your CI templates. We strongly encourage you [inherit and override our managed CI templates](https://docs.gitlab.com/ee/user/application_security/secret_detection/#custom-settings-example) to future-proof your CI templates.
+
+### Removed the License-Management CI template
+
+In 13.0, we deprecated the License-Management CI template and renamed it License-Scanning. GitLab 14.0 completely removes the License-Management CI template. We have been providing backward compatibility by warning users of the old template to switch. Read the change in the [relevant issue #216261](https://gitlab.com/gitlab-org/gitlab/-/issues/216261) or [blog post](/blog/2021/02/08/composition-analysis-14-deprecations-and-removals/).
+
+### Deprecations for Dependency Scanning
+
+To exclude a DS analyzer previously you needed to remove it from the default list of analyzers and use that to set the `DS_DEFAULT_ANALYZERS` variable in your project’s CI template. We determined it should be easier to avoid running a particular analyzer without losing the benefit of newly added analyzers. Now you should be able to migrate from `DS_DEFAULT_ANALYZERS` to `DS_EXCLUDED_ANALYZERS` as [described in the documentation](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/analyzers.html#disable-specific-analyzers). Read more about the change in [relevant issue](https://gitlab.com/gitlab-org/gitlab/-/issues/287691), the [13.9 release post](/releases/2021/02/22/gitlab-13-9-released/#deprecations-for-dependency-scanning), and [the relevant blog post](/blog/2021/02/08/composition-analysis-14-deprecations-and-removals/).
+
+To prevent the Gemnasium analyzers to fetch the advisory database at runtime, you previously had to set the `GEMNASIUM_DB_UPDATE` variable. But this is not documented properly and its naming is inconsistent with the equivalent `BUNDLER_AUDIT_UPDATE_DISABLED` variable. You should migrate from `GEMNASIUM_DB_UPDATE` to `GEMNASIUM_UPDATE_DISABLED` when it is available. Read about the change in the [relevant issue](https://gitlab.com/gitlab-org/gitlab/-/issues/215483).
+
+### DAST environment variable renaming and removal
+
+GitLab 13.8 renamed multiple environment variables to support broader usage in different workflows. GitLab 14.0 permanently removes these variables, and they no longer work. If you use the old variables in your configuration it's time to update to the new variable names. Any scans using these variables in GitLab 14.0 and later will fail to be configured correctly:
+
+-  `DAST_AUTH_EXCLUDE_URLS` is now `DAST_EXCLUDE_URLS`.
+-  `AUTH_EXCLUDE_URLS` is now `DAST_EXCLUDE_URLS`.
+-  `AUTH_USERNAME` is now `DAST_USERNAME`.
+-  `AUTH_PASSWORD` is now `DAST_PASSWORD`.
+-  `AUTH_USERNAME_FIELD` is now `DAST_USERNAME_FIELD`.
+-  `AUTH_PASSWORD_FIELD` is now `DAST_PASSWORD_FIELD`.
+-  `DAST_ZAP_USE_AJAX_SPIDER` is now `DAST_USE_AJAX_SPIDER`.
+-  `DAST_FULL_SCAN_DOMAIN_VALIDATION_REQUIRED` is removed, as the feature is being removed.
+
+## Protect
+
+### Web Application Firewall (WAF) removal
+
+GitLab's Web Application Firewall (WAF) was deprecated in GitLab 13.6. GitLab 14.0 removes the WAF on June 22, 2021. GitLab's WAF had limitations inherent in the architectural design that made it difficult to meet the requirements traditionally expected of a WAF. By deprecating and removing the WAF, GitLab can focus on improving other areas in the product to provide more value to users.
+
+If you currently rely on GitLab's WAF, we recommend you continue to use the free and open source [ModSecurity](https://www.modsecurity.org/) project, which is independent from GitLab. More details are available in the [deprecation issue](https://gitlab.com/gitlab-org/gitlab/-/issues/271276).
+
+### Container Scanning Engine Clair removal
+
+Prior to GitLab 14.0, GitLab used the open-source Clair engine for container scanning. Clair was deprecated in GitLab 13.9, and GitLab 14.0 replaces Clair with Trivy. If you use any GitLab 13.x release, you can continue to use Clair without making any changes to your CI files – however, GitLab will no longer update or maintain that scanning engine.
+
+Beginning in the 14.0 release Trivy becomes the new default scanner and receives regular updates and the latest features. You should review their CI files in advance of the 14.0 release and [follow these instructions](https://docs.gitlab.com/ee/user/application_security/container_scanning/#migrating-from-clair-to-trivy) to ensure your container scanning jobs continue to work. You can provide feedback and get additional details about the change to Trivy on our [open deprecation issue](https://gitlab.com/gitlab-org/gitlab/-/issues/321451).
+
+## Enablement
+
+### Remove old Advanced Search migrations in GitLab 14.0 release
+
+[Advanced Search migrations](https://docs.gitlab.com/ee/integration/elasticsearch.html#advanced-search-migrations) is a feature that helps you update your Elasticsearch index in the background when a GitLab version upgrade introduces changes to indexes. Advanced Search migrations add complexity that requires us to support multiple code paths. It's important to reduce this complexity while keeping it safe.
+
+GitLab 14.0 removes all migrations that were added before the GitLab 13.12 release. **Instances Running GitLab 13.11 or under must be upgraded to GitLab 13.12 before upgrading to GitLab 14.0**, otherwise you may need to recreate your Advanced Search index. You can find more information about the process of deleting migrations in our [Elasticsearch development documentation](https://docs.gitlab.com/ee/development/elasticsearch.html#deleting-advanced-search-migrations-in-a-major-version-upgrade).
+
+## API Changes
+
+### Enforce maximum attachment size on Project API uploads
+
+Some people use the [project API](https://docs.gitlab.com/ee/api/projects.html#upload-a-file) to upload large binaries to link in the Release pages. This API was originally intended only to share attachments in issues or merge requests, and should have been subject to the configured maximum attachment size (10 MB by default). GitLab 14.0 enforces the size limit, and uploads that exceed this limit now fail with a `413 Entity Too Large` error. Files that already uploaded remain downloadable.
+
+### Drop `updated_at` filter from Deployment API
+
+Some users are pulling data from the [`list project deployments`](https://docs.gitlab.com/ee/api/deployments.html#list-project-deployments) API endpoint to populate a custom-built dashboard. There is no way to restrict the API results to display only the latest changes. To overcome this, you must retrieve all records, check them one-by-one, and process only the records updated after the latest `updated_at` value in the last batch retrieved.
+
+GitLab 14.0 changes this API to make this process more efficient and performant:
+
+- `updated_after` is now `finished_after`.
+- `updated_before` is now `finished_before`.
+- Queries specifying the `updated_at` filter must set `order_by` to `updated_at`.
+
+### Limit projects returned in `GET /groups/:id/`
+
+To improve performance, GitLab 14.0 limits the number of projects returned from the `GET /groups/:id/` API call to 100. You can still retrieve a complete list of projects with the `GET /groups/:id/projects` API call.
+
+### Remove `trace` parameter from `PUT /api/jobs/:id`
+
+GitLab Runner was previously updated to change how it communicates with GitLab. Some internal code is no longer in use, and GitLab 14.0 deprecates this unused code. Make sure your [GitLab Runner version matches your GitLab version](https://docs.gitlab.com/runner/#gitlab-runner-versions) to ensure consistent behavior.
+
+### Deprecate segments from DevOps Adoption API
+
+The first release of the DevOps Adoption report had a concept of "segments". Segments were [quickly removed from the report](https://gitlab.com/groups/gitlab-org/-/epics/5251) because they introduced an additional layer of complexity on top of "groups" and "projects". Subsequent iterations of the DevOps Adoption report focuses on comparing adoption across groups rather than segments. GitLab 14.0 [removes all references to "segments" in the GraphQL API](https://gitlab.com/gitlab-org/gitlab/-/issues/324414) and replaces them with "groups".
+
+Cover image by [PHOTOGRAPHER Silvia Brazzoduro](https://unsplash.com/photos/YSxcf6C_SEg) on [Unsplash](https://unsplash.com)
+{: .note}

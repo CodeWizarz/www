@@ -1,0 +1,115 @@
+---
+title: "How what we learned at KubeCon EU 2022 will impact our product roadmaps"
+author: Viktor Nagy
+author_gitlab: nagyv-gitlab
+author_twitter: gitlab 
+categories: devops platform
+description: "Platform integrations and secrets management are among our product team's primary takeaways. Find out why."
+tags: kubernetes, CI, CD, GitOps, cloud native, DevOps
+featured: yes
+postType: product
+related_posts:
+- "blog/2022/05/18/pull-based-kubernetes-deployments-coming-to-gitlab-free-tier/"
+- "/blog/2022/05/09/one-devops-platform-can-help-you-achieve-devsecops/"
+image_title: /images/blogimages/2.png
+twitter_text: "Find out how what we learned at KubeCon EU 2022 about platform integrations and secrets management will impact our product roadmaps."
+---
+
+After two years of only virtual KubeCon events, the GitLab product team was excited to participate in and meet colleagues, partners, and more from our industry at KubeCon EU 2022, held in Valencia, Spain. We were present with four product leaders, a software developer, and a UX researcher. This post summarizes our primary takeaways from the conference, an experience that will affect our roadmaps.
+
+We will discuss the following topics:
+
+- Internal platforms and GitOps
+- Secrets management
+- Infrastructure integrations
+- WebAssembly a.k.a. WASM 
+
+There were 32 topic types and several 0-day events at KubeCon. Many talks focused on a few tools. Many Cloud Native Computing Foundation ([CNCF](https://www.cncf.io/)) projects had their community meetings during these days. Some talks were given IRL, and others were broadcast virtually with live Q&A. There were a variety of topics and approaches. There were many talks about the various aspects of cluster management, too. However, we left this topic out on purpose because at GitLab we want to focus on the software developers and provide one DevOps platform to support their work. Cluster management is one step away from this focus. Still, we noticed some remarkable patterns as highlighted by the four elements of our list.
+
+> You’re invited! Join us on June 23rd for the [GitLab 15 launch event](https://page.gitlab.com/fifteen) with DevOps guru Gene Kim and several GitLab leaders. They’ll show you what they see for the future of DevOps and The One DevOps Platform.
+
+## Internal platforms and GitOps
+
+Companies want their developers to focus on their core business. They create internal platforms to hide the complexity of Day 0-2 operations from their software engineers and still allow the "shift left" movement of DevOps. These platforms often involve the welding of several tools.
+
+Many talks presented how the given team or company approached their platform problem and what tools they used, and one could often feel the 18-month sweat of a whole platform team trying to come up with a solution.
+
+These platforms use either a push- or pull-based model for deployments. No single approach is emerging due to legacy applications and different requirements. While there is a definition of GitOps provided by the [OpenGitOps](https://opengitops.dev/) initiative, several presenters offered their own definitions, including of pull-based deployments.
+
+We fielded a large-scale survey related to secrets at KubeCon, and learned that users would like help with the [Pipeline Authoring](/direction/verify/pipeline_authoring/) workflow. 
+
+Besides the wiring of the tools, the industry is still looking for a unified approach to multi-tenancy (there might not be one), and sometimes integrating security processes seems overly challenging.
+
+### How does this affect our roadmap?
+
+There is a lot of potential in building a platform used as the starting point for internal platforms. Imagine a "tool" that shortens the time required to create an internal platform to days or weeks instead of a whole year. This is the GitLab vision of The One DevOps platform.
+
+As a result, we don't plan any changes in our direction. We will continue investing in the recently started [Deployment direction](/direction/delivery/) to provide all the building blocks for a platform in a single tool and are already actively looking for integrated experiences across our offering.
+
+We’re working on a CI/CD Component Catalog that includes CI templates. This will [support the Pipeline Authoring workflow](https://gitlab.com/groups/gitlab-org/-/epics/7462).
+
+## Secrets management
+
+One of the things that often came up in our discussions is secrets management. We fielded a large-scale survey related to secrets at KubeCon, and attendees were glad that we’re thinking about this topic. Security is part of the DevOps discussion, and secrets management is a serious issue, especially in a cloud-native aspect.
+
+- Jenkins, GitHub and GitLab were all mentioned during the secret management discussions.
+- Users would like to offload the secrets management responsibility to another product. In many cases, their security requirements are strict, so they don't want/can't handle secrets by themselves.
+- Hashicorp Vault is a preferred tool (primarily in large enterprise companies working in finance or government) to manage and handle secrets. At the same time, most companies would like to avoid operating one more application in their stack.
+- Open ID Connect [OIDC](https://docs.gitlab.com/ee/integration/openid_connect_provider.html) with the JSON web token (JWT) is an essential direction for us.
+
+### How does this affect our roadmap?
+
+We should invest more in secrets management since this is a pain our customers would like us to solve, and it's becoming a nonstarter feature for many organizations.
+
+We want to advance in three main vectors:
+
+- Improve our existing secrets management solution - although we don't have a clear solution, we should improve our current variables capabilities to include additional features that could help users leverage variables for secrets. So it would be a "good enough" feature they can use. We are actively working toward this direction by removing some of the limitations we have around [variables and masking](https://gitlab.com/groups/gitlab-org/-/epics/1994). 
+- Improve our existing [Hashicorp Vault integration](https://docs.gitlab.com/ee/ci/examples/authenticating-with-hashicorp-vault/) using the JWT token, allowing us to integrate with additional vendors (AWS, AZURE, GCP). Like the previous point, we are moving toward this direction by supporting OIDC and [adding audience claims to our JWT token](https://gitlab.com/groups/gitlab-org/-/epics/7335).
+- We need to develop [a clear strategy for a built-in secrets management solution](/direction/verify/secrets_management/#next-9-12-monhts). In order to provide our users/customers with choice, GitLab wants to use Hashicorp Vault for secrets management handling. We believe that our approach should be not to build the logic ourselves but to leverage an open source, [cloud native](/topics/cloud-native/) project that we could build into GitLab. 
+
+## Infrastructure integrations
+
+Infrastructure integrations came in several flavors during the talks. Some are about cluster management, that is not our focus in this blog. Several presentations show that internal platforms need a strong infrastructure aspect, too. When a new project/microservice is started, it might require a new namespace in the cluster with associated RBAC and policies, optionally storage, a source code management repo with automation, and the appropriate permissions. Deployments might create ephemeral environments or could modify the underlying environment within predefined constraints.
+
+The top tools mentioned in this area are:
+
+- Terraform
+- Crossplane
+- Pulumi
+
+### How does this affect our roadmap?
+
+GitLab already has [great integrations for Terraform](https://docs.gitlab.com/ee/user/infrastructure/iac/), and the other tools are on our radar, too.
+
+We are open to integrations but cannot currently prioritize the other integrations on our own. We hope that the community will be interested in contributing to benefit everyone.
+
+Building Docker containers might not be necessary to get easy-to-manage container binaries. WASM runtimes become available for Kubernetes, and many programming languages can natively compile to WASM. WASM can provide a secure runtime environment without Docker and might be able to simplify the toolchain developers need to learn.
+
+We don't plan to add direct WASM support to GitLab yet. The generic package registry can hold WASM modules while their deployment is up to the user.
+
+At the same time, we see a lot of potential in simple runtime environments built around WASM. While GitLab is not in the business of offering runtime services, we will be actively monitoring the market. We might look into more WASM integrations as we see more demand and tools and services maturing in this space.
+
+## GitLab feedback
+
+It's great to work on a product where the overall sentiment is positive, both from customers that intensely rely on it and from attendees that have to use other tools but would love to use GitLab or just started to play with it recently.
+
+We received the following notable mentions as feedback:
+
+- Stability and reliability improved over the last several months.
+- Users love our documentation (primarily around CI) - they mentioned it's easy to use and get started with.
+- Given the size of GitLab and the number of our users, we received feedback about long-outstanding issues. We were happy to respond that we are addressing at least some of them shortly.
+- Several customers had asked if we got some resources for migrating from Jenkins to GitLab.
+- A few customers mentioned that they had to move away from GitLab mainly because of an upper-level decision despite favouring GitLab.
+
+## Conclusions
+
+![The GitLab team](/images/blogimages/kubecon-gitlab-team.jpg)
+
+We enjoyed all the talks and were delighted to meet and speak with our users and customers. Thanks to all of you, we could "feel the pulse" on how we are doing and validate our direction.
+
+We hope that this blog will guide those who could not attend KubeCon and serve as a summary for those who did attend. All the recordings will likely be available on YouTube from Jun 6, 2022.
+
+Let us know in the comments if you think we missed some important direction.
+
+_This blog post and linked pages contain information related to upcoming products, features, and functionality.
+It is important to note that the information presented is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab Inc._

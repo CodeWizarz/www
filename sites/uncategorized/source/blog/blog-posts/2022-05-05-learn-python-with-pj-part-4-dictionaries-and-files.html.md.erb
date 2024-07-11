@@ -1,0 +1,158 @@
+---
+title: Learn Python with Pj! Part 4 - Dictionaries and Files
+author: Pj Metz
+author_gitlab: PjMetz
+author_twitter: MetzinAround
+categories: careers
+tags: careers, tutorial, growth
+description: Our education evangelist Pj Metz continues his journey to learn how
+  to code in Python.
+image_title: /images/blogimages/python.jpg
+twitter_text: Our education evangelist Pj Metz continues his journey to learn
+  how to code in Python. This time he takes on dictionaries and how to read and
+  write files from code.
+---
+
+This is the fourth installment in the Learn Python with Pj! series. Make sure to read:
+- [Part 1 - Getting started](/blog/2022/02/08/learn-python-with-pj-part-1/)
+- [Part 2 - Lists and loops](/blog/2022/03/01/learn-python-with-pj-part-2/)
+- [Part 3 - Functions and strings](/blog/2022/04/04/learn-python-with-pj-part-3/)
+- [Part 5 - Build a hashtag tracker with the Twitter API](/blog/2022/06/01/learn-python-with-pj-part-5-building-something-with-the-twitter-api/)
+
+I’ve learned a lot with Python so far, but when I learned dictionaries (sometimes shortened to dicts), I was really excited about what could be done. A dictionary in Python is a series of keys and values stored inside a single object. This is kind of like a super array; one that allows you to connect keys and values together in a single easily accessible source. Creating dictionaries from arrays can actually be very simple, too.
+
+In this blog, I'll dig into how to create dictionaries and how to read and write files in the code.
+
+## Dictionaries
+
+Dictionaries in Python are indicated by using curly braces, or as I like to call them, mustaches. `{ }` indicates that the list you’re looking at isn’t a list at all, but a dictionary. 
+
+```python
+shows_and _characters = {
+    "Bojack Horseman": "Todd",
+    "My Hero Academia": "Midoriya"
+    "Ozark": "Ruth"
+    "Arrested Development": "Tobias",
+    "Derry Girls": "Sister Michael",
+    "Tuca & Bertie": "Bertie"
+    }
+```
+
+This is a dictionary of my favorite TV shows and my favorite characters in that show. In this example, the key is on the left and the value is on the right. To access dictionaries, you use a similar call like you would for a list, except instead of an element number, you would put the key. `print(shows_and_characters[“Ozark”])` would print `Ruth` to the console. Additionally, both the key and value in this example are strings, but that’s not a requirement. Keys can be any immutable type, like strings, ints, floats, and tuples. Values don’t have this same restriction, therefore values can be a nested dictionary or a list, in addition to the types mentioned for keys. For instance, the following dictionary is a valid dictionary.
+
+```python
+shows_with_lists = {
+    "Bojack Horseman": ["Todd", "Princess Carolyn", "Judah", "Diane"],
+    "My Hero Academia": ["Midoriya", "Shoto", "All Might", "Bakugo", "Kirishima"],
+    "Ozark": ["Ruth", "Jonah", "Wyatt"],
+    "Arrested Development": ["Tobias", "Gob", "Anne", "Maeby"],
+    "Derry Girls": ["Sister Michael", "Orla", "Erin", "Claire", "James"],
+    "Tuca & Bertie": ["Bertie", "Speckle", "Tuca", "Dakota"]
+    }
+```
+In this example, each value is a list. So if we tried to print the value for the key `”Derry Girls”`, we would see `[“Sister Michael”, “Orla”, “Erin”, “Claire”, “James”]` printed to the console. However, if we wanted the last element in the value list, we’d write `shows_with_lists[“Derry Girls”] [-1]`. This would print the last element in the list, which in this case is `James`. 
+
+Dictionaries can be written manually, or, if you have two lists, you can combine the `dict()` and `zip()` methods to make the lists into a dictionary. 
+
+```python
+list_of_shows = ["Bojack Horseman",
+                 "My Hero Academia",
+                 "Ozark",
+                 "Arrested Development",
+                 "Derry Girls",
+                 "Tuca & Bertie"]
+list_of_characters = [["Todd", "Princess Carolyn", "Judah", "Diane"],
+                      ["Midoriya", "Shoto", "All Might", "Bakugo", "Kirishima"],
+                      ["Ruth", "Jonah", "Wyatt"],
+                      ["Tobias", "Gob", "Anne", "Maeby"],
+                      ["Sister Michael", "Orla", "Erin", "Claire", "James"],
+                      ["Bertie", "Speckle", "Tuca", "Dakota"]]
+
+combined_shows_characters = dict(zip(list_of_shows, list_of_characters))
+
+print(combined_shows_characters)
+```
+
+This is one way to create a dictionary. Another is called Dictionary Comprehension. This one is a little more work, but can be used in a variety of different ways, including using a bit of logic on a single list to generate a dictionary using that original list. Here’s how with two examples: one based on the above lists, and one with a single list and some logic. 
+
+```python
+import math
+
+#This is doing the same work as the above example, but using Dict Comprehension instead. 
+comprehension_shows_characters = { shows:characters for shows, characters in zip(list_of_shows, list_of_characters)  }
+
+hip_to_be_square = [4, 9, 16, 25, 36, 49]
+
+no_longer_hip_to_be_square = { key:math.sqrt(key) for key in hip_to_be_square }
+
+print(no_longer_hip_to_be_square)
+```
+
+In the `no_longer_hip_to_be_square` dictionary, the key is found in the `hip_to_be_square` list. The value for each key is its own square root, brought in with the import math function. There are plenty more useful methods for dealing with dictionaries [here](https://realpython.com/python-dicts/). 
+
+## Reading and writing files
+
+This one is a pretty cool part of Python: reading and writing other files right in the code. With Python, you’re able to take the contents of certain types of files and use it in your code, or even create a new file based on some input. This is useful for data handling and can be used with a  variety of file types. The two I’ll be covering here are .csv and .txt.
+
+### Reading from a file
+
+Imagine a .txt file named `best-ever.txt` containing the line `My favorite tv show is Derry Girls`. We can use Python to take that line and turn it into a variable. Running the following code would print the contents of the .txt file to the terminal. 
+
+```python
+with open("best-ever.txt") as text_file:
+  text_data = text_file.read()
+
+#This will print the contents of the .txt file. 
+print(text_data)
+```
+
+By using `with open(NAME OF FILE) as VARIABLE_NAME:`, we can examine the contents of files as a single string. If the document has multiple lines, you can even separate those by iterating over them by using a for loop and the `.readlines()` method. Using an imaginary .txt document called `buncha-lines` we could use the following to print out each line individually.
+
+```python
+with open("buncha-lines.txt") as lines_doc:
+  for line in lines_doc.readlines():
+    print(line)
+``` 
+### Writing a new file
+
+Creating a new file is also easy with Python. The `open()` function can take an additional argument in order to create a new file. In fact, there’s a default argument that’s been being passed each time without us knowing! `r` is the default argument for `open()` and puts it in read mode. To turn on write mode, pass in a `w` as the second argument. The following code will write a brand-new file called `best_tv_character.txt` with the contents `Peggy Olson from Mad Men`. 
+
+```python
+with open("best_tv_character.txt", "w") as best_character:
+  best_character.write("Peggy Olson from Mad Men")
+```
+### Working with .csv files
+
+You can read a .csv file with Python by using `import csv` at the beginning of the file, and then using some of its built-in methods in the code. However, even though .csv files are plain text, treating a .csv file the same as you treat .txt files can lead to difficult to read outputs; after all, the point of a spreadsheet is to table information. Without that table, the output can be chaotic. A way around this is to use the `dictreader()` method. This method allows you to map the information in each row to a dictionary with field names you can create. The default field names are collected from the first row of the .csv if no field names are given. Imagine a .csv file with columns labeled, “Network”, “Show name”, “Seasons”. Maybe we just want to print the number of seasons from this .csv. 
+
+```python
+import csv 
+
+with open("shows.csv") as shows_csv:
+  shows_dict = csv.DictReader(shows_csv)
+  for row in shows_dict:
+    print(row["Seasons"])
+```
+
+This would print to the console, on a new line, the number of seasons for each row that exists in the .csv. 
+
+Just like with .txt files, you can also create .csv files with Python. It’s a bit more complicated since you need to define the headers, or column names, but it is still a quick process. This can be used to take lists and turn them into .csv files. Let’s check out the following example:
+
+```python
+import csv
+
+working_list = [{"Network": "Netflix", "Show Name":"Bojack Horseman", "Seasons":6}, {"Network":"Channel 4","Show Name":"Derry Girls", "Seasons": 3}, {"Network":"HBO Max", "Show Name":"Our Flag Means Death", "Seasons": 1}]
+
+
+with open("shows.csv", "w") as shows_csv:
+    fields = ["Network", "Show Name", "Seasons"]
+    shows_w = csv.DictWriter(shows_csv, fieldnames = fields)
+
+    shows_w.writeheader()
+    for item in working_list:
+        shows_w.writerow(item)
+```
+
+This previous code block creates a brand-new csv file by using the `”w”` parameter in `open()`. We manually name the fields in the order they appear in a separate list, then pass that list into the `DictWriter` parameter `fieldnames`. Finally, we use the `writeheader()` and a for loop with the `writerow()` methods to create a header row and to iterate over the `working_list` and turn each entry into a row in the .csv. 
+
+These are only a few ways to work with .csv and .txt files; Python is very versatile and more information [can be found here](https://realpython.com/working-with-files-in-python/). 

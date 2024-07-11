@@ -1,0 +1,269 @@
+---
+title: "Update: Why GitLab uses a single codebase for Community and Enterprise editions"
+author: Yorick Peterse
+author_gitlab: yorickpeterse
+author_twitter: yorickpeterse
+canonical_path: "/blog/2019/08/23/a-single-codebase-for-gitlab-community-and-enterprise-edition/"
+categories: engineering
+image_title: '/images/blogimages/merging-ce-and-ee-codebases/merge-ce-ee-codebases.jpg'
+description: Dive into our decision to switch GitLab over to a single codebase as we review some of the benefits and challenges. Learn more here!
+tags: inside GitLab, open source
+ee_cta: false
+install_cta: false
+twitter_text: ".@gitlab is moving to a single codebase for GitLab CE and GitLab EE"
+featured: yes
+---
+
+In ["GitLab might move to a single Rails
+codebase"](/blog/2019/02/21/merging-ce-and-ee-codebases/), we announced that GitLab
+might move to using a single codebase for GitLab Community Edition (CE) and
+GitLab Enterprise Edition (EE). Since then we have decided to continue moving
+toward a single codebase. In this article, I highlight some of the challenges,
+required work, and steps remaining to complete the switch.
+
+## What is codebase?
+
+What is a codebase, I hear you ask? Well, a codebase (which is at times spelled as code base) is essentially the entire collection of source 
+code that is required for a program or application to function properly. This can include things like configuration 
+files, libraries, and other dependencies, in addition to the actual application code. The codebase is 
+typically stored in a single location, often within a source control repository, where multiple developers 
+can access and make contributions to it.
+
+Multiple developers can use and contribute to a single codebase, which is generally retained within a source control 
+repository. As such, it can assist with the backup and versioning of overlapping code 
+modifications/alterations. This can be especially important for larger projects that require a lot of coordination 
+and communication between team members. With everyone working from the same codebase, it becomes easier 
+to ensure that changes are made consistently and in a way that does not break the application.
+
+## Why GitLab uses a single codebase?
+
+Prior to using a single codebase, for years CE and EE used two different repositories for the Rails application.
+By using separate repositories we could separate proprietary code from code that
+is free software. On the surface this seems like a good idea for different
+reasons (e.g., licensing), but over the years the drawbacks
+began to outweigh the benefits.
+
+We [mention some of these drawbacks in a previous
+article](/blog/2019/02/21/merging-ce-and-ee-codebases/), but more or less they all
+come down to the same core problem: It made the development process more complex
+than necessary. For example, we ended up with around 150 merge requests spread
+across CE and EE for a security release from several months ago. While the
+process of merging these merge requests is automated, we ran into a variety of
+issues (e.g. failing tests) that required manual intervention. We could have
+reduced the number of merge requests by half if we used a single repository,
+creating less work for developers and release managers.
+
+Toward the end of 2018, I felt that we were running out of time and had to do
+something about the separation of CE and EE. We had always tried to avoid
+merging the two repositories due to the complexity and time involved, but it
+started to become more and more clear we had no other option. [Marin
+Jankovski](/company/team/#maxlazio), Delivery engineering manager, and I made a
+plan to merge the two repositories. Marin wrote a [design
+document](/handbook/engineering/infrastructure/library/merge-ce-ee-codebases/)
+that outlined the details of it all. The design document showed what challenges
+we faced, and gathered the critical support required for the largest engineering
+projects at GitLab to date.
+
+## What is the difference between a codebase and a repository?
+
+The basic difference between a codebase and a repository is that one is for old code and one is for new code. 
+
+But more specifically...
+
+A codebase can be either a public or private place to store large amounts of code that is actively being iterated on in a version control system, and typically stored in a source control repository in a version control system.
+
+A source code repository is where an archived version of the code being worked on is kept. It’s also a place to house documentation, notes, web pages, and other items in your repository. 
+ 
+## Working toward a single codebase
+
+Moving to a single codebase is not something we can do overnight for a project
+the size of GitLab. Workflows must be adapted, developers need to adjust to the
+new setup, and automation requires extensive changes.
+
+One of the biggest challenges from an engineering perspective was to come up
+with a way to transparently remove proprietary code from GitLab when building a
+CE release. A naive approach might involve a script that removes known bits of
+proprietary code. While this might work for small projects that don't change
+often, this was not going to work for a project the size of GitLab.
+
+Ruby provides us with a solution to this problem. In Ruby, you can create a
+module and inject it into another module or class. Once injected, the
+functionality of the module becomes available to the target module or class.
+This is best illustrated with a simple example:
+
+```ruby
+class Person
+  def initialize(name)
+    @name = name
+  end
+
+  def name
+    @name
+  end
+end
+
+module Greet
+  def greet
+    "Hello #{name}"
+  end
+end
+
+Person.include(Greet)
+
+alice = Person.new('Alice')
+
+alice.greet # => "Hello Alice"
+```
+
+Here we define a class `Person`, followed by a module that is used to create a
+message greeting a person. Next, we include it into the `Person` class, at which
+point we can use the module's methods for instances of the `Person` class. The
+result is the message "Hello Alice."
+
+While this example is not exciting, using a setup like this allows us to
+move proprietary code to separate modules, and inject these modules when GitLab
+EE is used. For GitLab CE, we would remove these modules, and the code injecting
+these modules would have to disable itself transparently and automatically.
+
+GitLab EE has been using this setup since late 2016 with all EE modules residing
+in a separate "ee" directory, but in a limited number of places. This meant that
+in some places EE and CE code got mixed together, while in other places the two
+are separate. For example, we had code like this:
+
+```diff
+ def lfs_upload_access?
+   return false unless project.lfs_enabled?
+   return false unless has_authentication_ability?(:push_code)
++  return false if project.above_size_limit? || objects_exceed_repo_limit?
+
+   lfs_deploy_token? || can?(user, :push_code, project)
+ end
+```
+
+Here EE added a line into an existing method without using a separate module,
+making it difficult to remove the EE-specific code when for CE.
+
+Before we could move to a single codebase, we had to separate EE-specific code from code shared between CE and EE. Due to the amount
+of work necessary, we divided the work into two departments: backend and
+frontend. For every department we created issues outlining the work to do for
+the various parts of the codebase. We even included the [exact lines of code
+that had to change directly in the created
+issues](https://gitlab.com/gitlab-org/gitlab-ee/issues/9506), making it simple
+to see what one had to do. Each department also had an engineer assigned as the
+lead engineer, responsible for taking on the most difficult challenges.  [Filipa
+Lacerda](/company/team/#FilipaLacerda), senior frontend engineer of Verify (CI)
+and Delivery, was in charge of frontend code. [As the Delivery backend engineer,
+I myself](/company/team/#yorickpeterse) was in charge of backend code.
+
+Some changes were small and took a short amount of time, with others were big
+and took weeks. One of my big challenges was to make sure CE and EE [use the same
+database schema](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/26940),
+changing just under 24,000 lines of code over a two-month period.
+
+>In total the work involved 55
+different engineers submitting more than 600 merge requests, closing just under
+400 issues, and changing nearly 1.5 million lines of code
+
+Filipa spent a lot of time creating 168 frontend issues outlining specific tasks
+as well as submitting 124 merge requests to address the majority of these
+issues. Resolving some of these issues required getting rid of some
+technical debt first, such as [breaking up large chunks of code into smaller
+chunks](https://gitlab.com/gitlab-org/gitlab-ee/merge_requests/14592), and
+coming up with a way [to create EE-specific Vue.js
+templates](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/25650).
+
+While Filipa and I took on the biggest challenges, in total the work involved 55
+different engineers submitting more than 600 merge requests, closing just under
+400 issues, and changing nearly 1.5 million lines of code.
+
+## Moving toward a single codebase
+
+With most of the work done, we could start looking into what project setup we
+would use for a single codebase. We came up with three different approaches:
+
+### 1. Single codebase: moving all development into gitlab-ce
+
+All code and development is moved into the gitlab-ce repository. The gitlab-ee
+repository is archived, and a separate repository is set up as a mirror of
+gitlab-ce, called gitlab-foss. Proprietary code is removed from this mirror
+automatically.
+
+Since most of GitLab's development takes place in the current gitlab-ce
+repository, this setup would reduce the number of issues to move as well as merge requests to close. A downside of this approach is that clones of
+the gitlab-ce repository will include proprietary code.
+
+### 2. Single codebase: moving all development into gitlab-ee
+
+All code and development is moved into the gitlab-ee repository. The gitlab-ce
+repository remains as is in terms of code, and will become a mirror of gitlab-ee. Like
+the first option, proprietary code is removed from this mirror automatically.
+
+This setup means that users cloning gitlab-ce don't end up with proprietary code
+in their copy of gitlab-ce.
+
+### 3. Single codebase: moving all development into a new repository
+
+We set up an entirely new repository called "gitlab," and move all code and
+development into this repository. The gitlab-ce and gitlab-ee repositories will
+become read-only. A mirror is set up (called "gitlab-foss") that mirrors the new
+"gitlab" repository, without including proprietary code.
+
+## Deciding which single codebase approach to take
+
+[Having evaluated all the benefits and
+drawbacks](https://www.youtube.com/watch?v=LV_AHeL5sIo), we decided to go with
+option two: move development into gitlab-ee. This approach has several benefits:
+
+1. The code of the gitlab-ce repository remains as is, and won't include any
+   proprietary code.
+1. We do not need a separate mirror repository that does not include proprietary
+   code. Instead, we rename the gitlab-ce repository to "gitlab-foss." We are
+   renaming the repository since having "gitlab" and "gitlab-ce" as project
+   names could be confusing.
+1. Users building CE from source don't end up with proprietary code in their
+   copy of the gitlab-ce repository.
+1. We keep the Git logs of both gitlab-ce and gitlab-ee, instead of losing the
+   logs (this depends a bit on how we'd move repositories around).
+1. It requires the least amount of changes to our workflow and tooling.
+1. Using a single project and issue tracker for both CE and EE makes it easier
+   to search for issues.
+
+Issues created in the gitlab-ce project will move to the gitlab-ee project,
+which we will rename to just "gitlab" (or "gitlab-org/gitlab" if you include the
+group name). This project then becomes the single source of truth, and is used
+for creating issues for both the CE and EE distributions.
+
+Moving merge requests across projects is not possible, so we will close any open
+merge requests. Authors of these merge requests will have to resubmit them to
+the "gitlab" (called "gitlab-ee" before the rename) project.
+
+When moving issues or closing merge requests, a bot will also post a comment
+explaining why this is done, what steps the author of a merge request has to
+take, and where one might find more information about these procedures.
+
+Prior to the single codebase setup, GitLab community contributions would be submitted
+to the gitlab-ce repository. In the single codebase, contributions are instead
+submitted to the new gitlab repository ("gitlab-org/gitlab"). EE-specific code
+resides in a "ee" directory in the repository. Code outside of this directory
+will be free and open source software, using the same license as the gitlab-ce
+repository currently uses. This means that as long as you do not change anything
+in this "ee" directory, the only change for GitLab community contributions is the use
+of a different repository.
+
+Our current plan is to have a single codebase the first week of September.  GitLab 12.3 will be the first release based on a single codebase.
+
+Users that clone GitLab EE and/or GitLab CE from source should update their Git
+remote URLs after the projects are renamed. This is not strictly necessary as
+GitLab will redirect Git operations to the new repository. For users of our
+Omnibus packages and Docker images nothing changes.
+
+Those interested in learning more about what went on behind the scenes can refer
+to the following resources:
+
+* [A video in which we discusses the benefits and drawbacks of the various
+  project setups](https://www.youtube.com/watch?v=LV_AHeL5sIo)
+* [The issue detailing the remaining work to do](https://gitlab.com/gitlab-org/gitlab-ee/issues/13304)
+* [A list of all the single codebase merge requests](https://gitlab.com/groups/gitlab-org/-/merge_requests?scope=all&utf8=%E2%9C%93&state=merged&label_name%5B%5D=single%20codebase)
+
+Cover image from [Unsplash](https://images.unsplash.com/photo-1512217536414-d92543c79ca1)
+{: .note}

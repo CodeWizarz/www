@@ -1,0 +1,130 @@
+---
+title: "How we used parallel CI/CD jobs to increase our productivity"
+author: Miguel Rincon
+author_gitlab: mrincon
+author_twitter: miguelrincon86
+categories: engineering
+image_title: '/images/blogimages/using-run-parallel-jobs/cover-image.jpg'
+description: "GitLab uses parallel jobs to help long-running jobs run faster."
+ee_cta: false
+tags: inside GitLab, CI, CD, performance, workflow
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "Learn more about how @gitlab boosted efficiency with parallel jobs"
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2020/07/29/effective-ci-cd-pipelines/"
+  - "/blog/2020/10/01/three-yaml-tips-better-pipelines/"
+  - "/blog/2020/12/02/pre-filled-variables-feature/"
+merch_sidebar: merch_three
+---
+
+At GitLab, we must verify simultaneous changes from the hundreds of people that contribute to GitLab each day. How can we help them contribute efficiently using our pipelines?
+
+The pipelines that we use to build and verify GitLab have more than 90 jobs. Not all of those jobs are equal. Some are simple tasks that take a few seconds to finish, while others are long-running processes that must be optimized carefully.
+
+At the time of this writing, we have more than 700 [pipelines running](https://gitlab.com/gitlab-org/gitlab/-/pipelines?page=1&scope=all&status=running). Each of these pipelines represent changes from team members and contributors from the wider community. All GitLab contributors must wait for the pipelines to finish to make sure the change works and integrates with the rest of the product. We want our pipelines to finish as fast as possible to maintain the productivity of our teams.
+
+This is why we constantly monitor the duration of our pipelines. For example, in December 2020, successful merge request pipelines had a duration of [53.8 minutes](/handbook/engineering/quality/performance-indicators/#average-merge-request-pipeline-duration-for-gitlab):
+
+![Average pipeline duration was 53.8 minutes in December](/images/blogimages/using-run-parallel-jobs/historical-pipeline-duration.png){: .shadow.medium.center}
+The average pipeline took 53.8 minutes to finish in December.
+{: .note.text-center}
+
+Given that we run [around 500 merge request pipelines](https://gitlab.com/gitlab-org/gitlab/-/pipelines/charts) per day, we want to know: Can we optimize our process to change how long-running jobs _run_?
+
+## How we fixed our bottleneck jobs by making them run in parallel
+
+The `frontend-fixtures` job uses `rspec` to generate mock data files, which are then saved as files called "fixtures". These files are loaded by our frontend tests, so the `frontend-fixtures` must finish before any of our frontend tests can start.
+
+> As not all of our tests need these frontend fixtures, many jobs use the [`needs` keyword](https://docs.gitlab.com/ee/ci/yaml/#needs) to start before the `frontend-fixtures` job is done.
+
+In our pipelines, this job looked like this:
+
+![The `frontend-fixtures` job](/images/blogimages/using-run-parallel-jobs/fixtures-job.png){: .shadow.medium.center}
+Inside the frontend fixtures job.
+{: .note.text-center}
+
+
+This job had a normal duration of 20 minutes, and each individual fixture could be generated independently, so we knew there was an opportunity to run this process in parallel.
+
+The next step was to configure our pipeline to split the job into multiple batches that could be run in parallel.
+
+## How to make frontend-fixtures a parallel job
+
+Fortunately, GitLab CI provides an easy way to run a job in parallel using the [`parallel` keyword](https://docs.gitlab.com/ee/ci/yaml/#parallel). In the background, this creates "clones" of the same job, so that multiple copies of it can run simultaneously.
+
+**Before:**
+
+```yml
+frontend-fixtures:
+  extends:
+    - .frontend-fixtures-base
+    - .frontend:rules:default-frontend-jobs
+```
+
+**After:**
+
+```yml
+rspec-ee frontend_fixture:
+  extends:
+    - .frontend-fixtures-base
+    - .frontend:rules:default-frontend-jobs
+  parallel: 2
+```
+
+You will notice two changes. First, we changed the name of the job, so our job is picked up by [Knapsack](https://docs.knapsackpro.com/ruby/knapsack) (more on that later), and then we add the keyword `parallel`, so the job gets duplicated and runs in parallel.
+
+The new jobs that are generated look like this:
+
+![Our fixtures job running in parallel](/images/blogimages/using-run-parallel-jobs/fixtures-job-parallel.png){: .shadow.medium.center}
+The new jobs that are picked up by Knapsack and run in parallel.
+{: .note.text-center}
+
+As we used a value of `parallel: 2`, actually two jobs are generated with the names:
+
+- `rspec-ee frontend_fixture 1/2`
+- `rspec-ee frontend_fixture 2/2`
+
+Our two "generated" jobs, now take three and 17 minutes respectively, giving us an overall decrease of about three minutes.
+
+![Two parallel jobs in the pipeline](/images/blogimages/using-run-parallel-jobs/fixtures-job-detail.png){: .shadow.medium.center}
+The parallel jobs that are running in the pipeline.
+{: .note.text-center}
+
+## Another way we optimized the process
+
+As we use Knapsack to distribute the test files among the parallel jobs, we were able to make more improvements by reducing the time it takes our longest-running fixtures-generator file to run.
+
+We did this by splitting the file into smaller batches and optimizing it, so we have more tests running in parallel, which shaved off an additional [~3.5 minutes](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/47158#note_460372560).
+
+## Tips for running parallel jobs
+
+If you want to ramp up your productivity you can leverage `parallel` on your pipelines by following these tips:
+
+1. Measure the time your pipelines take to run and identify possible bottlenecks to your jobs. You can do this by checking which jobs are slower than others.
+1. Once your slow jobs are identified, try to figure out if they can be run independently from each other or in batches.
+   - Automated tests are usually good candidates, as they tend to be self-contained and run in parallel anyway.
+1. Add the `parallel` keyword, while measuring the outcome over the next few running pipelines.
+
+## Learn more about our solution
+
+We discuss how running jobs in parallel improved the speed of pipelines on GitLab Unfiltered.
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube-nocookie.com/embed/hKsVH_ZhSAk" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+And here are links to some of the resources we used to run pipelines in parallel:
+
+- The [merge request that introduced `parallel` to fixtures](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/46959).
+- An important [optimization follow-up](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/47158) to make one of the slow tests faster.
+- The [Knapsack gem](https://docs.knapsackpro.com/ruby/knapsack), which we leverage to split the tests more evenly in multiple CI nodes.
+
+And many thanks to [Rémy Coutable](/company/team/#rymai), who helped me implement this improvement.
+
+Cover image by [@dustt](https://unsplash.com/@dustt) on [Unsplash](https://unsplash.com/photos/ZqBNb7xK5s8)
+{: .note}

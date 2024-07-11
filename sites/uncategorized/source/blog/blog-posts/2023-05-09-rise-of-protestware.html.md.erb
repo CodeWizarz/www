@@ -1,0 +1,79 @@
+---
+title: "Protestware threats: How to protect your software supply chain"
+author: Abubakar Siddiq Ango 
+author_gitlab: abuango 
+author_twitter: sarki247  
+categories: DevSecOps 
+image_title: '/images/blogimages/library/engineering.png'
+description: "Some people protest for change by changing code others depend on throughout the software supply chain. Learn more about protestware, its impact, and how to protect against it."
+tags: DevSecOps, security, zero trust, DevSecOps platform
+guest: false 
+twitter_text: "Protestware can range from making a statement to causing disruptions or data loss. Ensuring your software supply chain has the right controls to ensure undesirable changes don't impact you or your customers is critical. @sarki247 explains how." 
+featured: no
+postType: dev-evangelism 
+---
+
+In 2016, the continuous integration (CI) pipelines of millions of projects failed because a developer decided to pull their projects from npm package registry in [protest of a request to take down or rename one of their packages](https://www.theregister.com/2016/03/23/npm_left_pad_chaos/). In January 2022, the maintainer of the widely used 'colors' and 'faker' packages on the npm registry modified [these projects](https://blog.sonatype.com/npm-libraries-colors-and-faker-sabotaged-in-protest-by-their-maintainer-what-to-do-now?hsLang=en-us), adding malicious code that infinitely printed gibberish in protest of corporations who use open source projects without giving back. These are two examples of "protestware," a term that refers to software packages or applications that have been intentionally modified to send a political message. The impacts may range from seeing unexpected messages in a terminal or logs when building an application to serious adverse impacts like data deletion. 
+
+While protestware remained rare for a long time, recent high-profile incidents have brought it back into the spotlight. Similar code injection variants like [typosquatting](https://www.kaspersky.com/resource-center/definitions/what-is-typosquatting) packages (as in the case of the [colors npm](https://www.mend.io/resources/blog/new-typosquating-attack-on-npm-package-colors-using-cross-language-technique-explained/) package, where bad actors created compromised clones of packages with similar names) and compromised packages (as in the case of the [ctx PyPI packages](https://www.theregister.com/2022/05/24/pypi_ctx_package_compromised/)) are usually perpetrated by bad actors looking to cause harm. Protestware is unusual in that the custodians of projects trusted by the community have allowed or made these changes. Regardless of whether the changes' impacts are harmful, such changes raise ethical concerns and can create unwanted distractions. These risks also reinforce the need for open source consumers to adopt a [zero trust security model](/blog/2022/08/17/why-devops-and-zero-trust-go-together/) for their software supply chain. Trust, but verify!
+
+The world is going through unprecedented movements demanding change, and change seekers will find new and often disruptive ways to be heard, as we have seen in the case of everything from climate activism to TikTok challenges. Software supply chains are not exempt and, as we have learned from past incidents, being proactive is key to staying secure.
+
+Here are some steps you can take to protect your software supply chain by ensuring your dependencies are secure.
+
+## Implement dependency scanning
+
+[Dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) is now an industry standard, and there is no shortage of tools or libraries to scan your packages, containers, or any other binary formats for vulnerabilities. Using GitLab CI’s [`rules:exists`](https://docs.gitlab.com/ee/ci/yaml/#rulesexists) rule, GitLab checks for the presence of certain files to determine the appropriate scans to check for vulnerabilities. Coupled with [Vulnerability Reports](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/), [Policy Management](https://docs.gitlab.com/ee/user/application_security/policies/index.html#policy-management), and the [Security Dashboard](https://docs.gitlab.com/ee/user/application_security/security_dashboard/index.html), your security team and organization can stay ahead of vulnerabilities. To include dependency scanning in your CI pipeline, add the following lines to your `.gitlab-ci.yml` file. You can explore the [Dependency Scanning CI template](https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Jobs/Dependency-Scanning.gitlab-ci.yml) to understand how it works. 
+
+```
+
+include:
+
+  template: Jobs/Dependency-Scanning.gitlab-ci.yml
+
+```
+
+Running the CI script against an example [Ruby on Rails project](https://gitlab.com/gitlab-de/playground/ruby-rails-demo) with Ruby 3.0.4, the [Vulnerability Report](https://gitlab.com/gitlab-de/playground/ruby-rails-demo/-/security/vulnerability_report/?scanner=GitLab.DEPENDENCY_SCANNING) shows more than 70 vulnerabilities detected for the dependencies in the project’s [Gemfile](https://gitlab.com/gitlab-de/playground/ruby-rails-demo/-/blob/master/Gemfile).
+
+
+![Vulnerability Report Image](/images/blogimages/2023-04-rise-of-protestware/vulnerability-report.png "Vulnerability Report Image")
+
+
+## Generate provenance validations
+
+Users of packages can verify they are not downloading a compromised version using [artifact attestation](https://docs.gitlab.com/ee/ci/runners/configure_runners.html#artifact-attestation), which was [introduced in GitLab Runner 15.1](https://gitlab.com/gitlab-org/gitlab-runner/-/issues/28940/). Attestation metadata is generated in the [in-toto format](https://github.com/in-toto/attestation); it provides [provenance](https://slsa.dev/provenance/v0.2) attesting to how a binary was built, and you can verify the artifacts against the provenance. This allows you to achieve [Level 2](/blog/2022/11/30/achieve-slsa-level-2-compliance-with-gitlab/) of the Supply-chain Levels for Software Artifacts ([SLSA](https://slsa.dev/)) security framework. 
+
+The demo video below shows how to configure your CI script to generate artifact attestation metadata.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/MlIdqrDgI8U" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+
+## Utilize private registries
+
+[Self-hosting registries](https://docs.gitlab.com/ee/user/packages/) for packages, container images, or your Terraform modules are a more secure way of ensuring secure and vetted packages are used by your team. Security and compliance teams are enabled to ensure total control of the dependencies used in the entire organization and how they are accessed with [package registry permissions](https://docs.gitlab.com/ee/user/packages/package_registry/index.html#package-registry-visibility-permissions). GitLab supports container, infrastructure, and package registries. Package registries supported include Composer (PHP), Conan (C/C++), Generic, Maven (Java), npm (NodeJS), NuGet (Windows packaging), PyPI (Python), and RubyGems (Ruby).
+
+## Enable Dependency Proxy
+The [Dependency Proxy](https://docs.gitlab.com/ee/user/packages/dependency_proxy/index.html) reduces the number of requests made to upstream dependency registries by acting as a local proxy. This reduces the impact of changes or vulnerabilities in the upstream packages, as a clean version will still be stored in the Dependency Proxy’s cache. This offers faster build times, since the cache is most likely closer to the build system that needs the image, and it ensures continuity when an upstream registry is having downtime or enforcing rate limits — as in the case of [Docker Hub](https://docs.docker.com/docker-hub/download-rate-limit/), which has a limit of 100 container image pulls per 6 hours per IP address container image for anynomous users as of the time of writing this article.
+
+You can enable Dependency Proxy in the Packages and Registries section of a group’s settings. Only an administrator can enable/disable the Dependency Proxy for a GitLab instance. 
+
+![Dependency Proxy setting image](/images/blogimages/2023-04-rise-of-protestware/dependency-proxy.png "Dependency Proxy Setting Image")
+
+
+To use the Dependency Proxy in your CI script, you can use the `CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX` predefined variable as shown below:
+
+```
+
+# .gitlab-ci.yml
+
+image: ${CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX}/ubuntu:latest
+
+```
+
+The GitLab Runner automatically authenticates with the Dependency Proxy, but if your use case requires manual authentication, like building container images, you can use other predefined CI/CD variables as detailed in the [documentation](https://docs.gitlab.com/ee/user/packages/dependency_proxy/index.html).
+
+GitLab is also working on leveraging the Dependency Proxy to give more control to security teams with the [Dependency Firewall](https://about.gitlab.com/direction/package/#dependency-firewall), which will allow for control of how upstream packages are used and how they impact the organization. Package validation and version management can be managed from a central location without impacting the workflow of users.
+
+Proactively instrumenting your software development lifecycle to ensure continuous review of your application along with controls is critical to keeping your software supply chain secure and preventing production problems due to protestware.

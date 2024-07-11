@@ -1,0 +1,849 @@
+backend:
+ name: gitlab
+ repo: gitlab-com/www-gitlab-com # Path to your GitLab repository
+ auth_type: pkce # Required for pkce
+ app_id: d656971f8c2a795cf94032efc60d55550ab37615bf4d07e919faea6eaa777d49 # Application ID from your GitLab settings
+ cms_label_prefix: netlify-cms/
+ preview_context: review/cms-blog-posts-{{file_name}}  # MR !78973
+ # My thinking here is we can push this MR with the collection hard coded, if it works find the way to call the collection
+ # preview_context: review/cms-{{collection.name.label}}-{{file_name}} # something like that
+ # preview_context: review/cms-{{dirname}}-{{file_name}} # Didnt work, MR !80527
+ # preview_context: review/cms-topic-child-{{file_name}} # MR !80561
+ # preview_context: review/build-and-deploy # Or reference the build-and-deploy stage in our CI
+# These are default settings, define expclitly if different from defualt
+# branch: master
+# api_root: https://gitlab.com/api/v4
+# base_url: https://gitlab.com
+# auth_endpoint: oauth/authorize
+# site_domain: location.hostname
+
+# Allows access to /admin/ on local dev server
+# Run npx netlify-cms-proxy-server from the root directory in separate terminal window
+# https://www.netlifycms.org/docs/beta-features/#working-with-a-local-git-repository
+local_backend: true
+
+publish_mode: editorial_workflow
+media_folder: /source/images/blogimages
+public_folder: /images/blogimages
+site_url: https://about.gitlab.com
+logo_url: "/images/logo.png"
+
+collections:
+  - name: topic
+    label: Topic
+    format: yml
+    extension: yml
+    folder: /data/topic/
+    create: true
+    slug: '{{file_name}}'
+    preview_path: topics/{{slug}}
+    #preview_path: https://cms-{{name}}-{{slug}}.about.gitlab-review.app/topics/{{slug}}
+    fields:
+      - {label: Title, name: title, hint: Title displayed in header of webpage. This title is meant for people that are already on your site. It’s telling them what your post or page is about., widget: string, required: true}
+      - {label: SEO Title, hint:  is meant for people who are not on your website yet (viewing in SERP results). It will be shown to people in the search engines., name: seo_title, widget: string, required: false}
+      - {label: SEO Description, hint: This is the SEO description that will get rendered in search results, name: description, widget: string, required: true}
+      - {label: Header Body, name: header_body, widget: markdown, hint: This is displayed in the header underneath the title, required: true}
+      - {label: Canonical Path, hint: Absolute path and it is always unique - please include the following `/topics/final-url-path` - replacing `final-url-path` with your parameter., name: canonical_path, widget: string, required: true}
+      - {label: Final URL Path, hint: This will the be final part of the topics page url (/topics/FINAL-URL-PATH) and the name your data files is saved as in data/topic/. , name: file_name, widget: string, required: true}
+      - label: Social share image
+        hint: The images that is displayed in social media when this article is shared
+        name: twitter_image
+        widget: image
+        media_folder: /source/images/opengraph
+        public_folder: /images/opengraph
+        required: true
+      - label: Related Content, links in header to outside sources
+        name: related_content
+        hint: Links displayed in the header underneath the "MORE ON THIS TOPIC" title
+        widget: list
+        required: false
+        fields:
+          - {label: Title, name: title, widget: string, required: false}
+          - {label: URL, name: url, widget: string, required: false}
+      - label: Cover Image
+        hint: Image displayed at beginning of body content
+        name: cover_image
+        widget: image
+        required: false
+        media_folder: /source/images/topics
+        public_folder: /images/topics
+      - {label: Body, name: body, widget: markdown, required: true}
+      - {label: Benefits Title, hint: Title displayed next to list of benefits for this topic,  name: benefits_title, widget: string, required: false}
+      - {label: Benefits Description, name: benefits_description, widget: markdown, required: false}
+      - label: benefits list
+        name: benefits
+        widget: list
+        required: false
+        hint: Each of these items will be displayed next to their image, underneath the body content
+        fields:
+          - {label: Title, name: title, widget: string, required: true}
+          - {label: Description, name: description, widget: markdown, required: true}
+          - {label: Image, name: image, widget: image, required: true, media_folder: /source/images/icons, public_folder: /images/icons}
+      - {label: Second Benefits Title, hint: Title displayed next to list of benefits for this topic,  name: benefits_2_title, widget: string, required: false}
+      - {label: Second Benefits Description, name: benefits_2_description, widget: markdown, required: false}
+      - label: second benefits list
+        name: benefits_2
+        widget: list
+        required: false
+        hint: Second benefits block. Each of these items will be displayed next to their image, underneath the body content
+        fields:
+          - {label: Title, name: title, widget: string, required: true}
+          - {label: Description, name: description, widget: markdown, required: true}
+          - {label: Image, name: image, widget: image, required: true,  media_folder: /source/images/icons, public_folder: /images/icons}
+      - label: cta_banner
+        name: cta_banner
+        widget: list
+        required: false
+        hint: More content to be displayed after benefits of block, this content can have CTA buttons
+        fields:
+          - {label: Title, name: title, widget: string, required: false}
+          - {label: CTA Body, name: body, widget: markdown, required: false}
+          - label: CTA buttons
+            name: cta
+            widget: list
+            required: false
+            fields:
+              - {label: CTA Text, name: text, widget: string, required: true}
+              - {label: URL, name: url, widget: string, required: true}
+      - {label: Resources title, hint: Title of resources block displayed at the bottom of the page, name: resources_title, widget: string, required: false}
+      - {label: Resources description, name: resources_intro, widget: markdown, required: false}
+      - label: Resources
+        name: resources
+        widget: list
+        required: false
+        hint: Each of these will be grouped by type and displayed in order as shown in the admin. You can drag and drop the items in the admin.
+        fields:
+          - {label: Title, name: title, widget: string, required: true}
+          - {label: URL, name: url, widget: string, required: true}
+          - {label: Type, name: type, widget: "select", options: ["Webcast", "Video", "Whitepapers", "Books", "Case studies", "Articles", "Reports", "Blog", "Podcast"], required: true}
+      - label: Suggested Content
+        name: suggested_content
+        hint: Only place existing blog articles starting with the /blog/path-to-blog-article path. This block will intelligently pull the blog title, description, link, and image into a blog card displayed in a group at the bottom of the page.
+        widget: list
+        required: false
+        fields:
+          - {label: URL, name: url, widget: string}
+      - label: schema.org FAQPage questions
+        name: schema_faq
+        hint: questions displayed in search results. DO NOT INCLUDE LINKS IN BODY. Use CTA button instead.
+        widget: list
+        fields:
+          - {label: Question, name: question, widget: string}
+          - {label: Answer, name: answer, widget: markdown, hint: DO NOT INCLUDE LINKS IN BODY, USE CTA BUTTON}
+          - label: CTA buttons
+            name: cta
+            widget: list
+            required: false
+            fields:
+              - {label: CTA Text, name: text, widget: string, required: false}
+              - {label: URL, name: url, widget: string, required: false}
+  - name: topic_child
+    label: Topic Child Pages
+    format: yml
+    extension: yml
+    folder: /data/topic_children/
+    create: true
+    slug: '{{file_name}}'
+    fields:
+      - {label: Title, name: title, hint: Title displayed in header of webpage. This title is meant for people that are already on your site. It’s telling them what your post or page is about., widget: string, required: true}
+      - {label: SEO Title, hint:  is meant for people who are not on your website yet (viewing in SERP results). It will be shown to people in the search engines., name: seo_title, widget: string, required: false}
+      - {label: SEO Description, hint: This is the SEO description that will get rendered in search results, name: description, widget: string, required: true}
+      - {label: Header Body, name: header_body, widget: markdown, hint: This is displayed in the header underneath the title, required: true}
+      - {label: Canonical Path, hint: Absolute path and it is always unique - please include the following `/topics/parent-topic/final-url-path` - replacing `parent-topic` and `final-url-path` with your parameters., name: canonical_path, widget: string, required: true}
+      - {label: Final URL Path, hint: This will the be final part of the topics page url (/topics/parent-topic/FINAL-URL-PATH) and the name your data files is saved as in data/topic_children/. , name: file_name, widget: string, required: true}
+      - {
+          label: 'Parent Topic',
+          name: 'parent_topic',
+          widget: 'relation',
+          collection: 'topic',
+          display_fields: [file_name],
+          search_fields: [file_name],
+          value_field: 'file_name',
+          hint: This will the be preceding part of the topics page url - about.gitlab.com/parent-topic/final-url,
+          required: true
+        }
+      - label: Social share image
+        hint: The images that is displayed in social media when this article is shared
+        name: twitter_image
+        widget: image
+        media_folder: /source/images/opengraph
+        public_folder: /images/opengraph
+        required: true
+      - label: Related Content, links in header to outside sources
+        name: related_content
+        hint: Links displayed in the header underneath the "MORE ON THIS TOPIC" title
+        widget: list
+        required: false
+        fields:
+          - {label: Title, name: title, widget: string, required: false}
+          - {label: URL, name: url, widget: string, required: false}
+      - label: Cover Image
+        hint: Image displayed at beginning of body content
+        name: cover_image
+        widget: image
+        required: false
+        media_folder: /source/images/topics
+        public_folder: /images/topics
+      - {label: Body, name: body, widget: markdown, required: true}
+      - label: pull_quote
+        name: pull_quote
+        widget: list
+        required: false
+        hint: Pull quotes displayed after body content
+        fields:
+          - {label: quote, name: quote, widget: string, required: false}
+          - {label: source, name: source, widget: string, required: false}
+      - {label: Benefits Title, hint: Title displayed next to list of benefits for this topic,  name: benefits_title, widget: string, required: false}
+      - {label: Benefits Description, name: benefits_description, widget: markdown, required: false}
+      - label: benefits list
+        name: benefits
+        widget: list
+        required: false
+        hint: Each of these items will be displayed next to their image, underneath the body content
+        fields:
+          - {label: Title, name: title, widget: string, required: true}
+          - {label: Description, name: description, widget: markdown, required: true}
+          - {label: Image, name: image, widget: image, required: true, media_folder: /source/images/icons, public_folder: /images/icons}
+      - {label: Second Benefits Title, hint: Title displayed next to list of benefits for this topic,  name: benefits_2_title, widget: string, required: false}
+      - {label: Second Benefits Description, name: benefits_2_description, widget: markdown, required: false}
+      - label: second benefits list
+        name: benefits_2
+        widget: list
+        required: false
+        hint: Second benefits block. Each of these items will be displayed next to their image, underneath the body content
+        fields:
+          - {label: Title, name: title, widget: string, required: true}
+          - {label: Description, name: description, widget: markdown, required: true}
+          - {label: Image, name: image, widget: image, required: true,  media_folder: /source/images/icons, public_folder: /images/icons}
+      - label: cta_banner
+        name: cta_banner
+        widget: list
+        required: false
+        hint: More content to be displayed after benefits of block, this content can have CTA buttons
+        fields:
+          - {label: Title, name: title, widget: string, required: false}
+          - {label: CTA Body, name: body, widget: markdown, required: false}
+          - label: CTA buttons
+            name: cta
+            widget: list
+            required: false
+            fields:
+              - {label: CTA Text, name: text, widget: string, required: false}
+              - {label: URL, name: url, widget: string, required: false}
+      - {label: Resources title, hint: Title of resources block displayed at the bottom of the page, name: resources_title, widget: string, required: false}
+      - {label: Resources description, name: resources_intro, widget: markdown, required: false}
+      - label: Resources
+        name: resources
+        widget: list
+        required: false
+        hint: Each of these will be grouped by type and displayed in order as shown in the admin. You can drag and drop the items in the admin.
+        fields:
+          - {label: Title, name: title, widget: string, required: true}
+          - {label: URL, name: url, widget: string, required: true}
+          - {label: Type, name: type, widget: "select", options: ["Webcast", "Video", "Whitepapers", "Books", "Case studies", "Articles", "Reports", "Blog", "Podcast"], required: true}
+      - label: Suggested Content
+        name: suggested_content
+        hint: Only place existing blog articles starting with the /blog/path-to-blog-article path. This block will intelligently pull the blog title, description, link, and image into a blog card displayed in a group at the bottom of the page.
+        widget: list
+        required: false
+        fields:
+          - {label: URL, name: url, widget: string}
+      - label: schema.org FAQPage questions
+        name: schema_faq
+        hint: questions displayed in search results. DO NOT INCLUDE LINKS IN BODY. Use CTA button instead.
+        widget: list
+        fields:
+          - {label: Question, name: question, widget: string}
+          - {label: Answer, name: answer, widget: markdown, hint: DO NOT INCLUDE LINKS IN BODY, USE CTA BUTTON}
+          - label: CTA buttons
+            name: cta
+            widget: list
+            required: false
+            fields:
+              - {label: CTA Text, name: text, widget: string, required: false}
+              - {label: URL, name: url, widget: string, required: false}
+    view_filters:
+      - label: "Agile Delivery"
+        field: parent_topic
+        pattern: 'agile-delivery'
+      - label: "Application Security"
+        field: parent_topic
+        pattern: 'application-security'
+      - label: "CI CD"
+        field: parent_topic
+        pattern: 'ci-cd'
+      - label: "DevOps"
+        field: parent_topic
+        pattern: 'devops'
+      - label: "GitOps"
+        field: parent_topic
+        pattern: 'gitops'
+      - label: "Microservices"
+        field: parent_topic
+        pattern: 'microservices'
+      - label: "Multicloud"
+        field: parent_topic
+        pattern: 'multicloud'
+      - label: "Ops"
+        field: parent_topic
+        pattern: 'ops'
+      - label: "Serverless"
+        field: parent_topic
+        pattern: 'serverless'
+      - label: "Single Application"
+        field: parent_topic
+        pattern: 'single-application'
+      - label: "Version Control"
+        field: parent_topic
+        pattern: 'version-control'
+  - name: blog_posts
+    label: Blog Posts
+    preview_path: "blog/{{year}}/{{month}}/{{day}}/{{title}}/"
+    folder: /sites/uncategorized/source/blog/blog-posts/
+    extension: .html.md.erb
+    format: frontmatter
+    create: true
+    slug: '{{year}}-{{month}}-{{day}}-{{title}}'
+    view_filters:
+      - label: "Company"
+        field: categories
+        pattern: 'company'
+      - label: "Culture"
+        field: categories
+        pattern: 'culture'
+      - label: "Engineering"
+        field: categories
+        pattern: 'engineering'
+      - label: "Insights"
+        field: categories
+        pattern: 'insights'
+      - label: "News"
+        field: categories
+        pattern: 'news'
+      - label: "Open Source"
+        field: categories
+        pattern: 'open source'
+      - label: "Security"
+        field: categories
+        pattern: 'security'
+      - label: "Unfiltered"
+        field: categories
+        pattern: 'unfiltered'
+    fields:
+      - {label: Title, name: title, widget: string, required: true}
+      - {label: Author, name: author, widget: string, required: false}
+      - {label: Author GitLab, name: author_gitlab, widget: string, required: false}
+      - {label: Author Twitter, name: author_twitter, widget: string, required: false}
+      - {label: Categories, name: categories, widget: string, required: true, hint: Visit https://about.gitlab.com/handbook/marketing/blog/#categories for all categories.}
+      - {label: Tags, name: tags, widget: string, required: false, hint: Visit https://about.gitlab.com/handbook/marketing/blog/#tags see all available tags. Seperate by commas for multiple tags}
+      - {label: Description, name: description, widget: string, required: true}
+      - label: Image,
+        name: image_title
+        widget: image
+        required: false
+        media_folder: /source/images/blogimages
+        public_folder: /images/blogimages
+      - {label: Twitter Text, name: twitter_text, widget: string, required: false}
+      - {label: Body, name: body, widget: markdown, required: true}
+  - name: typeform
+    label: Typeform
+    format: yml
+    extension: yml
+    folder: /data/typeform/
+    create: true
+    slug: '{{file_name}}'
+    fields:
+      - {label: Title, name: title, hint: Title displayed in header of webpage, widget: string, required: true}
+      - {label: Header Body, name: header_body, widget: markdown, hint: This is displayed in the header underneath the title, required: true}
+      - {label: SEO Description, hint: This is the SEO description that will get rendered in search results, name: description, widget: string, required: true}
+      - {label: Final URL Path, hint: This will be the final part of the quiz page url and what your data file is named in data/typeform/ - about.gitlab.com/quiz/URL, name: file_name, widget: string, required: true}
+      - label: Social share image
+        hint: The images that is displayed in social media when this article is shared
+        name: twitter_image
+        widget: image
+        media_folder: /source/images/opengraph
+        public_folder: /images/opengraph
+        required: true
+      - {label: Typeform embedd, name: typeform, widget: code, required: true}
+      - label: cta_banner
+        name: cta_banner
+        widget: list
+        required: false
+        hint: More content to be displayed after benefits of block, this content can have CTA buttons
+        fields:
+          - {label: Title, name: title, widget: string, required: false}
+          - {label: CTA Body, name: body, widget: markdown, required: false}
+          - label: CTA buttons
+            name: cta
+            widget: list
+            required: false
+            fields:
+              - {label: CTA Text, name: text, widget: string, required: true}
+              - {label: URL, name: url, widget: string, required: true}
+      - label: Suggested Content
+        name: suggested_content
+        hint: Only place existing blog articles starting with the /blog/path-to-blog-article path. This block will intelligently pull the blog title, description, link, and image into a blog card displayed in a group at the bottom of the page.
+        widget: list
+        required: false
+        fields:
+          - {label: URL, name: url, widget: string}
+  - name: customer_reference
+    label: Case Studies
+    format: yml
+    extension: yml
+    folder: /data/case_studies_slippers/
+    create: true
+    slug: '{{file_name}}'
+    fields:
+      - {label: Title, name: title, hint: Title displayed in header of webpage, widget: string, required: true}
+      - {label: Final URL Path, hint: This will be the final part of the customer reference page url and what your data file is named in data/case_studies_slippers/ - about.gitlab.com/customers/URL, name: file_name, widget: string, required: true}
+      - {label: Canonical Path, hint: Absolute path and it is always unique - please include the following `/customers/final-url-path` - replacing `final-url-path` with your parameter., name: canonical_path, widget: string, required: true}
+      - label: Social share image
+        hint: The images that is displayed in social media when this article is shared
+        name: twitter_image
+        widget: image
+        media_folder: /source/images/blogimages
+        public_folder: /images/blogimages
+        required: true
+      - label: Cover image
+        hint: The images that is displayed in the header
+        name: cover_image
+        widget: image
+        media_folder: /source/images/blogimages/
+        public_folder: /images/blogimages/
+        required: true
+      - {label: Cover Title, name: cover_title, hint: Title displayed over the cover image in the header, widget: markdown, required: true}
+      - {label: Cover Description, name: cover_description, hint: Description displayed over the cover image in the header, widget: markdown, required: true}
+      - label: Customer Logo
+        hint: The customer logo that is displayed in the header
+        name: customer_logo
+        widget: image
+        media_folder: /source/images/case_study_logos/
+        public_folder: /images/case_study_logos/
+        required: true
+      - {label: Customer Industry, name: customer_industry, hint: Industry the customer is in, displayed in the sidebar at top of page, widget: string, required: true}
+      - {label: Customer Location, name: customer_location, hint: Location of the, displayed in the sidebar at top of page, widget: string, required: true}
+      - {label: Customer Solution, name: customer_solution, hint: Level of GitLab subscription, displayed in the sidebar at top of page, widget: string, required: true}
+      - {label: Customer Employees, name: customer_employees, hint: Number of employees, displayed in the sidebar at top of page, widget: string, required: true}
+      - {label: Customer Overview, name: customer_overview, hint: Overview of the customer, widget: markdown, required: true}
+      - {label: Customer Challenge, name: customer_challenge, hint: Challenge of the customer, widget: markdown, required: true}
+      - label: Key Benefits
+        hint: List of benefits
+        name: key_benefits
+        widget: markdown
+        required: false
+      - label: Customer Stats
+        hint: Stats shown in header - 3
+        name: customer_stats
+        widget: list
+        required: false
+        fields:
+          - {label: Number, name: stat, widget: string, required: false }
+          - {label: Label, name: label, widget: string, required: false }
+      - label: Customer content
+        hint: Shown in blocks on page underneath header
+        name: customer_study_content
+        widget: list
+        required: false
+        fields:
+          - {label: Title, name: title, widget: string, required: false }
+          - {label: Subtitle, name: subtitle, widget: string, required: false }
+          - {label: Content, name: content, widget: markdown, required: false }
+      - label: Blockquotes
+        hint: Shown in blocks on page underneath header
+        name: customer_study_quotes
+        widget: list
+        required: false
+        fields:
+          - {label: Blockquote, name: blockquote, widget: markdown, required: false }
+          - {label: Person or attribution, name: attribution, widget: string, required: false }
+          - {label: Title, name: attribution_title, widget: string, required: false }
+      - label: Additional case studies
+        hint: Shown in bottom block of page - links out to other customer reference pages
+        name: more_case_studies
+        widget: list
+        required: false
+        fields:
+          - {label: Title, name: title, widget: string, required: false }
+          - {label: href, name: href, widget: string, required: false }
+  - name: solution
+    label: Solutions
+    format: yml
+    extension: yml
+    folder: /data/solution_slippers/
+    create: true
+    slug: '{{file_name}}'
+    fields:
+      - {label: Title, name: title, hint: Title displayed in header of webpage, widget: string, required: true}
+      - {label: SEO Description, hint: This is the SEO description that will get rendered in search results, name: description, widget: string, required: true}
+      - {label: Final URL Path, hint: This will be the final part of the solution page url and what your data file is named in data/solutions_slippers/ - about.gitlab.com/solutions/URL, name: file_name, widget: string, required: true}
+      - label: Social share image
+        hint: The images that is displayed in social media when this article is shared
+        name: twitter_image
+        widget: image
+        media_folder: /source/images/opengraph
+        public_folder: /images/opengraph
+        required: true
+      - label: header
+        hint: Header
+        name: header
+        widget: object
+        required: false
+        fields:
+          - {label: Header, name: title, widget: string, required: true }
+          - {label: Subtitle, name: subtitle, widget: string, required: false }
+          - {label: Tagline, name: tagline, widget: string, required: false }
+          - {label: Body, name: body, widget: string, required: false, hint: a second tagline }
+          - label: Buttons
+            name: buttons
+            widget: list
+            required: false
+            min: 0
+            max: 2
+            default: 0
+            fields:
+              - {label: Button text, name: button_text, widget: string, required: false}
+              - {label: Button URL, name: button_url, widget: string, required: false}
+          - label: Hero image
+            hint: The images that is displayed in the header hero module
+            name: image
+            widget: image
+            media_folder: /source/images/solutions
+            public_folder: /images/solutions
+      - label: Cards Section
+        name: cards_section
+        hint:  Cards displayed undernead hero module
+        widget: object
+        required: false
+        fields:
+          - {label: Title of module, name: heading, widget: string, required: false }
+          - {label: Subtitle of module, name: subtitle, widget: string, required: false }
+          - label: The Cards
+            name: cards
+            widget: list
+            required: false
+            fields:
+              - {label: heading, name: heading, widget: string, required: false }
+              - {label: Body, name: body, widget: string, required: false }
+              - {label: Icon, name: icon, widget: image, required: false,  media_folder: /source/images/icons, public_folder: /images/icons }
+      - label: Tracks
+        hint: List of blocks with icons. For commit, this is the tracks block.
+        name: tracks
+        widget: object
+        required: false
+        fields:
+          - {label: Heading, name: heading, widget: string, required: false }
+          - {label: Body, name: body, widget: markdown, required: false }
+          - label: Cards
+            name: card
+            widget: list
+            required: false
+            fields:
+              - {label: Heading, name: heading, widget: string, required: false }
+              - {label: Subtitle, name: subtitle, widget: markdown, required: false }
+              - label: Icon
+                hint: The images that is displayed in the header hero module
+                name: icon_full
+                widget: image
+                media_folder: /source/images/icons
+                public_folder: /images/icons
+              - {label: Body, name: body, widget: markdown, required: false }
+              - {label: CTA Text, name: cta, widget: markdown, required: false }
+              - {label: CTA Link, name: href, widget: markdown, required: false }
+      - label: cta_banner
+        hint: CTA Banner displayed in middle of the page.
+        name: cta_banner
+        widget: list
+        required: false
+        fields:
+          - {label: Title, name: title, widget: string, required: false }
+          - {label: Subtitle, name: subtitle, widget: string, required: false }
+          - label: Buttons
+            name: buttons
+            widget: list
+            required: false
+            min: 0
+            max: 2
+            default: 0
+            fields:
+              - {label: button_url, name: button_url, widget: string, required: false}
+              - {label: button_text, name: button_text, widget: string, required: false}
+      - label: Events
+        hint: List of event cards displayed at bottom of template.
+        name: satellite_events
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: body, name: body, widget: string, required: false}
+          - label: Cards
+            name: cards
+            widget: list
+            required: false
+            fields:
+              - {label: heading, name: heading, widget: string, required: true }
+              - {label: icon, name: icon, widget: string, required: true, hint: options are `/icons/slp-calendar.svg` or `/icons/slp-webcast.svg` }
+              - {label: date, name: date, widget: string, required: true }
+              - {label: event_type, name: event_type, widget: string, required: true }
+              - {label: Set to no image, name: noImageSource, widget: "boolean", default: true, hint: Set to true}
+              - {label: cta, name: cta, widget: string, required: true }
+              - {label: destinationUrl, name: destinationUrl, widget: string, required: true }
+      - label: List Block Spot One
+        hint: 1st list block spot availble
+        name: block_list_1
+        widget: object
+        required: false
+        fields:
+          - {label: Heading, name: heading, widget: string, required: false }
+          - {label: Subheading, name: subheading, widget: string, required: false}
+          - label: List Items
+            name: items
+            widget: list
+            required: false
+            fields:
+              - {label: Text, name: text, widget: string, required: false }
+              - {label: Icon, name: icon, widget: string, required: false }
+              - {label: Href, name: href, widget: string, required: false, hint: Include link to make clickable}
+              - {label: Dropdown, name: dropdown, widget: "boolean", required: false, hint: True if expandable}
+              - {label: Body, name: body, widget: string, required: false, hint: Body text of dropdown if true}
+      - label: Marketo Form
+        hint: Form field block to collect email address.
+        name: markto
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: subheading, name: subheading, widget: string, required: false }
+          - {label: alert, name: alert, widget: markdown, required: false }
+          - {label: body, name: body, widget: markdown, required: false }
+          - {label: form, name: form, widget: code, required: false }
+      - label: Display Block of Partners
+        name: partners
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: type, name: type, widget: string, required: false, hint: Only option is "open source" }
+      - label: Suggested Content
+        name: related_posts
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: subheading, name: subheading, widget: string, required: false}
+          - label: Posts
+            name: posts
+            hint: Only place existing blog articles starting with the /blog/path-to-blog-article path. This block will intelligently pull the blog title, description, link, and image into a blog card displayed in a group at the bottom of the page.
+            widget: list
+            required: false
+            fields:
+              - {label: url, name: url, widget: string, required: false }
+  - name: solution_children
+    label: Solution Children
+    format: yml
+    extension: yml
+    folder: /data/solution_children/
+    create: true
+    slug: '{{file_name}}'
+    fields:
+      - {label: Title, name: title, hint: Title displayed in header of webpage, widget: string, required: true}
+      - {label: SEO Description, hint: This is the SEO description that will get rendered in search results, name: description, widget: string, required: true}
+      - {label: Final URL Path, hint: This will be the final part of the solution child page url and what your data file is named in data/solutions_children/ - about.gitlab.com/solutions/PARENT-SOLUTION/URL, name: file_name, widget: string, required: true}
+      - {
+          label: 'Parent Solution',
+          name: 'parent_solution',
+          widget: 'relation',
+          collection: 'solution',
+          display_fields: [file_name],
+          search_fields: [file_name],
+          value_field: 'file_name',
+          hint: This will the be preceding part of the solution page url - about.gitlab.com/parent-solution/final-url,
+          required: true
+        }
+      - label: Social share image
+        hint: The images that is displayed in social media when this article is shared
+        name: twitter_image
+        widget: image
+        media_folder: /source/images/opengraph
+        public_folder: /images/opengraph
+        required: true
+      - label: header
+        hint: Header
+        name: header
+        widget: object
+        required: false
+        fields:
+          - {label: Header, name: title, widget: string, required: true }
+          - {label: Subtitle, name: subtitle, widget: string, required: true }
+          - {label: Tagline, name: tagline, widget: string, required: false }
+          - {label: Body, name: body, widget: string, required: false, hint: a second tagline }
+          - label: Buttons
+            name: buttons
+            widget: list
+            required: false
+            min: 0
+            max: 2
+            default: 0
+            fields:
+              - {label: Button text, name: button_text, widget: string, required: false}
+              - {label: Button URL, name: button_url, widget: string, required: false}
+          - label: Hero image
+            hint: The images that is displayed in the header hero module
+            name: image
+            widget: image
+            media_folder: /source/images/solutions
+            public_folder: /images/solutions
+      - label: Cards Section
+        name: cards_section
+        hint:  Cards displayed undernead hero module
+        widget: object
+        required: false
+        fields:
+          - {label: Title of module, name: heading, widget: string, required: false }
+          - {label: Subtitle of module, name: subtitle, widget: string, required: false }
+          - label: The Cards
+            name: cards
+            widget: list
+            required: false
+            fields:
+              - {label: heading, name: heading, widget: string, required: false }
+              - {label: Body, name: body, widget: string, required: false }
+              - {label: Icon, name: icon, widget: image, required: false,  media_folder: /source/images/icons, public_folder: /images/icons }
+      - label: Tracks
+        hint: List of blocks with icons. For commit, this is the tracks block.
+        name: tracks
+        widget: object
+        required: false
+        fields:
+          - {label: Heading, name: heading, widget: string, required: false }
+          - {label: Body, name: body, widget: markdown, required: false }
+          - label: Cards
+            name: card
+            widget: list
+            required: false
+            fields:
+              - {label: Heading, name: heading, widget: string, required: false }
+              - {label: Subtitle, name: subtitle, widget: markdown, required: false }
+              - {label: Icon, name: icon_full, widget: string, required: false, hint: See handbook page for available icons}
+              - {label: Body, name: copy, widget: markdown, required: false }
+              - {label: CTA Text, name: cta, widget: markdown, required: false }
+              - {label: CTA Link, name: href, widget: markdown, required: false }
+      - label: cta_banner
+        hint: CTA Banner displayed in middle of the page.
+        name: cta_banner
+        widget: list
+        required: false
+        fields:
+          - {label: Title, name: title, widget: string, required: false }
+          - {label: Subtitle, name: subtitle, widget: string, required: false }
+          - label: Buttons
+            name: buttons
+            widget: list
+            required: false
+            min: 0
+            max: 2
+            default: 0
+            fields:
+              - {label: button_url, name: button_url, widget: string, required: false}
+              - {label: button_text, name: button_text, widget: string, required: false}
+      - label: Satellite Events
+        hint: List of satellite event cards displayed at bottom of template.
+        name: satellite_events
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: body, name: body, widget: string, required: false}
+          - label: Cards
+            name: cards
+            widget: list
+            required: false
+            fields:
+              - {label: heading, name: heading, widget: string, required: true }
+              - {label: icon, name: icon, widget: string, required: true, hint: options are `/icons/slp-calendar.svg` or `/icons/slp-webcast.svg` }
+              - {label: date, name: date, widget: string, required: true }
+              - {label: event_type, name: event_type, widget: string, required: true }
+              - {label: Set to no image, name: noImageSource, widget: "boolean", default: true, hint: Set to true}
+              - {label: cta, name: cta, widget: string, required: true }
+              - {label: destinationUrl, name: destinationUrl, widget: string, required: true }
+      - label: List Block Short
+        hint: 1st list block spot availble
+        name: block_list_1
+        widget: object
+        required: false
+        fields:
+          - {label: Heading, name: heading, widget: string, required: false }
+          - {label: Subheading, name: subheading, widget: string, required: false}
+          - label: List Items
+            name: items
+            widget: list
+            required: false
+            fields:
+              - {label: Text, name: text, widget: string, required: false }
+              - {label: Icon, name: icon, widget: string, required: false }
+              - {label: Href, name: href, widget: string, required: false, hint: Include link to make clickable}
+              - {label: Dropdown, name: dropdown, widget: "boolean", required: false, hint: True if expandable}
+              - {label: Body, name: body, widget: markdown, required: false, hint: Body text of dropdown if true}
+      - label: List Block Long
+        hint: Long list block
+        name: block_list_long
+        widget: object
+        required: false
+        fields:
+          - {label: Heading, name: heading, widget: string, required: false }
+          - {label: Subheading, name: subheading, widget: string, required: false}
+          - label: List Items right
+            name: items_right
+            widget: list
+            required: false
+            fields:
+              - {label: Text, name: text, widget: string, required: false }
+              - {label: Icon, name: icon, widget: string, required: false }
+              - {label: Href, name: href, widget: string, required: false, hint: Include link to make clickable}
+              - {label: Dropdown, name: dropdown, widget: "boolean", required: false, hint: True if expandable}
+              - {label: Body, name: body, widget: markdown, required: false, hint: Body text of dropdown if true}
+          - label: List Items left
+            name: items_left
+            widget: list
+            required: false
+            fields:
+              - {label: Text, name: text, widget: string, required: false }
+              - {label: Icon, name: icon, widget: string, required: false }
+              - {label: Href, name: href, widget: string, required: false, hint: Include link to make clickable}
+              - {label: Dropdown, name: dropdown, widget: "boolean", required: false, hint: True if expandable}
+              - {label: Body, name: body, widget: markdown, required: false, hint: Body text of dropdown if true}
+
+      - label: Marketo Form
+        hint: Form field block to collect email address.
+        name: markto
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: subheading, name: subheading, widget: string, required: false }
+          - {label: alert, name: alert, widget: markdown, required: false }
+          - {label: body, name: body, widget: markdown, required: false }
+          - {label: form, name: form, widget: code, required: false }
+      - label: Display Block of Partners
+        name: partners
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: type, name: type, widget: string, required: false, hint: Only option is "open source" }
+      - label: Suggested Content
+        name: related_posts
+        widget: object
+        required: false
+        fields:
+          - {label: heading, name: heading, widget: string, required: false }
+          - {label: subheading, name: subheading, widget: string, required: false}
+          - label: Posts
+            name: posts
+            hint: Only place existing blog articles starting with the /blog/path-to-blog-article path. This block will intelligently pull the blog title, description, link, and image into a blog card displayed in a group at the bottom of the page.
+            widget: list
+            required: false
+            fields:
+              - {label: url, name: url, widget: string, required: false }
+
+

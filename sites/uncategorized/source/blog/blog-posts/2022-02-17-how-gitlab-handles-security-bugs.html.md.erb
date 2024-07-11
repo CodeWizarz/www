@@ -1,0 +1,85 @@
+---
+title: "How GitLab handles security bugs (and why it matters)"
+author: Nick Malcolm
+author_gitlab: nmalcolm
+author_twitter: nickmalcolm
+categories: security
+image_title: '/images/blogimages/aleks-dahlberg-glass-unsplash.jpeg'
+description: "Learn what makes our approach to handling and transparently disclosing security bugs unique."
+tags: security
+twitter_text: "Learn what makes the @gitlab approach to handling and transparently disclosing security bugs unique."
+featured: no
+postType: content marketing
+related_posts:
+  - "/blog/2021/12/14/smashing-bugs-and-dropping-names-in-2021/"
+  - "/blog/2021/12/17/gitlab-security-twenty-twenty-one/"
+  - "/blog/2021/11/18/deep-dive-tech-stack-behind-spamcheck/"
+---
+
+In almost any kind of software, bugs and security vulnerabilities will be discovered over time. We do our best to proactively spot and fix bugs before and after release, but it’s the nature of humans crafting software that there will be things we miss. In this post, we’ll explore how GitLab handles security bugs and how **_the way_ we handle and publicly disclose bugs is unique and important to upholding our values,** and why customers should care. 
+
+## Why do I even have to care?
+
+GitLab is [an open-core](/company/stewardship/) platform where businesses can choose to either sign up to GitLab.com, or self-host and self-manage a Community or Enterprise Edition. [Everyone can contribute](/company/mission/#mission), and that applies to identifying security bugs too! We have a vibrant community of researchers reporting security issues through our [HackerOne Bug Bounty Program](https://hackerone.com/gitlab), we can receive [responsible disclosure reports](/security/disclosure/), and of course we have dedicated [internal security teams](/handbook/security) working across an organization where [security is everyone’s responsibility](/handbook/engineering/workflow/#security-is-everyones-responsibility).
+
+We follow [an established process](/handbook/security/#security-releases) to resolve security issues in a timely manner. Since we manage GitLab.com for our .com customers, when we release a security patch they are already protected and automatically using the latest version. However, self-managed customers are responsible for patching their own GitLab deployments. 
+
+Because GitLab is open-core, as soon as a security release is made public, anyone can explore the code and look at how we’ve addressed security issues. While this information can help security teams and ethical hackers spot and resolve similar vulnerabilities elsewhere, unethical hackers could use this knowledge to figure out how to attack unpatched instances. It’s important that self-managed customers are made aware of security issues and their severity, so that they can prioritize patching them in a timely manner. That’s where [Common Vulnerabilities and Exposures](https://cve.mitre.org/index.html) (CVEs) come in.  
+
+Note: You can receive security release notifications [via RSS](https://about.gitlab.com/security-releases.xml) or sign up to receive security release notifications delivered to your inbox by visiting our [contact us page](/company/contact/).
+{: .alert .alert-info .note}
+
+
+## CVwhatnows?
+
+CVEs are an industry standard way of disclosing security bugs. Each CVE is given a unique number, which is tied to a vendor (e.g. GitLab), a product (e.g. GitLab Enterprise Edition), a severity score, and vulnerability report. 
+
+If you take a look at the Releases section of our blog and find a Security Release ([here’s an example](/releases/2022/02/03/security-release-gitlab-14-7-1-released/)), you’ll see each vulnerability was assigned a CVE like CVE-2022-12345.  These CVEs get distributed across the industry to various web portals, security scanning products, and mailing lists, so that people know if they’re affected and need to update.
+
+### Where does the CVE score come from?
+
+Each CVE has a severity score, typically referenced by developers and organizations to understand how urgently they need to patch. With GitLab, this is simplified since **we recommend that self-managed administrators always apply the latest patches regardless of how severe (or not) the issues are.**
+
+The score is created from a standard called the [Common Vulnerability Scoring System](https://en.wikipedia.org/wiki/Common_Vulnerability_Scoring_System) and is based on how likely it is for the attack to occur, and how impactful it would be if it did.
+
+Some examples:  
+* An attack is *less likely* if it needs to be exploited from a local network (hard to access), compared to one that can be exploited from the internet (almost everyone has access).
+* An attack is *less likely* if an administrator has to enable certain features first, or if a victim has to visit a certain page. 
+* An attack is *less impactful* if the result is a little bit of information disclosure, compared to disclosing a highly-privileged access token.
+
+There are many things to consider when setting a severity, so, at GitLab, we created our own web-based [CVSS Calculator](https://gitlab-com.gitlab.io/gl-security/appsec/cvss-calculator/). This helps us to be transparent and consistent in how we define and rate likelihood, impact, and severity. The CVE severity score influences how we prioritize remediation and how much money we award to bug bounty researchers.
+
+### But why does GitLab have so many CVEs?
+
+We understand self-managed customers may ask why we have so many vulnerability disclosures, or even why they need to update their GitLab software for security releases so often? At GitLab, we value making information public by default and being transparent, [even when there are costs](/handbook/values/#transparency-is-most-valuable-if-you-continue-to-do-it-when-there-are-costs). 
+
+If we were not committed to transparency and only ran GitLab.com, we could patch vulnerabilities silently and not disclose anything. A number of SaaS platforms, both closed and open source, take that approach. At best, they might have a bullet point of “security fixes” in their release notes. For example, [take a look at the Hacktivity of other programmes on HackerOne](https://hackerone.com/directory/programs?offers_bounties=true&asset_type=SOURCE_CODE&order_direction=DESC&order_field=resolved_report_count) and see how regularly (or irregularly, in some cases 👀 ) full issues are publicly disclosed.
+
+We assign a CVE to every vulnerability included in a GitLab release, no matter how small, and describe the vulnerability in each [security release blog post](/releases/categories/releases/). Our [HackerOne Hacktivity](https://hackerone.com/gitlab/hacktivity?type=team) page has public disclosures of issues which serve as good learning material for other researchers. And whether we disclose the HackerOne report or not, we aim to publicly disclose every security vulnerability’s [GitLab issue](https://gitlab.com/gitlab-org/gitlab/-/issues?sort=updated_desc&state=closed&label_name[]=security&label_name[]=type::bug&confidential=no) 30 days after a patch is released, no matter how serious. We even have automated bots that will remind the Application Security team in case any fall through the cracks in terms of being made public!
+
+
+![file name](/images/blogimages/GL-Security-bot.png){: .shadow.medium.center}
+Automated GitLab SecurityBot.
+{: .note.text-center}
+
+
+We bundle security patches up each month and release them around a week after our regular self-managed release (which [release on the 22nd of each month](/releases/)). In total, that’s at least 24 releases a year. In addition, patches, particularly for critical issues, can be released as needed without waiting for the monthly release. You can learn more in our [release and maintenance policy](https://docs.gitlab.com/ee/policy/maintenance.html). 
+
+
+![file name](/images/blogimages/GL-H1-top5.png){: .shadow.medium.center}
+Our HackerOne bug bounty program offers competitive bounty awards, which draws creative and expert researchers from around the world, who help make our product more secure.
+{: .note.text-center}
+
+
+## Is there transparency in your supply chain?
+
+Most organizations rely on software providers to achieve their goals, whether they are online SaaS platforms or desktop and mobile apps. When a company you rely on has a security issue (whether they tell you about it or not), it can affect your organization and the data and processes you’ve entrusted to them. These are called “supply chain” risks. [SolarWinds](https://en.wikipedia.org/wiki/2020_United_States_federal_government_data_breach#SolarWinds_exploit_2), [Log4j](https://www.ncsc.gov.uk/blog-post/log4j-vulnerability-what-should-boards-be-asking), and [the Equifax hack](https://en.wikipedia.org/wiki/2017_Equifax_data_breach) are all very different examples of [supply chain risks](https://learn.gitlab.com/devsecops-aware/software-supply-chain-security-ebook) being realized and causing disruption or damage to organizations.
+
+In your next conversations with companies in your supply chain, ask how they identify, remediate, and communicate their security fixes. Does the level of detail, transparency, and rigor shown in their security fix and disclosure processes give you confidence in having them in your supply chain? 
+
+At GitLab, we strive to deliver secure software, to reduce the number of issues that get released, and to be transparent when vulnerabilities are discovered. Have a question about our disclosure process that’s not answered in our [disclosure policy](/security/disclosure/)? Let us know in the comments below. You can also check out how we [assess and monitor third-party risk](/handbook/security/security-assurance/security-risk/third-party-risk-management.html). 
+
+As always, feel free to adopt and use our documentation in your own organization, and please add to or suggest improvements to our handbook and processes if you see them!
+
+Cover image by [Aleks Dahlberg](https://unsplash.com/@aleksdahlberg) on [Unsplash](https://unsplash.com/photos/3cWA3U8xb5w)
+{: .note}

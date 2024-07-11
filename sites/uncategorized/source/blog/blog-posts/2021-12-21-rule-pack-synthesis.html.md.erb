@@ -1,0 +1,249 @@
+---
+title: "How to tailor SAST and Secret Detection to your application context with custom rulesets"
+author: Julian Thome and Lucas Charles and Taylor McCaslin
+author_twitter: "gitlab"
+categories: security
+image_title: '/images/blogimages/customize.png'
+description: "How you can use GitLab custom rulesets to customize security scanners to your needs."
+tags: security, tutorial
+featured: no
+related_posts:
+- "/blog/2021/09/08/write-vulnerability-detection-rules/"
+- "/blog/2021/11/23/three-things-you-might-not-know-about-gitlab-security/"
+- "/blog/2021/12/17/gitlab-security-twenty-twenty-one/"
+---
+
+GitLab is a complete DevSecOps platform and integrates a variety of different security
+analyzers for [Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/analyzers.html)
+and [Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/)
+that help developers find vulnerabilities as early as possible in the software
+development lifecycle.
+
+Since the tools GitLab integrates are very different in terms of their implementations
+and their technology stacks, SAST tools are wrapped in Docker
+images with sensible default configurations that target the majority of use-cases.
+
+However, GitLab users and organizations may want to enhance the capabilities of
+the scanners they use by adding more detection rules or by eliminating findings
+that they identified as false positives based on their particular application
+context. GitLab users and organizations may opt to implement a more specialized configuration 
+that meets the demands of their project. Organizations may wish to manage their own security 
+configurations by hosting them in a dedicated Git repository. This will allow
+their teams to extend or replace GitLab's general use-case configuration.
+
+Below you can find three common scenarios that demonstrate GitLab's
+custom-ruleset feature which has been [introduced in GitLab 13.5](https://about.gitlab.com/releases/2020/10/22/gitlab-13-5-released/#customizing-sast--secret-detection-rules)
+and extended in GitLab 14.6 by 
+enabling users to tailor the behavior of SAST and Secret Detection
+analyzers to their organization’s preferences. You can find a complete documentation of this feature in the 
+[GitLab handbook](https://docs.gitlab.com/ee/user/application_security/sast/#customize-rulesets).
+
+## Enhance Secret Detection
+
+Imagine an organization with restrictive policies in place to protect against 
+accidental commits that include secrets. One of their policies may include 
+user accounts which start with a `COMP_` prefix followed by an alphanumeric 
+string, while another may detect 20-digits access tokens which are used to 
+access internal servers.
+
+We assume that the organization already includes the GitLab Secret Detection CI
+template in the `.gitlab-ci.yml`:
+
+``` yaml
+include:
+  - template: Secret-Detection.gitlab-ci.yml
+```
+
+To enforce the company policies described above, we can create a
+configuration `.gitlab/secret-detection-ruleset.toml`:
+
+``` toml
+[secrets]
+  description = 'secrets custom rules configuration'
+
+  [[secrets.passthrough]]
+    type  = "file"
+    target = "gitleaks.toml"
+    value = "config/gitleaks.toml"
+```
+
+The configuration snippet below automatically loads the file
+`config/gitleaks.toml` and uses it as a configuration for Secret Detection. The
+contents of `config/gitleaks.toml` are displayed below.
+
+```toml
+title = "gitleaks config"
+
+[[rules]]
+description = "Internal user account leaked"
+regex = "COMP_[a-zA-Z0-9]+"
+
+[[rules]]
+description = "Internal access token leaked"
+regex = "[0-9]{20}"
+```
+
+The two rules displayed above formalize the policies of the organization by
+enabling Secret Detection to scan for secrets based on the policies laid out by
+the organization.
+
+## Eliminate False Positives
+
+Imagine a GitLab user/developer that is working on a microservice implemented
+in Golang. The microservice is launched as a CLI tool where all configuration
+parameters are passed as CLI arguments. The developer is sure that these
+parameters are passed to the application as fixed strings so that, based on the
+contextual knowedge of the application, the developer would like to dismiss the
+two gosec rules:
+
+- G304: File path provided as taint input
+- G204: Audit use of command execution
+
+We assume that the organization already includes the GitLab SAST CI
+template in the `.gitlab-ci.yml`:
+
+``` yaml
+include:
+  - template: SAST.gitlab-ci.yml
+```
+
+The configuration below if added to file `.gitlab/sast-ruleset.toml` disables
+the rules G304, G204 so that they are no longer reported.
+
+``` toml
+[gosec]
+  [[gosec.ruleset]]
+    disable = true
+    [gosec.ruleset.identifier]
+      type = "gosec_rule_id"
+      value = "G304"
+
+  [[gosec.ruleset]]
+    disable = true
+    [gosec.ruleset.identifier]
+      type = "gosec_rule_id"
+      value = "G204"
+```
+
+## User defined SAST configuration
+
+Imagine an organization that would like to run its own SAST configuration on a
+monorepo that contains a mix of Go and Python code. The organization would like
+to run a configuration that is completely independent from rulesets shipped
+with GitLab and that incorporates rules from various sources:
+
+- Two Git repositories with some adjustments to the default rules.
+- Two files to be downloaded from known and trusted sources.
+
+We assume that the organization already includes the GitLab SAST CI
+template in the `.gitlab-ci.yml`:
+
+``` yaml
+include:
+  - template: SAST.gitlab-ci.yml
+```
+
+For building a complete custom configuration, we rely on a passthrough chain.
+You can think of a passthrough as a single step that modifies the custom
+configuration. Passthroughs can be organized in chains where every passthrough
+is evaluated in a sequence to incrementally build the custom configuration. The
+final configuration is then passed to the target analyzer. Currently, we
+support the passthrough types listed in the table below.
+
+| Type   | Description |
+| ------ | ------ |
+| `file` | Use a file that is already available in the Git repository. |
+| `raw`  | Provide the configuration inline. |
+| `git`  | Pull the configuration from a remote Git repository. |
+| `url`  | Fetch the analyzer configuration from a given URL. |
+
+The configuration file below assembles a configuration under `/sgrules` by
+first pulling semgrep configuration from the two Git repositories
+`semgrep-rules` and `semgrep-go`, respectively. In the configuration, you can
+see several `passthrough` entries. The third `raw` passthrough is responsible
+for appending the string defined in the `value` field to `joinpath.yml` (that
+originates from one of the Git passthroughs). The fourth `raw` passthrough
+overwrites an existing file to change its behaviour. The last two `url`
+passthroughs download Python rules from the specified URLs and add them to the
+custom configuration as `xml.yml` and `marshal.yml`. More details are provided
+as comments in the YAML configuration.
+
+The final customized configuration under `/sgrules` is then passed to semgrep
+and the corresponding results are stored and can be acted upon as usual using the
+[GitLab Vulnerability Report](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/).
+
+``` toml
+[semgrep]
+  description = 'semgrep custom rules configuration'
+  # targetdir where the custom configuration is assembled
+  targetdir = "/sgrules"
+  # Automatically check the validity of the files after applying file, url or
+  # raw passthroughs.
+  # Appropriate validator is inferred based on the file extension.
+  validate = true
+
+  [[semgrep.passthrough]]
+    type  = "git"
+    value = "https://github.com/trailofbits/semgrep-rules"
+    # we are cloning the main branch
+    ref = "refs/heads/main"
+    # we are only interested in the rules below the go subdirectory
+    subdir = "go"
+
+  [[semgrep.passthrough]]
+    type  = "git"
+    value = "https://github.com/dgryski/semgrep-go"
+    # specify the reference to be used
+    ref = "b14e2f07411c22cadaab3a5d7df2346a99e7b36d"
+
+  [[semgrep.passthrough]]
+    type  = "raw"
+    # appending to an existing file
+    mode  = "append"
+    target = "joinpath.yml"
+    value = """
+  - id: join-path-addition
+    patterns:
+           - pattern-either:
+                        - pattern: strings.Join(..., "////")
+    message: "would you like to use filepath.Join()?"
+    languages: [go]
+    severity: ERROR
+"""
+
+  [[semgrep.passthrough]]
+    type  = "raw"
+    # overwriting existing file
+    mode  = "overwrite"
+    target = "nilerr.yml"
+    value = """
+rules:
+  - id: return-nil-modified
+    patterns:
+        - pattern-either:
+              - pattern: |
+                      if err == nil {
+                              return err
+                      }
+    message: "return nil, err"
+    languages: [go]
+    severity: ERROR
+"""
+
+  [[semgrep.passthrough]]
+    type  = "url"
+    value = "https://gitlab.com/gitlab-org/secure/gsoc-sast-vulnerability-rules/playground/sast-rules/-/raw/main/python/xml/rule-import_xmlrpclib.yml"
+    target = "xml.yml"
+
+  [[semgrep.passthrough]]
+    type  = "url"
+    value = "https://gitlab.com/gitlab-org/secure/gsoc-sast-vulnerability-rules/playground/sast-rules/-/raw/main/python/deserialization/rule-marshal.yml"
+    target = "marshal.yml"
+```
+
+This post illustrated how you can adapt security analysis to your particular
+application context using custom rulesets. More detailed documentation is available in the 
+[GitLab Handbook](https://docs.gitlab.com/ee/user/application_security/sast/#customize-rulesets).
+ 
+Cover Image by [Barn Images](https://unsplash.com/@barnimages) on [Unsplash](https://unsplash.com/photos/t5YUoHW6zRo)
+{: .note}

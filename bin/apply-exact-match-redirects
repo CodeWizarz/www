@@ -1,0 +1,73 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../lib/redirect'
+
+exact_err = <<~EOS
+if ( obj.status == 703 ) {
+  set obj.status = 301;
+  set obj.response = "Moved Permanently";
+  set obj.http.Location = req.http.redir_location;
+  synthetic {""};
+  return (deliver);
+}
+EOS
+
+# for details on JiHu redirect rule see: https://gitlab.com/gitlab-com/www-gitlab-com/-/issues/12530
+# https://developer.fastly.com/reference/vcl/variables/geolocation/client-geo-country-code/
+exact_recv = <<~EOS
+set req.http.redir_location = table.lookup(redirects_match, req.url, "");
+set req.http.geo_country_code = client.geo.country_code;
+
+if ( req.http.geo_country_code == "CN" ) {
+  if ( req.url ~ "^/install" ) {
+    set req.http.redir_location = "https://about.gitlab.cn" req.url;
+  }
+}
+
+if ( req.http.redir_location != "" ) {
+  if ( req.http.redir_location !~ "^http" ) {
+    set req.http.redir_location = "https://" req.http.host req.http.redir_location;
+  }
+  error 703 "Permanent Redirect";
+}
+EOS
+
+exact_err_data = "content=" + exact_err
+exact_recv_data = "content=" + exact_recv
+dictionary_id = ENV['FASTLY_DICT_ID']
+
+Gitlab::Homepage::Redirect.fastly_snippet_patch(ENV['FASTLY_EXACT_ERR_SNIPPET_ID'], exact_err_data)
+Gitlab::Homepage::Redirect.fastly_snippet_patch(ENV['FASTLY_EXACT_RECV_SNIPPET_ID'], exact_recv_data)
+
+resp = Gitlab::Homepage::FastlyClient.get_dictionary_items(dictionary_id)
+current_redirects = resp.parsed_response
+puts "current_redirects"
+puts current_redirects
+items = []
+Gitlab::Homepage::Redirect.from_definitions_file do |redirect|
+  next if redirect.comp_op != '='
+
+  target = redirect.target
+
+  redirect.sources.each do |source|
+    # Delete still existing redirects from the to-be-deleted list
+    current_redirects.delete_if { |r| r['item_key'] == source }
+
+    items << { op: 'upsert', item_key: source, item_value: target }
+  end
+end
+
+Gitlab::Homepage::Redirect.fastly_update_items(dictionary_id, items)
+
+# Delete items still remaining, that means they were deleted from redirects.yml
+current_redirects.each do |redirect|
+  key = redirect['item_key'].gsub('/', '%2F').gsub('#', '%23')
+  response = Gitlab::Homepage::FastlyClient.delete_dictionary_item(dictionary_id, key)
+
+  unless response.success?
+    puts "Failed to delete a dictionary item! Status code: #{response.code}"
+    puts "Response: #{response}"
+    exit 1
+  end
+end

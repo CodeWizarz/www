@@ -1,0 +1,204 @@
+---
+title: "Get better container security with GitLab: 4 real-world examples"
+author: Thiago Figueiró
+author_gitlab: thiagocsf
+categories: security
+image_title: '/images/blogimages/container-security.jpg'
+description: "Containers are increasingly popular – and increasingly vulnerable. Using four threat scenarios, we step through how GitLab's built-in security features will make containers safer."
+tags: kubernetes, security, demo
+featured: yes
+postType: content marketing
+merch_banner: merch_one
+---
+
+The number of web applications hosted in containers grows every day, but data from our 2020 Global DevSecOps Survey showed a majority of companies don't have a [container security](/topics/devsecops/beginners-guide-to-container-security/) strategy in place. This post shows examples of how GitLab can help increase the security of such applications and their hosting environment. We focus on web applications, but most of the security features described in this post apply to any containerized apps.
+
+Detailed descriptions and examples of the tactics and techniques mentioned in this post can be found in the [MITRE ATT&CK Matrix](https://attack.mitre.org/).
+
+## Threat Models
+
+To help with our scenarios, we're taking two tactics from the MITRE ATT&CK matrix: [Initial Access](https://attack.mitre.org/tactics/TA0001/) and [Execution](https://attack.mitre.org/tactics/TA0002/). There are similar categories in other frameworks, such as the [cyber kill chain](https://en.wikipedia.org/wiki/Kill_chain#The_cyber_kill_chain).
+
+### Initial Access
+
+In this phase, an attacker is attempting to establish access to your computing resources through different techniques. A single one might be sufficient for the attack to succeed but, quite often, a successful compromise relies on a few different methods.
+
+The diagram below shows three examples of how an attacker can gain access to a container hosting an application accessible from the Internet.
+
+```mermaid
+graph LR
+  classDef default fill:#FFFFFF,stroke:#0C7CBA;
+  classDef baddie fill:#ffd6cc,stroke:#991f00;
+
+  subgraph Kubernetes Cluster
+    subgraph Container
+      subgraph Application
+        Accounts[Valid<br>Accounts]
+        click Accounts "https://attack.mitre.org/techniques/T1078"
+        style Accounts fill:#FFFFFF,stroke:#0C7CBA;
+
+        Dependencies[External<br>Dependencies]
+        click Dependencies "https://attack.mitre.org/techniques/T1195"
+        style Dependencies fill:#FFFFFF,stroke:#0C7CBA;
+
+        Service[Network<br>Service]
+        click Service "https://attack.mitre.org/techniques/T1190"
+        style Service fill:#FFFFFF,stroke:#0C7CBA;
+      end
+    style Application fill:#fff,stroke:#cccccc;
+  end
+  style Container fill:#f0f0f5,stroke:#cccccc;
+  end
+
+  Attacker -- Supply chain attack --> Dependencies
+  Attacker -- Exploit --> Service
+  Attacker -- Exposed Credentials --> Accounts
+
+  class Attacker baddie
+
+```
+
+There are different ways threat vectors can be exploited but, to demonstrate GitLab's features, let's pick some specific examples of how it can happen. None of these are made-up by the way; they have all happened - and continue to happen - in the wild.
+
+1. **Exposed Credentials**. Someone with legitimate access to your systems saved valid account credentials in an application's code repository.
+1. **Supply Chain Attack**. There's no apparent vulnerability in the application itself but the attacker managed to introduce one in an external dependency utilized by the application, so now it, too, is vulnerable.
+1. **Exploit**. The application is vulnerable to command execution because it doesn't validate user input properly.
+
+### Execution
+
+At this point, the attacker has:
+
+1. Acquired credentials that allow access to most areas of the web application.
+1. Discovered that the application is vulnerable to remote code execution.
+1. Introduced a different vulnerability to the application via an external dependency.
+
+The next objective is to use one or more of these assets to execute instructions of their choice on the target systems. The diagram below shows different ways this can be accomplished.
+
+```mermaid
+graph TD
+  classDef default fill:#FFFFFF,stroke:#0C7CBA;
+  classDef cl-container fill:#f0f0f5,stroke:#cccccc;
+  classDef baddie fill:#ffd6cc,stroke:#991f00;
+
+  subgraph Infrastructure [Kubernetes Cluster]
+    subgraph Container
+      Application
+      Others
+      Exploit[Executable Exploit]
+      Shell[Reverse Shell]
+
+      Application -- Deliver, Execute --> Exploit
+      Application -- Execute --> Shell
+      Others[Other<br>Techniques] -- Deliver, Execute --> Exploit
+      Exploit -- Modify --> Filesystem
+      Exploit -- Spawn --> Shell
+
+    end
+
+    subgraph Containers [Other Containers]
+      Internal(Internal Service)
+    end
+    Exploit -- Lateral Movement --> Internal
+    class Container,Containers cl-container
+  end
+
+  Shell -- Internet --> Attacker
+
+  class Attacker,Exploit,Others,Shell baddie
+```
+
+Again we're choosing scenarios that fit our examples.
+
+1. **Deliver**, **Execute**. The attacker has an exploit that they would like to deliver and execute.
+   1. The vulnerable application is tricked into writing arbitrary content to the container file system.
+   1. The vulnerable application is tricked into executing arbitrary commands.
+   1. The external dependency provides another, unspecified way to deliver and execute malicious code.
+1. **Spawn**. Execution of malicious code spawns a [reverse shell](https://en.wikipedia.org/wiki/Shell_shoveling) that connects to the attacker and waits for commands.
+1. **Modify**. The malicious code modifies configurations on the container's file system that further exposes the container to attack, or perhaps, escalates the attacker's privileges.
+1. **Lateral Movement**. The attacker's exploit probes other hosts in the container's network, managing to find and access an internal service that wasn't exposed to the Internet in the first place.
+
+## How GitLab Helps Stop These Attacks
+
+As part of the [Secure](https://about.gitlab.com/direction/secure/) and [Protect](https://about.gitlab.com/direction/govern/) Stages, GitLab delivered and continues to improve features that minimize your security risk and help you [shift security left](/blog/2020/06/23/efficient-devsecops-nine-tips-shift-left/).
+
+Let's see how these GitLab features would prevent and detect the attacks described in our example scenarios.
+
+### Initial Access
+
+By [shifting left](/blog/2019/11/20/toolchain-security-with-gitlab/), all techniques in this phase could be detected even before the application was deployed to an Internet-accessible environment.
+
+This is done by taking advantage of [GitLab Secure](https://docs.gitlab.com/ee/user/application_security/) features as part of an application's [Continuous Integration (CI)](https://docs.gitlab.com/ee/ci/) builds.
+
+#### Exposed Credentials
+
+A [Secret Detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) scan reports several types of secrets accidentally or intentionally committed to your code repository, allowing the merge request author to remove and invalidate the exposed secret before it can be used in an attack.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/W2tjcQreDwQ" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+#### Supply Chain Attack
+
+One type of supply chain attack is against the open-source code libraries used by your application. [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) reports known vulnerabilities in dependencies used by your application. Scanners for multiple languages are available and kept up-to-date with a database of known vulnerabilities so that potential vulnerabilities are identified and reported as part of your CI builds.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/uGhS2Wh6PBE" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+#### Exploit
+
+For the examples given in this category, there are two ways GitLab mitigates and prevents the described attacks. The first is [Dynamic Application Security Testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/), another scanner that can be run as a CI job. The second way is through the GitLab Web Application Firewall (WAF), part of our [Protect Stage](/handbook/engineering/development/sec/govern/).
+
+Because DAST executes against a running deployment of your application, it detects potential problems that can't be discovered by merely analyzing an application's source code. In our example, the attacker relies on an input validation weakness in the application that might be identified and reported as a [server side code injection](https://www.zaproxy.org/docs/alerts/90019/) by DAST.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/wxcEiuUasyM" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+Effective security is implemented in layers and, should DAST fail to identify a vulnerability, we can sometimes rely on WAF to block malicious requests to the application.
+
+A WAF can monitor and block web traffic based on a set of pre-configured rules that determine if a request is potentially malicious or a response indicates compromised security. GitLab's WAF comes with the [OWASP ModSecurity Core Rule Set](https://owasp.org/www-project-modsecurity-core-rule-set/) installed by default, which will successfully prevent various forms of [shell injection](https://github.com/coreruleset/coreruleset/blob/7776fe23f127fd2315bad0e400bdceb2cabb97dc/rules/REQUEST-932-APPLICATION-ATTACK-RCE.conf#L415) and [SQL injection](https://github.com/coreruleset/coreruleset/blob/v3.4/dev/rules/REQUEST-942-APPLICATION-ATTACK-SQLI.conf) attacks.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/03n4C60YnDQ" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+### Execution
+
+In case the previous counter-measures have failed to prevent initial access to our system, we have another layer of defense against attacks. Even after a vulnerable application is deployed to a publicly accessible environment, we can still detect and prevent cyberattacks.
+
+#### Detection
+
+In our examples, the attacker modified the container filesystem and created new processes by executing malicious code. These actions can be detected and logged, as shown in the demonstration video below. Additionally, the logs can be sent to a SIEM with Gitlab's [SIEM integration](https://docs.gitlab.com/ee/user/clusters/applications.html#fluentd), enabling a security operations team to be notified of the suspicious activity within seconds of it happening.
+
+As part of our [Container Host Security](https://about.gitlab.com/direction/govern/) features, you can [enable logging of system calls](https://docs.gitlab.com/ee/user/clusters/applications.html#install-falco-using-gitlab-cicd) on any containers in your [Kubernetes cluster](https://docs.gitlab.com/ee/user/project/clusters/).
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/WxBzBz76FxU" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+#### Prevention
+
+GitLab is able to prevent all attack examples described earlier: Lateral Movement, Reverse Shell, filesystem modification, and malicious code execution attacks.
+
+By deploying a [Network Policy](https://docs.gitlab.com/ee/topics/autodevops/stages.html#network-policy) to your Kubernetes cluster, the compromised container would not be allowed to create an outbound connection to the attacker through the Internet. Similarly, the Executable Exploit would be prevented from probing other pods in a cluster network due to policy restrictions.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/pgUEdhdhoUI" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+To prevent filesystem modification and restrict code execution, [Pod Security Policies](https://kubernetes.io/docs/concepts/policy/pod-security-policy/) [are supported](https://docs.gitlab.com/ee/user/clusters/applications.html#install-apparmor-using-gitlab-cicd) as part of our Container Host Security features.
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/fPy53c3rbAs" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+## Conclusion
+
+The number of container-based applications will continue to grow along with the necessity to secure them, and our new [Container Host Security](/direction/govern/) category is part of the GitLab strategy to enable organizations to proactively protect their cloud-native environments.
+
+In this blog post, we highlighted only a few of the DevSecOps features currently available in GitLab. For additional existing and upcoming functionality, please visit the product direction pages for [Protect](/direction/govern/) and [Secure](/direction/secure/).
+
+
+Cover image by [JJ Ying](https://unsplash.com/@jjying) on [Unsplash](https://unsplash.com).
+{: .note}

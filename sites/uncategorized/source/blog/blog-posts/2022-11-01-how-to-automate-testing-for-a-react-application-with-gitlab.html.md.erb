@@ -1,0 +1,246 @@
+---
+title: "How to automate testing for a React application with GitLab"
+author: Jeremy Wagner
+author_gitlab: jeremywagner
+categories: engineering
+tags: testing, DevOps, CI/CD
+description: Learn how to add React automated tests to a GitLab CI pipeline with this tutorial.
+image_title: /images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/cover.jpg
+twitter_text: Learn how to add React automated tests to a GitLab CI pipeline with this tutorial.
+---
+
+React is a popular JavaScript library for building user interfaces. In this tutorial, I'll show you 
+how to create a new React application, run unit tests as part of the [CI process](https://about.gitlab.com/topics/ci-cd/) in GitLab, and output
+the test results and code coverage into the pipeline.
+
+## Prerequisites
+
+For this tutorial you will need the following:
+
+- [Node.js](https://nodejs.org/en/) >= 14.0.0 and npm >= 5.6 installed on your system
+- [Git](https://git-scm.com/) installed on your system
+- A [GitLab](https://gitlab.com/-/trial_registrations/new) account
+
+## Getting started
+
+To get started, [create a new project in GitLab](https://docs.gitlab.com/ee/user/project/working_with_projects.html#create-a-project).
+
+When you are on the "Create new project" screen, select "Create blank project." Fill out the project information 
+with your project name and details. After you create the project, you will be taken to the project with an empty repository.
+
+Next, we will clone the repository to your local machine. Copy the SSH or HTTPS URL from the "Clone" button and run the following
+command in the terminal for your working directory:
+
+```
+git clone <your copied URL here>
+```
+
+## Create the React app
+
+You will create a new React application by using [Create React App](https://reactjs.org/docs/create-a-new-react-app.html#create-react-app).
+
+From the terminal `cd` into your newly cloned project directory and run this command:
+
+```
+npx create-react-app .
+```
+
+The npx CLI tool will create a new React application inside of your current directory.
+
+To run the application, run the following command in your terminal:
+
+```
+npm run start
+```
+
+You can view the application you created in your browser window at `https://localhost:3000`.
+
+![Create React App home page](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/create-react-app.png){: .shadow}
+
+Stop your application by pressing `CTRL` + `c` in your terminal. 
+
+Push your new application to GitLab by running the following commands:
+
+```
+git add -A
+git commit -m "Initial creation of React application"
+git push
+```
+
+## Testing your application
+
+By default, Create React App uses [jest](https://jestjs.io/) as the test runner and one unit test to run.
+
+```javascript
+import { render, screen } from '@testing-library/react';
+import App from './App';
+
+test('renders learn react link', () => {
+  render(<App />);
+  const linkElement = screen.getByText(/learn react/i);
+  expect(linkElement).toBeInTheDocument();
+});
+```
+
+Inside your `package.json`, you should see that it comes with several scripts.
+
+```javascript
+"scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+  }
+```
+
+Use the test script to run the tests in your application by running the following command:
+
+```
+npm run test
+```
+
+When prompted for "Watch Usage," press `a` to run all of the tests. You will see that the existing test passes and it continues to watch for changes.
+
+![CLI passing tests](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/passing-test-cli.png){: .shadow}
+
+For local development, watching for changes to run the tests is great; however, for our CI pipeline we would like to run the tests once, 
+create a report so that we can see the results inside of our pipeline, and also determine the code coverage.
+
+Exit the jest test watcher by pressing `CTRL` + `c` in your terminal. 
+
+## Add unit test reporting and coverage
+
+To view the unit test report, GitLab requires the runner to upload a JUnit report format XML file.
+We will use `jest-junit` to generate this file. This is a unit test report for jest and will create an XML
+file in the right format.
+
+To install `jest-junit`, run the following command in your terminal:
+
+```
+npm install --save-dev jest-junit
+```
+
+Now, add a new script to run the unit tests inside of your CI pipeline.
+Add a `test:ci` script to your `package.json` that looks like this:
+
+```javascript
+"scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "test:ci": "npm run test -- --testResultsProcessor=\"jest-junit\" --watchAll=false --ci --coverage"
+  },
+```
+
+`--testResultsProcessor=\"jest-junit\"` tells jest to use the `jest-junit` library to create a unit test 
+report. `--watchAll=false` disables watch mode so that the tests will not rerun when something changes. `--ci` tells 
+Jest that it is running in a CI environment. `--coverage` tells Jest that test coverage information should be collected 
+and reported in the output. For more information on these options, visit the [jest CLI options](https://jestjs.io/docs/cli) documentation.
+
+
+If you run the new `test:ci` script, it will run the tests and create an XML file named `junit.xml` and print coverage statistics to the CLI.
+
+
+![CLI code coverage](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/coverage-cli.png){: .shadow}
+
+## Add unit tests to your CI pipeline
+
+In the root of your application, create a file named `.gitlab-ci.yml`. 
+
+Define a test stage for your pipeline by adding the following code to your `.gitlab-ci.yml` file:
+
+```
+stages:
+  - test
+```
+
+Next, add a job named `unit-test` that will be responsible for running the unit tests in the test stage. Add the following code below the
+defined stages:
+
+```
+unit-test:
+  image: node:latest
+  stage: test
+  before_script:
+    - npm install
+  script:
+    - npm run test:ci
+  coverage: /All files[^|]*\|[^|]*\s+([\d\.]+)/
+  artifacts:
+    paths:
+      - coverage/
+    when: always
+    reports:
+      junit:
+        - junit.xml
+```
+
+Your complete `.gitlab-ci.yml` file should look like this:
+
+```
+stages:
+  - test
+
+unit-test:
+  image: node:latest
+  stage: test
+  before_script:
+    - npm install
+  script:
+    - npm run test:ci
+  coverage: /All files[^|]*\|[^|]*\s+([\d\.]+)/
+  artifacts:
+    paths:
+      - coverage/
+    when: always
+    reports:
+      junit:
+        - junit.xml
+```
+
+
+Before we push these changes to GitLab, add the following line to your `.gitignore`:
+
+```
+junit.xml
+```
+
+Add your changes to GitLab by running these commands in your terminal:
+
+```
+git add -a
+git commit -m "Adds .gitlab-ci.yml with unit testing"
+git push
+```
+
+When this command finishes, your code will be pushed to your project in GitLab and a pipeline will start 
+automatically running the `unit-test` job we defined earlier.
+
+![CI pipeline running](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/ci-pipeline-starting.png){: .shadow}
+
+When the pipeline completes, click the pipeline ID (_#680073569 in this case_).
+
+Inside the pipeline, click the _Jobs_ tab and you should see the coverage for the unit-test job is 8.33%.
+
+![CI pipeline coverage](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/ci-pipeline-coverage.png){: .shadow}
+
+Click the _Tests_ tab and you can see the testing results for the unit-test job. 
+
+![CI pipeline tests](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/ci-pipeline-tests.png){: .shadow}
+
+Click the name of the job _unit-test_ and you will see the status for each of the test suites run.
+
+![CI pipeline test details](/images/blogimages/2022-11-04-how-to-automate-testing-for-a-react-application-with-gitlab/ci-pipeline-test-details.png){: .shadow}
+
+Congratulations! You just added automated tests for your React application to your CI pipeline inside of GitLab and output the results to the pipeline.
+
+All code for this tutorial can be found in this [project](https://gitlab.com/jwagner-demo/vandelay-industries/engineering/react-app).
+
+Cover image by [Lautaro Andreani](https://unsplash.com/@lautaroandreani?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/s/photos/react?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}
+
+## Related Posts
+- [The GitLab guide to modern software testing](https://about.gitlab.com/blog/2022/08/18/the-gitlab-guide-to-modern-software-testing/)
+- [Unit Test Reports](https://docs.gitlab.com/ee/ci/testing/unit_test_reports.html)
+- [coverage keyword](https://docs.gitlab.com/ee/ci/yaml/#coverage)

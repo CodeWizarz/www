@@ -1,0 +1,215 @@
+---
+title: "What's up with GitLab.com? Check out the latest data on its stability"
+author: Andrew Newdigate
+author_gitlab: andrewn
+author_twitter: suprememoocow
+categories: engineering
+image_title: "/images/blogimages/gitlab-gke-integration-cover.png"
+description: "Let's take a look at the data on the stability of GitLab.com from before and after our recent migration from Azure to GCP, and dive into why things are looking up."
+tags: GKE, google, inside GitLab, kubernetes, news, performance
+ee_cta: false
+twitter_text: "What's up with GitLab.com? An update on @GitLab's stability and performance since we migrated to @googlecloud"
+featured: yes
+postType: content marketing
+---
+
+This post is inspired by [this comment on Reddit](https://www.reddit.com/r/gitlab/comments/9f71nq/thanks_gitlab_team_for_improving_the_stability_of/),
+thanking us for improving the stability of GitLab.com. Thanks, hardwaresofton! Making GitLab.com
+ready for your mission-critical workloads has been top of mind for us for some time, and it's
+great to hear that users are noticing a difference.
+
+_Please note that the numbers in this post differ slightly from the Reddit post as the data has changed since that post._
+
+We will continue to work hard on improving the availability and stability of the platform. Our
+current goal is to achieve 99.95 percent availability on GitLab.com – look out for an upcoming
+post about how we're planning to get there.
+
+## GitLab.com stability before and after the migration
+
+According to [Pingdom](http://stats.pingdom.com/81vpf8jyr1h9), GitLab.com's availability for the year to date, up until the migration was **[99.68 percent](https://docs.google.com/spreadsheets/d/1uJ_zacNvJTsvJUfNpi1D_aPBg-vNJC1xJzsSwGKKt8g/edit#gid=527563485&range=F2)**, which equates to about 32 minutes of downtime per week on average.
+
+Since the migration, our availability has improved greatly, although we have much less data to compare with than in Azure.
+
+![Availability Chart](https://docs.google.com/spreadsheets/d/e/2PACX-1vQg_tdtdZYoC870W3u2R2icSK0Rd9qoOtDJqYHALaQlzhxXOmfY63X1NMMyFVEypQs7NngR4UUIZx5R/pubchart?oid=458170195&format=image){: .shadow}
+
+Using data publicly available from Pingdom, here are some stats about our availability for the year to date:
+
+| Period                                 | Mean-time between outage events |
+| -------------------------------------- | ------------------------------- |
+| Pre-migration (Azure)                  | **1.3 days**                    |
+| Post-migration (GCP)                   | **7.3 days**                    |
+| Post-migration (GCP) excluding 1st day | **12 days**                     |
+
+This is great news: we're experiencing outages less frequently. What does this mean for our availability, and are we on track to achieve our goal of 99.95 percent?
+
+| Period                    | Availability                                                                                                                   | Downtime per week |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
+| Pre-migration (Azure)     | **[99.68%](https://docs.google.com/spreadsheets/d/1uJ_zacNvJTsvJUfNpi1D_aPBg-vNJC1xJzsSwGKKt8g/edit#gid=527563485&range=F2)**  | **32 minutes**    |
+| Post-migration (GCP)      | **[99.88 %](https://docs.google.com/spreadsheets/d/1uJ_zacNvJTsvJUfNpi1D_aPBg-vNJC1xJzsSwGKKt8g/edit#gid=527563485&range=B3)** | **13 minutes**    |
+| Target – not yet achieved | **99.95%**                                                                                                                     | **5 minutes**     |
+
+Dropping from 32 minutes per week average downtime to 13 minutes per week means we've experienced a **61 percent improvement** in our availability following our migration to Google Cloud Platform.
+
+## Performance
+
+What about the performance of GitLab.com since the migration?
+
+Performance can be tricky to measure. In particular, averages are a terrible way of measuring performance, since they neglect outlying values. One of the better ways to measure performance is with a latency histogram chart. To do this, we imported the GitLab.com access logs for July (for Azure) and September (for Google Cloud Platform) into [Google BigQuery](https://cloud.google.com/bigquery/), then selected the 100 most popular endpoints for each month and categorised these as either API, web, git, long-polling, or static endpoints. Comparing these histograms side-by-side allows us to study how the performance of GitLab.com has changed since the migration.
+
+![GitLab.com Latency Histogram](/images/blogimages/whats-up-with-gitlab-com/azure_v_gcp_latencies.gif){: .shadow}
+
+In this histogram, higher values on the left indicate better performance. The right of the graph is the "_tail_", and the "_fatter the tail_", the worse the user experience.
+
+This graph shows us that with the move to GCP, more requests are completing within a satisfactory amount of time.
+
+Here's two more graphs showing the difference for API and Git requests respectively.
+
+![API Latency Histogram](/images/blogimages/whats-up-with-gitlab-com/api-performance-histogram.png){: .shadow}
+
+![Git Latency Histogram](/images/blogimages/whats-up-with-gitlab-com/git-performance-histogram.png){: .shadow}
+
+## Why these improvements?
+
+We chose Google Cloud Platform because we believe that Google offer the most reliable cloud platform for our workload, particularly as we move towards running GitLab.com in [Kubernetes](/solutions/kubernetes/).
+
+However, there are many other reasons unrelated to our change in cloud provider for these improvements to stability and performance.
+
+> #### _“We chose Google Cloud Platform because we believe that Google offer the most reliable cloud platform for our workload”_
+{: .gitlab-purple}
+
+Like any large SaaS site, GitLab.com is a large, complicated system, and attributing availability changes to individual changes is extremely difficult, but here are a few factors which may be effecting our availability and performance:
+
+### Reason #1: Our Gitaly Fleet on GCP is much more powerful than before
+
+Gitaly is responsible for all Git access in the GitLab application. Before Gitaly, Git access occurred directly from within Rails workers. Because of the scale we run at, we require many servers serving the web application, and therefore, in order to share git data between all workers, we relied on NFS volumes. Unfortunately this approach doesn't scale well, which led to us building Gitaly, a dedicated Git service.
+
+> #### _“We've opted to give our fleet of 24 Gitaly servers a serious upgrade”_
+{: .gitlab-purple}
+
+#### Our upgraded Gitaly fleet
+
+As part of the migration, we've opted to give our fleet of 24 [Gitaly](/blog/2018/09/12/the-road-to-gitaly-1-0/) servers a serious upgrade. If the old fleet was the equivalent of a nice family sedan, the new fleet are like a pack of snarling musclecars, ready to serve your Git objects.
+
+| Environment | Processor                       | Number of cores per instance | RAM per instance |
+| ----------- | ------------------------------- | ---------------------------- | ---------------- |
+| Azure       | Intel Xeon Ivy Bridge @ 2.40GHz | 8                            | 55GB             |
+| GCP         | Intel Xeon Haswell @ 2.30GHz    | **32**                       | **118GB**        |
+
+Our new Gitaly fleet is much more powerful. This means that Gitaly can respond to requests more quickly, and deal better with unexpected traffic surges.
+
+#### IO performance
+
+As you can probably imagine, serving [225TB of Git data](https://dashboards.gitlab.com/d/ZwfWfY2iz/vanity-metrics-dashboard?orgId=1) to roughly half-a-million active users a week is a fairly IO-heavy operation. Any performance improvements we can make to this will have a big impact on the overall performance of GitLab.com.
+
+For this reason, we've focused on improving performance here too.
+
+| Environment | RAID         | Volumes | Media    | filesystem | Performance                                                            |
+| ----------- | ------------ | ------- | -------- | ---------- | ---------------------------------------------------------------------- |
+| Azure       | RAID 5 (lvm) | 16      | magnetic | xfs        | 5k IOPS, 200MB/s (_per disk_) / 32k IOPS **1280MB/s** (_volume group_) |
+| GCP         | No raid      | 1       | **SSD**  | ext4       | **60k read IOPs**, 30k write IOPs, 800MB/s read 200MB/s write          |
+
+How does this translate into real-world performance? Here are average read and write times across our Gitaly fleet:
+
+##### IO performance is much higher
+
+Here are some comparative figures for our Gitaly fleet from Azure and GCP. In each case, the performance in GCP is much better than in Azure, although this is what we would expect given the more powerful fleet.
+
+[![Disk read time graph](https://docs.google.com/spreadsheets/d/e/2PACX-1vQg_tdtdZYoC870W3u2R2icSK0Rd9qoOtDJqYHALaQlzhxXOmfY63X1NMMyFVEypQs7NngR4UUIZx5R/pubchart?oid=458168633&format=image)](https://docs.google.com/spreadsheets/d/1uJ_zacNvJTsvJUfNpi1D_aPBg-vNJC1xJzsSwGKKt8g/edit#gid=1002437172) [![Disk write time graph](https://docs.google.com/spreadsheets/d/e/2PACX-1vQg_tdtdZYoC870W3u2R2icSK0Rd9qoOtDJqYHALaQlzhxXOmfY63X1NMMyFVEypQs7NngR4UUIZx5R/pubchart?oid=884528549&format=image)](https://docs.google.com/spreadsheets/d/1uJ_zacNvJTsvJUfNpi1D_aPBg-vNJC1xJzsSwGKKt8g/edit#gid=1002437172) [![Disk Queue length graph](https://docs.google.com/spreadsheets/d/e/2PACX-1vQg_tdtdZYoC870W3u2R2icSK0Rd9qoOtDJqYHALaQlzhxXOmfY63X1NMMyFVEypQs7NngR4UUIZx5R/pubchart?oid=2135164979&format=image)](https://docs.google.com/spreadsheets/d/1uJ_zacNvJTsvJUfNpi1D_aPBg-vNJC1xJzsSwGKKt8g/edit#gid=1002437172){: .shadow}
+
+Note: For reference: for Azure, this uses the average times for the week leading up to the failover. For GCP, it's an average for the week up to October 2, 2018.
+{: .note}
+
+These stats clearly illustrate that our new fleet has far better IO performance than our old cluster. Gitaly performance is highly dependent on IO performance, so this is great news and goes a long way to explaining the performance improvements we're seeing.
+
+### Reason #2: Fewer "unicorn worker saturation" errors
+
+![HTTP 503 Status GitLab](/images/blogimages/whats-up-with-gitlab-com/facepalm-503.png)
+
+Unicorn worker saturation sounds like it'd be a good thing, but it's really not!
+
+We ([currently](https://gitlab.com/gitlab-org/gitlab-ce/merge_requests/1899)) rely on [unicorn](https://bogomips.org/unicorn/), a Ruby/Rack http server, for serving much of the application. Unicorn uses a single-threaded model, which uses a fixed pool of workers processes. Each worker can handle only one request at a time. If the worker gives no response within 60 seconds, it is terminated and another process is spawned to replace it.
+
+> #### _“Unicorn worker saturation sounds like it'd be a good thing, but it's really not!”_
+> {: .gitlab-purple}
+
+Add to this the lack of autoscaling technologies to ramp the fleet up when we experience high load volumes, and this means that GitLab.com has a relatively static-sized pool of workers to handle incoming requests.
+
+If a Gitaly server experiences load problems, even fast [RPCs](https://en.wikipedia.org/wiki/Remote_procedure_call) that would normally only take milliseconds, could take up to several seconds to respond – thousands of times slower than usual. Requests to the unicorn fleet that communicate with the slow server will take hundreds of times longer than expected. Eventually, most of the fleet is handling requests to that affected backend server. This leads to a queue which affects all incoming traffic, a bit like a tailback on a busy highway caused by a traffic jam on a single offramp.
+
+If the request gets queued for too long – after about 60 seconds – the request will be cancelled, leading to a 503 error. This is indiscriminate – all requests, whether they interact with the affected server or not, will get cancelled. This is what I call unicorn worker saturation, and it's a very bad thing.
+
+Between February and August this year we frequently experienced this phenomenon.
+
+There are several approaches we've taken to dealing with this:
+
+- **Fail fast with aggressive timeouts and circuitbreakers**: Timeouts mean that when a Gitaly request is expected to take a few milliseconds, they time out after a second, rather than waiting for the request to time out after 60 seconds. While some requests will still be affected, the cluster will remain generally healthy. Gitaly currently doesn't use circuitbreakers, but we plan to add this, possibly using [Istio](https://istio.io/docs/tasks/traffic-management/circuit-breaking/) once we've moved to Kubernetes.
+
+- **Better abuse detection and limits**: More often than not, server load spikes are driven by users going against our fair usage policies. We built tools to better detect this and over the past few months, an abuse team has been established to deal with this. Sometimes, load is driven through huge repositories, and we're working on reinstating fair-usage limits which prevent 100GB Git repositories from affecting our entire fleet.
+
+- **Concurrency controls and rate limits**: For limiting the blast radius, rate limiters (mostly in HAProxy) and concurrency limiters (in Gitaly) slow overzealous users down to protect the fleet as a whole.
+
+### Reason #3: GitLab.com no longer uses NFS for any Git access
+
+In early September we disabled Git NFS mounts across our worker fleet. This was possible because Gitaly had reached v1.0: the point at which it's sufficiently complete. You can read more about how we got to this stage in our [Road to Gitaly blog post](/blog/2018/09/12/the-road-to-gitaly-1-0/).
+
+### Reason #4: Migration as a chance to reduce debt
+
+The migration was a fantastic opportunity for us to improve our infrastructure, simplify some components, and otherwise make GitLab.com more stable and more observable, for example, we've rolled out new **structured logging infrastructure**.
+
+As part of the migration, we took the opportunity to move much of our logging across to structured logs. We use [fluentd](https://www.fluentd.org/), [Google Pub/Sub](https://cloud.google.com/pubsub/docs/overview), [Pubsubbeat](https://github.com/GoogleCloudPlatform/pubsubbeat), storing our logs in [Elastic Cloud](https://www.elastic.co/cloud) and [Google Stackdriver Logging](https://cloud.google.com/logging/). Having reliable, indexed logs has allowed us to reduce our mean-time to detection of incidents, and in particular detect abuse. This new logging infrastructure has also been invaluable in detecting and resolving several security incidents.
+
+> #### _“This new logging infrastructure has also been invaluable in detecting and resolving several security incidents”_
+{: .gitlab-purple}
+
+We've also focused on making our staging environment much more similar to our production environment. This allows us to test more changes, more accurately, in staging before rolling them out to production. Previously the team was maintaining
+a limited scaled-down staging environment and many changes were not adequately tested before being rolled out. Our environments now share a common configuration and we're working to automate all [terraform](https://gitlab.com/gitlab-com/gl-infra/infrastructure/issues/5079) and [chef](https://gitlab.com/gitlab-com/gl-infra/infrastructure/issues/5078) rollouts.
+
+### Reason #5: Process changes
+
+Unfortunately many of the worst outages we've experienced over the past few years have been self-inflicted. We've always been transparent about these — and will continue to be so — but as we rapidly grow, it's important that our processes scale alongside our systems and team.
+
+> #### _“It's important that our processes scale alongside our systems and team”_
+{: .gitlab-purple}
+
+In order to address this, over the past few months, we've formalized our change and incident management processes. These processes respectively help us to avoid outages and resolve them quicker when they do occur.
+
+If you're interested in finding out more about the approach we've taken to these two vital disciplines, they're published in our handbook:
+
+- [GitLab.com's Change Management Process](/handbook/engineering/infrastructure/change-management/)
+- [GitLab.com's Incident Management Process](/handbook/engineering/infrastructure/incident-management/)
+
+### Reason #6: Application improvement
+
+Every GitLab release includes [performance and stability improvements](https://gitlab.com/gitlab-org/gitlab-ce/issues?scope=all&state=opened&label_name%5B%5D=performance); some of these have had a big impact on GitLab's stability and performance, particularly n+1 issues.
+
+Take Gitaly for example: like other distributed systems, Gitaly can suffer from a class of performance degradations known as "n+1" problems. This happens when an endpoint needs to make many queries (_"n"_) to fulfill a single request.
+
+> Consider an imaginary endpoint which queried Gitaly for all tags on a repository, and then issued an additional query for each tag to obtain more information. This would result in n + 1 Gitaly queries: one for the initial tag, and then n for the tags. This approach would work fine for a project with 10 tags – issuing 11 requests, but a project with 1000 tags, this would result in 1001 Gitaly calls, each with a round-trip time, and issued in sequence.
+
+![Latency drop in Gitaly endpoints](../../images/blogimages/whats-up-with-gitlab-com/drop-off.png){: .shadow}
+
+Using data from Pingdom, this chart shows long-term performance trends since the start of the year. It's clear that latency improved a great deal on May 7, 2018. This date happens to coincide with the RC1 release of GitLab 10.8, and its deployment on GitLab.com.
+
+It turns out that this was due to a [single fix on n+1 on the merge request page being resolved](https://gitlab.com/gitlab-org/gitlab-ce/issues/44052).
+
+When running in development or test mode, GitLab now detects n+1 situations and we have compiled [a list of known n+1s](https://gitlab.com/gitlab-org/gitlab-ce/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=performance&label_name[]=Gitaly&label_name[]=technical%20debt). As these are resolved we expect even more performance improvements.
+
+![GitLab Summit - South Africa - 2018](/images/summits/2018_south-africa_team.jpg){: .shadow}
+
+### Reason #7: Infrastructure team growth and reorganization
+
+At the start of May 2018, the Infrastructure team responsible for GitLab.com consisted of five engineers.
+
+Since then, we've had a new director join the Infrastructure team, two new managers, a specialist [Postgres DBRE](https://gitlab.com/gitlab-com/www-gitlab-com/merge_requests/13778), and four new [SREs](https://handbook.gitlab.com/job-families/engineering/infrastructure/site-reliability-engineer/). The database team has been reorganized to be an embedded part of infrastructure group. We've also brought in [Ongres](https://www.ongres.com/), a specialist Postgres consultancy, to work alongside the team.
+
+Having enough people in the team has allowed us to be able to split time between on-call, tactical improvements, and longer-term strategic work.
+
+Oh, and we're still hiring! If you're interested, check out [our open positions](/jobs/) and choose the Infrastructure Team 😀
+
+## TL;DR: Conclusion
+
+1. GitLab.com is more stable: availability has improved 61 percent since we migrated to GCP
+1. GitLab.com is faster: latency has improved since the migration
+1. We are totally focused on continuing these improvements, and we're building a great team to do it
+
+One last thing: our Grafana dashboards are open, so if you're interested in digging into our metrics in more detail, visit [dashboards.gitlab.com](https://dashboards.gitlab.com) and explore!

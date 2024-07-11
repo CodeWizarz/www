@@ -1,0 +1,16 @@
+---
+features:
+  secondary:
+  - name: "Improve Git LFS download performance"
+    available_in: [core, premium, ultimate]  # Include all supported tiers
+    documentation_link: 'https://docs.gitlab.com/ee/topics/git/lfs/index.html'
+    reporter: mjwood
+    stage: create
+    categories:
+    - 'Source Code Management'
+    issue_url: # Multiple links are supported. Avoid linking to confidential issues.
+    - 'https://gitlab.com/gitlab-org/gitlab/-/issues/413684'
+    description: |
+      For instances which store LFS objects in object storage without [proxy download enabled](https://docs.gitlab.com/ee/administration/object_storage.html#proxy-download), GitLab now processes LFS requests in bulk. This dramatically improves the performance of downloading a large number of LFS objects.
+
+      Previously, due to how LFS objects were fetched, GitLab created many very small requests which checked user permissions and redirected to the object stored externally. This had the potential to cause significant load and a reduction in performance. With this fix, we have reduced load on the primary GitLab instance and provided a faster download experience for our users.

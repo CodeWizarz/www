@@ -1,0 +1,83 @@
+---
+title: "Understand the new GitLab Agent for Kubernetes"
+author: Viktor Nagy 
+author_gitlab: nagyv-gitlab 
+author_twitter: nagyviktor 
+categories: engineering
+image_title: '/images/default-blog-image.png'
+description: "Just released in 13.4, our brand new Kubernetes Agent provides a secure and K8s–friendly approach to integrating GitLab with your clusters."
+tags: kubernetes, releases, cloud native, workflow
+cta_button_text: 'Try out the Agent' 
+cta_button_link: 'https://docs.gitlab.com/ee/user/clusters/agent/' 
+twitter_text: "Learn more about @gitlab's new Kubernetes Agent" 
+featured: no
+postType: product
+---
+
+We are happy to share the first iteration of the GitLab Agent for Kubernetes with our users and community. The Agent is the foundation for the next generation of the integration between GitLab and Kubernetes. 
+
+## A bit of history of the GitLab Kubernetes Integrations
+
+GitLab's current Kubernetes integrations were introduced more than three years ago. Their primary goal was to allow a simple setup of clusters and provide a smooth deployment experience to our users. These integrations served us well in the past years but at the same time its weaknesses were limiting for some important and crucial use cases. The biggest weaknesses we see with the current integration are:
+
+- the requirement to open up the cluster to the internet, especially to GitLab
+- the need for cluster admin rights to get the benefit of GitLab Managed Clusters
+- exclusive support for push-based deployments that might not suit some highly regulated industries
+
+A few months ago, the Configure Team at GitLab started going in a new direction to come up with an integration that could address these weaknesses and provide a cloud native tie-in between GitLab and Kubernetes. This new direction is built on the GitLab Agent for Kubernetes, which we released in [GitLab 13.4](/releases/2020/09/22/gitlab-13-4-released/).
+
+## Design goals
+
+When we sat down to solve for the above weaknesses, we came up with a few principles that we are seeking to follow.
+
+We want to be good cloud native citizens, and work together with the community, instead of reinventing the wheel.
+
+We primarily want to serve expert Kubernetes platform engineers. While the current GitLab Managed Clusters and cluster creation from within GitLab might serve many use cases, it's primarily aimed at simple cluster setup and is not flexible enough to be the basis for production clusters. We want to change this approach, and are focusing on the needs of expert Kubernetes engineers first. We think that coming up with sane defaults will provide the necessary simplicity for new Kubernetes users as well.
+
+We want to offer a secure solution that allows cluster operators to restrict GitLab's rights in the cluster and does not require opening up the cluster to the Internet.
+
+## The Agent
+
+Following the above goals, we've started to develop the GitLab Agent for Kubernetes. The Agent provides a permanent communication channel between GitLab and the cluster. To follow industry best practices for [GitOps](/topics/gitops/) it is configured by code, instead of a UI.
+
+The current version of the Agent allows for pull-based deployments. Its deployment machinery is built on the [`gitops-engine`](https://github.com/argoproj/gitops-engine), a project initiated by ArgoCD and Flux where GitLab engineers are actively contributing as well.
+
+### Setting up the GitLab Agent
+
+The Agent needs to be set up first. This requires a few actions from the user:
+
+- create an Agent token for authentication with GitLab, and store it in your cluster as a secret
+- commit the necessary Agent configurations in one of your repositories
+- install the Agent to your cluster
+
+### Deployments with an Agent
+
+As mentioned above, the Agent needs a configuration directory inside one of your repositories. This configuration describes the projects that the Agent syncs into your clusters. We call the synced projects the __manifest project__. The manifest project should contain Kubernetes manifest files. The __manifest project__ project might be either inside or separated from your application code.
+
+We've set up a simple example that shows a __manifest project__ and an __application project__. In this example [GitLab CI/CD](/topics/ci-cd/) in the __application project__ is used to create a container image and update the __manifest project__. Then the Agent picks up the changes from the __manifest project__, and deploys the Kubernetes manifests stored there.
+
+### Limitations
+
+As this is the initial release of the Agent, it has many known limitations. We don't support all the amazing features the previous GitLab Kubernetes integration does such as [Auto DevOps](/stages-devops-lifecycle/auto-devops/), deploy boards, GitLab Managed Apps, etc. To start in GitLab 13.4 we limited our focus to supporting pull-based deployment for Helm-based GitLab installations. 
+
+Following the current release, we will be focusing on:
+
+- [shipping the GitLab Agent for Kubernetes as part of the Official Linux Package](https://gitlab.com/groups/gitlab-org/-/epics/3834)
+- [supporting the deployment of private repositories](https://gitlab.com/gitlab-org/gitlab/-/issues/220912)
+
+## Further plans for GitLab Kubernetes Integrations
+
+The Agent opens up many new opportunities for GitLab's Kubernetes integrations. Having an active component allows us to provide all the GitLab functionalities in locked down clusters as well. We're currently looking into the following areas to support with the agent:
+
+- integrate cluster-side dynamic container scanning with GitLab
+- use GitLab as an authentication and authorization provider for Kubernetes clusters
+- offer linters and checks for Kubernetes best practices on deployed resources
+- proxy cluster services easily through GitLab
+
+You can see all our plans in the [Agent epic](https://gitlab.com/groups/gitlab-org/-/epics/3329) where we invite you to give us feedback and about this direction. 
+
+You can view a demo of how to install and use the GitLab Agent below:
+
+<figure class="video_container">
+  <iframe src="https://player.vimeo.com/video/505413162" width="640" height="480" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe>
+</figure>

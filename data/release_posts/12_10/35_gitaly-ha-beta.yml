@@ -1,0 +1,18 @@
+---
+features:
+  secondary:
+  - name: High Availability for Gitaly (beta)
+    available_in: [premium, ultimate]
+    gitlab_com: false
+    documentation_link: https://docs.gitlab.com/ee/administration/gitaly/praefect.html
+    image_url: "/images/12_10/praefect-architecture.png"
+    reporter: jramsay
+    stage: create
+    categories: [Gitaly]
+    epic_url: https://gitlab.com/groups/gitlab-org/-/epics/842
+    description: |
+      Access to Git repositories is critical to developers and businesses. If an outage occurs, developers can't push code, and deployments will be blocked. To prevent outages, GitLab can be run in a [highly available (HA)](https://docs.gitlab.com/ee/administration/reference_architectures/index.html) configuration. The recommended approach currently uses [Network File System (NFS)](https://en.wikipedia.org/wiki/Network_File_System), but this adds significant latency to every read and write operation, severely impacting the performance of GitLab.
+
+      In GitLab 12.10, Gitaly now offers beta support for high availability without using NFS. While data loss is not likely, **it is not recommended for use in production environments yet.** In this release, the replication queue and leader state have been moved to a PostgreSQL database. Previously, the replication queue and leader state was stored in memory in the Praefect proxy/router. This prevented configurations using multiple Praefect nodes, and could result in data loss if Praefect was restarted before the replication queue was drained.
+
+      The first version of High Availability for Gitaly is eventually consistent. It is implemented as an asynchronous replication queue, and favors availability over consistency. If an outage occurs on a primary Gitaly node before the replication queue has been drained, data loss is an expected side effect of automatic failover. Work is already underway on [strong consistency](https://gitlab.com/groups/gitlab-org/-/epics/1189) to prevent such data loss scenarios.

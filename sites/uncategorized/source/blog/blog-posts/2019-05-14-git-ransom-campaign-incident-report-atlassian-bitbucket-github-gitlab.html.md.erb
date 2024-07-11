@@ -1,0 +1,90 @@
+---
+title: "Git ransom campaign incident report"
+author: Atlassian Bitbucket, GitHub, GitLab
+author_guest: true
+author_twitter: gitlab
+categories: company
+description: "This is a coordinated effort to help educate and inform users on secure best practices relating to the recent Git ransomware incident."
+tags: git, news, security
+ee_cta: false # required only if you do not want to display the EE-trial banner
+install_cta: false # required only if you do not want to display the 'Install GitLab' banner
+twitter_text: "#git ransom campaign incident report"
+postType: corporate
+---
+
+Today, Atlassian Bitbucket, GitHub, and GitLab are issuing a joint blog post, in a coordinated effort to help educate and inform users of the three platforms on secure best practices relating to the recent Git ransomware incident. Though there is no evidence Atlassian Bitbucket, GitHub, or GitLab products were compromised in any way, we believe it’s important to help the software development community better understand and collectively take steps to protect against this threat.
+
+On Thursday, May 2, the security teams of Atlassian Bitbucket, GitHub, and GitLab learned of a series of user account compromises across all three platforms. These account compromises resulted in a number of public and private repositories being held for ransom by an unknown actor. Each of the teams investigated and assessed that all account compromises were the result of unintentional user credential leakage by users or other third parties, likely on systems external to Bitbucket, GitHub, or GitLab.
+
+The security and support teams of all three companies have taken and continue to take steps to notify, protect, and help affected users recover from these events. Further, the security teams of all three companies are also collaborating closely to further investigate these events in the interest of the greater Git community. At this time, we are confident that we understand how the account compromises and subsequent ransom events were conducted. This coordinated blog post will outline the details of the ransom event, provide additional information on how our organizations protect users, and arm users with information on recovering from this event and preventing others.
+
+## Event details
+
+On the evening of May 2 (UTC), all three companies began responding to reports that user repositories, both public and private, were being wiped and replaced with a single file containing the following ransom note:
+
+> To recover your lost data and avoid leaking it: Send us 0.1 Bitcoin (BTC) to our Bitcoin address 1ES14c7qLb5CYhLMUekctxLgc1FV2Ti9DA and contact us by Email at admin@gitsbackup.com with your Git login and a Proof of Payment. If you are unsure if we have your data, contact us and we will send you a proof. Your code is downloaded and backed up on our servers. If we dont receive your payment in the next 10 Days, we will make your code public or use them otherwise.
+
+Through immediate independent investigations, all three companies observed that user accounts were compromised using legitimate credentials including passwords, app passwords, API keys, and personal access tokens. Subsequently, the bad actor performed command line Git pushes to repositories accessible to these accounts at very high rates, indicating automated methods. These pushes overwrote the repository contents with the ransom note above and erased the commit history of the remote repository. Incident responders from each of the three companies began collaborating to protect users, share intelligence, and identify the source of the activity. All three companies notified the affected users and temporarily suspended or reset those accounts in order to prevent further malicious activity.
+
+During the course of the investigation, we identified a third-party credential dump being hosted by the same hosting provider where the account compromise activity had originated. That credential dump comprised roughly one third of the accounts affected by the ransom campaign. All three companies acted to invalidate the credentials contained in that public dump.
+
+Further investigation showed that continuous scanning for publicly exposed `.git/config` and other environment files has been and continues to be conducted by the same IP address that conducted the account compromises, as recently as May 10. These files can contain sensitive credentials and personal access tokens if care is not taken to prevent their inclusion, and they should not be publicly accessible in repositories or on web servers. This [problem](https://en.internetwache.org/dont-publicly-expose-git-or-how-we-downloaded-your-websites-sourcecode-an-analysis-of-alexas-1m-28-07-2015/) is [not](https://laravel-news.com/psa-hide-your-gitconfig-directory) a new one. More information on the `.git` directory and the `.git/config` file is available [here](https://git-scm.com/docs/gitrepository-layout) and [here](https://git-scm.com/docs/git-config#_configuration_file). Additional IPs residing on the same hosting provider are also exhibiting similar scanning behavior. We are confident that this activity is the source of at least a portion of the compromised credentials.
+
+Known ransom activity ceased on May 2. All known affected users have had credentials reset or revoked, and all known affected users have been notified by all three companies.
+
+## How to protect yourself
+
+Enable multi-factor authentication on your software development platform of choice.
+- [Bitbucket](https://confluence.atlassian.com/bitbucket/two-step-verification-777023203.html)
+- [GitHub](https://help.github.com/en/articles/securing-your-account-with-two-factor-authentication-2fa)
+- [GitLab](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html)
+
+Use strong and unique passwords for every service.
+Strong and unique passwords prevent credential reuse if a third party experiences a breach and leaks credentials.
+Use a password manager (if approved by your organization) to make this easier!
+
+Understand the risks associated with the use of personal access tokens.
+Personal access tokens, used via Git or the API, circumvent multi-factor authentication.
+Tokens have may have read/write access to repositories depending on scope and should be treated like passwords.
+If you enter your token into the clone URL when cloning or adding a remote, Git writes it to your `.git/config` file in plain text, which may carry a security risk if the `.git/config` file is publicly exposed.
+When working with the API, use tokens as environment variables instead of hardcoding them into your programs.
+
+Do not expose `.git` directories and `.git/config` files containing credentials or tokens in public repositories or on web servers.
+[Information on securing `.git/config` files on popular web servers is available here](https://en.internetwache.org/dont-publicly-expose-git-or-how-we-downloaded-your-websites-sourcecode-an-analysis-of-alexas-1m-28-07-2015/).
+
+## How to recover an affected repository
+
+If you have a full, current copy of the repository on your computer, you can force push to the current HEAD of your local copy using:
+`git push origin HEAD:master --force`.
+
+Otherwise, you can still clone the repository and make use of:
+[`git reflog`](https://git-scm.com/docs/git-reflog) or
+[`git fsck`](https://git-scm.com/docs/git-fsck) to find your last commit and change the `HEAD`.
+
+Additional assistance on Git usage is available in the following resources:
+- [Git documentation](https://git-scm.com/doc)
+- [How to move `HEAD`](https://stackoverflow.com/questions/34519665/how-to-move-head-back-to-a-previous-location-detached-head-undo-commits/34519716#34519716)
+- [Use `git fsck` to recover a deleted branch](https://opensolitude.com/2012/02/29/recover-git-branch.html)
+
+Should you require additional assistance recovering your repository contents, please refer to the following:
+- Bitbucket:
+Please contact Bitbucket Support by filing a request at [support.atlassian.com/contact/#/](https://support.atlassian.com/contact/#/) and selecting “Bitbucket Cloud” when prompted for a product.
+- GitHub:
+Please contact GitHub Support at [github.com/contact](https://github.com/contact).
+- GitLab:
+Please contact GitLab Support via [support.gitlab.com](https://support.gitlab.com/).
+
+## What the software development platform community is doing to protect users
+
+All three platforms provide robust multi-factor authentication options:
+- [Bitbucket](https://confluence.atlassian.com/bitbucket/two-step-verification-777023203.html)
+- [GitHub](https://help.github.com/en/articles/securing-your-account-with-two-factor-authentication-2fa)
+- [GitLab](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html)
+
+**Bitbucket** provides the ability for admins to require two-factor authentication (2FA) and the ability to restrict access to users on certain IP addresses ([IP Whitelisting](https://confluence.atlassian.com/bitbucket/control-access-to-your-private-content-862621261.html)) on their Premium plan.
+
+**GitHub** provides [token scanning](https://help.github.com/en/articles/about-token-scanning) to notify a variety of service providers if secrets are published to public GitHub repositories. GitHub also provides [extensive guidance on preventing unauthorized account access](https://help.github.com/en/articles/preventing-unauthorized-access). We encourage all users to [enable two-factor authentication](https://help.github.com/en/articles/about-two-factor-authentication).
+
+**GitLab** provides secrets detection in 11.9 as part of the [SAST functionality](/releases/2019/03/22/gitlab-11-9-released/#detect-secrets-and-credentials-in-the-repository). We also encourage users to [enable 2FA here](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html), and set up [SSH keys](https://docs.gitlab.com/ee/ssh/).
+
+Thanks to the security and support teams of Atlassian Bitbucket, GitHub, and GitLab, including the following individuals for their contributions to this investigation and blog post: Mark Adams, Ethan Dodge, Sean McLucas, Elisabeth Nagy, Gary Sackett, Andrew Wurster (Atlassian Bitbucket); Matt Anderson, Howard Draper, Jay Swan, John Swanson (GitHub); Paul Harrison, Anthony Saba, Jayson Salazar, Jan Urbanc, Kathy Wang (GitLab).

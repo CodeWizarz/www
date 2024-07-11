@@ -1,0 +1,196 @@
+---
+title: "How to configure DAST full scans for complex web applications"
+author: Dennis Appelt 
+author_gitlab: dappelt
+author_twitter: gitlab
+categories: security
+image_title: '/images/blogimages/tuning-237454.jpg'
+description: "Keep your DAST job within timeout limits and fine-tune job configurations for better results"
+tags: security, security research, open source
+twitter_text: “How to keep your DAST job within timeout limits and fine-tune job configurations for better results in security testing” 
+featured: no 
+postType: content marketing
+---
+
+Shifting [Dynamic Application Security Testing](https://docs.gitlab.com/ee/user/application_security/dast/) (DAST) left can help to detect security vulnerabilities earlier in the software development lifecycle (SDLC). However, testing earlier and more often in the SDLC comes with its own set of challenges: an abundance of alerts from automated security tools and a high computational cost caused by frequent and long-running CI security jobs.
+
+In this blog post, I’ll walk you through how we configured DAST for the internal pipeline that tests the GitLab web application. We’ll discuss some of the common challenges that you might encounter when testing large applications, such as: 
+
+1. How to keep the duration of the DAST scan within an acceptable [job timeout](https://docs.gitlab.com/ee/ci/pipelines/settings.html#timeout): This matters because jobs that exceed timeouts will fail and no results will be displayed. We will review how to optimize scan duration by excluding low-risk parts of the application from being tested, by correctly seeding your application with test data, and by parallelizing the DAST job.
+
+2. How to get relevant results for your context: This is key – tuning job configurations to produce relevant results allows your engineers to focus on findings that matter and prevents [alert fatigue](https://en.wikipedia.org/wiki/Alarm_fatigue). In this area, we'll discuss criteria for identifing rules that are applicable to your application and we will explain how to disable irrelevant rules.
+
+The discussed solutions are based on the DAST configuration that we use to test GitLab itself. If you are looking for inspiration on how to configure your own DAST jobs, feel free to take a look at our [configuration](https://gitlab.com/gitlab-org/gitlab/-/blob/8b1557c02fe5519ba952ea59c93b84912dd357b4/.gitlab/ci/dast.gitlab-ci.yml).
+
+## How to set up a simple DAST full scan
+
+Kicking off a DAST full scan in GitLab CI is as easy as including the job template and setting a few variables in your `.gitlab-ci.yml` file:
+
+```yaml
+include:
+  - template: DAST.gitlab-ci.yml
+
+variables:
+  DAST_WEBSITE: "https://my-site.example"
+  DAST_FULL_SCAN_ENABLED: "true"
+  DAST_AUTH_URL: "https://my-site.example/signin"
+  DAST_AUTH_USERNAME: “john”
+  DAST_AUTH_PASSWORD: “P@ssw0rd”
+```
+The variable `DAST_WEBSITE` defines the target website tested by DAST. Setting `DAST_FULL_SCAN_ENABLED: true` instructs DAST to run a [full scan](https://www.zaproxy.org/docs/docker/full-scan/), which is more comprehensive than a [baseline scan](https://www.zaproxy.org/docs/docker/baseline-scan/) and potentially finds more vulnerabilities. There are also other config options that you likely want to define such as authentication-related options (`DAST_AUTH_*`) which are not discussed here. You can check out our DAST [user docs](https://docs.gitlab.com/ee/user/application_security/dast/#available-variables) for a refresher on these config options.
+
+When running a DAST full scan against a web application with many pages and input parameters, it is possible that the DAST job will not finish testing the application within the CI job timeout and fail. If this is the case for your DAST job, keep reading to learn about tweaking your job configuration to stay within the timeout.
+
+## How to optimize DAST scan duration
+
+It is not uncommon that a DAST full scan can take 10 or more hours to complete testing in complex applications. To understand how we can reduce the scan duration, we need to take a closer look at how DAST works internally.
+
+DAST job execution is roughly separated into two phases: A spidering phase and a test execution phase. A DAST job starts with spidering, during which it will detect all pages a web application consists of and identify the input parameters on these pages. The spider recursively discovers all pages of an application by visiting the configured target URL (parameter `DAST_WEBSITE`) and by following all URLs found in the page source. These URLs are in turn also searched for URLs in their page source, any new URLs are followed and so on. In a DAST full scan, this procedure is typically repeated until all discovered URLs have been visited.
+
+In the test execution phase, test rules are executed against the target application to find vulnerabilities. Most of the rules are executed for any of the discovered pages in the spidering phase, leading to a direct relation between the number of executed test cases and the number of discovered pages.
+
+Some rules check for specific CVEs such as [Heartbleed](https://www.zaproxy.org/docs/alerts/20015/) while others are only applicable to applications written in specific languages such as [Java](https://www.zaproxy.org/docs/alerts/90002/), [ASP.net](https://www.zaproxy.org/docs/alerts/10061/), and so on. A DAST full scan will, by default, execute all rules even if the target application’s tech stack is not affected by the vulnerability being tested for.
+
+To summarize, you can use the following rule of thumb to estimate a DAST job’s scan duration: Number of Tested Pages **x** Number of Executed Rules. 
+
+To optimize scan duration, we will have to tweak these factors.
+
+### How to reduce the number of tested pages
+
+To understand which pages of our application are tested we can refer to the job log. The URLs of all tested pages are listed like in the example below.
+
+```
+2020-08-01 00:25:34,454 The following 2903 URLs were scanned:
+GET https://gitlab-review.app
+GET https://gitlab-review.app/*/*.git
+GET https://gitlab-review.app/help
+GET https://gitlab.com/help/user/index.md
+...
+```
+
+Based on this information we can exclude low-risk pages from being tested. For example, for the GitLab web app we decided to [exclude](https://gitlab.com/gitlab-org/gitlab/-/blob/8b1557c02fe5519ba952ea59c93b84912dd357b4/.gitlab/ci/dast.gitlab-ci.yml#L30) any of the [help pages](https://gitlab.com/help). These pages are mostly static and the application code doesn’t process any user-controlled inputs, which rules out attack categories like SQL injection, XSS etc. Excluding these led to 899 URLs less being spidered and tested, reducing the scan duration significantly.
+
+To exclude low-risk pages from being tested, you can use the environment variable [DAST_AUTH_EXCLUDE_URLS](https://docs.gitlab.com/ee/user/application_security/dast/#available-variables) as mapped out below:
+
+```yaml
+script:
+  - 'export DAST_AUTH_EXCLUDE_URLS="https://gitlab-review.app/help/.*,https://gitlab-review.app/profile/two_factor_auth"' 
+```
+
+`DAST_AUTH_EXCLUDE_URLS` takes a comma-separated list of URLs to exclude. URLs can contain regular expressions, e.g. `https://gitlab-review.app/help/.*` will exclude any URL that starts with `https://gitlab-review.app/help/`.
+
+### How to populate your app with test data
+
+Populating your application with test data is important because it allows DAST to discover and test all the functionality of your application. At the same time, you want to avoid adding redundant test data to your application, which would lead to DAST exercising the same code repeatedly.
+
+For example, we can create multiple [projects](https://docs.gitlab.com/ee/user/project/) in a GitLab instance and each project will be accessible via a unique URL, e.g. `https://gitlab.example/awesome-project`, `https://gitlab.example/another-project`, etc. To DAST these look like unrelated pages and it will test each page separately. However, the application code that is processing requests to different projects is largely identical, leading to the same code being tested multiple times. This increases the scan duration and is unlikely to identify more vulnerabilities than testing only a single project would.
+
+In every pipeline that runs DAST against GitLab, we spin up a fresh GitLab instance as a [review app](https://docs.gitlab.com/ee/ci/review_apps/) and populate it with the test data that we need for the DAST job. If you are looking for a similar solution, you might find the job that is [deploying the review app](https://gitlab.com/gitlab-org/gitlab/-/blob/8b1557c02fe5519ba952ea59c93b84912dd357b4/.gitlab/ci/review.gitlab-ci.yml#L53-83) and seeding it with [test data](https://gitlab.com/gitlab-org/gitlab/-/blob/8b1557c02fe5519ba952ea59c93b84912dd357b4/.gitlab/ci/review.gitlab-ci.yml#L83) interesting.
+
+### Identifying relevant rules for your DAST scan
+
+As mentioned above, a DAST full scan runs, by default, all rules against any discovered page. Therefore, another way to reduce scan duration is to disable irrelevant rules or rules that you have determined are low-risk for your application context. To determine rule relevance, consider the following:
+
+- Does the rule apply to my web framework?
+- Does the rule apply to my web server?
+- Does the rule apply to my database server?
+- Does the type of vulnerability a rule tests for apply to my application?
+
+For example, if your application is not built with Java, rules that test for [Java-specific vulnerabilities](https://www.zaproxy.org/docs/alerts/90002/) can be disabled. There are many rules that are specific to a web framework, server, or database being used like [Apache HTTP Server](https://www.zaproxy.org/docs/alerts/10053/), [ASP.NET](https://www.zaproxy.org/docs/alerts/10061/), [PostgreSQL](https://www.zaproxy.org/docs/alerts/40022/) etc. If in doubt around which rule(s) are applicable to which tech stack, you can find the information either in the [ZAP user docs](https://www.zaproxy.org/docs/alerts/) or directly in the [rule implementation](https://github.com/zaproxy/zap-extensions/blob/master/addOns/ascanrules/src/main/java/org/zaproxy/zap/extension/ascanrules/CodeInjectionScanRule.java#L86-L91):
+
+```java
+public boolean targets(TechSet technologies) {
+    if (technologies.includes(Tech.ASP) || technologies.includes(Tech.PHP)) {
+        return true;
+    }
+    return false;
+}
+```
+Note: Most rules classes have a function `targets` that defines to which technologies a rule is applicable.
+
+Another example of a rule that might not apply to your application is the [PII Disclosure](https://www.zaproxy.org/docs/alerts/10062/) rule if your application does not process any PII.
+
+### Excluding irrelevant rules
+
+The execution time of individual rules varies substantially. To understand how much time a particular rule adds to the total scan duration and how much we could gain from disabling it, we turn again to the job log. Each rule prints its duration on completion, for example:
+
+```
+[zap.out] 3937350 [Thread-8] INFO org.parosproxy.paros.core.scanner.HostProcess - completed host/plugin https://gitlab-review.app | TestExternalRedirect in 2813.043s with 33151 message(s) sent and 0 alert
+```
+
+From this message we learn that rule `TestExternalRedirect` took 47 minutes to complete, hence disabling this rule reduces the scan duration by about 47 minutes.
+
+We can disable individual rules with the environment variable `DAST_EXCLUDE_RULES`. Here is an example:
+
+```yaml
+variables:
+  DAST_EXCLUDE_RULES=”41,42,43,10027,...,90019”
+```
+
+`DAST_EXCLUDE_RULES` takes a comma-separated list of rule ids. You can find the id of a particular rule in the summary printed to the job log:
+
+```
+PASS: External Redirect [20019]
+…
+SUMMARY - PASS: 106 | WARN: 2
+```
+
+We can see from the log that rule External Redirect, which we found earlier to take 47 minutes, has rule id 20019. To disable this rule in addition to the rules from the previous example, we would need to add it to `DAST_EXCLUDE_RULES` like so: 
+
+```yaml
+variables:
+  DAST_EXCLUDE_RULES=”20019,41,42,43,10027,...,90019”
+```
+### Parallelizing DAST jobs to further reduce pipeline duration
+
+To reduce the total duration of the pipeline that is running the DAST job, we can split up the rules that we want to execute into multiple DAST jobs and run the jobs in parallel. Below is an example that demonstrates how to split up the rules.
+
+```yaml
+# Any configuration that is shared between jobs goes here
+.dast-conf:
+  image:
+    name: "registry.gitlab.com/gitlab-org/security-products/dast:1.22.1"
+  services:
+  - name: "gitlab/gitlab-ee:nightly"
+    alias: gitlab
+  script:
+  - /analyze -t "http://gitlab"
+
+# First DAST job executing rules 6 to 10
+dast-1/2:
+  extends:
+  - .dast-conf
+  variables:
+    DAST_EXCLUDE_RULES: "1,2,3,4,5"
+
+# Second DAST job executing rules 1 to 5
+dast-2/2:
+  extends:
+  - .dast-conf
+  variables:
+    DAST_EXCLUDE_RULES: "5,6,7,8,9"
+```
+
+For the sake of brevity, we assume in the example above that our DAST job runs rules with id 1 to 10. As described in the previous section, refer to the job log to find which rules were executed (we are working on printing a tidy [summary of executed rules](https://gitlab.com/gitlab-org/gitlab/-/issues/230893)). The example defines two DAST jobs `dast-1/2` and `dast-2/2`. `dast-1/2` is excluding rules 1 to 5 and, hence, executes rules 6 to 10. Vice versa, `dast-2/2` is excluding rules 6 to 10 and, hence, executes rules 1 to 5.
+
+Following the same pattern, you can split up the rules into as many jobs as necessary, keeping the rules executed in a job mutually exclusive with respect to all other jobs.
+
+Note that new releases of GitLab DAST may contain new rules, which will get executed if the rule ids are not manually added to `DAST_EXCLUDE_RULES`. In the example above, we pinned the version of the DAST image to a specific version using the `image` keyword. This allows us to review new releases manually and adjust `DAST_EXCLUDE_RULES` as necessary before upgrading to a new DAST version.
+
+When running multiple DAST jobs in parallel against the same target application, make sure that the application isn’t overloaded and becomes a bottleneck. If you observe connection timeouts in the DAST job logs, chances are your target site is overloaded. To mitigate this issue, consider spinning up additional instances of your target application and distribute the test load among the instances. GitLab CI offers, through the [`services`](https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#what-is-a-service) keyword, a convenient way of creating a dedicated application instance for each DAST job. In the example above, we start a dedicated GitLab instance for each DAST job with:
+
+```yaml
+  services:
+  - name: "gitlab/gitlab-ee:nightly"
+    alias: gitlab
+```
+## Summary
+
+In this blog post, we walked you through common challenges encountered when testing complex web applications with DAST and solutions that worked well for our internal projects at GitLab. 
+
+As we continue and broaden our use of DAST full scans within GitLab and our Security department, we’re excited to identify vulnerabilities in GitLab earlier in the SDLC and look forward to sharing interesting findings with the community. In addition, we take our lessons learned from setting up DAST full scans back to our engineering team to continue improving user experience. We also plan to explore additional dynamic testing techniques such as [fuzzing](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/) to complement our DAST results.
+
+Is there a problem area that you’ve encountered or solution for fine-tuning DAST full scans we've missed that's worked well for you? We want to hear about it and would love your feedback below in the comments.
+
+Cover image by [Pixabay](https://www.pexels.com/@pixabay) on [Pexels](https://www.pexels.com/photo/blur-bowed-stringed-instrument-classic-classical-237454/)
+{: .note}

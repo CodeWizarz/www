@@ -1,0 +1,275 @@
+---
+title: "How to publish iOS apps to the App Store with GitLab and fastlane"
+author: Jason Yavorska
+author_twitter: j4yav
+categories: engineering
+image_title: '/images/blogimages/ios-publishing-cover.jpg'
+description: "See how GitLab, together with fastlane, can build, sign, and publish apps for iOS to the App Store."
+tags: CI/CD, integrations, features
+postType: product
+ee_cta: false
+twitter_text: "How to publish #ios apps to the @appstore with @gitlab and @FastlaneTools"
+related_posts:
+  - "/blog/2020/12/17/gitlab-for-cicd-agile-gitops-cloudnative/"
+  - "/blog/2019/09/26/building-a-cicd-pipeline-in-20-mins/"
+  - "/blog/2018/10/24/setting-up-gitlab-ci-for-android-projects/"
+---
+
+_Note: You may also find the blog post [Tutorial: iOS CI/CD with GitLab](/blog/2023/06/07/ios-cicd-with-gitlab/) from June 2023 helpful._
+
+Recently we published a [blog post
+detailing how to get up and running quickly with your Android app](/blog/2019/01/28/android-publishing-with-gitlab-and-fastlane/), GitLab, and
+[_fastlane_](https://fastlane.tools). In this edition, let's look at how to get
+a build of an iOS app up and running, including publishing all the way to
+TestFlight. To see how cool this can be, check out this [video
+of me making a change on an iPad Pro using the GitLab Web IDE](https://www.youtube.com/watch?v=325FyJt7ZG8), getting that
+built, and then receiving an update to the test version of my application on the
+very same iPad Pro I was using to develop.
+
+For the purposes of this article, we'll be using a [simple Swift iOS app](https://gitlab.com/jyavorska/flappyokr)
+that I recorded the video with.
+
+## First, a note on Apple Store configuration
+
+What we're going to need in order to set all of this up is a mobile application set up
+in the App Store, distribution certificates, and a provisioning profile that ties
+it all together.
+
+Most of the complexity here actually has to do with setting up your signing
+authority for the App Store. Hopefully in most cases this is already good to go
+for you; if you're a new app developer, I'll try to get you started on the right
+track, but the intricacies of Apple certificate management is out of the scope of
+this article, and tends to change somewhat frequently. But, this information
+should get you going.
+
+### My apps
+
+Your application will need to be set up in App Store Connect so you have an ID
+for your application, which will be used in your `.xcodebuild` configuration.
+Your app profile and ID are what tie together the code builds with pricing and
+availability, as well as TestFlight configuration for distributing testing
+applications to your users. Note that you don't need to set up public testing –
+you can use personal testing with TestFlight just fine as long as your testing
+group is small, and the setup is simpler and requires no additional approvals
+from Apple.
+
+### Provisioning profile
+
+In addition to the app setup, you need iOS distribution and development keys
+created in the Certificates, Identifiers, and Profiles section of the Apple
+Developer console. Once these certificates are created, you can create a
+provisioning profile to unify everything.
+
+Also note that the user you will authenticate with needs to be able to create
+certificates, so please ensure that they have that ability or you will see an
+error during the [_cert_ and _sigh_](https://docs.fastlane.tools/codesigning/getting-started/#using-cert-and-sigh)
+steps.
+
+### Other options
+
+There are several more ways to set up your certificates and profiles than the
+simple method I've described above, so if you're doing something different you may
+need to adapt. The most important thing is that you need your `.xcodebuild`
+configuration to point to the appropriate files, and your keychain needs to be
+available on the build machine for the user that the runner is running as. We're
+using _fastlane_ for signing, so if you run into trouble here or want to learn
+more about your options, take a look at their extensive [code signing documentation](https://docs.fastlane.tools/codesigning/getting-started/).
+
+For this sample project, I'm using the [_cert_ and _sigh_](https://docs.fastlane.tools/codesigning/getting-started/#using-cert-and-sigh)
+approach, but the [match
+approach](https://docs.fastlane.tools/codesigning/getting-started/#using-match) may be better for actual enterprise use.
+
+## How to set up GitLab and _fastlane_
+
+### How to set up your CI/CD runner
+
+With the above information gathered or set up, we can start with configuring the
+GitLab runner on a macOS device. Unfortunately, building on macOS is the only
+realistic way to build iOS apps. This is potentially changing in the future;
+keep an eye on projects like [xcbuild](https://github.com/facebook/xcbuild) and
+[isign](https://github.com/saucelabs/isign), as well as our own internal issue
+[gitlab-ce#57576](https://gitlab.com/gitlab-org/gitlab-ce/issues/57576) for
+developments in this area.
+
+In the meantime, setting up the runner is fairly straightforward. You can follow
+our most current [instructions for setting up GitLab Runner on macOS](https://docs.gitlab.com/runner/install/osx.html)
+to get that up and running.
+
+Note: Be sure to set your GitLab runner to use the `shell` executor. For building iOS on
+macOS, it's a requirement to operate directly as the user on the machine rather
+than using containers. Note that when you're using the shell executor, the
+build and tests run as the identity of the runner logged in user, directly on
+the build host. This is less secure than using container executors, so please
+take a look at our [security implications documentation](https://docs.gitlab.com/runner/security/#usage-of-shell-executor)
+for additional detail on what to keep in mind in this scenario.
+
+```
+sudo curl --output /usr/local/bin/gitlab-runner https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-darwin-amd64
+sudo chmod +x /usr/local/bin/gitlab-runner
+cd ~
+gitlab-runner install
+gitlab-runner start
+```
+
+What you need to be careful about here is ensuring your Apple keychain is set up
+on this host and has access to the keys that Xcode needs in order
+to build. The easiest way to test this is to log in as the user that will be
+running the build and try to build manually. You may receive system prompts for
+keychain access which you need to "always allow" for CI/CD to work. You will probably
+also want to log in and watch your first pipeline or two to make sure that
+no prompts come up for additional keychain access. Unfortunately Apple does not
+make this super easy to use in unattended mode, but once you have it working it
+tends to stay that way.
+
+### _fastlane_ init
+
+In order to start using _fastane_ with your project, you'll need to run
+`fastlane init`. Simply follow the [instructions
+to install and run _fastlane_](https://docs.fastlane.tools/getting-started/ios/setup/), being sure to use the instructions in the
+[Use a Gemfile](https://docs.fastlane.tools/getting-started/ios/setup/#use-a-gemfile)
+section, since we do want this to run quickly and predictably via unattended CI.
+
+From your project directory, you can run the following commands:
+
+```
+xcode-select --install
+sudo gem install fastlane -NV
+# Alternatively using Homebrew
+# brew cask install fastlane
+fastlane init
+```
+
+_fastlane_ will ask you for some basic configuration and then create a project folder
+called `fastlane` in your project which will contain three files:
+
+#### 1. `fastlane/Appfile`
+
+This file is straightforward, so you just want to check to make sure that the Apple
+ID and app ID that you set up earlier are correct.
+
+```
+app_identifier("com.vontrance.flappybird") # The bundle identifier of your app
+apple_id("your-email@your-domain.com") # Your Apple email address
+```
+
+#### 2. `fastlane/Fastfile`
+
+The `Fastfile` defines the build steps. Since we're using a lot of the built-in
+capability of _fastlane_ this is really straightforward. We create a single
+lane which gets certificates, builds, and uploads the new build to TestFlight.
+Of course, you may want to split these out into different jobs depending on your
+use case. Each of these steps, `get_certificates`, `get_provisioning_profile`,
+`gym`, and `upload_to_testflight` are pre-bundled actions already included with
+_fastlane_.
+
+`get_certificates` and `get_provisioning_profile` are actions associated with
+the [_cert_ and _sigh_](https://docs.fastlane.tools/codesigning/getting-started/#using-cert-and-sigh)
+approach to code signing; if you're using _fastlane_ [match](https://docs.fastlane.tools/codesigning/getting-started/#using-match)
+or some other approach you may need to update these.
+
+```yaml
+default_platform(:ios)
+
+platform :ios do
+  desc "Build the application"
+  lane :flappybuild do
+    get_certificates
+    get_provisioning_profile
+    gym
+    upload_to_testflight
+  end
+end
+```
+
+#### 3. `fastlane/Gymfile`
+
+This `gym` file is optional, but I created it manually in order to override the default
+output directory and place the output in the current folder. This makes things a
+bit easier for CI. You can read more about `gym` and its options in the
+[gym documentation](https://docs.fastlane.tools/actions/gym/).
+
+```yaml
+output_directory("./")
+```
+
+### Our `.gitlab-ci.yml` configuration file
+
+Now, we have a CI/CD runner associated with our project so we're ready to try a
+pipeline. Let's see what's in our `.gitlab-ci.yml` file:
+
+```yaml
+stages:
+  - build
+
+variables:
+  LC_ALL: "en_US.UTF-8"
+  LANG: "en_US.UTF-8"
+  GIT_STRATEGY: clone
+
+build:
+  stage: build
+  script:
+    - bundle install
+    - bundle exec fastlane flappybuild
+  artifacts:
+    paths:
+    - ./FlappyBird.ipa
+```
+
+Yes, that's really it! [We set UTF-8 locale for _fastlane_ per their
+requirements](https://docs.fastlane.tools/getting-started/ios/setup/#set-up-environment-variables),
+use a `clone` strategy with the `shell` executor to ensure we have a clean
+workspace each build, and then simply call our `flappybuild` _fastlane_ target,
+which we discussed above. This will build, sign, and deploy the latest build to
+TestFlight.
+
+We also gather the artifact and save it with the build – note that the `.ipa`
+format output is a signed ARM executable, so not something you can run in the
+simulator. If you wanted a simulator output to be saved with the build, you
+would simply add a build target that produces it and then add it to the artifact
+path.
+
+### Other environment variables
+
+There are some special environment variables behind the scenes here that are
+making this work.
+
+#### `FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD` and `FASTLANE_SESSION`
+
+In order to authenticate against the App Store for the TestFlight upload,
+_fastlane_ must be able to authenticate. In order to do this, you need to
+create an app-specific password to be used by CI. You can read more about this
+process in [this documentation](https://docs.fastlane.tools/best-practices/continuous-integration/#use-of-application-specific-passwords-and-spaceauth).
+
+If you're using two-factor authentication, you'll also need to generate the
+`FASTLANE_SESSION` variable – instructions are in the same place.
+
+#### `FASTLANE_USER` and `FASTLANE_PASSWORD`
+
+In order for [_cert_ and _sigh_](https://docs.fastlane.tools/codesigning/getting-started/#using-cert-and-sigh)
+to be able to fetch the provisioning profile and certificates on demand, the
+`FASTLANE_USER` and `FASTLANE_PASSWORD` variables must be set. You can read more
+about this [here](https://docs.fastlane.tools/best-practices/continuous-integration/#environment-variables-to-set).
+You may not need these if you are using some other approach to signing.
+
+## In closing...
+
+Remember, you can see a working project with all of this set up by heading over
+to my [simple demo app](https://gitlab.com/jyavorska/flappyokr).
+
+Hopefully this has been helpful and has inspired you to get iOS builds and
+publishing working within your GitLab project. There is some good additional
+[CI/CD best-practice](https://docs.fastlane.tools/best-practices/continuous-integration/)
+documentation for _fastlane_ if you get stuck anywhere,
+and you could also consider using the `CI_BUILD_ID` (which increments each build)
+to [automatically increment a version](https://docs.fastlane.tools/best-practices/continuous-integration/gitlab/#auto-incremented-build-number).
+
+Another great capability of _fastlane_ to try is the ability to
+[automatically generate screenshots](https://docs.fastlane.tools/getting-started/ios/screenshots/)
+for the App Store – it's just as easy to set up as the rest of this has been.
+
+We'd love to hear in the comments how this is working for you, as well as your
+ideas for how we can make GitLab a better place to do iOS development in general.
+
+Photo by eleven_x on [Unsplash](https://unsplash.com/photos/lwaw_DL09S4)
+{: .note}

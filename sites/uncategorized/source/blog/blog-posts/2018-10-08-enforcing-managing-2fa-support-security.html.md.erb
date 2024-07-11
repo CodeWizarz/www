@@ -1,0 +1,41 @@
+---
+title: "This is what happens if you lose access to your 2FA GitLab.com account"
+author: Lyle Kozloff
+author_gitlab: lyle
+author_twitter: lkozloff
+categories: company
+image_title: '/images/blogimages/security-cover.png'
+description: "Support Engineering Manager Lyle Kozloff explains why we no longer accept government ID for two-factor authentication removal."
+tags: collaboration, inside GitLab, security
+ee_cta: false
+featured: yes
+postType: content marketing
+---
+You may have read my previous post about [how to keep your GitLab account safe and accessible](/blog/2018/08/09/keeping-your-account-safe/). That came about because the Support Team recently changed how we verify your identity when you lose access to your GitLab.com account and request that the [two-factor authentication (2FA)](https://docs.gitlab.com/ee/user/profile/account/two_factor_authentication.html) be reset. This was a collaborative effort between our Support and Security teams, and I wanted to share our updated, more secure process.
+
+Up until recently, the procedure for regaining access to your account started with resetting with an [SSH key](https://docs.gitlab.com/ee/ssh/). Many users didn't have one registered, so the standard fallback for proving your identity was to provide your government-issued ID for verification. This is fairly common, but has a couple of drawbacks:
+
+- Many GitLab users don't use their real names on their GitLab accounts, so "@elitehacker," for example, would have a pretty hard time proving their identity that way.
+- Also, GitLab, unlike other companies, doesn't use an independent verification service to assess these IDs. I don't even know what an Illinois driver's license looks like, let alone one issued by a country I've never been to. So there's a risk that our team wouldn't be able to identify fraudulent IDs.
+
+## How we authenticate users without using government ID
+
+With this in mind, we started discussing ways to authenticate users that didn't rely on government-issued ID. I chatted to [Westley](/company/team/#wvandenberg) on the Security team, and got some insight into different approaches he had seen when he previously worked at Amazon. This is what the process looks like now:
+
+### Step 1: Determine risk factor
+
+The first step is to classify the data we're potentially granting access to if we reset 2FA. There's a vast difference in risk between effectively granting access to thousands of private repositories which look like they contain secret government data, and granting access to a handful of tutorials on Angular that are public. So we came up with four different classifications based on what a user would get access to if we reset their 2FA – you can check out [the first iteration of these in the discussion in the issue](https://gitlab.com/gitlab-com/security/issues/45). This is a peer-reviewed process, so there will always be another agent confirming that the classification looks appropriate.
+
+### Step 2: Pose authentication challenges
+
+Together Westley and I came up with a series of challenges the Support Team can pose to users who have lost access, which require knowledge and familiarity with the user's account. These challenges are given scores, and depending on what classification your account is given, there will be a minimum score you need to attain in order for us to reset your 2FA. The set of challenges posed is selected by the agent handling the ticket, and it may differ each time.
+
+There's no one, single factor that will get you into your account – the spirit is rather that you can build a body of evidence to verify your identity, rather than relying on one thing (which used to be the case with the government ID). If you succeed in the challenges, we will reset your 2FA so you can get back into your account.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+These challenges aren't made public – we're not going to give away exactly what you need to access a 2FA account, obviously 😆 We'll keep [iterating](/handbook/values/#iteration) on them too.
+
+As mentioned, this new workflow is really a result of collaboration between Support and Security. Having identified that our existing process was less than ideal, we asked for an audit of our proposal from Security, to get their stamp of approval and ensure that we were leveraging our internal resources to keep our users' accounts safe. You can [check out the issue for this consultation with Security here](https://gitlab.com/gitlab-com/security/issues/45) for the full discussion.
+
+To avoid resetting your 2FA altogether, here's [how to keep your GitLab account safe and accessible](/blog/2018/08/09/keeping-your-account-safe/).

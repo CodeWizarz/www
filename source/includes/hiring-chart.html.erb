@@ -1,0 +1,84 @@
+<script src="/javascripts/libs/moment.min.js" type="text/javascript"></script>
+<script src="/javascripts/libs/Chart.min.js" type="text/javascript"></script>
+
+<canvas id="<%= unique_id %>" width="400" height="200"></canvas>
+
+<script>
+window.addEventListener('load', function() {
+  var ctx = document.getElementById('<%= unique_id %>').getContext('2d');
+
+  var myChart = new Chart(ctx, {
+    type: 'line',
+      data: {
+        datasets : [
+          {
+            label : 'people',
+            fill: false,
+            lineTension: 0,
+            borderColor: 'red',
+            data : [ <% people.each{ |person| concat "{ t: new Date('#{person[0]}'), y: #{person[1]} }," } %> ]
+          },{
+            label : 'vacancies',
+            fill: false,
+            lineTension: 0,
+            borderColor: 'pink',
+            data : [ <% vacancies.sort_by{ |vacancy| vacancy[0].to_s }.each{ |vacancy| concat "{ t: new Date('#{vacancy[0]}'), y: #{vacancy[1]} }," } %> ]
+          }
+       ]
+    },
+    options: {
+      scales: {
+        xAxes: [{
+          type: 'time',
+          time : {
+            parser: 'YYYY-MM-DD'
+          }
+        }],
+        yAxes: [{
+          scaleLabel: {
+            display: true,
+            labelString: 'Headcount'
+          }
+        }]
+      }
+    }
+  });
+});
+</script>
+
+<% if people_not_started_yet.count > 0 %>
+<h3>Future Start Dates in the <%= department %></h3>
+<p>The following people in the <%= department %> have not started yet. They are counted towards today on the chart above.</p>
+<table>
+  <tr>
+    <th>Name</th>
+    <th>Role</th>
+    <th>Start Date</th>
+  </tr>
+  <% people_not_started_yet.each do |person| %>
+  <tr>
+    <td><%= person.name %></td>
+    <td><%= person.role %></td>
+    <td><%= person.start_date %></td>
+  </tr>
+  <% end %>
+</table>
+<% end %>
+
+
+<% if vacancies_overdue.count > 0 %>
+<h3><%= department %> Vacancies Overdue</h3>
+<p>The following <%= department %> vacancies are overdue to be filled. They are counted toward today on the chart above.</p>
+<table>
+  <tr>
+    <th>Role</th>
+    <th>Start Date</th>
+  </tr>
+  <% vacancies_overdue.each do |vacancy| %>
+  <tr>
+    <td><%= vacancy.role %></td>
+    <td><%= vacancy.start_date %></td>
+  </tr>
+  <% end %>
+</table>
+<% end %>

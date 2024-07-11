@@ -1,0 +1,59 @@
+---
+title: "Turning the Adobe CCF into the GitLab Control Framework (it’s all open source!)"
+author: Jeff Burrows
+author_gitlab: jburrows001
+author_twitter: BurrowsJeff
+categories: security
+image_title: '/images/blogimages/geraldo-stanislas-unsplash.jpg'
+description: "We’ve implemented and adapted an open source compliance framework. Now we're sharing our process and tools so you can adapt and customize it too."
+tags: open source, security
+twitter_text: ".@GitLab implemented and adapted an #opensource #compliance framework. Now we're sharing our process and tools so others might be able to more easily adapt and customize this framework"
+postType: content marketing
+---
+
+In my previous blog post, I talked about [how GitLab went about choosing an overarching compliance framework](/blog/2019/05/07/choosing-a-compliance-framework/) that would optimize satisfying the requirements of underlying regulatory or industry best practice requirements. Today I’m blogging about the next steps in that process, and will walk through how we implemented the [Adobe open source compliance framework (CCF)](https://blogs.adobe.com/security/2017/05/open-source-ccf.html) and adapted it to our needs, resulting in the GitLab Control Framework (GCF).
+
+## Implementation and adaptation
+
+When you download the Adobe CCF you get two PDF documents: a whitepaper on the state of compliance at Adobe and a table of all the generic CCF controls. The first thing we did was to convert the CCF controls PDF to a CSV so we could more easily make changes to the data. Most of these changes were to make the control statements specific to GitLab and our compliance needs.
+
+We were careful when making changes to ensure that we weren't changing anything foundational about the statement, as this could break the mapping to underlying requirements. For example, [PCI DSS](https://www.pcisecuritystandards.org/documents/ASV_Program_Guide_v3.0.pdf) states that an organization must “run internal and external network vulnerability scans at least quarterly and after any significant change in the network (such as new system component installations, changes in network topology, firewall rule modifications, product upgrades).” If you were to make the frequency of the [Vulnerability Scans control](/handbook/security/security-assurance/security-compliance/guidance/vulnerability-and-patch-management.html#controls) “annual” instead of “quarterly,” that control would no longer map to PCI DSS control 11.2 since that underlying PCI control requires at least quarterly scanning.
+
+### Now we have a set of security controls specific to GitLab’s compliance needs
+
+We found it helpful to create a prefix for each domain (e.g. AM for Asset Management, BC for Business Continuity, etc.) of controls and use these to create control numbers for each control (e.g. AM.1.01, BC.1.04, etc.). With this information in place, the real fun started.
+
+There are 184 default controls. This number will expand or contract based on your individual needs. For example, if you have a need for FedRamp certification you might have different control requirements than an organization that doesn't. This is a lot of controls to try and roll out all at once, and most organizations don’t need to address all of the underlying control frameworks simultaneously. At GitLab, we knew that a SOC2 certification was the first compliance priority for us and, based on these needs, we started by prioritizing all controls that mapped to SOC2’s Common Criteria. This gave us a list of 63 controls – a much more manageable starting point.
+
+For these 63 controls we wanted to build out additional content relating to each. In particular, we wanted a Markdown file that addressed each of the following topics for each control:
+
+* Control Statement
+* Context
+* Scope
+* Ownership
+* Implementation Guidance
+* Reference Links
+* Examples of evidence an auditor might request to satisfy this control
+* Framework Mapping
+
+Most of this information can be seen within the [security control pages in our handbook](/handbook/security/security-assurance/security-compliance/sec-controls.html); however, some of these topics contain sensitive information so we have a repo only accessible to GitLab team members.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+### The last steps in this implementation process were to:
+
+1. Identify the teams within GitLab that were responsible, accountable, consulted, and informed for each of our 63 prioritized controls, and then
+2. Perform a gap analysis for each of these controls to see what our starting point was for each, in terms of our state of compliance.
+
+The above steps each build on the previous ones, and help to ensure enough baseline context and requirements were established and that we understood the context and scope for each control sufficiently to perform the gap analysis.
+
+## Adopting the GCF and future plans
+
+Our goal in sharing the details behind our compliance framework implementation is to lessen the adoption effort for smaller companies and GitLab customers alike. We’ve created a [public repo that has a copy of the csv file we adapted from the Adobe CCF](https://gitlab.com/gitlab-com/gl-security/public-gcf) and a link to a view-only [Google Sheet with all of these controls and variables in place](https://docs.google.com/spreadsheets/d/1xmACTt5WD_u8OL0z8G0oUv7Di9J4DWHuy2kamch_7-g/edit#gid=907478311) to make adaptation to your organization as easy as possible.
+
+We’re currently working on scripts that turn SOC2 and HIPAA-related controls into individual issues within a GitLab project. We’re also working on a CSV-to-JSON tool that would easily convert the control CSV into a large data blob, making deployment for certain organizations easier.
+
+**We plan to make these tools available as they are ready but we also want to hear from you.** *What features would make the adoption of these controls easier? How are you using GitLab to help with your compliance needs? What else can GitLab contribute to the security compliance industry to help companies of all sizes align with security best practices and reduce the effort needed for external security validations/certifications?* **Leave us a comment below!**
+
+Photo by [geraldo stanislas](https://unsplash.com/@pixelsucker?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on Unsplash
+{: .note}

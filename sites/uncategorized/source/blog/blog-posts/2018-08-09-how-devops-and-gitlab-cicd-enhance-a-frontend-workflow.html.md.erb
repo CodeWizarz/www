@@ -1,0 +1,182 @@
+---
+title: "How DevOps and GitLab CI/CD enhance a frontend workflow"
+author: José Iván Vargas
+author_gitlab: jivanvl
+author_twitter: jivanvl
+categories: engineering
+image_title: '/images/blogimages/frontendworkflow.jpg'
+description: "The GitLab frontend team uses DevOps and CI/CD to ensure code consistency, fast delivery, and simple automation."
+tags: frontend, workflow, CI, DevOps
+ee_cta: false
+just_commit_button_text: 'See how <strong>GitLab can help your team</strong> scale app deployment!'
+just_commit_button_link: '/webcast/scalable-app-deploy/'
+twitter_text: "Learn how DevOps and @gitlab CI/CD enhance a frontend workflow"  
+---
+
+It might seem like a lot of what we do on frontend is to make our lives easier, 
+but what I’ve learned in the past two years as a GitLab team-member and a community contributor 
+is that if we make our lives easier, we can make a lot of customers happier, too. 
+Over the years, I’ve experienced many changes at GitLab, from a change in processes 
+to an increase in team members. From an early stage, the frontend team has been 
+committed to continuous improvements, but working in a rapidly growing team 
+required an investment in the way we work. 
+
+When I joined GitLab we still used some of the default conventions that the [Rails 
+framework](/blog/2019/05/28/upgrade-to-rails5/) recommended for the frontend, and it helped us for quite a while, but 
+the more code we touched, the more code we needed to test and build for 
+performance, making it more challenging for us to maintain. The frontend team 
+realized that we needed a way to facilitate code consistency, fast delivery, and 
+simple automation, so we decided to incorporate [DevOps](/topics/devops/) and 
+[CI/CD](/features/continuous-integration/) into our workflow. 
+
+## Frontend DevOps and CI/CD workflow
+
+We used CI in a few scenarios, including using linters to help write a consistent
+style of code throughout GitLab, but in the case of our JavaScript code, we 
+realized that building for performance and maintainability was becoming 
+increasingly difficult. So, we moved away from the 
+[asset pipeline and utilized webpack](/blog/2017/02/06/vue-big-plan/), 
+which has given us a series of benefits. For example,  when we develop locally, 
+debugging code is now a breeze, and the jobs that are frontend related run on 
+production-bundled code, ensuring a testing environment that closely resembles 
+that of a user.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "b" } %>
+
+After CI, we publish code using DevOps by hosting it with 
+[GitLab Pages](/stages-devops-lifecycle/pages/)). We’ve seen several projects benefit from 
+adopting a DevOps model, including 
+[GitLab SVG libraries](https://gitlab.com/gitlab-org/gitlab-svgs) and 
+[Trello Power-Up](https://docs.gitlab.com/ee/integration/trello_power_up.html).
+
+When we created GitLab SVG libraries, we wanted to use them for ourselves and 
+make them available to the general public, so whenever we publish a new version, 
+we use GitLab Pages so that it’s fully automated every time.
+
+With the Trello Power-Up plugin, we use DevOps to address compatibility 
+issues when a new version of Trello is released. GitLab Pages makes it easy to 
+deploy a new version, in a fast and diligent manner, so that it’s accessible in 
+the Trello Marketplace as quickly as possible. 
+
+## Frontend DevOps and Data-driven efforts
+
+Incorporating frontend DevOps and CI/CD into the workflow has had a significant 
+impact on efficiency and results. We have greater insight into our operations 
+and have metrics to help us detect major areas of improvement. We set up 
+[Sitespeed](https://www.sitespeed.io) using Kubernetes to analyze sets of pages 
+and provide reports on anything that could hamper our users’ perceived 
+performance, from CSS and JavaScript bundle sizes to accessibility issues and 
+the render time differences between various points in time. The information we gathered using 
+Sitespeed has helped us improve the merge requests page and identify pages that 
+render slowly. Having more data has changed the way we approach problems at 
+GitLab, because we are able to focus our efforts on specific areas. 
+
+## The unexpected discovery of problems
+
+One of the unexpected benefits of our workflow is the discovery of problems that 
+we may not have identified.
+
+### A lack of automation
+
+We realized, for example, that we lack some automation in our tools. For 
+instance, every time we didn’t format code in a specific way, our linter 
+notified us, but analyzing and fixing the code slowed down developer velocity, 
+so we decided to add [Prettier](https://prettier.io/) to format our code in our 
+merge requests for us. We also realized that, sometimes, we need a little bit of 
+automation when we publish code. As an all-remote company, many of us work on 
+public WiFi, and we found that unreliable connections could have detrimental 
+effects while deploying code. The combination of CI and DevOps made deployments 
+easier. If we triggered a pipeline and a coffee shop WiFi goes vamoose, it 
+doesn't matter. We already automated a significant part of our development 
+process, but we’re always striving for more. 
+
+### A lack of speed
+
+In the case of CI, we noticed that our own tools can be a source of problems. We 
+found that we didn’t make the necessary considerations to keep our test suite fast. 
+As developers, we want to go back to developing as fast as possible. A few of my 
+teammates discovered that our test runs were becoming slower and slower with each 
+release. Even though these are not customer-facing changes, it has made both 
+product managers and team managers consider investing in those issues, because 
+the easier the development cycle is for the developers involved, the better it 
+is for our customers, since we can deliver even more features. Furthermore, we 
+can prevent regressions from happening by having solid foundations, such as 
+testing, code style, and code formatting.
+
+Every time we discover problems that affect us or our work, we realize that we 
+can also jeopardize the features and experiences we want to deliver to our 
+customers. It has changed the culture inside the team, because we view 
+performance issues as developers rather than as GitLab team-members.
+
+## Advice to frontend teams
+
+Using DevOps and CI/CD in a frontend workflow is compatible with teams of any 
+size, including small teams that may want to ensure that their code styling is 
+the same. 
+
+<%= partial "includes/blog/tweet", locals: { text: 'Using DevOps and CI/CD in a 
+frontend workflow is compatible with teams of any size.', author: 'jivanvl' } %>
+
+### Put a linter in place
+
+With CI, the smallest and perhaps one of the most significant steps is 
+to put a linter in place, and if the pipeline doesn't pass, you can’t merge the 
+code. That's such a simple, effective way to improve your code and to keep it 
+tidy and clean in the long run. Just setting up some simple steps using CI will 
+improve your team’s code and your developers’ quality of life so that they don't 
+have to worry about combing through past code. Even though small teams might not
+find the value in the short term, when they scale, they certainly will. 
+
+### Create consistent scenarios 
+
+The bigger the project, the more you realize that some of your tooling ends up 
+running locally, and it's beneficial to run it on CI. If something doesn't work 
+on a generic type of machine that has enough dependencies installed to run your 
+CI setup, that means there’s something wrong and that you should probably fix it
+before merging your code. As long as you can create a consistent scenario in which
+you can do things like testing and linting, you should be in a good position to 
+deliver a great product.
+
+### Select CI-compatible tools
+
+For teams of all sizes, it’s important that the tools you select as part of your
+workflow are compatible with CI in some way, so that even if you had a big part
+of your workflow running locally, you can easily move to CI by creating a pipeline
+that resembles that of your daily workflow. Regardless of the tool that you choose,
+creating a job for it will return a lot of value in the long run. If it makes 
+sense, I encourage you to add it, because there’s very little incentive not to. 
+CI-compatible tools include tests runners, linters, Prettier, or any custom-made
+tools that help you in some way. One decision you might want to avoid is creating
+on servers that live on CI runners. Since they only run for a limited amount of 
+time, these servers will stop existing. You could also add deployments to your 
+CI workflow, helping you with DevOps and preventing you from worrying about 
+complicated local setups for new developers. The possibilities are huge. 
+
+### Add performance testing
+
+To add to the pool of possibilities, why not add performance testing to your 
+merge requests with a tool such as
+[Lighthouse](https://developers.google.com/web/tools/lighthouse/), which can 
+help you understand potential performance bottlenecks in your website. Or, maybe
+your team can add the ability to generate code documentation and publish it via 
+GitLab Pages. CI/CD can be a really good tool, because it will return something 
+immediately. It's just a matter of how you want to use it, depending on your needs. 
+
+The more the frontend team uses CI and DevOps, the more we discover ways to use 
+it, so it’s worth it to us to invest in this tool. 
+
+<%= partial "includes/blog/tweet", locals: { text: 'The more the frontend team 
+uses CI and DevOps, the more we discover ways to use it, so it’s worth it to us 
+to invest in this tool.', author: 'jivanvl' } %>
+
+Sometimes, we just want to 
+get stuff out there without too much consideration for tooling and CI and CD, 
+but because of the benefits we’ve experienced, we now include CI/CD in all of 
+our projects. With GitLab, everything is integrated, so why skip it? Instead of 
+fighting against automation, I encourage teams to embrace the idea that CI is 
+there to help you. 
+
+[Cover image](https://unsplash.com/photos/UbGqwmzQqZM) by 
+[Zhipeng Ya](https://unsplash.com/photos/UbGqwmzQqZM?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText), licensed
+under [CC X](https://unsplash.com/license).
+{: .note}

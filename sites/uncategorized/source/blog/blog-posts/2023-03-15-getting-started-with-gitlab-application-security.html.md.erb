@@ -1,0 +1,125 @@
+---
+title: "Getting started with GitLab application security"
+author: Julie Byrne
+author_gitlab: juliebyrne
+categories: engineering
+tags: devsecops, CI, CD, security
+description: "This tutorial shows how to incorporate GitLab security scan templates into a .gitlab-ci.yml file and view scan results."
+image_title: '/images/blogimages/2018-developer-report-cover.jpg'
+twitter_text: "Follow this step-by-step tutorial to incorporate GitLab security scan templates into your .gitlab-ci.yml file and view scan results"
+---
+
+As software security becomes increasingly important, many companies want to introduce standard code scanning processes into development workflows to find and remediate security vulnerabilities before they get to production. GitLab's DevSecOps Platform allows users to perform security scans in CI/CD pipelines, which can easily be enabled to check applications for security vulnerabilities such as unauthorized access, data leaks, and denial of service (DoS) attacks. While most of what is covered in this blog will pertain to Ultimate features, there are some features available for free and Premium tier users as well. By the end of this blog, you will have a solid starting point for adopting GitLab security scans, with any tier license, and understand the steps to take next to mature your DevSecOps practices.
+
+## Prerequisites
+To enable security scanning for a project, you must have the following:
+- a GitLab project that meets the requirements of the security scan you choose to enable, with CI enabled
+- a `.gitlab-ci.yml` file for the project that has at least a build job defined
+- a Linux-based GitLab Runner with the Docker or Kubernetes executor
+
+## Get started: Add a scan template to your pipeline
+
+Here are the first steps to introduce security scanning.
+
+### Available security scans
+
+GitLab provides a variety of security scanners, each with its own set of criteria for adoption:
+
+| Scan type | Minimum tier | Prerequisites | Application requirements |
+| --- | --- | --- | --- |
+| [Static application security testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/) | Free | None | See [SAST requirements](https://docs.gitlab.com/ee/user/application_security/sast/index.html#requirements) |
+| [Secret detection](https://docs.gitlab.com/ee/user/application_security/secret_detection/) | Free | None | None |
+| [Container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/) | Free | Container image built and pushed to registry | [Docker 18.09.03 or higher installed on the same computer as the runner](https://docs.gitlab.com/ee/user/application_security/container_scanning/index.html#requirements); image uses a [supported distribution](https://docs.gitlab.com/ee/user/application_security/container_scanning/index.html#supported-distributions) |
+| [Infrastructure as code (IaC) scanning](https://docs.gitlab.com/ee/user/application_security/iac_scanning/) |  Free | None | See [supported languages and frameworks](https://docs.gitlab.com/ee/user/application_security/iac_scanning/#supported-languages-and-frameworks) |
+| [Dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) - includes license compliance | Ultimate | None | Application must use one of the [supported languages and package managers](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/index.html#supported-languages-and-package-managers) |
+| [Dynamic application security testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/) | Ultimate | [Deployed target application](https://docs.gitlab.com/ee/user/application_security/dast/index.html#prerequisites) | See [GitLab DAST scanning options](https://docs.gitlab.com/ee/user/application_security/dast/index.html#gitlab-dast) |
+| [Coverage-guided fuzz testing](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/) | Ultimate | Instrumented version of application | See [supported fuzzing engines and languages](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/index.html#supported-fuzzing-engines-and-languages) |
+| [Web API fuzz testing](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/) |  Ultimate | Deployed target application | See [supported API types](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/#enable-web-api-fuzzing) |
+
+Many customers will start with secret detection, dependency scanning, or SAST scanning, as they have the fewest requirements for usage.
+
+### Add the scanner template
+
+GitLab provides a [CI template for each security scan](https://docs.gitlab.com/ee/user/application_security/#security-scanning-without-auto-devops) that can be added to your existing `.gitlab-ci.yml` file. This can be done by manually editing the CI file and adding the appropriate template path in the templates section of the file. Several scanners can also be [enabled via the UI](https://docs.gitlab.com/ee/user/application_security/sast/#configure-sast-in-the-ui), where a merge request will be created to add the appropriate scanner to the `.gitlab-ci.yml` file. 
+
+I will use a simple spring boot application as an example and enable dependency scanning, a scanner that is popular amongst our customers, as my first security scan. Dependency scanning will find vulnerabilities in the libraries I am using to build my application. My project is a Java application built via Maven and includes a `pom.xml` file, so it meets the requirements for dependency scanning. Since dependency scanning can be enabled via the UI, I'm going to take advantage of that feature here. 
+
+For this project, I have created a `.gitlab-ci.yml` file that contains a build and test stage and a build job. I'm using the Auto DevOps auto-build job, but you can define your own build job if desired. This is the starting pipeline code in my `.gitlab-ci.yml` file:
+
+```
+image: alpine:latest
+
+include:
+  - template: Jobs/Build.gitlab-ci.yml  # https://gitlab.com/gitlab-org/gitlab-foss/blob/master/lib/gitlab/ci/templates/Jobs/Build.gitlab-ci.yml
+
+stages:
+- build
+- test
+
+```
+
+To enable dependency scanning, I'll first navigate to the **Security & Compliance** menu, **Configuration** sub-menu.
+
+![web identity](/images/blogimages/2023-02-26-getting-started-with-gitlab-application-security/security_config.png){: .shadow}
+
+The option to enable dependency scanning is available about halfway down the page. When I click `Configure with a merge request`, a branch is created and I am prompted to create a corresponding draft merge request. I'll click `Create Merge Request` to save the merge request.
+
+Once the merge request has been created, I see that a new branch `set-dependency-scanning-config-1` has been created and the `.gitlab-ci.yml` file has been updated with this code:
+
+```
+# You can override the included template(s) by including variable overrides
+# SAST customization: https://docs.gitlab.com/ee/user/application_security/sast/#customizing-the-sast-settings
+# Secret Detection customization: https://docs.gitlab.com/ee/user/application_security/secret_detection/#customizing-settings
+# Dependency Scanning customization: https://docs.gitlab.com/ee/user/application_security/dependency_scanning/#customizing-the-dependency-scanning-settings
+# Container Scanning customization: https://docs.gitlab.com/ee/user/application_security/container_scanning/#customizing-the-container-scanning-settings
+# Note that environment variables can be set in several places
+# See https://docs.gitlab.com/ee/ci/variables/#cicd-variable-precedence
+image: alpine:latest
+include:
+- template: Jobs/Build.gitlab-ci.yml
+- template: Security/Dependency-Scanning.gitlab-ci.yml
+stages:
+- build
+- test
+
+```
+
+The change kicks off a pipeline, which will now include the dependency scan.
+
+![web identity](/images/blogimages/2023-02-26-getting-started-with-gitlab-application-security/dependency_job.png){: .shadow}
+
+
+
+## View results of the security scan
+
+For all license tiers, you can view the results of any security scan jobs in the appropriate JSON report that can be downloaded from the merge request.
+
+![web identity](/images/blogimages/2023-02-26-getting-started-with-gitlab-application-security/mr_artifacts.png){: .shadow}
+
+With GitLab Ultimate, you will also see the vulnerabilities found by the scan in the merge request widget.
+
+![web identity](/images/blogimages/2023-02-26-getting-started-with-gitlab-application-security/mr_widget.png){: .shadow}
+
+At this point, the `.gitlab-ci.yml` changes that enable security scanning are only available in the `set-dependency-scanning-config-1` branch. I will merge them to `main` so that the changes will be included in all future feature branches.
+
+With GitLab Ultimate, merging to `main` will also provide the baseline **Vulnerability Report** for our application.  
+
+![web identity](/images/blogimages/2023-02-26-getting-started-with-gitlab-application-security/vuln_report.png){: .shadow}
+
+Now, scan results presented in the merge request widget for any new merge requests will only show vulnerabilities introduced by those new code changes in the corresponding feature branch, and not the baseline of vulnerabilities that already exist on `main`.
+
+## Scan enforcement
+
+Once you have enabled your first scans in your CI/CD pipelines, you might be curious to know how you can enforce security scans, or enforce a review and approval when critical vulnerabilities are found in new code changes. I recommend reviewing these resources that cover these topics. 
+ - For Ultimate customers: [How to ensure separation of duties and enforce compliance with GitLab](/blog/2022/04/04/ensuring-compliance/)
+ - For Premium customers: [How to action security vulnerabilities in GitLab Premium](https://about.gitlab.com/blog/2023/03/13/actioning-security-vulnerabilities-in-gitlab-premium/)
+
+Now that you've gained comfort with security scanners as part of the GitLab CI/CD pipeline, check out our [Getting Started with GitLab Application Security](https://docs.gitlab.com/ee/user/application_security/get-started-security.html) documentation for recommended next steps.
+
+## More resources
+ - [How GitLab's application security dashboard helps AppSec engineers](/blog/2020/07/07/secure-stage-for-appsec/)
+ - [Running security scans in limited connectivity and offline environments](/blog/2020/10/01/offline-environments/)
+ - [GitLab's newest continuous compliance features bolster software supply chain security](/blog/2022/02/09/gitlabs-newest-continuous-compliance-features-bolster-software/)
+
+
+

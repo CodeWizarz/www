@@ -1,0 +1,55 @@
+---
+layout: default
+title: "Meet the GitLab Heroes Alumni"
+description: "Meet the GitLab Heroes Alumni"
+canonical_path: "/community/heroes/alumni/"
+twitter_image: "/images/opengraph/Heroes/GitLab-Hero-BeA.png"
+twitter_image_alt: "Graphical GitLab Heroes logo asking you to meet our heroes alumni"
+twitter_site: "gitlab"
+twitter_creator: "gitlab"
+suppress_header: true
+extra_css:
+  - team.css
+  - community.css
+  - bl-modal.css
+  - video-carousel.css
+extra_js:
+  - libs/slick.min.js
+  - video-carousel.js
+---
+
+.blank-header
+  = image_tag "/images/home/icons-pattern-left.svg", class: "image-border image-border-left"
+  = image_tag "/images/home/icons-pattern-right.svg", class: "image-border image-border-right"
+  .header-content
+    %h1 Meet the GitLab Heroes Alumni
+    %p.text-center The #{heroes_alumni_size} GitLab Heroes Alumni are past members of the wider GitLab community who made outstanding contributions to GitLab and our community around the globe.
+    .row.text-center
+      .btn-group.u-padding-right-sm
+      = link_to "Learn more about GitLab Heroes", "/community/heroes/", class: "btn cta-btn orange margin-top20"
+      = link_to "Recent GitLab Heroes contributions", "/community/heroes/contributions/", class: "btn cta-btn orange margin-top20"
+
+.wrapper
+  .team-container
+    .row.team-row.text-center
+      - data.heroes_alumni.sort_by { |m| [m.name] }.each do |member|
+        = partial "includes/heroes/member_overview", locals: { member: member, enable_extra: true }
+
+    .row.u-margin-top-md.text-center
+      .col-md-4.text-center
+        = link_to "Become a GitLab Hero", "/community/heroes/#apply"
+      .col-md-4.text-center
+        = link_to "Find a speaker", "/speakers/"
+
+.wrapper.community-content
+  .row.u-margin-top-md
+    %h2.u-margin-bottom-sm.text-center
+      Everyone can contribute
+    .video-slider
+      - data.video_carousel.each do |video|
+        -if video.carousel_identifier.include?("Community Heroes Contributors and Members Carousel 1")
+          = partial "includes/components/video-carousel/video-item.html.haml", locals: {name: video.name, title: video.title, company: video.company, photourl: video.photourl, videolink: video.video_link}
+
+  - data.video_carousel.each do |video|
+    -if video.carousel_identifier.include?("Community Heroes Contributors and Members Carousel 1")
+      = partial "includes/components/video-carousel/video-carousel-modal.html.haml", locals: {videolink: video.video_link, title: video.title, photourl: video.photourl}

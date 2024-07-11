@@ -1,0 +1,56 @@
+---
+title: "New OpenSSL 3.0 vulnerabilities: What you need to know to find and fix them"
+author: "GitLab Security Team"
+categories: security
+tags: security, open source, news
+description: Learn how to identify your risk for CVE-2022-3786 and CVE-2022-3602.
+image_title: /images/blogimages/locks.jpg
+twitter_text: Learn all you need to know about the OpenSSL 3.0 vulnerabilities and
+  how to find and fix them.
+---
+
+The OpenSSL Project [announced two vulnerabilities](https://www.openssl.org/blog/blog/2022/11/01/email-address-overflows/) found in OpenSSL 3.0-3.0.6 ([first released in September 2021](https://www.openssl.org/blog/blog/2021/09/07/OpenSSL3.Final/)). CVE-2022-3786 and CVE-2022-3602 both relate to X.509 email address buffer overflows and require users to upgrade to OpenSSL 3.0.7, which includes patches for the vulnerabilities, which were downgraded from “critical” to “high.”
+
+OpenSSL is an open-source library used by applications to secure communications over the internet with the Secure Sockets Layer (SSL) and Transport Layer Security (TLS) protocols.
+
+## What are the OpenSSL 3.0 vulnerabilities?
+
+CVE-2022-3786 concerns an X.509 email address variable length buffer overflow that can result in a denial of service attack. CVE-2022-3602 concerns X.509 email address 4-byte buffer overflow that could result in a denial of service that could potentially escalate to remote code execution under specific circumstances (the circumstances were not detailed).
+
+CVE-2022-3602 was initially announced by the OpenSSL Project as a critical severity vulnerability, but was downgraded to high severity due to unlikely exploitation in “common conditions.”
+
+## How do the vulnerabilities work?
+
+According to the [OpenSSL bulletin](https://www.openssl.org/news/secadv/20221101.txt): “A buffer overrun can be triggered in X.509 certificate verification, specifically in name constraint checking. Note that this occurs
+after certificate chain signature verification and requires either a
+CA to have signed the malicious certificate or for the application to
+continue certificate verification despite failure to construct a path
+to a trusted issuer. An attacker can craft a malicious email address
+to overflow four attacker-controlled bytes on the stack. This buffer
+overflow could result in a crash (causing a denial of service) or
+potentially remote code execution.
+
+"Many platforms implement stack overflow protections which would mitigate
+against the risk of remote code execution. The risk may be further
+mitigated based on stack layout for any given platform/compiler...
+
+"In a TLS client, this can be triggered by connecting to a malicious
+server. In a TLS server, this can be triggered if the server requests
+client authentication and a malicious client connects.”
+
+## Is your organization at risk?
+
+Only applications that use OpenSSL 3.0 are at risk. To assess if your software supply chain is vulnerable, use GitLab’s [dependency scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/) and [container scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/).
+
+According to the [OpenSSL Security Team](https://www.openssl.org/blog/blog/2022/11/01/email-address-overflows/): “The bugs were introduced as part of punycode decoding functionality (currently only used for processing email address name constraints in X.509 certificates). This code was first introduced in OpenSSL 3.0.0. OpenSSL 1.0.2, 1.1.1, and other earlier versions are not affected.”
+
+## Is GitLab vulnerable?
+
+We have investigated and, as of now, we have found that none of our production systems were impacted by the vulnerability. 
+
+However, our Dynamic Application Security Testing ([DAST](https://docs.gitlab.com/ee/user/application_security/dast/)) analyzer included the vulnerable library, which we have patched in [DAST v3.0.32](https://gitlab.com/gitlab-org/security-products/dast/-/releases/v3.0.32). Self-managed customers that are using our built-in DAST CI template after 15.0 can get the latest release from `registry.gitlab.com`. If using [the `always` pull policy](https://docs.gitlab.com/runner/executors/docker.html#using-the-always-pull-policy) the update will occur automatically. GitLab.com is already running the updated DAST scanner.
+
+## How to mitigate the vulnerability risk
+
+To fix the flaws found in OpenSSL 3.0, organizations must upgrade to OpenSSL 3.0.7.
+

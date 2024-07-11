@@ -1,0 +1,29 @@
+<% data.categories.each do |categoryKey, category| %>
+  <% next unless (category.stage == stageKey) %>
+  <% l = [] %>
+  <% l << "Priority: #{category.priority_level}" if category.priority_level %>
+  <% l << "[Learn more](#{category.marketing_page})" if category.marketing_page %>
+  <% l << "[Documentation](#{category.documentation})" if category.documentation %>
+  <% l << "[Direction](#{category.direction})" if category.direction %>
+##### <%= category.name %>
+<% maturity = "This category is planned, but not yet available." %>
+<% if category.available != nil %>
+  <% maturity = "This category is at the \"minimal\" level of maturity." if category.available.past? %>
+<% end %>
+<% if category.viable != nil %>
+  <% maturity = "This category is at the \"viable\" level of maturity." if category.viable.past? %>
+<% end %>
+<% if category.complete != nil %>
+  <% maturity = "This category is at the \"complete\" level of maturity." if category.complete.past? %>
+<% end %>
+<% if category.lovable != nil %>
+  <% maturity = "This category is at the \"lovable\" level of maturity." if category.lovable.past? %>
+<% end %>
+<% if category.marketing == false %>
+  <% maturity = "" %>
+<% end %>
+<%= category.description + " " + maturity + "  " unless category.description.blank? %>
+<%= maturity + "  " if category.description.blank? %>
+<%= l.join(' • ') unless l.empty? %>
+
+<% end %>

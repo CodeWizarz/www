@@ -1,0 +1,15 @@
+features:
+  secondary:
+  - name: "Database queries are faster when using a load balancer"
+    available_in: [core, starter, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/administration/database_load_balancing.html'
+    reporter: fzimmer
+    stage: data_stores
+    stage_url: '/handbook/engineering/development/enablement/'
+    categories:
+    - 'Memory'
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/276188'
+    description: |
+      Many database queries are repeated several times and can be cached to improve overall performance. For GitLab, [roughly 10% of all queries](https://gitlab.com/gitlab-org/gitlab/-/issues/276188#note_463032681) can be cached. In GitLab 13.7 we enabled database query caching when [database load balancing](https://docs.gitlab.com/ee/administration/database_load_balancing.html) is used, leading to significant overall performance improvements. On GitLab.com this translates to caching ~700,000 queries every minute and improving the overall request time by up to 10%.
+
+      For requests that executed more than 100 queries, we improved request duration [between 11-31% and cached ~30% of all SELECT statements](https://gitlab.com/gitlab-org/gitlab/-/issues/276188#note_463401368) that would be executed on the database replica otherwise.

@@ -1,0 +1,73 @@
+---
+title: Open core is worse than plugins... and that’s why it’s better
+author: Sid Sijbrandij
+author_gitlab: sytses
+author_twitter: sytses
+categories: insights
+image_title: /images/blogimages/gitlab-linux-ibm-z-redhat-openshift.jpg
+tags: DevOps, open source, community
+description: Learn why GitLab's decision to opt for the "worse" choice has been
+  a great success.
+twitter_text: "@gitlab made a decision to go with the 'worse' approach
+  of open core... find out why it has been so much better."
+---
+Open core is obviously a horrible approach to creating a product with an ecosystem of extensions and integrations: There are no proper protocols and interfaces. Instead, anyone can just add their integration to the code base and even adjust said code base to their needs if it doesn’t fit.
+
+So why have we been using the “Worse” approach at GitLab for many years now, with great success? Because [Worse is Better](https://www.dreamsongs.com/RiseOfWorseIsBetter.html) (a term conceived by [Richard P. Gabriel](https://en.wikipedia.org/wiki/Richard_P._Gabriel)). Of course, it turns out that “Worse” is actually even better than Worse is Better suggested.
+
+Gabriel’s [original argument](https://www.dreamsongs.com/RiseOfWorseIsBetter.html) was that (slightly) intrinsically worse but simpler and easier to implement software has better survival characteristics than better-designed, more complex software, and thus will consistently win in the marketplace.
+
+At GitLab, we have found that this is basically true, which is why we, for example, favor “boring technology,” even if it might not be the best possible solution for a given scenario. But this doesn’t tell the whole story: It turns out that such software is not just more successful, it also ends up being qualitatively better in the end.
+
+## Worse is even better
+
+It is important to note that Gabriel’s original argument was not that **bad** software wins out. In fact, both his “worse” and his “better” have the same qualities:
+
+1. Simplicity, of interface and implementation
+2. Correctness
+3. Consistency
+4. Completeness
+
+However, his “worse” and his “better” have slightly different weights for the value placed on these characteristics, with the (worse) New Jersey school favoring simplicity of implementation over simplicity of interface, whereas the (better) “MIT” school favors simplicity of interface, even at the cost of a more complex implementation.
+
+If a simple interface can be achieved with a simple implementation, both schools agree, the difference comes when there are tradeoffs to be made.
+
+What makes worse even better, and what Gabriel didn’t take into account even in later [versions](https://www.dreamsongs.com/WorseIsBetter.html), is the tremendous value of feedback loops. Being early doesn’t just let the New Jersey approach win in the marketplace, it also allows it to collect feedback much, much earlier and much more quickly than the MIT approach.
+
+Paul MacCready won the first [Kremer prize](https://en.wikipedia.org/wiki/Kremer_prize) not by initially setting out to build the best human-powered aircraft, but by building the one that was easiest to repair in order to gather feedback more quickly. While other teams took a year or more to recover from a crash, his plane sometimes flew again the same day. And so it was exactly this willingness to lose sight of the prize that resulted in him winning it.
+
+In much the same way, it is these quick feedback loops that a “worse” approach enables, started much earlier, that eventually lead to a better product.
+
+## The problem with plugins
+
+At least since the success of Photoshop, a proper plugin interface has been recognized as _The Right Way_ to make software both more compelling for users and less easy to leave behind by creating a third-party ecosystem that provides useful functionality without the vendor having to provide all of that functionality themselves.
+
+It was so successful that systems like OpenDoc took the idea further to be just a set of plugins, with no real hosting application. None of these systems succeeded in the marketplace.
+
+One of the reasons is that good plugin interfaces are not just hard, but downright fiendishly difficult to develop. The basic difficulty is that it is hard to get the balance right: what to expose, what to keep hidden, how to provide functionality. But that’s not the fiendish part.
+
+The fiendishly difficult part of plugin API development is that the very things you need to do to handle the difficulties make the task even harder: You need to design more carefully, you need to make interfaces stable, you can only iterate them slowly.
+
+In short: You face a chicken-and-egg problem of premature abstraction. In order to make a good plugin API, you need to see it being used, but in order to see how it is being used, you need to first have it. This dynamic delays initial availability and makes feedback cycles slower.
+
+Software is not the only domain facing this problem. Parks, for example, often have official paths that don’t match where people actually want to go. One group of landscape architects solved this by doing less: They didn’t put in any walkways in a park they had created. Instead, they waited for trails to materialize as people walked where they needed to walk. Only after those trails had materialized did they pave them, making them official.
+
+Last but not least, a plugin interface means that the final product the user sees, consisting of both the core application and all the plugins, is not as well-integrated as it could be. The value proposition of “here is a box with tools, have fun!” sounds a lot more enticing to developers than it does to end users, even when those tools are, by themselves, best of breed.
+
+## Open core
+
+Open core, on the other hand, sounds like exactly the wrong approach, certainly from a software engineering point of view, as there are no defined black-box boundaries, but also from a business point of view as there doesn’t seem to be an actual mutually reinforcing ecosystem.
+
+However, the open core approach is great for end users, both for adopters who just want to use it and also adapters who need to tailor the system to their use case. And in the end, it is the end users that count.
+
+For adapters, the system is immediately hackable. There is no need to wait for the vendor to provide a plugin interface in the first place, and no need to wait more for the vendor to make that plugin interface provide the functionality needed for a particular application some time in the future, if ever. Even if changes to the core application are required, this is at least possible.
+
+Since there is more adaptation activity happening sooner, the system becomes better at accommodating adaptation needs, and a virtuous cycle ensues.
+
+For adopters, the benefits are multifold: First, the system gets more functionality more quickly, which is always good. Almost more importantly, this functionality is integrated by the vendor and provided as an integrated whole. There is a reason single-vendor office suites succeeded where OpenDoc’s toolbox approach failed.
+
+That said, an open core approach does require solid engineering, a good architectural base, and ongoing vigilance. As [explained earlier](https://thenewstack.io/why-were-sticking-with-ruby-on-rails-at-gitlab/), we believe that Ruby on Rails provided us with a good starting point to build GitLab as a solid modular monolith, both approachable and well-structured. With that as a starting point, good design is encouraged by example, rather than being enforced by strict API boundary. Enforcement, on the other hand, comes in a more human form as pull requests are considered, shaped, and approved or rejected.
+
+So boundaries still exist, but instead of being brick walls to crash against, they are low fences that are noticeably present, but can be stepped over if needed.
+
+And although these low fences are considered “worse” than the brick walls we are used to, they actually lead to better outcomes for everybody involved.

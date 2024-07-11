@@ -1,0 +1,21 @@
+pre-push:
+  parallel: true
+  commands:
+    rubocop:
+      files: git diff --name-only --diff-filter=d $(git merge-base origin/master HEAD)..HEAD
+      glob: '*.{rb,rake}'
+      run: bundle exec rubocop --force-exclusion {files}
+    yamllint:
+      files: git diff --name-only --diff-filter=d $(git merge-base origin/master HEAD)..HEAD
+      glob: 'data/{*,**/*}.{yml,yaml}'
+      run: yamllint --config-file .yamllint.yml {files}
+  scripts:
+    "merge_conflicts":
+      runner: bash
+pre-commit:
+  parallel: true
+  commands:
+    secrets-detection:
+      tags: secrets
+      files: git diff --name-only --diff-filter=d --staged
+      run: 'if command -v gitleaks > /dev/null 2>&1; then gitleaks protect --no-banner --staged --redact --verbose; else echo "WARNING: gitleaks is not installed. Please install it. See https://github.com/zricethezav/gitleaks#installing."; fi'

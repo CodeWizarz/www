@@ -1,0 +1,91 @@
+## Other PI Pages
+
+<%= partial 'includes/performance_indicator_links' %>
+
+## Legends
+
+### Health
+
+<%= partial 'includes/performance_indicator_health' %>
+
+## How to work with pages like this
+
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/uZYM_MqXJ3g" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+
+### Pages
+
+Pages, such as the [Engineering Function Performance Indicators page](/handbook/engineering/performance-indicators/) are rendered by an [ERB](https://en.wikipedia.org/wiki/ERuby) template that contains HTML code.
+
+*  Any changes to the [Performance Indicator (PI) ERB template](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/source/includes/_performance_indicators.html.erb) will cascade to all links under the `Other PI Pages` section
+*  To add, delete, or update (K)PI information (including title, description, etc), make changes to the [corresponding Performance Indicators data file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/performance_indicators/). See more details in the Data section below.
+*  To update the way each individual (K)PI displays:
+    -  make changes to [the Performance Indicators List ERB file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/source/includes/_performance_indicator_list.erb) for how the (K)PI is displayed on the KPI Index page
+    -  make changes to [the Performance Indicators ERB file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/source/includes/_performance_indicator.erb) for any other properties and its format
+*  When adding a new PI page,
+    -  create the new PI page in the business division's handbook section (like the [Engineering Division page](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/source/handbook/engineering/performance-indicators/index.html.md.erb))
+    -  include the relative link to the PI page in [the Performance Indicators List ERB file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/source/includes/_performance_indicator_list.erb)
+    -  add all the (K)PI information into the [corresponding Performance Indicators data file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/performance_indicators/)
+
+
+#### Helper Functions
+
+These ERB templates calls [custom helper functions](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/helpers/custom_helpers.rb) that extract and transform data from the [Performance Indicators data file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/performance_indicators/).
+
+*  The `kpi_list_by_org(org)` helper function takes a required string argument named `org` (deparment or division level) that returns all the KPIs (pi.is_key == true) for a specific organization grouping (pi.org == org) from the [Performance Indicators data file](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/performance_indicators/).
+*  The `pi_maturity_level(performance_indicator)` helper function automatically assigns a maturity level based on the availability of certain data properties for a particular PI.
+*  The `pi_maturity_reasons(performance_indicator)` helper function returns a `reason` for a PI maturity based on other data properties.
+*  The `performance_indicators(org)` takes a required string argument named `org` (deparment or division level) that returns two lists - a list of all KPIs and a list of all PIs for a specific organization grouping (department/division).
+*  The `signed_periscope_url(data)` takes in the sisense_data property information from [Performance Indicators data files](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/performance_indicators/) and returns a signed chart URL for embedding a Sisense chart into the handbook.
+
+
+### Data
+
+The heart of pages like this are [Performance Indicators data files](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/performance_indicators/) which are [YAML](https://yaml.org/) files.
+Each - denotes a dictionary of values for a new (K)PI. The current elements (or data properties) are:
+
+| Property    | Type     | Description |
+|-------------|----------|-------------|
+| `name`      | Required | String value of the name of the (K)PI. For Product PIs, product hierarchy should be separate from name by " - " (Ex. {Stage Name}:{Group Name} - {PI Type} - {PI Name} |
+| `base_path` | Required | Relative path to the performance indicator page that this (K)PI should live on |
+| `definition`| Required | refer to [Parts of a KPI](/company/kpis/#parts-of-a-kpi) |
+| `parent`    | Optional | should be used when a (K)PI is a subset of another PI. For example, we might care about Hiring vs Plan at the company level. The child would be the division and department levels, which would have the parent flag. |
+| `target`    | Required | The target or cap for the (K)PI. Please use `Unknown until we reach maturity level 2` if this is not yet defined. For GMAU, the target should be quarterly.  |
+| `org`       | Required | the organizational grouping (Ex: Engineering Function or Development Department). For Product Sections, ensure you have the word section (Ex : Dev Section)  |
+| `section` | Optional | the product section (Ex: dev) as defined in [sections.yml](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/sections.yml) |
+| `stage` | Optional | the product stage (Ex: release) as defined in [stages.yml](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/stages.yml) |
+| `group` | Optional | the product group (Ex: progressive_delivery) as defined in [stages.yml](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/stages.yml)|
+| `category` | Optional | the product group (Ex: feature_flags) as defined in [categories.yml](https://gitlab.com/gitlab-com/www-gitlab-com/-/blob/master/data/categories.yml)|
+| `is_key`    | Required | boolean value (true/false) that indicates if it is a (key) performance indicator |
+| `health`    | Required | indicates the (K)PI health and reasons as nested attributes. This should be updated monthly before Key Reviews by the DRI.
+| `health.level` | Optional | indicates a [value between 0 and 3 (inclusive)](https://about.gitlab.com/handbook/product/performance-indicators/#health) to represent the health of the (K)PI. This should be updated monthly before Key Reviews by the DRI. |
+| `health.reasons` | Optional | indicates the reasons behind the health level. This should be updated monthly before Key Reviews by the DRI. Should be an array (indented lines starting with dashes) even if you only have one reason. |
+| `urls`      | Optional | list of urls associated with the (K)PI. Should be an array (indented lines starting with dashes) even if you only have one url  |
+| `funnel`  | Optional | indicates there is a handbook link for a description of the funnel for this PI. Should be a URL |
+| `sisense_data` | Optional | allows a Sisense dashboard to be embeded as part of the (K)PI using chart, dashboard, and embed as neseted attributes. |
+| `sisense_data.chart` | Optional | indicates the numeric Sisense chart/widget ID. For example: `9090628` |
+| `sisense_data.dashboard` | Optional | indicates the numeric Sisense dashboard ID. For example: `634200` |
+| `sisense_data.shared_dashboard` | Optional | indicates the numeric Sisense shared_dashboard ID. For example: `185b8e19-a99e-4718-9aba-96cc5d3ea88b` |
+| `sisense_data.embed` | Optional | indicates the Sisense embed version. For example: `v2` |
+| `sisense_data_secondary` | Optional | allows a second Sisense dashboard to be embeded. Same as `sisense data` |
+| `sisense_data_secondary.chart` | Optional | Same as `sisense_data.chart` |
+| `sisense_data_secondary.dashboard` | Optional | Same as `sisense_data.dashboard` |
+| `sisense_data_secondary.shared_dashboard` | Optional | Same as `sisense_data.shared_dashboard` |
+| `sisense_data_secondary.embed` | Optional | Same as `sisense_data.embed` |
+| `public` | Optional | boolean flag that can be set to `false` where a (K)PI does not meet the public guidelines. |
+| `pi_type` | Optional | indicates the [Product PI type](https://about.gitlab.com/handbook/product/performance-indicators/#structure) (Ex: AMAU, GMAU, SMAU, Group PPI) |
+| `product_analytics_type` | Optional | indicates if the metric is available on SaaS, SM (self-managed), or Both. |
+| `is_primary` | Optional | boolean flag that indicates if this is the Primary PI for the Product Group. |
+| `implementation` | Optional | indicates the implementation status and reasons as nested attributes. This should be updated monthly before Key Reviews by the DRI. |
+| `implementation.status` | Optional | indicates the [Implementation Status](/handbook/product/analytics-instrumentation-guide/#implementing-product-performance-indicators) status. This should be updated monthly before Key Reviews by the DRI. |
+| `implementation.reasons` | Optional | indicates the reasons behind the implementation status. This should be updated monthly before Key Reviews by the DRI. Should be an array (indented lines starting with dashes) even if you only have one reason. |
+| `lessons` | Optional | indicates lessons learned from a K(PI) as a nested attribute. This should be updated monthly before Key Reviews by the DRI. |
+| `lessons.learned` | Optional | `learned` is an attribute that can be nested under `lessons`and indicates lessons learned from a K(PI). This should be updated monthly before Key Reviews by the DRI. Should be an array (indented lines starting with dashes) even if you only have one lesson learned |
+| `monthly_focus` | Optional | indicates monthly focus goals from a K(PI) as a nested attribute. This should be updated monthly before Key Reviews by the DRI. |
+| `monthly_focus.goals` | Optional | indicates monthly focus goals from a K(PI). This should be updated monthly before Key Reviews by the DRI. Should be an array (indented lines starting with dashes) even if you only have one goal |
+| `metric_name` | Optional | indicates the name of the metric in Self-Managed implemenation. The SaaS representation of the Self-Managed implementation should use the same name.  | 
+
+### Guidelines
+
+Please reference the [Engineering Metrics Page](https://about.gitlab.com/handbook/engineering/metrics/#guidelines) for guidelines on chart visualization formatting.

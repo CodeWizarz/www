@@ -1,0 +1,98 @@
+---
+title: How Zoopla used DORA metrics to boost deployments, increase automation and more
+author: Gustaw Fit of Zoopla
+categories: insights
+tags: DevOps, customers, research
+description: GitLab customer Zoopla used the DORA metrics to boost production
+  deployments from once a week to roughly 40 times a day. And that was only one
+  of the performance improvements...
+image_title: /images/blogimages/blog-performance-metrics.jpg
+---
+
+About two years ago, Zoopla started wondering how we could measure the overall improvements in performance in the engineering department. We were in the early stages of a program of work called [Bedrock](https://zoopla.blog/posts/2021/project-bedrock-replatforming/). Bedrock was all about making engineering capability more efficient and flexible in responding to the business needs.
+
+After researching various options, we decided on the [DORA metrics](https://cloud.google.com/blog/products/devops-sre/using-the-four-keys-to-measure-your-devops-performance). They provided us with all the necessary insights to track our success, and benchmark ourselves against a definition of good.
+
+## What is DORA?
+
+DORA is the acronym for the DevOps Research and Assessment group: they’ve surveyed more than 50,000 technical professionals worldwide to better understand how the technical practices, cultural norms, and management approach affect organisational performance.
+
+(Take a dive into the [latest DORA Report](https://www.ciosummits.com/Online_Assets_Puppet_2016_State_of_DevOps_Report.pdf) and in the book that summarizes the findings:  [Accelerate](https://www.amazon.com/Accelerate-Building-Performing-Technology-Organizations/dp/B07BMBYHXL/ref=sr_1_2?crid=R1O9AH85U6PR&keywords=accelerate+book&qid=1643046474&sprefix=accelerate+book%2Caps%2C70&sr=8-2)).
+
+## What are the metrics Zoopla is using?
+
+- Production deploy frequency - Time between the first commit on a merge request to master and production deployment
+- Lead time - Number of successful production deployments / day
+- Mean Time To Recover - Time required from customer impact first started to removal of the customer impact
+- Change fail rate - For the primary application or service you work on, what percentage of changes to production or released to users result in degraded service (e.g., lead to service impairment or service outage) and subsequently require remediation (e.g., require a hotfix, rollback, fix forward, patch)
+- Time to onboard - Time required from the engineer who had joined the company, until their first commit is merged to master on a non-personal repository.
+
+
+## How do we understand the metrics?
+
+- Production deploy frequency - limiting amount of code going to production at once (limited batch size)
+- Lead time - reducing amount of blockers for developers
+- MTTR - improving speed of incident recovery
+- Change fail rate - improving quality focus
+- Time to onboard - how efficient is our onboarding process
+
+Following the rules of lean:
+
+- Value is only released to production, once it leaves the factory floor (production deploy frequency)
+- Optimize Work In Progress (lead time)
+- Invest in SRE/automation (mean time to recover)
+- Practice kaizen (change fail rate)
+- Have efficient knowledge sharing and work allocation processes (time to onboard)
+
+## How are we collecting the metrics?
+
+We are using the following data sources:
+
+[GitLab](https://about.gitlab.com) for deploy frequency, lead time, change fail rate and time to onboard
+
+[Blameless](https://www.blameless.com) for mean time to recover (as recorded in incidents)
+
+[Jenkins](https://www.jenkins.io) for deploy frequency and change fail rate
+
+The process is using APIs extensively. We also needed to come up with a standardised data schema to be able to meaningfully use the metrics. The raw data stored in the s3 bucket can be used in any visualization tool. For our own purposes we have decided to display them in a google spreadsheet. All of these required an extensive implementation effort. The whole flow is powered by modern Python.
+
+Some parts of our process are still not perfect. We are actively working to simplify the flows and standardize data sets.
+
+## How are the metrics used at Zoopla?
+
+The dashboard is regularly reviewed by the senior engineering management. The metrics are on public display, and are discussed and reviewed in our monthly town hall meeting, and our fortnightly Ops Review. Each team is encouraged to reflect on the metrics as they plan their work, and consider improvements they could introduce.
+
+The metrics also influence the decisions and prioritization. Just as importantly, they help us to transform our company culture.
+
+In terms of improvements measured:
+
+- Production deployment frequency was improved from once in a week to multiple times per day (~40 deployments per day).
+- Lead time was improved from an average of 10 days to less than two days (with many projects being close to 2-4h on average).
+- Mean time to recover: we have not measured it before, the main benefit for us is understanding what we need to improve. We are currently in the area of 1-3h on average for sev-0 or sev-1 issues and 24h on average, when we include sev-2 issues.
+- Change failure rate was about 60% before we started, it is now oscillating between ~1-5%.
+- Time to onboard was over 20 days, and we have brought this down to around five days.
+
+The main cultural changes were:
+
+- We have automated the majority of our deployment pipelines.
+- We have added a lot of automation to incident resolution, primarily by adding auto-scaling.
+- We have trained our teams in incident response, and introduced an on-call rota.
+- We have moved the bulk of our infrastructure management to a standardised Infrastructure as Code (mainly Terraform).
+- We have improved our onboarding process.
+- We have improved our alerting, and partnered with New Relic to reduce investigation effort.
+
+We hold the ambition to join the elite performing group of organisations as defined by the State of DevOps report. Each day brings us closer to that goal.
+
+## What are our future plans?
+
+On the technical side, we are working to improve automation of the metrics, to go away from our internal and bespoke metric collection model. We hope our partnership with New Relic will soon enable a much better solution.
+
+On the DevOps/DORA culture side, we are providing regular talks and training to wider audiences (not only engineering), to establish DORA as a reference point in future product development. We are also making it a key point of our new consolidated engineering strategy.
+
+We’ve found the DORA metrics helped us improve our software development and delivery processes. With these findings, organizations can make informed adjustments in their process workflows, automation, team composition, tools, and more. We recommend you try this in your organisation too.
+
+Further reading:
+
+- [The Phonenix Project](https://www.amazon.com/The-Phoenix-Project-audiobook/dp/B00VATFAMI/ref=sr_1_1?crid=3U43AWAK4L6YI&keywords=The+Phoenix+project&qid=1643046949&sprefix=the+phoenix+project%2Caps%2C70&sr=8-1) by Gene Kim, Kevin Behr and George Spafford
+- [The Goal: A Process of Ongoing Improvement](https://www.amazon.com/The-Goal-audiobook/dp/B00IFGGDA2/ref=sr_1_1?crid=2EAKYMNBHT0B5&keywords=the+goal+by+eliyahu+goldratt&qid=1643047036&s=audible&sprefix=The+goal%2Caudible%2C125&sr=1-1) by Eliyahu Goldratt and Jeff Cox
+- [The Unicorn Project](https://www.amazon.com/The-Unicorn-Project-Gene-Kim-audiobook/dp/B0812C82T9/ref=sr_1_1?crid=2B0ENCYRNG2BO&keywords=the+unicorn+project&qid=1643047132&s=audible&sprefix=the+unicorn%2Caudible%2C76&sr=1-1) by Gene Kim et al

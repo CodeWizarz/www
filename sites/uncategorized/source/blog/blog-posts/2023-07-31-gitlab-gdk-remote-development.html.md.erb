@@ -1,0 +1,171 @@
+---
+title: "Contributor how-to: Remote Development workspaces and GitLab Developer Kit"
+author: Raimund Hook
+author_gitlab: stingrayza
+author_twitter: StingRayZA
+categories: engineering
+image_title: '/images/blogimages/cloudcomputing.jpeg'
+description: "This tutorial helps you get GDK working inside Remote Development workspaces to begin contributing to GitLab."
+tags: tutorial, DevOps, workflow, cloud native, contributors, open source
+twitter_text: "Contribute to GitLab in an on-demand, cloud-based development environment. See the steps we're taking to enable GitLab Development Kit to run in Remote Development workspaces."
+featured: yes
+postType: content marketing
+related_posts:
+  - "/blog/2023/05/23/introducing-workspaces-beta/"
+  - "/blog/2023/06/26/quick-start-guide-for-gitlab-workspaces/"
+  - "/blog/2023/07/13/set-up-infrastructure-for-cloud-development-environments/"
+---
+Open source is fundamental to GitLab. We believe that [everyone can contribute](https://about.gitlab.com/company/mission/#mission).
+Typically, we recommend that anyone contributing anything more than basic changes to GitLab run the [GitLab Development Kit](https://gitlab.com/gitlab-org/gitlab-development-kit) (GDK). Because contributors can't always meet the GDK's resource demands, we're working to enable GDK inside the cloud-based GitLab Remote Development workspaces.
+
+In this article, I'll explain how I used a Remote Development workspace running in my Kubernetes cluster to make working with the GDK faster and easier.
+
+## A preliminary note
+First, keep in mind that as of this writing the [Remote Development workspaces](https://about.gitlab.com/direction/create/ide/remote_development/) feature is still in Beta. My example here is therefore very much a proof of concept — and as such, it has some rough edges.
+
+Before getting started, I followed the "[Set up a workspace](https://docs.gitlab.com/ee/user/workspace/#set-up-a-workspace)" prerequisites guide in the GitLab docs. For a more detailed set of instructions, see Senior Developer Evangelist Michael Friedrich's tutorial on [how to set up infrastructure for cloud development environments](https://about.gitlab.com/blog/2023/07/13/set-up-infrastructure-for-cloud-development-environments/).
+
+## Getting started with workspaces
+To start using workspaces, you will need a project configured with a `.devfile.yaml`. GitLab team members have curated [a number of example projects](https://gitlab.com/gitlab-org/remote-development/examples) you can review.
+
+Initially, I tried to do this with a fork of the GitLab project itself, but I ran into [some issues](https://gitlab.com/gitlab-org/gitlab/-/issues/414011) when the workspace begins cloning the repository.
+
+To figure out what was causing my problems, I looked more closely at what happens behind the scenes when a workspace is created.
+
+## Behind the scenes with Remote Development workspaces
+When you create a new workspace, the following happens:
+1. The GitLab agent for Kubernetes creates a new namespace in your cluster. The agent dynamically generates a name for and assumes management of the namespace.
+1. Inside the namespace, a new deployment is created, specifying the container you chose in your `.devfile.yaml` as the image to use.
+1. This deployment is configured with some [init containers](https://kubernetes.io/docs/concepts/workloads/pods/init-containers/) that perform some actions:
+    1. Cloning the repository into `/project/${project_path}`.
+    1. Injecting the VS Code server binary into your container.
+1. Once those init containers are complete, your container starts and the workspace becomes available.
+
+## The clone problem
+When cloning a repository, `git` tends to do much of the work in memory. This can be a challenge on larger projects/repositories, as it can require significant amounts of RAM. When cloning the GitLab project, for instance, git consumes approximately 1.6GB of RAM. This number is only going to increase with time. Sure, strategies like [shallow clones](https://git-scm.com/docs/git-clone#Documentation/git-clone.txt---depthltdepthgt) can help reduce this, but these are perhaps less suited to active use by a developer as they can increase the amount of time required to perform ongoing git operations.
+
+In fact, creating a workspace using our `.devfile.yaml` in a fork of the GitLab project failed for this reason. The init container performing the clone is currently hard-limited to 128MiB of RAM, after which the memory management processes on the node kill the container.
+
+To overcome this limitation, move the `.devfile.yaml` into the a fork of the root of the GDK repository. This project clones more quickly (and does so using fewer resources), so it's a  perfect starting point for running GDK itself. Another (bonus) advantage: You're then primed to contribute to the GDK itself, in addition to any of the other GitLab projects that the GDK clones.
+
+## Components of a GDK installation
+GDK clones the following projects from the GitLab 'family':
+* [GitLab](https://gitlab.com/gitlab-org/gitlab)
+* [Gitaly](https://gitlab.com/gitlab-org/gitaly)
+* [GitLab shell](https://gitlab.com/gitlab-org/gitlab-shell)
+
+This allows you to work on any items in those directories as a part of your "live" installation.
+
+## Getting GDK installed and running in a workspace
+Once I had a workspace up and running, my next step was to get GDK installed and running *in* that workspace. The GDK's documentation presents [several routes for doing this](https://gitlab.com/gitlab-org/gitlab-development-kit/#installation).
+
+A complete installation can take some time, as GDK needs to bootstrap itself and install a number of prerequisites. This is less than ideal in the context of a Remote Development workspace, as one of remote development's primary benefits is enabling access to a development environment rapidly. Requiring a user to bootstrap an environment that takes 50 minutes (or longer) doesn't help achieve this goal.
+
+To combat this, I built a container image that effectively bootstraps and installs GDK, pre-building the GDK prerequisites and pre-seeding the database. This image and its associated tooling are currently [in review](https://gitlab.com/gitlab-org/gitlab-development-kit/-/merge_requests/3231).
+
+## Pre-building
+Pre-building the container and running the bootstrap process on a scheduled basis allows us to perform that process once, without requiring the user to wait for something that can essentially be "pre-canned" for their use.
+
+Once the workspace is running, we still need to "reinstall" the GDK environment with the latest version of our GitLab repository, but this step doesn't take quite as long as a complete bootstrap.
+
+## Generating a gdk.yml file
+To work properly, GDK also requires a [`gdk.yml` file](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/doc/configuration.md#gdkyml). This file tells GDK how to configure GitLab to return the correct URLs and other items. To get GDK running in Remote Development, Rails needs to return URLs in a certain scheme (otherwise your browser won't know where to connect). To help this along, we [inject an environment variable](https://gitlab.com/gitlab-org/gitlab/-/issues/415328) into the workspace container. This variable helps us determine the URL in use (which is dynamically generated for each workspace).
+
+We [now have a script](https://gitlab.com/gitlab-org/gitlab-development-kit/-/blob/main/support/gitlab-remote-dev/remote-dev-gdk-bootstrap.sh?ref_type=heads) in GDK that will generate your `gdk.yml` file based on your workspace.
+
+## Creating our devfile
+The contents of my `.devfile.yaml` looks like this:
+
+```yaml
+schemaVersion: 2.2.0
+components:
+  - name: tooling-container
+    attributes:
+      gl/inject-editor: true
+    container:
+      # NB! This image is only in use until https://gitlab.com/gitlab-org/gitlab-development-kit/-/merge_requests/3231 is merged!
+      image: registry.gitlab.com/gitlab-org/gitlab-development-kit/gitlab-remote-workspace:stingrayza-gdk-remote-dev-add-container
+      memoryRequest: 10240M
+      memoryLimit: 16384M
+      cpuRequest: 2000m
+      cpuLimit: 6000m
+      endpoints:
+        - name: ssh-2222
+          targetPort: 2222
+        - name: gdk-3000
+          targetPort: 3000
+        - name: docs-3005
+          targetPort: 3005
+        - name: pages-3010
+          targetPort: 3010
+        - name: webpack-3808
+          targetPort: 3808
+        - name: devops-5000
+          targetPort: 5000
+        - name: jaeger-5778
+          targetPort: 5778
+        - name: objects-9000
+          targetPort: 9000
+        - name: shell-9122
+          targetPort: 9122
+```
+
+This definition comes straight out of the [Workspace docs](https://docs.gitlab.com/ee/user/workspace/#devfile), and opens a number of ports that GDK uses. (For now, I've only tested the port `gdk-3000`, which is the the link to our instance of GDK.)
+
+## From Workspace to GDK
+Once we have a project with a `.devfile.yaml`, our final step is to [create a new workspace](https://docs.gitlab.com/ee/user/workspace/#create-a-workspace).
+
+As a part of this step, your cluster will pull the image as defined in the `.devfile.yaml` and start it up. For the GDK image we pre-built, this can take a few minutes.
+
+Once the workspace is ready, the last step is to follow the link from the UI to connect to the workspace. This will open up a familiar VS Code IDE, with our GDK fork checked out.
+
+But wait, where's GDK?
+
+Well, the pre-build did most of the work for us, but we still need to take a few final steps before we can claim that GDK is up and running. These have been built into a script we can run from the integrated terminal within the workspace.
+
+To open a terminal, we can click on the VS Code Hamburger menu (top left), navigate to `Terminal` and select `New Terminal`.
+
+Now we execute the following script, which completes the setup and copies a couple of files over from the pre-built folders:
+
+```shell
+support/gitlab-remote-dev/remote-dev-gdk-bootstrap.sh
+```
+
+This can take up to 15 minutes, but when it's done it should output the magic words — something like the following (note the 3000 in the URL; we specified that in the `.devfile.yaml` earlier):
+
+```shell
+Success! You can access your GDK here: https://3000-workspace-62637-2083197-apglwp.workspace.my-workspace.example.net/
+```
+
+## Connect to your GDK
+Follow the link as displayed using Cmd-click or Ctrl-click. After a couple of moments (GDK boot time), you should reach a familiar GitLab login screen.
+
+Congratulations! GDK is now running inside your Remote Development workspace.
+
+To log in, type `gdk` in your terminal and you'll see the default admin credentials displayed near the bottom:
+
+```shell
+# Development admin account: xxxx / xxxx
+
+For more information about GitLab development see
+https://docs.gitlab.com/ee/development/index.html.
+```
+
+Log into your GDK with the default credentials, change the admin user password, and you're all set!
+
+## Demo of workspace launch
+Here's a demo of launching a workspace in my personal cluster:
+
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://www.youtube.com/embed/iXq1NnTjnX0" frameborder="0" allowfullscreen="true"> </iframe>
+</figure>
+<!-- blank line -->
+
+
+## How to contribute to GitLab
+In this article I explained how to get GDK up and running in Remote Development workspaces. This is not without its challenges, but the end result should mean that contributing to GitLab (especially in resource-constrained environments) is quicker and easier.
+
+Do you want to contribute to GitLab? Come and join in the conversation in the `#contribute` channel on GitLab's [Discord](https://discord.gg/gitlab), or just pop in and say "hello."
+
+_Disclaimer: This blog contains information related to upcoming products, features, and functionality. It is important to note that the information in this blog post is for informational purposes only. Please do not rely on this information for purchasing or planning purposes. As with all projects, the items mentioned in this blog and linked pages are subject to change or delay. The development, release, and timing of any products, features, or functionality remain at the sole discretion of GitLab._

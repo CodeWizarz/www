@@ -1,0 +1,107 @@
+---
+title: "Windows Shared Runners beta now available on GitLab.com"
+author: Darren Eastman
+author_gitlab: DarrenEastman
+author_twitter: EastmanDarren
+categories: engineering
+image_title: "/images/blogimages/windows-shared-runners-beta/windows-shared-beta.jpg"
+description: "Scalable Windows VM's for running Windows build jobs on GitLab.com."
+tags: CI/CD
+ee_cta: false #
+install_cta: false #
+merch_banner: merch_one
+twitter_text: "Windows Shared Runners Beta now available on GitLab.com"
+featured: yes #
+---
+
+
+GitLab has had support for Windows CI/CD Runners for quite a long time, but if you were doing Windows development, you needed to [install and manage these Runners](https://docs.gitlab.com/runner/install/windows.html) yourself. This works great for customers who prefer to manage their own Runners, but for customers who prefer to use GitLab.com shared Runners managed by the GitLab team, the choice has been limited to Linux.
+
+Today, we are happy to announce that Windows Shared Runners hosted by GitLab is available in beta. As we are starting to roll out this important service to our community, we invite you to help shape the direction of CI/CD tooling for the Windows ecosystem on GitLab.com.
+
+## What's new?
+
+Now, you can take advantage of a fully-managed, auto-scaling, and secure environment for running your build jobs on Windows virtual machines (VMs). These GitLab-hosted Windows Shared Runners are pre-configured with various software packages such as the Chocolately package manager for Windows,  Visual Studio 2019 Build Tools, Microsoft .Net Framework, to name a few. So you have a base set of tooling to start building your Windows applications without needing to set up and install your own self-hosted Windows Runners. You can find a full list of available Windows packages in the package [documentation](https://gitlab.com/gitlab-org/ci-cd/shared-runners/images/gcp/windows-containers/blob/main/cookbooks/preinstalled-software/README.md).
+
+With the Windows Shared Runners on GitLab.com, each job runs in a new virtual machine instance that gets deleted after the job is complete, ensuring that your code is 100% isolated and secure. We also take care of maintenance and upgrades to the pre-configured software packages, so you don't have to. Just like with GitLab.com Linux Runners, there’s no requirement to use Shared Runners. If your build tooling configuration or security requirements demand it, you can, as always, [install and self-host Windows Runners](https://docs.gitlab.com/runner/install/windows.html) on your infrastructure.
+
+## Technology Overview
+
+The following details a few key specifications for the Windows Shared Runners:
+
+- The Windows Shared Runners use the GitLab [custom executor](https://docs.gitlab.com/runner/executors/custom.html) that we introduced in 12.1.
+- A new Windows Shared Runners virtual machine is created for each pipeline job and deleted after the job is completed.
+
+## Pricing
+
+To begin with, Windows Shared Runner pricing will be the same as Linux Runners. Usage for Windows Runners will be deducted from your Runner minute pool [depending on your plan](/pricing/#gitlab-com). You can optionally [purchase additional runner minutes](https://docs.gitlab.com/ee/subscriptions/gitlab_com/#purchase-additional-ci-minutes) that will be used for both Linux and Windows shared runners.
+
+In the future, Windows Shared Runners will likely use separate pricing that is higher than Linux Minutes. Any future [pricing](https://gitlab.com/gitlab-org/gitlab/issues/30834) changes will be announced on the GitLab blog.
+
+
+## Getting started
+
+To get started, create a `.gitlab-ci.yml` file in your GitLab hosted project's root directory and add the following tags: `shared-windows`, `windows`, and `windows-1809`  as shown in the example configuration file.
+
+```
+.shared_windows_runners:
+  tags:
+  - shared-windows
+  - windows
+  - windows-1809
+
+stages:
+  - build
+  - test
+
+before_script:
+ - Set-Variable -Name "time" -Value (date -Format "%H:%m")
+ - echo ${time}
+ - echo "started by ${GITLAB_USER_NAME}"
+
+build:
+  extends:
+  - .shared_windows_runners
+  stage: build
+  script:
+  - echo "running scripts in the build job"
+
+test:
+  extends:
+  - .shared_windows_runners
+  stage: test
+  script:
+  - echo "running scripts in the test job"
+```
+
+Including the `.gitlab-ci.yml` file in the project repository means that any new commits will trigger the execution of your [GitLab CI/CD pipeline](/topics/ci-cd/).  In this file, you have the option of specifying tags so that a job will only run on GitLab Runners that match the tag specified. For more information on the use of tags, refer to the [tags](https://docs.gitlab.com/ee/ci/yaml/#tags.) section of the GitLab CI/CD Pipeline Configuration Reference documentation. The [Shared Runners](https://docs.gitlab.com/ee/user/gitlab_com/#shared-runners) section of the GitLab.com settings documentation page covers more configuration information for the Windows Shared Runners.
+
+
+## Notable limitations and known issues
+
+The hosting of Windows Shared Runners is a new service on GitLab.com. This section covers any limitations or known issues that users of the beta should take into consideration when using this service.
+
+- The average provisioning time for a new Windows VM is at five minutes. This means that for the beta, you will notice slower build start times on the Windows Shared Runners fleet compared to Linux. In a future release, we will add capabilities to the autoscaler to enable the pre-warming of the virtual machine instances. This will significantly reduce the time it takes to provision a VM on the Windows fleet. Additional details and plans are covered in this [issue](https://gitlab.com/gitlab-org/ci-cd/custom-executor-drivers/autoscaler/issues/32).
+- Pending queue times will be longer than the queue times on the Linux Shared Runner fleet.
+- Since Windows Shared Runners are currently in beta, the performance, uptime, and capabilities will be limited, and so, they are not recommended for production use.
+- The Windows Shared Runners virtual machine instances do not use the GitLab Docker executor. This means that unlike the Linux Shared Runners, you will not be able to specify `image` and `services` in your pipeline configuration.
+- For the beta release, we have included a set of software packages in the base VM image. If your CI job requires additional software that's not included in this [list](https://gitlab.com/gitlab-org/ci-cd/shared-runners/images/gcp/windows-containers/tree/master/cookbooks/preinstalled-software), then you will need to add installation commands to `before_script` or `script` to install the required software. Note: Each job runs on a new VM instance, so the installation of additional software packages needs to be repeated for each job in your pipeline.
+- There is the possibility that we introduce breaking changes that will require updates to pipelines that are using the Windows Shared Runner fleet.
+
+## Next steps
+
+We [plan](https://gitlab.com/groups/gitlab-org/-/epics/2162) to continue to iterate quickly and improve the build environment, Runner, and tooling during the beta period. We invite you to complete this short [form](https://forms.gle/9qaB2kQcBX93PVax5) because your feedback is critical to helping us prioritize work on the most valuable improvements to the Windows Shared Runners solution.
+
+To report a bug or request a feature or enhancement, follow these steps:
+- Open an issue in the [GitLab Runner project](https://gitlab.com/gitlab-org/gitlab-runner/issues).
+- Describe the feature enhancement and, if possible, include any links to examples from your repository.
+- Add these labels to the issue: `Shared Runners::Windows`, `group::runner`
+- Tag [@DarrenEastman](https://gitlab.com/DarrenEastman) on the issue.
+
+
+
+
+Cover photo by William Daigneault on [Unsplash](https://unsplash.com/)
+{: .note}
+
+

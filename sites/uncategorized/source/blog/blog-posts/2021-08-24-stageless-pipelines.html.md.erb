@@ -1,0 +1,52 @@
+---
+title: "Write a stageless CI/CD pipeline using GitLab 14.2"
+author: Dov Hershkovitch
+author_gitlab: dhershkovitch
+author_twitter: dov0211
+categories: engineering
+image_title: '/images/blogimages/library/ci-cd.png'
+description: "With GitLab 14.2, you can write a complete CI/CD pipeline without defining any stages."
+tags: CI, CD
+twitter_text: "GitLab 14.2 lets users write a stageless pipeline with GitLab CI"
+featured: no
+postType: content marketing
+related_posts:
+  - "/releases/2021/08/22/gitlab-14-2-released/"
+  - "/blog/2021/02/22/pipeline-editor-overview/"
+  - "/blog/2021/08/19/introducing-spamcheck-data-driven-anti-abuse/"
+merch_banner: merch_three
+---
+
+GitLab CI/CD technology has historically divided a pipeline into stages based on the typical development workflow. Now that [GitLab 14.2 has launched](/releases/2021/08/22/gitlab-14-2-released/), users can speed up cycle times by using the [`needs`](https://docs.gitlab.com/ee/ci/yaml/#needs) command to write a complete CI/CD pipeline with every job in the single stage. In fact, you can omit stages completely and have a ["stageless" pipeline](https://about.gitlab.com/releases/2021/08/22/gitlab-14-2-released/#stageless-pipelines) that executes entirely based on the `needs` dependencies.
+
+## Understanding stages
+
+In GitLab CI/CD, you use [stages](https://docs.gitlab.com/ee/ci/yaml/#stages) to group jobs based on the development workflow and control the order of execution for CI/CD jobs.
+
+Pipelines execute each stage in order, where all jobs in a single stage run in parallel. After a stage completes, the pipeline moves on to execute the next stage and runs those jobs, and the process continues like this until the pipeline completes or a job fails. If a job fails, the jobs in later stages don't start at all.
+
+## History of stages in GitLab CI/CD
+
+When we first designed GitLab CI/CD, we knew that in a continuous integration workflow you build and test software every time a developer pushes code to the repository. The use of stages in GitLab CI/CD helped establish a mental model of how a pipeline will execute. By default, stages are ordered as: `build`, `test`, and `deploy` - so all stages execute in a logical order that matches a development workflow. The first step is to build the code, and if that works, the next step is to test it. If the tests pass, then you deploy the application.
+
+Of course, you can actually create as many stages as you like and order them as desired. We also introduced the `.pre` and `.post` stages which are predefined stages that let you set certain jobs to always run at the beginning (`.pre`) or end (`.post`) of your pipeline. GitLab CI/CD used stages for the past few years.
+
+## Starting to break out of stage order
+
+Last year we introduced the [`needs`](https://docs.gitlab.com/ee/ci/yaml/#needs) keyword which allows a user to create a Directed Acyclic Graphs (DAG) to speed up the pipeline. A job that uses the `needs` keyword creates a dependency between it and one or more different jobs in earlier stages. The job is allowed to start as soon as the earlier jobs finish, skipping the stage order to speed up the pipeline.
+
+In a sense, you can think of a pipeline that only uses stages as the same as a pipeline that uses `needs` – except every job "needs" every job in the previous stage. On the other hand, if jobs in a pipeline *do* use `needs`, they only "need" the exact jobs that will allow them to complete successfully. They shouldn't need all the jobs in the previous stage. For example, there's no need for a ruby test job to wait for a javascript linter to complete.
+
+## Stageless pipelines become reality
+
+The `needs` keyword quickly became popular among our users and helped optimize and accelerate CI/CD pipelines. However it had one limitation: A `needs` dependency could only exist between the jobs in different stages. This limitation was a pain point for our users because they wanted to configure the pipeline based on the `needs` dependencies only and drop the use of stages completely. The importance of adding this functionality became clear because this was one of the most popular [feature requests](https://gitlab.com/gitlab-org/gitlab/-/issues/30632) for GitLab CI/CD.
+
+Now in GitLab 14.2, [you can finally define a whole pipeline using nothing but `needs` to control the execution order](/releases/2021/08/22/gitlab-14-2-released/#stageless-pipelines). No more need to define any stages if you use `needs`!
+
+## Are we getting rid of stages?
+
+No, we do not have any plans to remove stages from our GitLab CI/CD, and it still works great for those that prefer this workflow.
+
+In fact if you build a "stageless" pipeline, there will still be at least one stage that holds all the jobs. Removing stages was never the goal. Our goal is still to support you in building better and faster pipelines, while providing you with the high degree of flexibility you want.
+
+As always, share any thoughts, comments, or questions, by [opening an issue in GitLab](https://gitlab.com/gitlab-org/gitlab/-/issues/new?issue%5Bmilestone_id%5D=) and mentioning me (@dhershkovitch).

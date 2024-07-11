@@ -1,0 +1,41 @@
+- if (!articles.nil?)
+  - articles.each do |article|
+    - unless article.data.categories.include?("unfiltered")
+
+      - image_title = article.data.image_title ? article.data.image_title : '/images/default-blog-image.png'
+
+      .flex-col.flex-col-1-3
+        .blog-card
+          %a.blog-card-image-wrap{ href: article.url }
+            .blog-card-image
+              = image_tag "#{image_title}", alt: "Post Image", loading: 'lazy'
+            / .blog-card-tag
+            /   Insights
+          .blog-card-content
+            %a.blog-card-title{ href: article.url, :"data-ga-name" => "#{article.title}", :"data-ga-location" => "header" }
+              %h3
+                - if article.data.release_number
+                  GitLab
+                  = article.data.release_number
+                  released
+                - else
+                  = article.title
+            .blog-card-meta
+              .blog-card-author
+                - guest = article.data.guest
+                - anchor = article.data.author_twitter || article.data.author_gitlab
+                - if guest
+                  = article.data.author
+                - else
+                  - if anchor
+                    = link_to article.data.author, "/company/team/##{anchor}", :"data-ga-name" => "#{article.data.author}", :"data-ga-location" => "header"
+                  - else
+                    = article.data.author
+              .blog-card-date
+                = article.date.to_time.strftime '%b %e, %Y'
+            .blog-card-excerpt
+              %p
+                - if article.data.description
+                  = article.data.description
+                - else
+                  = article.summary

@@ -1,0 +1,16 @@
+---
+features:
+  secondary:
+  - name: "Load balancing for Sidekiq enabled by default"
+    available_in: [core, premium, ultimate]
+    gitlab_com: true
+    documentation_link: 'https://docs.gitlab.com/ee/administration/database_load_balancing.html#load-balancing-for-sidekiq'
+    reporter: fzimmer
+    stage: data_stores
+    categories:
+    - Memory
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/334494'
+    description: |
+      Sidekiq, the job scheduler used by GitLab, creates a number of read-only jobs. When using a database cluster that includes a read and writable primary node and one or many read-only nodes, these jobs do not have to be executed on the primary node. Instead, they can benefit from database load balancing and execute on read-only nodes. This reduces the overall load on the primary database node and can result in performance improvements.
+
+      Sidekiq load balancing was introduced in GitLab 14.1 and is enabled by default in GitLab 14.2.

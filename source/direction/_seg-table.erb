@@ -1,0 +1,41 @@
+<% direction = Generators::Direction.new %>
+<% seg_issues = direction.seg_issues_list  %>
+
+<table class='table-sm'>
+<thead>
+    <th></th>
+    <th class='text-center' style='width:80px'>R</th>
+    <th class='text-center' style='width:80px'>I</th>
+    <th class='text-center' style='width:80px'>C</th>
+    <th class='text-center' style='width:80px'>E</th>
+    <th class='text-center' style='width:80px'>Total</th>
+</thead>
+<% seg_issues.sort_by { |i| i["total"] || 0 }.reverse.each do |seg_issue| %>      
+    <tr>
+      <td>
+        <small>
+        <% if seg_issue['labels'].include? 'SEG - Priority' %>
+            <a href="<%= seg_issue['web_url'] %>"><strong><%= seg_issue['title']%></strong></a>
+        <% else %>
+            <a href="<%= seg_issue['web_url'] %>"><%= seg_issue['title']%></a>
+        <% end %></small>
+      </td>
+      <td class="text-center" style="color:<%= seg_issue['reach_color'] %>">
+      <small><%= seg_issue['reach_label'] %></small>
+      </td>
+      <td class="text-center" style="color:<%= seg_issue['impact_color'] %>">
+      <small><%= seg_issue['impact_label'] %></small>
+      </td>
+      <td class="text-center" style="color:<%= seg_issue['confidence_color'] %>">
+      <small><%= seg_issue['confidence_label'] %></small>
+      </td>
+      <td class="text-center" style="color:<%= seg_issue['effort_color'] %>">
+      <small><%= seg_issue['effort_label'] %></small>
+      </td>
+      <td class='text-center'>
+      <small><%= seg_issue['total'] %></small>
+      </td>
+    </tr>
+  <% end %>
+</table>
+

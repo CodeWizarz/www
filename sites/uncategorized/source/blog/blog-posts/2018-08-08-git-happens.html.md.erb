@@ -1,0 +1,263 @@
+---
+title: Git happens! 6 Common Git mistakes and how to fix them
+author: Sam Beckham
+author_gitlab: samdbeckham
+author_twitter: samdbeckham
+categories: engineering
+image_title: '/images/blogimages/fix-common-git-mistakes.jpg'
+description: "Whether you added the wrong file, committed directly to master, or some other mishap, we've got you covered."
+tags: git
+ee_cta: false
+---
+
+We all make mistakes, especially when working with something as complex as Git. But remember, Git happens!
+
+## What is Git?
+
+Git is free and open-source software for distributed code management and [version control](https://about.gitlab.com/topics/version-control/). It is distributed under the GNU General Public License Version 2. Git tracks changes in any set of files and is usually used for coordinating work among programmers collaboratively developing source code during software development. 
+
+Git was created and released in 2005 by Linus Torvalds, who also developed Linux. The impetus for Git (which is an altering of the word “get”) was to generate an open-source version control system that performed better for the requirements of Linux kernel development. Available open-source systems at the time were not able to meet the [large-scale collaborative performance effort](https://www.techtarget.com/searchitoperations/definition/Git) required.
+
+## Benefits of using Git
+
+Besides delivering superior performance, Git also provides support for a distributed workflow and safeguards against corruption. There are several other benefits, such as:
+
+- superior performance when it comes to version control systems
+- the ability for simultaneous development because everyone has their own local copy of code and can work on it in tandem. 
+- faster releases
+- security
+- flexibility
+- built-in integration 
+- strong community support
+
+If you're brand-new to Git, you can learn [how to start using Git on the command line](https://docs.gitlab.com/ee/gitlab-basics/start-using-git.html). Here's how we can fix six of the most common Git mistakes.
+
+## 1. Oops... I spelled that last commit message wrong
+
+After a good few hours of [coding](/stages-devops-lifecycle/source-code-management/), it's easy for a spelling error to sneak into your commit messages.
+Luckily, there's a simple fix.
+
+```bash
+git commit --amend
+```
+
+This will open up your editor and allow you to make a change to that last commit message.
+No one needs to know you spelled, "addded" with three "d"s.
+
+<%= partial "includes/blog/content-newsletter-cta", locals: { variant: "a" } %>
+
+## 2. Oops... I forgot to add a file to that last commit
+
+Another common Git pitfall is committing too early. You missed a file, forgot to save it, or
+need to make a minor change for the last commit to make sense. `--amend` is your friend
+once again.
+
+Add that missed file then run that trusty command.
+
+```bash
+git add missed-file.txt
+git commit --amend
+```
+
+At this point, you can either amend the commit message or just save it to keep it the same.
+
+## 3. Oops... I added a file I didn't want in the repo
+
+But what if you do the exact opposite? What if you added a file that you didn't want to commit?
+A rogue ENV file, a build directory, a picture of your cat that you accidentally saved to the wrong folder?
+It's all fixable.
+
+If all you did was stage the file and you haven't committed it yet, it's as simple as resetting that staged file:
+
+```bash
+git reset /assets/img/misty-and-pepper.jpg
+```
+
+If you've gone as far as committing that change, you need to run an extra step before:
+
+```bash
+git reset --soft HEAD~1
+git reset /assets/img/misty-and-pepper.jpg
+rm /assets/img/misty-and-pepper.jpg
+git commit
+```
+
+This will undo the commit, remove the image, then add a new commit in its place.
+
+## 4. Oops... I committed all those changes to the master branch
+
+So you're working on a new feature and in your haste, you forgot to open a new branch for it.
+You've already committed a load of files and now them commits are all sitting on the master branch.
+Luckily, [GitLab can prevent you from pushing directly to master](/blog/2014/11/26/keeping-your-code-protected/).
+So we can roll back all these changes to a new branch with the following three commands:
+
+*Note: Make sure you commit or stash your changes first, or all will be lost!*
+
+```bash
+git branch future-brunch
+git reset HEAD~ --hard
+git checkout future-brunch
+```
+
+This creates a new branch, then rolls back the master branch to where it was before you made
+ changes, before finally checking out your new branch with all your previous changes intact.
+
+## 5. Oops... I made a spelling mistake in my branch name
+
+The keen-eyed among you will notice a slight spelling error in my last example. It's almost
+3:00 PM and I haven't had lunch yet, so in my hunger, I've named our new branch `future-brunch`.
+Delicious.
+
+We rename this branch in a similar way to how we rename a file with the `mv` command: by
+ moving it to a new location with the correct name.
+
+```bash
+git branch -m future-brunch feature-branch
+```
+
+If you've already pushed this branch, there are a couple of extra steps required. We need to
+delete the old branch from the remote and push up the new one:
+
+```bash
+git push origin --delete future-brunch
+git push origin feature-branch
+```
+
+## 6. Oops... I did it again
+
+This command is for when everything has gone wrong. When you've copy-pasted one too
+many solutions from Stack Overflow and your repo is in a worse state than it was when you started.
+We've all been there.
+
+`git reflog` shows you a list of all the things you've done.
+It then allows you to use Git's magical time-traveling skills to go back to any point in the past.
+I should note, this is a last resort thing and should not be used lightly.
+To get this list, type:
+
+```bash
+git reflog
+```
+
+Every step we took, every move we made, Git was watching us.
+Running that on our project gives us this:
+
+```bash
+3ff8691 (HEAD -> feature-branch) HEAD@{0}: Branch: renamed refs/heads/future-brunch to refs/heads/feature-branch
+3ff8691 (HEAD -> feature-branch) HEAD@{2}: checkout: moving from master to future-brunch
+2b7e508 (master) HEAD@{3}: reset: moving to HEAD~
+3ff8691 (HEAD -> feature-branch) HEAD@{4}: commit: Adds the client logo
+2b7e508 (master) HEAD@{5}: reset: moving to HEAD~1
+37a632d HEAD@{6}: commit: Adds the client logo to the project
+2b7e508 (master) HEAD@{7}: reset: moving to HEAD
+2b7e508 (master) HEAD@{8}: commit (amend): Added contributing info to the site
+dfa27a2 HEAD@{9}: reset: moving to HEAD
+dfa27a2 HEAD@{10}: commit (amend): Added contributing info to the site
+700d0b5 HEAD@{11}: commit: Addded contributing info to the site
+efba795 HEAD@{12}: commit (initial): Initial commit
+```
+
+Take note of the left-most column, as this is the index.
+If you want to go back to any point in the history, run the below command, replacing `{index}` with that reference, e.g. `dfa27a2`.
+
+```bash
+git reset HEAD@{index}
+```
+
+So there you have six ways to get out of the most common Gitfalls.
+
+## More common Git problems 
+
+There are a number of tips for fixing common git problems. For starters, here are a couple of common ones: to indicate the end of command options for command line utilities, try using the double dash (--). If you want to undo a change, use git reset.
+
+- If you have a commit that is only in your local repository, you can amend it with the git commit — amend command.
+- Sometimes, you might find yourself adding files that you didn’t mean to commit. Git rm will remove it from both your staging area, as well as your file system. However, if that’s not the solution you were looking for, make sure you only remove the staged version and add the file to your .gitignore so you don’t make the same mistake again. 
+- To fix a typo in a commit message or to add a file, use: git - amend.
+- If you want to remove files from staging before committing, use [“git restore”](https://medium.com/@basitalkaff/common-git-problems-and-how-to-fix-them-878ef750a015) to reset the pointer back to the last commit ID.
+- If you have a change of heart and want to remove changes from a commit before pushing and reverting back, use “git reset <specific commit ID we want to go back>.”
+- Faulty commits sometimes make their way into the central repository. When that happens, instead of creating additional revert commits, just apply the necessary changes and use the --no-commit/-n option.
+Instead of having to reinvent the wheel, use the reuse recorded resolution feature to fix repetitive merge conflicts. Add "git config --global rerere.enabled true" to your global config to enable it for all projects. 
+
+If you prefer, you can manually create the directory: 
+
+.git/rr-cache to enable it for each project.
+
+## How to prevent problems with your git repository
+
+It’s important to consider git repository security for web projects. Why? When you deploy a [web page from a git repository](https://www.techtarget.com/searchsecurity/answer/How-can-developers-avoid-a-Git-repository-security-risk), you could also make the directory and its contents accessible. This gives an attacker the ability to access the metadata from URLs such as https://example.org/git/config.
+
+If a git repository is checked out using HTTP authentication where the username and password to access the repository are incorporated as part of the URL, that can create an especially unsafe situation. Because this information is stored in the .git/config file, an attacker has direct access to credentials for the repository.
+
+To avoid these risks and improve the security of a git repository, developers should refrain from using direct git checkouts on web deployments. Instead, they should copy files to the web root directory without the .git directory metadata. Alternatively, access to the .git directory can be bypassed in the server configuration. It's also a good idea to avoid storing passwords and secret tokens right in repositories.
+
+Some suggestions to [stop git repositories from getting too big](https://stackoverflow.com/questions/58679210/how-to-stop-git-repositories-from-getting-too-big): avoid cluttering the repository with large numbers of files, don’t include binary or office files that require huge commits in the number of lines edited, and from time to time, use commands like
+git reflog expire --all --expire=now git gc --prune=now --aggressive.
+
+Here is an approach for [fixing a corrupted git repository](https://stackoverflow.com/questions/18678853/how-can-i-fix-a-corrupted-git-repository).
+
+## Some common git commands
+
+There are hundreds of git commands programmers can use to change and track projects. Some of the [more common ones](https://shortcut.com/blog/common-git-commands-that-you-should-memorize#:~:text=13%20common%20Git%20commands%20that%20you%20should%20consider,compare%20unstaged%20files%20before%20committing%20...%20More%20items) are:
+
+**Create a new repository for storing code/making changes:** 
+
+A new project requires a repository where your code is stored and changes can be made.
+Command:
+
+git init
+
+Or change a current directory into a Git repo using:
+
+git init <directory>
+ 
+**Configure local and global values:**
+
+Command:
+
+git config --global user.email <your-email> or git config -
+ 
+**Use cloning to get source code from your remote repo**
+
+When working on an existing project, you can use the clone command to create a copy of your remote rep in GitLab and make changes without overwriting the master version.
+
+When this command is used, you will get access to a copy of the source code on your local machine and make changes to it without compromising the master.
+
+To download your project, use this:
+
+git clone <repo URL>
+ 
+**Create a local workspace:**
+
+When collaborating with other developers on a project, using branches lets you modify and reference copies of the same portions of source code and merge them at a later point. This avoids a situation where developers are making changes to the same code at the same time, creating errors and broken code/features.
+
+[To create a new local branch](https://shortcut.com/blog/common-git-commands-that-you-should-memorize#:~:text=13%20common%20Git%20commands%20that%20you%20should%20consider,compare%20unstaged%20files%20before%20committing%20...%20More%20items):
+
+git branch <branch-name>
+
+Push this local branch to the remote repo with the following:
+
+git push -u <remote> <branch name>
+
+View existing branches on the remote repo with the following:
+
+git branch or git branch—list
+
+And delete a branch with:
+
+git branch -d <branch-name> 
+
+**Switch branches, inspect files and commits:**
+
+With git checkout, you can move between the master branch and your copies locally, and it can be used to inspect the file and [commit history](/blog/2018/06/07/keeping-git-commit-history-clean/). You will start out with the local clone of your master branch by default. You’ll need to run the command to switch between branches to make changes to a different local branch. One thing to note: make sure that you commit or stash any in-progress changes before switching; otherwise, you could encounter errors.
+
+Command:
+
+git checkout <name of your branch>
+
+Or create a new branch and switch to it with one command:
+
+git checkout -b <name-of-your-branch>
+
+Have some Git tips of your own? Let us know in the comments below, we'd love to hear them.
+
+Photo by [Pawel Janiak](https://unsplash.com/photos/WtRuYJ2EPMA?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText) on [Unsplash](https://unsplash.com/search/photos/mistake?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText)
+{: .note}

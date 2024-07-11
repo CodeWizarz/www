@@ -1,0 +1,17 @@
+features:
+  secondary:
+  - name: "Enable Dependency Proxy cleanup policies from the UI"
+    available_in: [core, premium, ultimate]
+    documentation_link: 'https://docs.gitlab.com/ee/user/packages/dependency_proxy/#enable-cleanup-policies-from-within-gitlab'
+    image_url: '/images/14_6/package_dep_proxy_ttl.png'
+    reporter: trizzi
+    stage: package
+    categories:
+      - 'Dependency Proxy'
+    issue_url: 'https://gitlab.com/gitlab-org/gitlab/-/issues/340777'
+    description: |
+      You can use the GitLab Dependency Proxy to proxy and cache container images from Docker Hub for faster, more reliable builds. Over time, your team may add many items to the cache, resulting in higher storage costs.
+
+      You've been able to work around this by using the [API](https://docs.gitlab.com/ee/api/dependency_proxy.html) to purge the entire cache. But that's inefficient because you only want to remove old, stale items that are no longer in use. That's why we added cleanup policies for the Dependency Proxy. You can programmatically delete from the cache image tags that your team hasn't recently used. However, this feature required you to use [GraphQL](https://docs.gitlab.com/ee/api/graphql/reference/index.html#mutationupdatedependencyproxyimagettlgrouppolicy), which is inefficient if you don't use it regularly.
+
+      Now you can enable an automatic time-to-live (TTL) policy for the Dependency Proxy from the user interface. Do this by navigating to your group's **Settings > Packages & Registries > Dependency Proxy** and enabling the setting to automatically clear items from the cache after 90 days.

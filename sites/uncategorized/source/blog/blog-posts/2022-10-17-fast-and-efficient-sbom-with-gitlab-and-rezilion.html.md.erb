@@ -1,0 +1,156 @@
+---
+title: Meet the demand for SBOMs and supply chain security with GitLab and Rezilion
+author: Fernando Diaz
+author_gitlab: fjdiaz
+author_twitter: awkwardferny
+categories: security
+tags: security, partners, integrations
+description: Learn the role of SBOMs in helping to secure your software supply chain and how to generate them with the GitLab + Rezilion integration.
+image_title: /images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/jessica-lewis-fJXv46LT7Xk-unsplash.jpeg
+twitter_text: Fast and efficient supply chain security with @GitLab + @_Rezilion
+---
+Modern software development often takes advantage of code reuse. Instead of reinventing the wheel, developers can use a library that focuses on a particular
+function for use in an application. However, there is one caveat: These
+dependencies may be susceptible to security vulnerabilities, which may render
+your whole application – and possibly your software supply chain – as vulnerable.
+
+That is why DevOps teams must be able to generate a software bill of materials, or [SBOM](https://docs.gitlab.com/ee/user/application_security/dependency_list/). GitLab has partnered with [Rezilion](/partners/technology-partners/#rezilion) to make this task easier.
+
+## The need for SBOMs
+
+In 2020, the [Solar Winds software supply chain attack happened](https://www.businessinsider.com/solarwinds-hack-explained-government-agencies-cyber-security-2020-12). Hackers used an easy-to-guess password to inject malicious
+code into a software update and many users of the affected Solar Winds product
+Orion, including government agencies, had their data compromised.
+
+This breach, along with other high-profile attacks, led Pres. Biden's administration to [require software vendors to deliver a software bill of materials (SBOM)](https://www.whitehouse.gov/briefing-room/presidential-actions/2021/05/12/executive-order-on-improving-the-nations-cybersecurity/) with any software offer they make to federal agencies.
+
+## Secure your software and manage vulnerabilities
+
+To get started with software supply chain security, you need to not only implement security scanning, but
+also have a process in place to manage and effectively triage these vulnerabilities.
+
+Below, you can see the typical software development lifecycle. It shows that security scans are run on a feature branch. A developer can view the presented vulnerabilities and continue to commit to the feature branch which re-runs the scans.
+
+Once the vulnerabilities have been remediated the feature branch can be merged. If vulnerabilities are still present, [approval](https://docs.gitlab.com/ee/user/application_security/policies/scan-result-policies.html) by the security team can be required, and you can continue to keep track of the vulnerability with a [confidential issue](https://docs.gitlab.com/ee/user/project/issues/confidential_issues.html).
+
+![](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/sdlc.png)
+
+Let's go over how to do the following:
+
+* Implement security scanners in GitLab with built-in templates
+* Manage vulnerabilities with the GitLab vulnerability report
+* Manage dependencies and generate an SBoM
+* Efficiently triage exploitable vulnerabilities with Rezilion
+
+## Implement security scanners
+
+The first step in securing your software supply chain is to implement [security scanners](https://docs.gitlab.com/ee/user/application_security/configuration/#security-testing) into your [CI/CD pipeline](https://about.gitlab.com/topics/ci-cd/cicd-pipeline/).
+These scanners should be set up in a way, where they run on each code commit. When a vulnerability is detected, approval by a security team member should be required.
+
+GitLab offers many different security scanners to get you started:
+
+* [Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
+* [Dynamic Application Security Testing (DAST)](https://docs.gitlab.com/ee/user/application_security/dast/)
+* [Infrastructure as Code (IaC) Scanning](https://docs.gitlab.com/ee/user/application_security/iac_scanning/)
+* [Container Scanning](https://docs.gitlab.com/ee/user/application_security/container_scanning/)
+* [Dependency Scanning](https://docs.gitlab.com/ee/user/application_security/dependency_scanning/)
+* [Coverage-Guided Fuzzing](https://docs.gitlab.com/ee/user/application_security/coverage_fuzzing/)
+* [Web-API Fuzzing](https://docs.gitlab.com/ee/user/application_security/api_fuzzing/)
+* [Secret Detection](https://docs.gitlab.com/ee/user/application_security/iac_scanning/)
+
+With the scanners running in a pipeline, static application source code is scanned, as well as dependencies and the
+running application itself.
+
+These scanners can be implemented by simply adding templates to your [GitLab CI YAML](https://docs.gitlab.com/ee/user/application_security/sast/index.html#configure-sast-manually). You can also use the [Configuration UI](https://docs.gitlab.com/ee/user/application_security/sast/index.html#configure-sast-in-the-ui-with-customizations)
+to set up and configure these security scanners. You can check out the set up instructions for each scanner in the [GitLab appsec configuration documentation](https://docs.gitlab.com/ee/user/application_security/configuration/#security-testing).
+
+## Manage vulnerabilities
+
+Next up, see how to use GitLab to manage vulnerabilities. GitLab provides a single source of truth that allows developers and
+appsec engineers to collaborate and address issues together. After the security scanners have been implemented, there are a
+few ways to manage vulnerabilities.
+
+Developers will use the MR view to see all the vulnerabilities present in the **diff** between the **feature branch** and the **branch you are merging with**.
+
+You can see below, that each vulnerability is presented in an easy-to-read view: 
+
+![Life cycle illustration](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/mr-view.png)
+
+When you click on a vulnerability, you can see details such as:
+
+* Status
+* Description
+* Evidence
+* Severity
+* Identifiers
+* Linked Issues
+* Solution
+* Security Training
+
+The vulnerabilities are also actionable which means they can be dismissed or a confidential issue can be created to triage later.
+
+![Screenshot of vulnerabilities](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/mr-view-2.png)
+
+Then there is the [vulnerability report](https://docs.gitlab.com/ee/user/application_security/vulnerability_report/) which displays all the vulnerabilities detected within the **main** branch and allows for the
+security team to triage and address vulnerabilities from a common interface, enabling collaboration.
+
+![Detailed view of vulnerability](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/vr-1.png)
+
+Once you click on a vulnerability, you are provided with [advanced details](https://docs.gitlab.com/ee/user/application_security/vulnerabilities/) on the vulnerability as well as how to remediate it.
+
+![Vulnerability report](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/vr-2.png)
+![Remediation suggestions](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/vr-3.png)
+
+An appsec engineer can change the status, add additional information, and create confidential issues from this view.
+
+## Manage dependencies
+
+Now that you have seen how to run security scans on your application, as well as manage vulnerabilities, let's explore managing our 
+application's dependencies and understanding what is running on your system.
+
+There are a few ways of managing dependencies and generating an SBoM. I'll go over
+the GitLab Dependency List (SBoM) as well as the dynamic Rezilion SBoM.
+
+### GitLab Dependency List (SBoM)
+
+GitLab provides a [Dependency List](https://docs.gitlab.com/ee/user/application_security/dependency_list/) also known as an SBoM.
+The dependency list contains your project’s dependencies and critical details about those dependencies, including their known vulnerabilities.  GitLab displays dependencies with the following information:
+
+| Field	| Description |
+| ----- | ----------- |
+| Component	| The dependency’s name and version. |
+| Packager |	The packager used to install the dependency. |
+| Location |	For system dependencies, this lists the image that was scanned. For application dependencies, this shows a link to the packager-specific lock file in your project that declared the dependency. It also shows the dependency path to a top-level dependency, if any, and if supported. |
+| License	| Links to the dependencies' software licenses. |
+
+You can download your project’s full list of dependencies and their details in [CycloneDX](https://cyclonedx.org/) JSON format. CycloneDX is a lightweight SBoM standard designed for use in application security contexts and supply chain component analysis. See it in action below:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/5a-_l1bqWhQ" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+### Rezilion SBoM
+
+Rezilion provides a dynamic SBoM directly within the GitLab UI. It displays all the software components your application uses, and determines their loaded/unloaded status for a quick risk assessment.
+
+![Screenshot of SBoM](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/rezilion-sbom.png)
+
+## Easily triage exploitable vulnerabilities
+
+Now that you have seen how to secure your application as well as its dependencies, you 
+can make sure addressing security issues does not slow down development. What matters most in your
+environment is to help save developers time and deliver secure products in a swift manner.
+
+Here is where GitLab + Rezilion comes into play: The integration reduces developers' patching efforts by enabling them to only display vulnerabilities that are exploitable. Rezilion will mark unexploitable vulnerabilities as false positives, which can then be sorted out. This can be done within the GitLab vulnerability report:
+
+![Display of exploitable vulnerabilities](/images/blogimages/fast-and-efficient-supply-chain-security-with-rezilion-and-gitlab/rezilion-exploitable.png)
+
+Check out the demo showing how GitLab and Rezilion work together:
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/FgNp7FQFniE" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
+
+
+With these tools in hand, not only will you be able to secure your application's code before it makes its way to production, but you'll be able to do it in a fast and efficient manner.
+
+To learn more about the GitLab + Rezilion integration check out this [whitepaper](https://www.rezilion.com/wp-content/uploads/2022/03/Rezilion-GitLab-Solution-Overview.pdf). You can also sign up for a free trial of [GitLab Ultimate](/free-trial) and [Rezilion](https://rezilion.com/get-started).
+
+Photo by <a href="https://unsplash.com/es/@jessicalewiscreative?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Jessica Lewis</a> on <a href="https://unsplash.com/s/photos/checklist?utm_source=unsplash&utm_medium=referral&utm_content=creditCopyText">Unsplash</a>

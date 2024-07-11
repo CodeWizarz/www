@@ -1,0 +1,283 @@
+---
+title: "Behind the scenes of the Remote Development Beta release"
+author: David O'Regan
+author_gitlab: oregand
+categories: engineering
+image_title: '/images/blogimages/remotedevelopment.jpeg'
+description: "Discover the epic journey of GitLab's Remote Development team as they navigate last-minute pivots, adapt, and deliver new features for users worldwide."
+tags: tutorial, DevSecOps, workflow, cloud native, contributors, open source
+twitter_text: "Discover the epic journey of GitLab's Remote Development team as they navigate last-minute pivots, adapt, and deliver exceptional features for users worldwide. 🚀 #softwaredevelopment #GitLabJourney"
+featured: yes
+related_posts:
+  - "/blog/2023/05/23/introducing-workspaces-beta/"
+  - "/blog/2023/06/26/quick-start-guide-for-gitlab-workspaces/"
+  - "/blog/2023/07/13/set-up-infrastructure-for-cloud-development-environments/"
+---
+In May 2023, the Create:IDE team faced an epic challenge – to merge the [Remote Development Rails monolith integration branch](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/105783) into the `master` branch of the GitLab Project. This was no small ask, as the merge request was of considerable size and complexity. In this blog post, we'll delve into the background, justifications, and process behind this endeavor.
+
+The merge request titled "Remote Development feature behind a feature flag" was initiated by the Create:IDE team, aiming to merge the branch "remote_dev" into the "master" branch in the Rails monolith GitLab project. The MR contained `4` commits, `258` pipelines, and `143` changes that amounted to a total of `+7243` lines of code added to the codebase.
+
+Initially, the MR was created to reflect the work related to "Remote Development" under the "Category: Remote Development." It was primarily intended to have CI pipeline coverage for the integration branch and was not meant for individual review or direct merging. The plan was to merge this code into the master branch via the ["Remote Development Beta - Review and merge" Epic](https://gitlab.com/groups/gitlab-org/-/epics/10258).
+
+![SUM](/images/blogimages/remote-development/SUM.png){: .shadow.medium}
+
+### How the Remote Development project started
+As a team, we embarked on an ambitious journey to create a greenfield feature: the [Remote Development](https://docs.gitlab.com/ee/user/project/remote_development/) offering at GitLab. This feature had a vast scope, many unknowns, and required solving numerous new problems. To efficiently tackle this task, we decided to work on an integration branch using a [low-ceremony process](https://stackoverflow.com/questions/68092498/what-does-low-ceremony-mean). This decision enabled us to develop and release the feature in an impressively short time frame of less than four months.
+
+Working on an integration branch provided us the flexibility to make significant progress, but it was always intended to eventually break down the work into smaller, iterative MRs that would follow the standard [GitLab review process](https://docs.gitlab.com/ee/development/code_review.html). We had a [detailed plan](https://gitlab.com/gitlab-org/remote-development/gitlab-remote-development-docs/-/blob/main/doc/integration-branch-process.md#master-mr-process-summary) for this process, but we realized that following the original plan would not allow us to meet our goal of releasing of the feature in GitLab 16.0.
+
+### Merging the integration branch MR without breaking it up
+During the development of the Remote Development feature, our team faced several challenges that led us to adopt a new approach for merging the integration branch into the master. First, as part of our [velocity-based XP/Scrum style process](https://about.gitlab.com/handbook/engineering/development/dev/create/ide/#-remote-development-iteration-planning), we realized that meeting the 16.0 release goal would require us to cut scope. A velocity report, "[Velocity-based agile planning report](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/118436)," highlighted that breaking down and reviewing individual MRs would take too long, considering the impending due date and the likelihood of last-minute scope additions.
+
+Second, we [made the decision](https://gitlab.com/gitlab-org/gitlab/-/issues/398227#note_1361192858) to release workspaces as a **beta feature for public projects** for customers in [GitLab 16.0](/releases/2023/05/22/gitlab-16-0-released/#remote-development-workspaces-available-in-beta-for-public-projects). This approach reduced the complexity of the rollout plan and allowed us to get valuable feedback earlier, but required us to enable the feature by default earlier than planned. To align with this decision, we determined that merging the integration branch after review was the best course of action. An announcement was made to explain the change in plan, and we set specific timelines for the review process to ensure smooth coordination.
+
+> Hello Reviewers/Maintainers 👋 We have opened up a Zoom room through all of next week as an easy sync place for us all to collaborate and triage questions. As the MR is quite large, it might be overwhelming to determine where to begin. To help, we will aim to furnish a summary of what we have included, such as two new database tables and a couple of GraphQL/REST APIs. We will also be available through the week in the Zoom room and without it being too prescriptive of a approach, I would suggest we do a sync walkthrough of the MR first and then kick off the reviews.
+
+Addressing the concerns about risk, team members discussed the challenges and potential solutions. While there were apprehensions, we were confident in the overall quality of the feature. A disciplined plan for merging MRs was initially considered, but based on our velocity metrics, it was evident that meeting the public beta release goal required a new strategy.
+
+Despite the deviations from our usual practices, we acknowledged the urgency to deliver the initial release on time. The decision was not taken lightly, and we ensured that the merge had extensive [test coverage](https://docs.gitlab.com/ee/ci/testing/test_coverage_visualization.html) and [feature flags](https://docs.gitlab.com/ee/operations/feature_flags.html) in place to address any potential issues. We accepted that some aspects would be overlooked in the initial MR review cycle, but we committed to addressing them in subsequent iterations.
+
+### Keeping the pipeline green and stable for the merge
+To ensure the successful merge of the integration branch containing the Remote Development feature, our team made significant efforts to keep the pipeline green and stable. As the MR was quite large and contained critical functionality, it was crucial to maintain a high level of quality and reduce the risk of introducing regressions.
+
+To address these challenges, the team adopted a disciplined approach to [CI/CD](https://about.gitlab.com/topics/ci-cd/). Throughout the development process, CI pipelines were carefully monitored, and any failing tests or issues were promptly addressed. The team conducted rigorous testing and code reviews to identify and fix potential bugs and ensure that the changes did not negatively impact the existing functionality of the codebase.
+
+Additionally, extensive test coverage was put in place to ensure that the new feature worked as expected and did not cause unintended side effects. The team utilized GitLab's [test coverage visualization](https://docs.gitlab.com/ee/ci/testing/test_coverage_visualization.html) capabilities to track the extent of test coverage and identify areas that required additional testing.
+
+![PIPE](/images/blogimages/remote-development/PIPE.png){: .shadow.medium}
+
+## The merging process
+As part of the Remote Development team, we took a strategic approach to the merging process. We identified three categories of follow-up tasks that needed to be addressed after the release:
+
+1. **To-dos:** This category encompassed follow-up issues that required further attention.
+2. **Disabled linting rules:** Any issues related to disabled linting rules were included in this category.
+3. **Follow-up from review:** Non-blocking concerns raised during the review process were categorized here.
+
+To manage this process effectively, we organized these categories into [child epics](https://docs.gitlab.com/ee/user/group/epics/manage_epics.html#multi-level-child-epics) under the main epic representing the merging effort.
+
+1. Child epic for [to-do follow-up issues](https://gitlab.com/groups/gitlab-org/-/epics/10472)
+2. Child epic for [disabled linting rules follow-up issues](https://gitlab.com/groups/gitlab-org/-/epics/10473)
+3. Child epic for [follow-up issues from review](https://gitlab.com/groups/gitlab-org/-/epics/10474)
+
+
+## Reviewer resources
+During the integration branch merge process for the Remote Development feature, we ensured a smooth and collaborative review experience for all involved. To facilitate this, we set up the following resources and documented the information in GitLab's issue, epic, and MR reviews for better persistence and traceability:
+
+1. **Dedicated Slack channel:** We had a Slack channel that served as our primary hub for coordinating reviews and resolving any blockers that arose during the process. The discussions, decisions, and important points discussed in this channel were documented in the related GitLab issues and epics. This approach enabled us to maintain a historical record of the conversations for to refer back to in the future.
+2. **General Slack channel:** For non-urgent or non-blocking questions and discussions, reviewers could use the a general Slack channel. Similar to the dedicated channel, we documented the relevant information from this channel in the corresponding issues and MR reviews in GitLab.
+3. **Addressing urgent issues:** When urgent issues required immediate attention, reviewers could directly address our technical leads [Vishal Tak](https://gitlab.com/vtak) and/or [Chad Woolley](https://gitlab.com/cwoolley-gitlab) in their Slack messages. However, we kindly requested that [direct messages were avoided](https://about.gitlab.com/handbook/communication/#avoid-direct-messages) to promote open collaboration. The resolutions to these urgent issues were documented in the corresponding GitLab issues or MR discussions.
+4. **Zoom collaboration room:** The collaborative sessions held in the open Zoom room were not only beneficial for real-time discussions but also for fostering a collaborative environment. After each session, we summarized the key points and decisions made during the meeting in the associated GitLab issue or MR, making sure all important outcomes were captured and accessible to the team.
+
+Throughout the review process, we were committed to maintaining a seamless and well-documented workflow. By capturing all relevant information in GitLab issues, epics, and MR reviews, we ensured that the knowledge was persistently available, and future team members could easily understand the context and decisions made during the integration process.
+
+## Application security review
+During the application security review process, we focused on providing a secure and reliable Remote Development feature for our users. Here are the key resources and updates related to the application security review:
+
+1. **Main application security review issue:** The main application security review issue served as the central hub for tracking security-related considerations. You can find the defined process we followed [here](https://about.gitlab.com/handbook/security/security-engineering/application-security/appsec-reviews.html).
+2. **Application security review comment:** The application security review issue contained a comment indicating that the merge was not blocked unless there were severe issues that could impact production. "In order to maintain a smooth merge process, we do not block MRs from being merged unless we identify severe issues that could prevent the feature from going into production, such as S1 or S2 level problems. If you are aware of any design flaws or concerns that might qualify as such issues, please bring them to our attention. We can review them together and address any questions or concerns that arise. Let's work collaboratively to find an approach that works for both parties. 👍"
+3. **Engineering perspective:** For managing the application security review process from an engineering team perspective, we had a dedicated issue, which is kept confidential for security reasons. 
+4. **Security and authentication matters:** All security and authentication concerns pertaining to the Beta release were documented within the [`Remote Development Beta -Auth` epic](https://gitlab.com/groups/gitlab-org/-/epics/10377). As of April 30, 2023, we are delighted to announce that **no known issues or obstacles were found that would impede the merge**. This represents a significant accomplishment, considering the intricate nature of this new feature.
+5. **Initial question raised:** During the application security review, one initial question was raised, and we promptly addressed it. You can track the issue and our response [here](https://gitlab.com/gitlab-org/gitlab/-/issues/409317).
+
+## Database review
+To ensure the reliability and efficiency of the Remote Development feature, we sought guidance from the database reviewer. Although the team had not conducted a thorough self-review, we were fully prepared to address any blocking issues raised during the review process. Our references for the review were:
+
+- [Database review documentation](https://docs.gitlab.com/ee/development/database_review.html)
+- [Database reviewer guidelines](https://docs.gitlab.com/ee/development/database/database_reviewer_guidelines.html)
+
+As an example, during the database migration review, a discussion arose between [Alper Akgun](https://gitlab.com/a_akgun) and Chad, regarding the efficient ordering of columns in the workspaces table. Alper initially suggested placing integer values at the beginning of the table based on relevant documentation.
+
+Chad questioned the benefit of this suggestion, pointing out that the specific integer field, `max_hours_before_termination`, would still be padded with empty bytes even if moved to the front, due to its current position between two text fields.
+
+Alper proposed an alternative approach, emphasizing that organizing variable-sized fields (such as `text`, `varchar`, `arrays`, `json`, `jsonb`) at the end of the table could be sufficient for the workspaces table.
+
+Ultimately, Chad took the initiative to implement the changes, moving all variable length fields to the end of the table, and documented the discussion as a comment to address review suggestions.
+
+With this collaborative effort, the workspaces table was efficiently optimized, and the team gained valuable insights into database column ordering strategies.
+
+![DB](/images/blogimages/remote-development/DB.png){: .shadow.medium}
+
+## Ruby code review
+During the Ruby code review phase, we followed a meticulous approach by conducting a comprehensive self-review of every line of code. Our goal was to ensure the highest code quality and address any potential issues identified by the reviewers effectively.
+
+To ensure clarity, it's important to clarify that the Ruby code review primarily focused on backend changes and server-side improvements. This included optimizing performance, enhancing functionalities, and refining the overall codebase to deliver a seamless user experience.
+
+For the code review process, we referred to the [Code review documentation](https://docs.gitlab.com/ee/development/code_review.html), a valuable resource that guided us in maintaining industry best practices and adhering to the GitLab community's coding standards.
+
+### Example: Enhance error messages for unavailable features
+As an example during the code review, we addressed an essential aspect of the workspace method, focusing on how we handle scenarios related to the `remote_development_feature_flag` and the `remote_development` licensed feature. The primary objective was to enhance the error messages presented to users when these features are not available.
+
+Initially, the code employed identical error messages for both cases, making it less clear to users whether the issue was due to a missing license or a disabled feature flag. This ambiguity could lead to confusion and hinder the user experience.
+
+#### The suggested improvement
+During the review, one of our maintainers, [Peter Leitzen](https://gitlab.com/splattael), raised an important question: "Are we OK with having only a single error message for both cases (missing license and missing feature flag)?"
+
+Recognizing the importance of clear communication, Chad proposed enhancing the error messages to provide distinct descriptions for each case. This improvement aimed to empower users by precisely conveying the reason behind the unavailability of certain features.
+
+#### The revised implementation
+Following Chad's suggestion, the code underwent the following changes:
+
+```ruby
+unless ::Feature.enabled?(:remote_development_feature_flag)
+  # TODO: Could have `included Gitlab::Graphql::Authorize::AuthorizeResource` and then use
+  #       raise_resource_not_available_error!, but didn't want to take the risk to mix that into
+  #       the root query type
+  raise ::Gitlab::Graphql::Errors::ResourceNotAvailable,
+    "'remote_development_feature_flag' feature flag is disabled"
+end
+
+unless License.feature_available?(:remote_development)
+  # TODO: Could have `included Gitlab::Graphql::Authorize::AuthorizeResource` and then use
+  #       raise_resource_not_available_error!, but didn't want to take the risk to mix that into
+  #       the root query type
+  raise ::Gitlab::Graphql::Errors::ResourceNotAvailable,
+    "'remote_development' licensed feature is not available"
+end
+
+raise_resource_not_available_error!('Feature is not available') unless current_user&.can?(:read_workspace)
+```
+
+#### The value of distinct error messages
+By implementing distinct and descriptive error messages, we reinforce our commitment to user-centric development. Users interacting with our system will receive accurate feedback, helping them navigate potential roadblocks effectively. This enhancement not only improves the user experience but also streamlines troubleshooting and support processes.
+
+This code review example highlights the significance of concise and informative error messages in delivering a top-notch user experience within the GitLab ecosystem. Our team's collaborative efforts ensure that users can confidently interact with our platform, knowing they'll receive clear and helpful error messages when needed.
+
+![BE1](/images/blogimages/remote-development/BE1.png){: .shadow.medium}
+
+### Example: Improving performance and addressing N+1 issues in WorkspaceType
+In a recent code review, our team focused on optimizing the WorkspaceType and addressing potential N+1 query problems. The discussion involved two key contributors, [Laura Montemayor](https://gitlab.com/lauraX) and Chad, who worked together to enhance the performance of the codebase.
+
+#### Identifying the performance concerns
+During the review, Laura raised a performance concern regarding the possibility of N+1 queries in the WorkspaceType resolver. She suggested that preloading certain associations could be beneficial to avoid this common performance issue.
+
+#### A separate issue for N+1 control
+Chad took prompt action and created a separate issue specifically aimed at resolving the N+1 query problems. The new issue, titled "Address review feedback: Resolve N+1 issues," would address the concerns raised by Laura and implement the necessary preloading.
+
+#### Evaluating the potential N+1 impact
+Chad provided insightful information about the low risk of real N+1 impact from two particular fields in the current implementation. He elaborated on how the queries for user and agent associations would largely be cache hits due to scoping and usage patterns. Chad diligently examined the cache hits happening in development, confirming the potential optimization.
+
+Here's a code snippet from the initial implementation:
+
+```ruby
+# Initial Implementation
+class WorkspaceType < BaseType
+  field :user, ::Types::UserType,
+    description: "User associated with this workspace",
+    null: true
+
+  field :agent, ::Types::AgentType,
+    description: "Agent associated with this workspace",
+    null: true
+
+  # Resolver for the user association
+  def user
+    object.user
+  end
+
+  # Resolver for the agent association
+  def agent
+    object.agent
+  end
+end
+```
+
+#### Treating performance as a priority
+Both contributors acknowledged the significance of addressing the performance concern, with Laura emphasizing its importance. They agreed to prioritize the separate issue dedicated to resolving the N+1 queries and ensuring proper test coverage.
+
+Here's a code snippet from the revised implementation:
+
+```ruby
+# Revised Implementation with Preloading
+class WorkspaceType < BaseType
+  field :user, ::Types::UserType,
+    description: "User associated with this workspace",
+    null: true
+
+  field :agent, ::Types::AgentType,
+    description: "Agent associated with this workspace",
+    null: true
+
+  # Resolver for the user association with preloading
+  def user
+    ::Dataloader.for(::User).load(object.user_id)
+  end
+
+  # Resolver for the agent association with preloading
+  def agent
+    ::Dataloader.for(::Agent).load(object.agent_id)
+  end
+end
+```
+
+#### Considering future usage
+Chad expressed excitement about the possibility of the new feature gaining significant usage. He humorously stated that encountering enough legitimate traffic on workspaces to trigger any performance impact would be a delightful problem to have, as it would indicate a growing user base.
+
+#### Collaboration and performance improvement
+The code review exemplifies the collaborative and proactive approach of our team in optimizing the WorkspaceType. The team's dedication to addressing performance concerns ensures that our codebase remains performant and efficient, even as our user base grows.
+
+![BE2](/images/blogimages/remote-development/BE2.png){: .shadow.medium}
+
+## Frontend code review
+The frontend code review process was managed by our resident `Create: IDE` frontend maintainers, [Paul Slaughter](https://gitlab.com/pslaughter) and [Enrique Alcátara](https://gitlab.com/ealcantara). Additionally, a significant portion of the new frontend UI code had already undergone separate reviews and was merged to master, contributing to the overall quality of the Remote Development feature.
+
+### Example: Collaborative code improvement for ApolloCache Mutators
+Paul started a thread on an old version of the diff related to `ee/spec/frontend/remote_development/pages/create_spec.js``. The code snippet in question involved creating a mock Apollo instance and writing queries to the cache.
+
+#### The initial implementation
+Initially, the code involved writing to the cache twice, which raised concerns among the maintainers, Paul and Enrique. Paul pointed out that the duplicate write was unintentional and wondered if the writeQuery was even necessary, given the removal of @client directives. However, he also acknowledged the need to test that the created workspace was added to the ApolloCache.
+
+```javascript
+// Initial Implementation
+const buildMockApollo = () => {
+  // ... Other mock setup ...
+  
+  // Initial writeQuery for userWorkspacesQuery
+  mockApollo.clients.defaultClient.cache.writeQuery({
+    query: userWorkspacesQuery,
+    data: USER_WORKSPACES_QUERY_EMPTY_RESULT.data,
+  });
+
+  // ... Other mock setup ...
+};
+```
+
+#### Identifying a potential issue
+Enrique agreed that the duplicate write was unintentional and probably introduced during a rebase. He explained that pre-populating the cache with a user workspaces query empty result was essential for the mutator to have a place to add the workspace. However, he encountered difficulties in making the workaround work effectively in unit tests.
+
+#### Resolving the issue
+Paul highlighted the significance of pre-populating the cache with the user workspaces query empty result. He suggested leaving a comment to explain the necessity of the initial writeQuery, as it would be implicitly coupled to future writeQuery operations.
+
+```javascript
+// Resolving the Issue - Leaving a Comment
+// Pre-populate the cache with user workspaces query empty result to provide a place
+// for the mutator to add the Workspace later. This is needed for both test and production environments.
+mockApollo.clients.defaultClient.cache.writeQuery({
+  query: userWorkspacesQuery,
+  data: USER_WORKSPACES_QUERY_EMPTY_RESULT.data,
+});
+```
+
+However, upon further investigation, Paul discovered that the writeQuery might not be needed, and the issue might be a symptom of an underlying problem. He decided to open a separate thread to address this concern and indicated that he would work on a separate MR to handle it.
+
+```javascript
+// Resolving the Issue - Opening a Separate Thread and MR
+// Open a separate thread to discuss potential underlying issues.
+// Plan to work on a separate MR to handle it.
+// Stay tuned for updates!
+```
+
+![FE](/images/blogimages/remote-development/FE.png){: .shadow.medium}
+
+## What we learned
+As part of the Remote Development team, we faced the challenge of merging the Remote Development Rails monolith integration branch to meet our ambitious release goal. We adapted to last-minute pivots and focused on minimizing risks during the review process. The successful merge brought us one step closer to benefiting GitLab users worldwide. We acknowledged areas for improvement and remained committed to refining the feature's quality. Our journey reflects our dedication to delivering results, embracing change, and pushing boundaries in the DevOps community. The release of the Remote Development feature in GitLab 16.0 is a significant milestone for GitLab, and we continue to iterate and grow, providing innovative solutions for developers worldwide.
+
+An outcome of this process was an ongoing conversation to propose a [simplified review process for greenfield features](https://gitlab.com/gitlab-org/gitlab/-/merge_requests/125117). Through this proposal, we aim to distill the lessons we learned during this experience and provide guidance to future teams facing similar challenges.
+
+## What is next for Remote Development?
+After the merge of the MR, several changes were implemented:
+- The first production tests were conducted to ensure the stability and functionality of the merged code.
+- Collaboration took place between the Dev Evangelism and Technical Marketing teams, focusing on [creating content](https://gitlab.com/groups/gitlab-com/marketing/developer-relations/-/epics/190). This collaboration aimed to troubleshoot any issues that arose during the merge.
+- Feedback from the community was taken into account, and changes were made to address the concerns raised. This feedback was incorporated into an [issue](https://gitlab.com/gitlab-org/gitlab/-/issues/410031) and influenced the overall roadmap and direction of the project.
+
+Do you want to [contribute to GitLab](/community/contribute/)? Come and join in the conversation in the `#contribute` channel on GitLab's [Discord](https://discord.gg/gitlab), or just pop in and say "Hi."
+

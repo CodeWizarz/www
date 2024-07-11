@@ -1,0 +1,235 @@
+---
+layout: markdown_page
+title: "Category Strategy - Cloud Connector"
+description: "The Application Performance group works on making GitLab perform well at any scale."
+canonical_path: "/direction/cloud-connector/"
+---
+
+- TOC
+{:toc}
+
+## 🛠️ Cloud Connector group
+
+**Last updated**: 2023-08-23
+
+> __Make GitLab the most responsive and performant DevOps Platform.__
+
+### Introduction and how you can help
+
+- [Overall Strategy](/direction/enablement)
+- [Roadmap for the Application Performance group](https://gitlab.com/groups/gitlab-org/-/roadmap?state=opened&sort=end_date_asc&label_name%5B%5D=group%3A%3Amemory&label_name%5B%5D=Roadmap)
+- [All Epics](https://gitlab.com/groups/gitlab-org/-/epics?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=group%3A%3Amemory)
+
+Please reach out to Roger Woo, Senior Product Manager for the Cloud Connector group ([Email](mailto:rwoo@gitlab.com)) if you'd like to provide feedback or ask any questions related to this product category.
+
+This strategy is a work in progress, and everyone can contribute. Please comment and contribute in the linked [issues](https://gitlab.com/gitlab-org/gitlab/-/issues?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=group%3A%3Amemory) and [epics](https://gitlab.com/groups/gitlab-org/-/epics?scope=all&utf8=%E2%9C%93&state=opened&label_name[]=group%3A%3Amemory) on this page. Sharing your feedback directly on GitLab.com is the best way to contribute to our strategy and vision.
+
+### Overview
+
+The Application Performance group's mission is to ensure that GitLab users, both self-managed and SaaS, have a great user experience. Performance is a critical part of that experience.
+
+Our team works to improve availability, reliability, and performance of the application. We analyze the behavior, recognize bottlenecks, and propose changes. We work to make GitLab a responsive and performant DevOps platform, which offers a great user experience at any scale. 
+
+### How do we think about performance?
+
+Our most important goal is optimizing for the GitLab user experience. It can be a user accessing GitLab directly through their web browser,
+a user waiting for a pipeline to run, or someone whose scripts access the GitLab APIs.
+
+We build GitLab for our users, not for their servers that run GitLab.
+We focus on the outcome for our users first and foremost and define performance relative to the user facing impact it has.
+
+To do so, we then work on the application internals and optimizing our system level performance. 
+
+#### User level performance
+
+GitLab users rarely care if the code that renders a page uses too much memory.
+Instead, they care about increased load times, or they are concerned when nothing happens when they click a button.
+
+In that respect, we define performance on the basis of what affects the GitLab users, rather than trying to generally optimize resources.
+
+In the previous example, reducing memory consumption is not a goal. It is just one means to an end: delivering a snappier, more responsive application that performs well at any scale.
+In other cases, we might decide to increase memory consumption if no other methods exist to increase the performance of what our users care about.
+
+#### System level performance
+
+Our mantra references the responsiveness and performance of GitLab, while our mission touches on the availability and reliability of GitLab as well.
+You might wonder why we don't call the group **Application Performance Availability and Reliability**.
+
+We deeply care about these problems in the context of performance.
+
+Our users are affected by performance issues when they can observe increased load times, latency, or a decrease in the responsiveness of the application.
+We address these issues by ensuring the most efficient use of _resources_ by GitLab's application code.
+These resources are usually physical resources like memory, CPU, or network bandwidth.
+We address these performance issues as well by ensuring that the application code is performant by itself.
+
+Our users also care about the availability and reliability of the platform.
+A bug can affect the reliability of GitLab or even cause severe availability issues in extreme cases.
+
+In the Application Performance group, we care about availability and reliability in the context of performance issues.
+Code that may use more resources than needed or accidentally starve a server from resources.
+But bugs that can affect availability and reliability for other reasons, like dropping connections between services due to a mistake in business logic, are out of our scope.
+Their effect is as severe as the performance related issues, but they are much easier to be addressed when they are identified.
+
+### Scope
+
+1. Our goal is to optimize the performance of GitLab as an application; in our work we take into account the underlying infrastructure, but infrastructure optimizations are out of our scope.
+
+2. Our primary focus is the GitLab Rails application, but we create or work on ancillary systems if that improves responsiveness or availability of the former.
+
+3. We are scale agnostic, GitLab must be performant no matter how many users actively use it.
+
+4. We (want to) build and maintain middleware/libraries that enable efficient integration between the GitLab application and our infrastructure.
+
+5. Our only assumption is that GitLab is always set up using an optimal architecture on GitLab.com, or a recommended architecture on self-managed instances.
+
+To make that distinction more clear, let's assume at a very high level that GitLab as a platform consists of three tiers:
+- The GitLab application. It consists of the main Rails application (the monolith), as well as various other components like Gitaly, GitLab Workhorse, or the Container Registry.
+- Infrastructure. It consists of anything outside of the GitLab application that we depend on to run GitLab. Our servers, Redis, our Databases, Object Storage, Prometheus, etc.
+- Middleware/libraries. They enable efficient integration points between the application and our infrastructure, or they improve the performance of common development tasks. Depending on our approach in each case, they may or may be not part of the application.
+
+  Examples can range from our load balancer, the code for accessing Redis, the metrics exporters or our libraries for performing Database migrations to 3rd party libraries for accessing object storage or frameworks like sidekiq.
+
+```
+High level view of GitLab as a platform:
+
+                             Gitlab Application
+                                     |
+                                 Middleware
+                                     |
+                               Infrastructure
+```
+
+The Application Performance group works on the middleware and the rails application layers, while making sure that all other feature groups can efficiently interact with any Infrastructure resources other than the Database and Git.
+
+```
+Scope of various GitLab Teams:
+
+        Infrastructure            ||  Middleware ||                   Gitlab Application
+        /      |     \            ||      &      ||                /     |        |       \
+ Servers | Database | Redis | Git ||  Libraries  || Rails application | Gitaly | Workhorse | Registry
+----------------------------------||-----------------------------------------------------------------
+[            SREs | DBREs        ]
+[                  Delivery group                ]
+[                Distribution group              ]
+[                 Scalability Team               ]
+                                    [  Application Performance group  ]   <----------------
+                                    [         Database group          ]
+                                                  [   Feature groups  ] 
+                            [     Gitaly Team    ]                     [      ]
+```
+
+### Where we are headed
+
+#### Tools
+
+Having a group focused on identifying and addressing application-level performance issues helps a lot but can not scale efficiently with respect to how fast GitLab grows both as a product and as a team.
+Even if the solutions are implemented in collaboration with the groups that are directly responsible for each area, there are way more areas than a single group can handle, even at a supporting / consulting role.
+
+**Our goal is to build the tools, frameworks and libraries that all other GitLab groups will use to implement features in a performant way.**
+We want to bridge the knowledge gap and allow GitLab to remain performant as it scales without requiring each GitLab engineer to have deep expertise of how every performance optimization must be implemented.
+
+Our efforts may involve working on fully fledged middleware or frameworks,
+like in the case of making asynchronous and real time communication between our front-end and our back-end more efficient or our work in the past on GitLab's load balancer,
+or implement dedicated targeted libraries, for example to efficiently access Object Storage or provide efficient ways to parse and serialize to `JSON` and `YAML`.
+But our guiding principle is always the same: allow all other groups to implement whatever feature they are dreaming of introducing, in a performant way and without having to spend the effort to become experts in the technical details required to do so.
+
+#### Front-end
+
+Application performance is not only about the back-end. A lot of performance issues may be front-end related as well.
+As an example, no matter how much we may optimize and how fast our APIs may be, if a page makes 30 asynchronous requests to our APIs instead of one, it will, most probably, result in feeling slow resulting in a poor user experience.
+
+We plan to expand the scope of the Application Performance group to also cover the performant integration with our front-end.
+
+That will be important to allow us to efficiently address issues related to the responsiveness and real-timeness of the application, which depend on the communication between the back-end and the front-end.
+It will also allow us to have a more holistic view of the application's performance as a whole.
+
+#### Prevent performance issues
+
+In the medium to long term we want to provide better metrics and visibility on performance related topics to development teams
+with the goal to allow them to make better data-driven decisions when developing new features or iterating on existing ones.
+Using this approach, we want to shift identifying performance issues further left so that they can be addressed *before* they are released.
+This will enable GitLab developers to become more proactive in identifying performance issues.
+Ultimately, these features should be integrated into GitLab itself so that our users can benefit from the same tooling.
+
+### What's next & why
+
+#### [Improve efficiency and maintainability of application metrics exporters](https://gitlab.com/groups/gitlab-org/-/epics/7397)
+
+We are revisiting our approach for serving application metrics into Prometheus.
+
+We currently use two competing approaches to serve application metrics into Prometheus:
+- [In-app exporters](https://gitlab.com/gitlab-org/gitlab/-/tree/master/lib/gitlab/metrics/exporter) that are part of the Rails codebase
+
+- [gitlab-exporter](https://gitlab.com/gitlab-org/gitlab-exporter/), an independently deployed collector and server
+
+Our plan is to implement a new integrated way of exporting metrics that:
+- provides a single application exporter system, which subsumes both gitlab-exporter and app-internal exporters
+
+- runs outside of the Rails monolith
+
+- performs efficiently in face of large data volumes (tens to hundreds of thousands of samples per scrape)
+
+We have completed the initial necessary steps of [exporting the Sidekiq metrics from a separate process](https://gitlab.com/groups/gitlab-org/-/epics/6409)
+and [moving the metrics server out of Puma](https://gitlab.com/groups/gitlab-org/-/epics/7304) and we are now working on
+[adding a new metrics exporter for GitLab application metrics](https://gitlab.com/groups/gitlab-org/-/epics/7396) which is written in Golang.
+
+#### [Investigate Puma long-term memory use](https://gitlab.com/groups/gitlab-org/-/epics/8105)
+
+We have observed that Puma can see climbing memory use in production over a period of days, especially during weekends, where there are no deploys that would reset these gauges.
+Meanwhile, this is also affecting self managed instances; we are getting an increased number of customer reports complaining that the Puma memory killer frequently kills Puma processes, which causes throughput issues.
+
+We plan to investigate further and try to figure out the reason for any potential runaway memory issues, be it just Ruby heap fragmentation or a memory leak.
+
+#### [Update supported Ruby version to 3.0](https://gitlab.com/groups/gitlab-org/-/epics/5149)
+
+The End Of Life for Ruby 2.7, which we currently use in GitLab, is expected to be March 2023 based on life expectancy of previous major releases, so we want to complete this upgrade sooner than later.
+Ruby 3.0 has also a few additional, even though minor, improvements that could be beneficial regarding performance, concurrency and static analysis.
+
+In 15.0, we have achieved our primary goal of [achieving a green Ruby 3 GitLab build](https://gitlab.com/groups/gitlab-org/-/epics/7887).
+
+In 15.1, we plan to remove any other remaining blockers and work towards adding Ruby 3 builds for various components and GitLab libraries.
+We don't expect to switch our [Ruby 2 and Ruby 3 testing pipelines](https://gitlab.com/gitlab-org/gitlab/-/issues/340298) yet,
+but we'll be monitoring and prepare for when we are ready to build Ruby 3 by default.
+
+#### [Create custom SLIs for Global Search](https://gitlab.com/groups/gitlab-org/-/epics/7892)
+
+The existing SLI for global search is defined over a single end point (`/search`). That means that there is no visibility for the performance
+or other issues encountered on the different types of searches (basic / advanced) or scopes (e.g. code, issues, merge requests, etc).
+
+Those types of searches and scopes vary in execution approach (through Elasticsearch, PostgreSQL or even Gitaly) and characteristics, which makes the aggregate performance and error metrics not that useful.
+
+We want to support the Global Search Group on setting up the custom SLIs for this overloaded end point.
+We will follow the [results of the discussion with the Scalability team](https://gitlab.com/groups/gitlab-org/search-team/-/epics/2#note_691510478) and start by introducing the `global_search_apdex` and `global_search_success` custom SLIs.
+We will also evaluate how can we facilitate the introduction of the `global_search_indexing_apdex` custom SLI.
+
+#### [Optimize workers that consume a lot of memory and cause OOM kills](https://gitlab.com/groups/gitlab-org/-/epics/7553)
+
+We have identified several workers that occasionally consume more than 1 GB of memory and are regularly hitting Out Of Memory conditions, resulting in more than 1000 OOM kills observed on Sidekiq containers in GitLab.com per day.
+
+We are working on identifying the underlying issues that cause those problems and find ways to address them.
+As a longer term goal, we plan to improve our dashboards in order to better detect similar situations and, if possible, figure out ways to detect situations where the kernel kills a process, which would be valuable both in this case and future investigations.
+
+#### [Improve memory team self-sufficiency](https://gitlab.com/gitlab-com/gl-infra/reliability/-/issues/15838)
+
+Investigate ways to create tooling for remote diagnosis, extend tooling and reporting inside the Rails app and Utilize GET deployments for performance tests.
+
+#### [Memory killer improvements and evolution](https://gitlab.com/groups/gitlab-org/-/epics/8289)
+
+We have found evidence that the memory killers we run as part of the GitLab Rails application are either not working at all, or not working as intended.
+They also do not work well in environments like Kubernetes where container-level resource management is enforced by the container runtime.
+However, in-application memory killers can be beneficial to stay on top of high resource use by restarting application processes in a controlled fashion so as to minimize user disruptions. 
+
+We are therefore investigating ways to improve or redesign these memory killers.
+
+#### Rate limiting framework
+
+Rate limiting category was recently added to Application Performance group. Please see [this MR](https://gitlab.com/gitlab-com/www-gitlab-com/-/merge_requests/114123) for more context.
+Application Performance group will take the ownership of general rate limiting framework, and each product group is responsible for ensuring their API endpoints and other features have the right rate limits settings.
+
+Note: while it's in our category now and on the future roadmap, as Application Performance has not picked up the knowledge yet and also due to other ongoing priorities, we are not able to provide any support or are not responsible for any existing rate limiting features at the moment.
+
+### Metrics
+
+- [Section performance indicator - Memory consumed](https://internal.gitlab.com/handbook/company/performance-indicators/product/enablement-section/#enablementmemory---group-ppi---memory-consumed) (internal only)
+
+We plan to revisit our metrics to cover more application performance concerns.  

@@ -1,0 +1,120 @@
+---
+title: Available now on GitLab
+description: “New features are regularly released to GitLab SaaS. Read on to learn more about the new features available on GitLab.com.”
+canonical_path: "/releases/gitlab-com/"
+suppress_header: true
+---
+
+- require 'date'
+- current_article = assemble_release_post(milestones['last'], milestones['next'])
+
+%html
+  %head
+    %link{:rel => :stylesheet, :type => :"text/css", :href => "/stylesheets/release-posts.css"}
+    %link{:rel => :stylesheet, :type => :"text/css", :href => "/stylesheets/release-gitlab-saas.css"}
+  %body{:data => {:spy => "scroll", :target => ".qnav"}}
+    = partial "includes/google/gtm"
+
+    / blog template
+    .blog.article.release-post-refresh
+      .cover{ style: "background-image: url(/images/release-layout-gradient.png);" }
+        %div{ class: "overlay-dark"}
+          %div{ class: "wrapper header"}
+            %span.date
+              = DateTime.now.to_time.strftime '%b %e, %Y'
+            - if current_article.data.release_number
+              %div{ class: "release-number"}
+                Available now on GitLab
+            %h1
+              = current_article.title
+            - if current_article.data.description
+              %p.description
+                = current_article.data.description
+
+      / body template
+      .wrapper.body
+        .content
+          / - filename = File.basename(current_page.path, File.extname(current_page.path)).gsub("-", "_")
+          / release post content
+          %section#intro-section.release-post-section
+            #intro
+
+              %p
+                New features are regularly released to GitLab SaaS (GitLab.com), with a packaged release available for GitLab Self-Managed every month. Read on to learn more about the new features available on GitLab.com. Note that it may take a few days for a feature to become fully available on GitLab.com, due to deployment schedule and potential
+                %a{href: "https://docs.gitlab.com/ee/development/feature_flags/index.html"} feature flags.
+              %p
+                Additional information on
+                = link_to "past", "/releases/"
+                releases is available; be sure to check out the
+                %b #{current_article.data.previous_release_number}
+                release for other features we've launched recently. We also have information about
+                = link_to "upcoming releases", "/upcoming-releases/"
+                if you're interested in seeing what we are doing next.
+
+          = partial("includes/release", :locals => { :datafile => current_article.content, :current_article => current_article })
+
+          /last section
+          %section#about-gitlab.gray-section
+            .release-row.align-top
+              .column
+                %h3{:id => "changelog"}
+                  %a.header-link{href: "#changelog"}
+                    %i.fas.fa-link
+                  Changelog
+                %p
+                  Please check out the changelog to see all the named changes:
+                  %ul
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/gitlab-foss/blob/master/CHANGELOG.md", target: "_blank", title: "GitLab"} GitLab
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/gitlab-runner/blob/main/CHANGELOG.md", target: "_blank", title: "GitLab Runner"} GitLab Runner
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/gitlab-vscode-extension/-/blob/main/CHANGELOG.md", target: "_blank", title: "GitLab Workflow for VS Code"} GitLab Workflow for VS Code
+                    %li
+                      %a{:href => "https://gitlab.com/gitlab-org/cli/-/releases", target: "_blank", title: "GitLab CLI"} GitLab CLI
+                %h3{:id => "installing"}
+                  %a.header-link{href: "#installing"}
+                    %i.fas.fa-link
+                  Installing
+                %p
+                  If you are setting up a new GitLab installation please see the
+                  %a{:href => "/install/"} download GitLab page.
+                %h3{:id => "updating"}
+                  %a.header-link{href: "#updating"}
+                    %i.fas.fa-link
+                  Updating
+                %p
+                  Check out our
+                  %a{:href => "/update/"} update page.
+              .column
+                %h3{:id => "gitlab-products"}
+                  %a.header-link{href: "#gitlab-products"}
+                    %i.fas.fa-link
+                  GitLab Subscription Plans
+                %p
+                  See what your team could do with The DevSecOps Platform.
+                %ul
+                  %li
+                    %a{:href => "https://about.gitlab.com/pricing/", target: "_blank", title: "GitLab Pricing", "data-ga-name" => "Try GitLab for free", :"data-ga-location" => "release post footer"} Free
+                    %p Free-forever features for individual users
+                  %li
+                    %a{:href => "https://about.gitlab.com/pricing/premium/", target: "_blank", title: "GitLab Premium", "data-ga-name" => "GitLab Premium", :"data-ga-location" => "release post footer"} Premium
+                    %p Enhance team productivity and coordination
+                  %li
+                    %a{:href => "https://about.gitlab.com/pricing/ultimate/", target: "_blank", title: "GitLab Ultimate", "data-ga-name" => "GitLab Ultimate", :"data-ga-location" => "release post footer"} Ultimate
+                    %p Organization wide security, compliance, and planning
+
+                %p
+                  Try all GitLab features - 
+                  %a{:href => "https://about.gitlab.com/free-trial/", title: "GitLab Free Trial"} free for 30 days
+
+        / default template
+        .social
+          = partial "includes/blog/share"
+        = partial "includes/blog/pager"
+      .wrapper.signup
+        = partial "includes/newsletter-signup.html"
+      = partial "includes/blog/try"
+
+    / tooltip
+    %script{:async => "", :src => "/javascripts/bootstrap-tooltip.js", :type => "text/javascript"}

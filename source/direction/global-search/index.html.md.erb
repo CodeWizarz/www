@@ -1,0 +1,207 @@
+---
+layout: markdown_page
+title: "Product Direction - Global Search"
+description: "GitLab supports Advanced Search for GitLab.com and Self-Managed instances. This provides users with a faster and more complete search."
+canonical_path: "/direction/global-search/"
+---
+
+- TOC
+{:toc}
+
+# Global Search
+
+| Category | Description |
+| ------ |  ------ |
+| [Code Search](/direction/global-search/code-search/) | Search through all your code |
+| Code Navigation | Codes language intelligence. Find all references, Jump to Definition, explore all repositories |
+
+Global Search is managed by the [Global Search Group](https://about.gitlab.com/handbook/product/categories/#global-search-group) of the [Enablement stage](https://about.gitlab.com/direction/enablement/) as part of the [Enablement Section](https://about.gitlab.com/direction/enablement/). 
+
+We encourage you to share feedback directly via [Twitter](https://twitter.com/BigCodeSearch) or [schedule a call](https://calendly.com/jmcguire-gitlab).
+
+## Overview
+
+Finding anything in GitLab should be straightforward.
+
+Global Search is the core search feature for GitLab, as the one place to search across all projects, groups, and scopes.
+
+There are two modes Global Search can operate in, depending on the instance configuration:
+
+* [Basic Search](https://docs.gitlab.com/ee/user/search/#basic-search) is the default search mode for GitLab, requiring no additional configuration.
+* [Advanced Search](https://docs.gitlab.com/ee/user/search/advanced_search.html) provides a richer search experience and is available at GitLab Premium self-managed, GitLab Premium SaaS, and higher tiers. In self-managed instances, it requires integration with [Elasticsearch](https://docs.gitlab.com/ee/integration/elasticsearch.html) or [OpenSearch](https://opensearch.org/docs/latest/).  
+
+The primary advantages of Advanced Search: 
+
+* **Faster searches:** Advanced Search, a purpose-built full-text search engine, can horizontally scale to provide search results in 1-2 seconds in most cases.
+* **Code Maintenance:** Finding all the code at once across an entire instance can save time spent maintaining code. Code Search is beneficial for organizations with a large number of developers.
+* **Promote innersourcing:** Your company may consist of many different developer teams, each of which has its group where the various projects are hosted. Some applications may be connected, so your developers must search throughout the GitLab instance and instantly find the code.
+
+## Vision
+
+Global Search makes everything in GitLab easy to find.
+GitLab’s competitors can not be allowed to out-deliver on core capabilities like Code Search and Advanced Search. Our customer development organizations will always compare GitLab to our competitors. Global Search features are used frequently by nearly all users. We need to surpass the capabilities of our competitors. 
+
+Great development happens when developers stop seeing boundaries and focus on understanding code and improving it.  Over time very few developers will be comfortable updating every part of the code. Even the few that reach that level find it nearly impossible to keep up with the growing complexity of the code and the constant evolution and additions to the code.  
+
+In the end, no one knows all the code. We barely understand how it works. It stops developers from making changes. [74% of development teams avoid making changes](https://drive.google.com/file/d/19KOx60XOf9EO4YvssLXMh-FqTmiHHHpd/edit?disco=AAAAa0ILCBc) because they fear it will break something.
+
+One solution is to break down these areas into more manageable chunks, and adding code owners helps because at least someone is responsible. That benefit is short-lived because the code keeps growing and changing. Eventually, you add more code owners so that progress doesn’t slow down and the cycle begins again. 
+
+Code grows in size and complexity, and it doesn’t stop growing. While we can’t stop code from growing, we can make it easy to explore and research regardless of the volume. 
+
+Global Search allows you to explore everything in GitLab. Search decreases the pressure on code ownership while increasing engineering confidence in the code changes and saving everyone's time. 
+
+There are many practices for understanding code. In GitLab, We can review the file **history** or **blame** to understand how a **commit** is related to a larger change. We can look for the **merge request** or **Issue** that details the larger change. We can review the **comments** to understand the reason for certain changes. Global Search contains all of these scopes and allows users to use any of them as an entry point to their research.
+
+Many of these search needs have been solved in verticals, like issue lists and merge request lists. The backend capabilities are becoming duplicative to Global Search and we will need to [replace the underlying services](https://gitlab.com/groups/gitlab-org/-/epics/7660) to use the same services as Global Search. 
+
+[Global Search should have a search experience that is highly capable, intuitive, and saves users time](https://gitlab.com/groups/gitlab-org/-/epics/4084)
+
+
+### Five areas Global Search needs to improve now
+
+Global Search has a never-ending value to GitLab as the product grows. However,  five specific areas can be improved now I believe this accounts for 80% of customers' current needs.
+
+#### Add new scopes (content types) 
+
+For Global Search to make “everything” in GitLab easy to find, we need to close the gap on available content indexed in Advanced Search. [Vulnerabilities, Pipelines, and Epics are currently not indexed by Advanced Search](https://gitlab.com/gitlab-org/gitlab/-/issues/207907).  We need to [add new scopes to GitLab](https://gitlab.com/groups/gitlab-org/-/epics/5029).
+
+#### Add features to code search
+
+[Code Search](https://about.gitlab.com/direction/global-search/code-search/) has to be as trustworthy and accurate as grep in finding all the results across my repositories. 
+
+Along with being able to keyword search Code, there is more value in being able to explore the code. We need to add more ways to [filter code results](https://gitlab.com/groups/gitlab-org/-/epics/6236). 
+Users expect that Code Search for GitLab should work more like they would [search on there local IDE](https://gitlab.com/groups/gitlab-org/-/epics/6223).  The most helpful metadata for exploring code comes from other scopes and their relationships to code. Enriching the index with content from commits and merge requests related to code will enable many methods to explore code.
+
+#### Improve the user experience
+
+Adding features, like filters, needs to be carefully researched and understood to make a comfortable user experience that encourages users to interact with the features. There is a lot of information stored in GitLab, and when creating a practical design, we want to avoid making the experience feel overwhelmed with options that may not seem relevant or helpful. 
+We recently concluded [Foundational Research for Global Search](https://gitlab.com/groups/gitlab-org/-/epics/8193) and found that the current experience [lacks capabilities, is not intuitive, and takes too much time to locate content](https://gitlab.com/groups/gitlab-org/-/epics/8193). 
+We should also provide a way for users to save searches, export search results, and show recent searches under the search box. See more: [Add saved search capabilities to Global Search](https://gitlab.com/groups/gitlab-org/-/epics/7965).
+
+The Findings from the research indicated several specific areas for improvment. 
+
+* [Global search has limitations on searchable content](https://gitlab.com/groups/gitlab-org/-/epics/8278)
+* [Global search is overly context dependent](https://gitlab.com/groups/gitlab-org/-/epics/8277)
+* [Global search does not match users' mental models](https://gitlab.com/groups/gitlab-org/-/epics/8275)
+* [Search header did not stand out](https://gitlab.com/groups/gitlab-org/-/epics/8275)
+* [Search header has lack of recent search results](https://gitlab.com/groups/gitlab-org/-/epics/8272)
+* [Help resources are not readily accessible](https://gitlab.com/groups/gitlab-org/-/epics/8271)
+* [Search result layout was not intuitive](https://gitlab.com/groups/gitlab-org/-/epics/8270)
+* [Search controls are too disorganized](https://gitlab.com/groups/gitlab-org/-/epics/8269)
+* [Code results showed less than expected information](https://gitlab.com/groups/gitlab-org/-/epics/8268)
+* [There is limited information about what global search can find](https://gitlab.com/groups/gitlab-org/-/epics/8274)
+
+#### Optimize the performance
+
+Global Search needs to account for [Stability, Performance, and Scalability](https://gitlab.com/gitlab-org/gitlab/-/issues/346959) Across many diffrent sizes to operate for GitLab.
+
+As the source code stored in GitLab grows, and we add additional features to GitLab, the Advanced Search infrastructure requirements will also increase. We need to iterate and find more effective ways to operate Advanced Search with low latency and optimize the minimum requirements for self-managed instances and Gitlab.com. There is a direct relationship between the hardware configuration and scaling. We will depend on [coordinating with Infrastructure Operations](https://gitlab.com/gitlab-com/gl-infra/readiness/-/issues/35). We should also look for opportunities to coordinate with [Gitaly](https://about.gitlab.com/direction/gitaly/) for improving the indexing needs for Advanced Search
+
+There is a low user tolerance for slow search features. We need to iterate on front-end changes to [find ways to improve the overall page load time](https://gitlab.com/groups/gitlab-org/-/epics/7892). We constantly monitor page performance because we will be adding features that will impact page load times.
+
+#### Documentation 
+
+The GitLab user documentation is the only place for customers to learn about the features GitLab offers for searching GitLab. However, Global Search covers a very large variety of uses across all personas and the entire product. We must offer examples of the many uses of Global Search as it relates to the daily need of various personas. [Because the most valuable features are part of Advanced Search](https://gitlab.com/groups/gitlab-org/-/epics/3885), We need to provide articulated details on how to administer Advanced Search. 
+
+### Objectives
+
+* Improve the user experience to make content easy to find by Q1/FY24
+* Improve the stability, scalability, and compatibility of Elasticsearch by Q3/FY23
+* Enable better Code Search capabilities as part of the [Code Search](https://about.gitlab.com/direction/global-search/code-search/) category by Q2/FY24
+* Enable the ability to explore content across projects and groups and scopes FY25
+
+## Desired Results
+
+Global Search [Unique Monthly Users](https://internal.gitlab.com/handbook/company/performance-indicators/product/enablement-section/#enablementglobal-search---paid-gmau---the-number-of-unique-paid-users-per-month) should grow at 10% MoM as we continue to see features and use cases enabled or improved.  If Monthly users continue to grow, this will indicate that we are going in the right direction.  If we see this decline consistently, it will signify that a correction in direction is needed. If the level is sustained over multiple quarters, then a new vision is needed, and we should consider changing the metric from a focus on growth to a focus on quality, like result [clickthrough rate](https://en.wikipedia.org/wiki/Click-through_rate).  We should change this goal of GMAU growth to outpace GitLab's overall [UMAU](https://internal.gitlab.com/handbook/company/performance-indicators/product/#unique-monthly-active-users-umau). 
+
+### Maturity
+
+The [maturity](https://about.gitlab.com/direction/maturity/) of Global Search Categories of Advanced Search and Code Search is "viable." We expect Global Search categories to be part of the [Product Direction Goal of having 50% of Categories in Lovable by the end of 2023](https://about.gitlab.com/company/strategy/#1-accelerate-market-maturity-around-the-devops-platform). GitLab's Advanced Search experience works for self-managed instances and across all Paid SaaS Experiences. UX Research and [SUS scores](https://about.gitlab.com/handbook/product/ux/performance-indicators/system-usability-scale/) have shown an immediate need to improve aspects of the UI and functionality of search capabilities.
+
+Moving Advanced Search and Code Search to the Mturity stage "complete" will require these next steps:
+
+1. Complete JTBD analysis
+1. Complete UX scorecard for a baseline
+1. Obtain scores that show an efficient level to promote the maturity to “complete.”
+
+In congruence there are is Additional UX Research and deliverables from that research that should benefit the results of the maturity scorecard. 
+
+#### Foundational Research
+
+In June 2022 we completed the analysis of the [Global Search Foundational Research](https://gitlab.com/groups/gitlab-org/-/epics/8193) that looked at how users use Global Search to identify pain points that lead to actionable insights. 
+
+There are 4 key findings from the study. 
+
+* Participants struggled to use the search header and advanced search. Why? They did not know search was dependent upon where they started searching within GitLab.
+* Global search did not match users’ mental models for how to conduct a search. Why? They were unsure whether the results were based on exact matches and expected to specify upfront what kind of content they sought.
+* Several participants were unaware of the search header in GitLab prior to the study.
+* Participants did not know what types of content they could search for through global search. participants struggled to use the search header and advanced search. They did not know search was dependent upon where they started searching within GitLab. 
+
+These Findings resulted in 11 actionable insights that will be used to priortize near term work for Global Search. 
+[Actionable Insights Roadmap](https://gitlab.com/groups/gitlab-org/-/roadmap?state=all&sort=start_date_asc&layout=MONTHS&timeframe_range_type=CURRENT_YEAR&label_name%5B%5D=group%3A%3Aglobal+search&label_name%5B%5D=Actionable+Insight%3A%3AProduct+change&progress=COUNT&show_progress=true&show_milestones=false&milestones_type=ALL)
+
+### Sales Enablement
+
+Customers who ask about Global Search are most likely to focus on Code Search. 
+Code Search is available starting at Premium and indexes all the code in the GitLab instance on the Main Branch.  Self Managed users will need to set up their own Elasticsearch or OpenSearch Cluster and connect it to GitLab using the Admin Settings for Advanced Search. 
+
+### Measuring Success
+
+* **Performance Indicator Metrics:** We measure unique users per month, GMAU. Our goal is to grow GMAU 10% each month. [Internal Link](https://internal.gitlab.com/handbook/company/performance-indicators/product/enablement-section/#enablementglobal-search---paid-gmau---the-number-of-unique-paid-users-per-month)
+* **Error Budget Metrics:** Global Search Error Budgets are not complete. See [Proposal: create SLIs and SLOs for Global Search](https://gitlab.com/groups/gitlab-org/-/epics/7892)
+* **Elasticsearch/Opensearch Version:** Because Advanced Search uses Elasticsearch/Opensearch, we track what versions are most commonly used by our customers. We use the version information to decide future deprecations and compatibility improvements. [Dashboard](https://app.periscopedata.com/app/gitlab/1018858/Version-of-Elasticsearch-Server-Used-by-SM-Instances)
+
+## Blog posts about Global Search
+
+We chronicled our journey of deploying Elasticsearch for GitLab.com through several blog posts.
+
+* [2019-03-20 Lessons from our journey to enable global code search with Elasticsearch on GitLab.com](https://about.gitlab.com/blog/2019/03/20/enabling-global-search-elasticsearch-gitlab-com/)
+* [2019-07-16 Update: The challenge of enabling Elasticsearch on GitLab.com](https://about.gitlab.com/blog/2019/07/16/elasticsearch-update/)
+* [2020-04-28 Update: Elasticsearch lessons learnt for Advanced Search](https://about.gitlab.com/blog/2020/04/28/elasticsearch-update/)
+* [2021-06-01 GitLab's data migration process for Advanced Search](https://about.gitlab.com/blog/2021/06/01/advanced-search-data-migrations/)
+
+## What's Next:
+
+We have added a live roadmap to track progress as we complete major epics.
+
+[Global Search Roadmap](https://gitlab.com/groups/gitlab-org/-/roadmap?state=all&sort=start_date_asc&layout=MONTHS&timeframe_range_type=CURRENT_YEAR&label_name%5B%5D=group%3A%3Aglobal+search&label_name%5B%5D=Roadmap&progress=COUNT&show_progress=true&show_milestones=false&milestones_type=ALL)
+
+### Features
+
+* [Improve Navbar UX to improve discoverability and usefulness of Global Search](https://gitlab.com/groups/gitlab-org/-/epics/7821)
+* [The Global Search result page should have organized controls, layout, and help resources](https://gitlab.com/groups/gitlab-org/-/epics/7254)
+
+### Maintenance
+* [Move Commits to dedicated Elasticsearch index](https://gitlab.com/groups/gitlab-org/-/epics/6974)
+* [Code Search for Big Code](https://gitlab.com/groups/gitlab-org/-/epics/6220)
+
+
+## Competitive Landscape
+
+[We conduct competitor evaluations for Global Search Cases](https://gitlab.com/gitlab-org/competitor-evaluations/-/issues/5).
+
+
+<!-- ## Analyst Landscape -->
+<!-- What analysts and/or thought leaders in the space talking about, what are one or two issues that will help us stay relevant from their perspective.-->
+
+
+
+## Next Customer requested Issues <!-- This is probably the top popular issue from the category (i.e. the one with the most thumbs-up), but you may have a different item coming out of customer calls.-->
+
+These are the next issues to be worked on that have direct feedback from customers.
+
+* [Autocomplete dropdowns in the navbar should load faster](https://gitlab.com/gitlab-org/gitlab/-/issues/361520)
+* [Indicate the scope in the search bar for global search when we are defaulting to a specific project or group](https://gitlab.com/gitlab-org/gitlab/-/issues/284139)
+* [Escaping the navbar search dropdown does nothing on certain pages](https://gitlab.com/gitlab-org/gitlab/-/issues/359982)
+* [The current filtering method (syntax) for code results in global search is not easily discovered or recalled for users](https://gitlab.com/gitlab-org/gitlab/-/issues/329234)
+* [Update Global Search scopes to be vertical navigation items](https://gitlab.com/gitlab-org/gitlab/-/issues/293740)
+* [Reindex required alert shows up when indexes are not created](https://gitlab.com/gitlab-org/gitlab/-/issues/362161)
+
+## Top Strategy Item(s)
+<!-- What's the most important thing to move your vision forward?-->
+
+* Code Search Direction - Add details about alternatives to Elasticsearch and the plan for transition 
+* Code Search Direction - Update vision and add details about the research that has been published showing breakthrough progress on ML/NLP for Code Search 
+* Code Search Direction - Add Contribution details
+* Adding Advanced Search to GitLab Dedicated 

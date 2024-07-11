@@ -1,0 +1,27 @@
+---
+layout: default
+title: Blog archives
+description: "Take a look our recent and older blog posts in our blog archives covering a range of topics."
+canonical_path: "/blog/archives.html"
+blog: blog
+---
+// Creates single list of blog posts from both blog and releases, including only major release posts
+- blog_articles = blog('blog').articles
+- releases = blog('releases').articles.keep_if{ |a| a.data.release_number }
+- archive_posts = [ releases, blog_articles ].flatten.compact.sort_by(&:date).reverse
+
+.blog.archives
+  .wrapper
+    = partial "includes/newsletter-signup.html"
+    .section
+      %ul
+        - archive_posts.each do |post|
+          %li
+            - if post.date
+              %time
+                = post.date.to_time.strftime '%b %e, %Y'
+            = link_to post.url do
+              = post.title
+            - if post.data.author
+              %span
+                = post.data.author

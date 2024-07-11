@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+#
+# Generate a release post entry file in the correct location.
+
+require_relative '../lib/release_posts'
+
+if $0 == __FILE__
+  begin
+    options = ReleasePosts::InputParser.parse(ARGV)
+    ReleasePosts::PostEntryCollection.new(options).execute
+  rescue ReleasePosts::Helpers::Abort => ex
+    puts ex.message
+    exit 1
+  rescue ReleasePosts::Helpers::Done
+    exit
+  end
+end
+
+# vim: ft=ruby
